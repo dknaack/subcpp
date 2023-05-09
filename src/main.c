@@ -15,6 +15,7 @@ enum token_kind {
 	TOKEN_MUL,
 	TOKEN_DIV,
 	TOKEN_MOD,
+	TOKEN_ASSIGN,
 	TOKEN_INT,
 	TOKEN_IDENTIFIER,
 	TOKEN_WHITESPACE,
@@ -106,6 +107,7 @@ get_raw_token(struct tokenizer *tokenizer)
 	case '*': token.kind = TOKEN_MUL; break;
 	case '/': token.kind = TOKEN_DIV; break;
 	case '%': token.kind = TOKEN_MOD; break;
+	case '=': token.kind = TOKEN_ASSIGN; break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
 		break;
@@ -139,16 +141,16 @@ static char *
 token_name(enum token_kind kind)
 {
 	switch (kind) {
-	case TOKEN_INVALID:    return "INVALID";
 	case TOKEN_EOF:        return "EOF";
-	case TOKEN_ADD:        return "ADD";
-	case TOKEN_SUB:        return "SUB";
-	case TOKEN_MUL:        return "MUL";
-	case TOKEN_DIV:        return "DIV";
-	case TOKEN_MOD:        return "MOD";
-	case TOKEN_INT:        return "INT";
-	case TOKEN_IDENTIFIER: return "IDENTIFIER";
-	case TOKEN_WHITESPACE: return "WHITESPACE";
+	case TOKEN_ADD:        return "'+'";
+	case TOKEN_SUB:        return "'-'";
+	case TOKEN_MUL:        return "'*'";
+	case TOKEN_DIV:        return "'/'";
+	case TOKEN_MOD:        return "'%'";
+	case TOKEN_ASSIGN:     return "'='";
+	case TOKEN_INT:        return "int";
+	case TOKEN_IDENTIFIER: return "identifier";
+	case TOKEN_WHITESPACE: return "whitespace";
 	default:               return "(invalid)";
 	}
 }
