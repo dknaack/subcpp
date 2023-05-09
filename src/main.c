@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TRAP() __builtin_trap()
+#define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
+#define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
+
 struct string {
 	char *at;
 	size_t length;
@@ -32,8 +36,32 @@ struct tokenizer {
 	size_t pos;
 };
 
+struct arena {
+	char *data;
+	size_t size;
+	size_t pos;
+};
+
+static struct arena *
+arena_create(size_t size)
+{
+	struct arena *arena = calloc(size + sizeof(*arena), 1);
+	arena->data = (char *)(arena + 1);
+	arena->size = size;
+	return arena;
+}
+
+static void *
+alloc(struct arena *arena, size_t count, size_t size)
+{
+	ASSERT(arena->pos + size * count < arena->size);
+	void *result = arena->data + size * count;
+	arena->pos += size * count;
+	return result;
+}
+
 struct string
-read_file(char *filename)
+read_file(char *filename, struct arena *arena)
 {
 	struct string result = {0};
 	FILE *file = fopen(filename, "rb");
@@ -42,7 +70,7 @@ read_file(char *filename)
 		result.length = ftell(file);
 		fseek(file, 0, SEEK_SET);
 
-		result.at = malloc(result.length + 1);
+		result.at = ALLOC(arena, result.length + 1, char);
 		if (result.at) {
 			fread(result.at, result.length, 1, file);
 			result.at[result.length] = '\0';
@@ -163,7 +191,8 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	struct string contents = read_file(argv[1]);
+	struct arena *arena = arena_create(1000 * 1000);
+	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
 
 	for (;;) {
@@ -175,6 +204,6 @@ main(int argc, char *argv[])
 		printf("%s\n", token_name(token.kind));
 	}
 
-	free(contents.at);
+	free(arena);
 	return 0;
 }
