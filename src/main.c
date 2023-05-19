@@ -90,9 +90,16 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	struct expr *expr = parse_assign_expr(&tokenizer, arena);
-	print_expr(expr);
-	printf("\n");
+	for (;;) {
+		struct expr *expr = parse_assign_expr(&tokenizer, arena);
+		struct token token = get_token(&tokenizer);
+		if (token.kind != TOKEN_SEMICOLON) {
+			break;
+		}
+
+		print_expr(expr);
+		printf("\n");
+	}
 	free(arena);
 	return 0;
 }

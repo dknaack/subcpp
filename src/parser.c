@@ -36,7 +36,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 
 	for (;;) {
 		token = peek_token(tokenizer);
-		if (token.kind == TOKEN_EOF) {
+		if (token.kind == TOKEN_EOF || token.kind == TOKEN_SEMICOLON) {
 			break;
 		}
 
