@@ -1,20 +1,3 @@
-static struct expr *
-parse_primary_expr(struct tokenizer *tokenizer, struct arena *arena)
-{
-	struct token token;
-	struct expr *expr = NULL;
-
-	token = peek_token(tokenizer);
-	if (token.kind == TOKEN_IDENTIFIER) {
-		get_token(tokenizer);
-		expr = ALLOC(arena, 1, struct expr);
-		expr->kind = EXPR_IDENTIFIER;
-		expr->u.identifier = token.value;
-	}
-
-	return expr;
-}
-
 // NOTE: An operator with negative precedence is right associative.
 static int
 get_binary_precedence(enum token_kind token)
@@ -41,7 +24,13 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 	struct expr *expr, *tmp;
 	struct token token;
 
-	if (!(expr = parse_primary_expr(tokenizer, arena))) {
+	token = peek_token(tokenizer);
+	if (token.kind == TOKEN_IDENTIFIER) {
+		get_token(tokenizer);
+		expr = ALLOC(arena, 1, struct expr);
+		expr->kind = EXPR_IDENTIFIER;
+		expr->u.identifier = token.value;
+	} else {
 		return NULL;
 	}
 
