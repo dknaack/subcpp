@@ -15,7 +15,7 @@ enum token_kind {
 
 struct token {
 	enum token_kind kind;
-	size_t pos;
+	struct string value;
 };
 
 struct tokenizer {

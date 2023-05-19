@@ -37,9 +37,10 @@ get_raw_token(struct tokenizer *tokenizer)
 {
 	struct token token;
 	token.kind = TOKEN_INVALID;
-	token.pos = tokenizer->pos;
+	token.value.at = tokenizer->source.at + tokenizer->pos;
+	token.value.length = 0;
 
-	if (token.pos >= tokenizer->source.length) {
+	if (tokenizer->pos >= tokenizer->source.length) {
 		token.kind = TOKEN_EOF;
 		return token;
 	}
@@ -61,11 +62,13 @@ get_raw_token(struct tokenizer *tokenizer)
 			do {
 				c = advance(tokenizer);
 			} while (is_alpha(c) || is_digit(c) || c == '_');
+			tokenizer->pos--;
 		}
 
 		break;
 	}
 
+	token.value.length = tokenizer->source.at + tokenizer->pos - token.value.at;
 	return token;
 }
 
