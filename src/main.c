@@ -58,14 +58,14 @@ print_expr(struct expr *expr)
 		printf("(");
 		print_expr(expr->u.binary.lhs);
 		switch (expr->u.binary.op) {
-		case TOKEN_ADD:    printf(") + ("); break;
-		case TOKEN_SUB:    printf(") - ("); break;
-		case TOKEN_MUL:    printf(") * ("); break;
-		case TOKEN_DIV:    printf(") / ("); break;
-		case TOKEN_MOD:    printf(") %% ("); break;
-		case TOKEN_ASSIGN: printf(") = ("); break;
+		case TOKEN_ADD:    printf(" + ");  break;
+		case TOKEN_SUB:    printf(" - ");  break;
+		case TOKEN_MUL:    printf(" * ");  break;
+		case TOKEN_DIV:    printf(" / ");  break;
+		case TOKEN_MOD:    printf(" %% "); break;
+		case TOKEN_ASSIGN: printf(" = ");  break;
 		default:
-				   printf(") (invalid operation) (");
+			printf(" (invalid operation) ");
 		}
 
 		print_expr(expr->u.binary.rhs);
@@ -90,7 +90,7 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	struct expr *expr = parse_expr(&tokenizer, arena);
+	struct expr *expr = parse_assign_expr(&tokenizer, arena);
 	print_expr(expr);
 	printf("\n");
 	free(arena);
