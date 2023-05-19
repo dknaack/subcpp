@@ -84,22 +84,10 @@ get_token(struct tokenizer *tokenizer)
 	return token;
 }
 
-static char *
-token_name(enum token_kind kind)
+static struct token
+peek_token(struct tokenizer *tokenizer)
 {
-	switch (kind) {
-	case TOKEN_EOF:        return "EOF";
-	case TOKEN_ADD:        return "'+'";
-	case TOKEN_SUB:        return "'-'";
-	case TOKEN_MUL:        return "'*'";
-	case TOKEN_DIV:        return "'/'";
-	case TOKEN_MOD:        return "'%'";
-	case TOKEN_ASSIGN:     return "'='";
-	case TOKEN_INT:        return "int";
-	case TOKEN_IDENTIFIER: return "identifier";
-	case TOKEN_WHITESPACE: return "whitespace";
-	default:               return "(invalid)";
-	}
+	struct tokenizer tmp = *tokenizer;
+	struct token token = get_token(&tmp);
+	return token;
 }
-
-

@@ -19,9 +19,7 @@ static void *
 alloc(struct arena *arena, size_t count, size_t size)
 {
 	ASSERT(arena->pos + size * count < arena->size);
-	void *result = arena->data + size * count;
+	void *result = arena->data + arena->pos;
 	arena->pos += size * count;
 	return result;
 }
-
-
