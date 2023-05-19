@@ -1,6 +1,7 @@
 enum expr_kind {
 	EXPR_BINARY,
 	EXPR_IDENTIFIER,
+	EXPR_INT,
 };
 
 struct expr_binary {
@@ -15,5 +16,6 @@ struct expr {
 	union {
 		struct expr_binary binary;
 		struct string identifier;
+		intmax_t ival;
 	} u;
 };

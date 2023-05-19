@@ -74,6 +74,9 @@ print_expr(struct expr *expr)
 	case EXPR_IDENTIFIER:
 		printf("%.*s", (int)expr->u.identifier.length, expr->u.identifier.at);
 		break;
+	case EXPR_INT:
+		printf("%jd", expr->u.ival);
+		break;
 	default:
 		printf("(invalid)");
 	}

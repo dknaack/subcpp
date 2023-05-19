@@ -17,6 +17,19 @@ get_binary_precedence(enum token_kind token)
 	}
 }
 
+static intmax_t
+parse_int(struct string str)
+{
+	intmax_t ival = 0;
+
+	while (str.length-- > 0) {
+		ival *= 10;
+		ival += (*str.at++ - '0');
+	}
+
+	return ival;
+}
+
 static struct expr *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
 {
@@ -30,6 +43,11 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 		expr = ALLOC(arena, 1, struct expr);
 		expr->kind = EXPR_IDENTIFIER;
 		expr->u.identifier = token.value;
+	} else if (token.kind == TOKEN_LITERAL_INT) {
+		get_token(tokenizer);
+		expr = ALLOC(arena, 1, struct expr);
+		expr->kind = EXPR_INT;
+		expr->u.ival = parse_int(token.value);
 	} else {
 		return NULL;
 	}

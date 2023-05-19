@@ -57,6 +57,14 @@ get_raw_token(struct tokenizer *tokenizer)
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
 		break;
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		token.kind = TOKEN_LITERAL_INT;
+		do {
+			c = advance(tokenizer);
+		} while (is_digit(c));
+		tokenizer->pos--;
+		break;
 	default:
 		if (is_alpha(c) || c == '_') {
 			token.kind = TOKEN_IDENTIFIER;
