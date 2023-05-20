@@ -38,23 +38,33 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 	struct token token;
 
 	token = peek_token(tokenizer);
-	if (token.kind == TOKEN_IDENTIFIER) {
+	switch (token.kind) {
+	case TOKEN_IDENTIFIER:
 		get_token(tokenizer);
 		expr = ALLOC(arena, 1, struct expr);
 		expr->kind = EXPR_IDENTIFIER;
 		expr->u.identifier = token.value;
-	} else if (token.kind == TOKEN_LITERAL_INT) {
+		break;
+	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
 		expr = ALLOC(arena, 1, struct expr);
 		expr->kind = EXPR_INT;
 		expr->u.ival = parse_int(token.value);
-	} else {
+		break;
+	case TOKEN_LPAREN:
+		get_token(tokenizer);
+		expr = parse_expr(tokenizer, 0, arena);
+		expect(tokenizer, TOKEN_RPAREN);
+		break;
+	default:
 		return NULL;
 	}
 
 	for (;;) {
 		token = peek_token(tokenizer);
-		if (token.kind == TOKEN_EOF || token.kind == TOKEN_SEMICOLON) {
+		if (token.kind == TOKEN_EOF
+		    || token.kind == TOKEN_SEMICOLON
+		    || token.kind == TOKEN_RPAREN) {
 			break;
 		}
 

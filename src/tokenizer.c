@@ -53,6 +53,8 @@ get_raw_token(struct tokenizer *tokenizer)
 	case '/': token.kind = TOKEN_DIV; break;
 	case '%': token.kind = TOKEN_MOD; break;
 	case '=': token.kind = TOKEN_ASSIGN; break;
+	case '(': token.kind = TOKEN_LPAREN; break;
+	case ')': token.kind = TOKEN_RPAREN; break;
 	case ';': token.kind = TOKEN_SEMICOLON; break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
