@@ -82,6 +82,48 @@ print_expr(struct expr *expr)
 	}
 }
 
+static void
+print_stmt(struct stmt *stmt, int indent)
+{
+	for (int i = 0; i < indent; i++) {
+		printf("    ");
+	}
+
+	switch (stmt->kind) {
+	case STMT_EMPTY:
+		printf(";\n");
+		break;
+	case STMT_EXPR:
+		print_expr(stmt->u.expr);
+		printf(";\n");
+		break;
+	case STMT_COMPOUND:
+		printf("{\n");
+		for (stmt = stmt->u.compound; stmt; stmt = stmt->next) {
+			print_stmt(stmt, indent + 1);
+		}
+		printf("}\n");
+		break;
+	case STMT_IF:
+		printf("if (");
+		print_expr(stmt->u._if.condition);
+		printf(")\n");
+		print_stmt(stmt->u._if.then, indent);
+		if (stmt->u._if.otherwise) {
+			printf("else\n");
+			print_stmt(stmt->u._if.otherwise, indent);
+		}
+
+		break;
+	case STMT_WHILE:
+		printf("while (");
+		print_expr(stmt->u._while.condition);
+		printf(")\n");
+		print_stmt(stmt->u._while.body, indent);
+		break;
+	}
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -93,16 +135,8 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	for (;;) {
-		struct expr *expr = parse_assign_expr(&tokenizer, arena);
-		struct token token = get_token(&tokenizer);
-		if (token.kind != TOKEN_SEMICOLON) {
-			break;
-		}
-
-		print_expr(expr);
-		printf("\n");
-	}
+	struct stmt *stmt = parse_stmt(&tokenizer, arena);
+	print_stmt(stmt, 0);
 	free(arena);
 	return 0;
 }

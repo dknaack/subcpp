@@ -19,3 +19,34 @@ struct expr {
 		intmax_t ival;
 	} u;
 };
+
+enum stmt_kind {
+	STMT_COMPOUND,
+	STMT_EMPTY,
+	STMT_EXPR,
+	STMT_IF,
+	STMT_WHILE,
+};
+
+struct stmt_if {
+	struct expr *condition;
+	struct stmt *then;
+	struct stmt *otherwise;
+};
+
+struct stmt_while {
+	struct expr *condition;
+	struct stmt *body;
+};
+
+struct stmt {
+	enum stmt_kind kind;
+	struct stmt *next;
+
+	union {
+		struct stmt_if _if;
+		struct stmt_while _while;
+		struct expr *expr;
+		struct stmt *compound;
+	} u;
+};

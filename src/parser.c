@@ -1,4 +1,26 @@
-// NOTE: An operator with negative precedence is right associative.
+static bool
+accept(struct tokenizer *tokenizer, enum token_kind expected_token)
+{
+	struct token token = peek_token(tokenizer);
+	if (token.kind == expected_token) {
+		get_token(tokenizer);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void
+expect(struct tokenizer *tokenizer, enum token_kind expected_token)
+{
+	struct token token = get_token(tokenizer);
+	if (token.kind != expected_token) {
+		/* TODO: report syntax error */
+		ASSERT(!"Syntax error");
+	}
+}
+
+/* NOTE: An operator with negative precedence is right associative. */
 static int
 get_binary_precedence(enum token_kind token)
 {
@@ -102,6 +124,64 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 static struct expr *
 parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct expr *expr = parse_expr(tokenizer, 0, arena);
+	struct expr *expr;
+	int precedence;
+
+	precedence = get_binary_precedence(TOKEN_ASSIGN);
+	expr = parse_expr(tokenizer, -precedence - 5, arena);
 	return expr;
+}
+
+static struct stmt *
+parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
+{
+	struct token token;
+	struct stmt *stmt, **ptr;
+
+	token = peek_token(tokenizer);
+	switch (token.kind) {
+	case TOKEN_IF:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_IF;
+		expect(tokenizer, TOKEN_LPAREN);
+		stmt->u._if.condition = parse_assign_expr(tokenizer, arena);
+		expect(tokenizer, TOKEN_RPAREN);
+		stmt->u._if.then = parse_stmt(tokenizer, arena);
+		if (accept(tokenizer, TOKEN_ELSE)) {
+			stmt->u._if.otherwise = parse_stmt(tokenizer, arena);
+		}
+		break;
+	case TOKEN_WHILE:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_WHILE;
+		expect(tokenizer, TOKEN_LPAREN);
+		stmt->u._while.condition = parse_assign_expr(tokenizer, arena);
+		expect(tokenizer, TOKEN_RPAREN);
+		stmt->u._while.body = parse_stmt(tokenizer, arena);
+		break;
+	case TOKEN_SEMICOLON:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_EMPTY;
+		break;
+	case TOKEN_LBRACE:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_COMPOUND;
+		ptr = &stmt->u.compound;
+		while (!accept(tokenizer, TOKEN_RBRACE)) {
+			*ptr = parse_stmt(tokenizer, arena);
+			ptr = &(*ptr)->next;
+		}
+		break;
+	default:
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_EXPR;
+		stmt->u.expr = parse_assign_expr(tokenizer, arena);
+		expect(tokenizer, TOKEN_SEMICOLON);
+	}
+
+	return stmt;
 }

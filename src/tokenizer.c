@@ -55,6 +55,8 @@ get_raw_token(struct tokenizer *tokenizer)
 	case '=': token.kind = TOKEN_ASSIGN; break;
 	case '(': token.kind = TOKEN_LPAREN; break;
 	case ')': token.kind = TOKEN_RPAREN; break;
+	case '{': token.kind = TOKEN_LBRACE; break;
+	case '}': token.kind = TOKEN_RBRACE; break;
 	case ';': token.kind = TOKEN_SEMICOLON; break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
@@ -83,13 +85,46 @@ get_raw_token(struct tokenizer *tokenizer)
 	return token;
 }
 
+static bool
+string_equals(struct string a, struct string b)
+{
+	if (a.length != b.length) {
+		return false;
+	}
+
+	while (a.length-- > 0) {
+		if (*a.at++ != *b.at++) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static struct token
 get_token(struct tokenizer *tokenizer)
 {
 	struct token token = {0};
+	struct {
+		enum token_kind token;
+		struct string str;
+	} keywords[] = {
+		{ TOKEN_IF,    S("if")    },
+		{ TOKEN_ELSE,  S("else")  },
+		{ TOKEN_WHILE, S("while") },
+	};
 
 	do {
 		token = get_raw_token(tokenizer);
+		if (token.kind == TOKEN_IDENTIFIER) {
+			for (size_t i = 0; i < LENGTH(keywords); i++) {
+				if (string_equals(token.value, keywords[i].str)) {
+					token.kind = keywords[i].token;
+					break;
+				}
+			}
+		}
+
 	} while (token.kind == TOKEN_WHITESPACE);
 
 	return token;
