@@ -7,6 +7,11 @@ struct arena {
 	size_t pos;
 };
 
+struct arena_temp {
+	struct arena *arena;
+	size_t pos;
+};
+
 static struct arena *
 arena_create(size_t size)
 {
@@ -34,4 +39,19 @@ zalloc(struct arena *arena, size_t count, size_t size)
 	}
 
 	return byte;
+}
+
+static struct arena_temp
+arena_temp_begin(struct arena *arena)
+{
+	struct arena_temp temp;
+	temp.arena = arena;
+	temp.pos = arena->pos;
+	return temp;
+}
+
+static void
+arena_temp_end(struct arena_temp temp)
+{
+	temp.arena->pos = temp.pos;
 }
