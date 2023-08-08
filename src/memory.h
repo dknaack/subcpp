@@ -1,4 +1,5 @@
 #define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
+#define ZALLOC(arena, count, type) ((type *)zalloc(arena, count, sizeof(type)))
 
 struct arena {
 	char *data;
@@ -22,4 +23,15 @@ alloc(struct arena *arena, size_t count, size_t size)
 	void *result = arena->data + arena->pos;
 	arena->pos += size * count;
 	return result;
+}
+
+static void *
+zalloc(struct arena *arena, size_t count, size_t size)
+{
+	char *byte = (char *)alloc(arena, count, size);
+	for (size_t i = 0; i < count * size; i++) {
+		byte[i] = 0;
+	}
+
+	return byte;
 }
