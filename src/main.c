@@ -5,9 +5,43 @@
 #include "memory.h"
 #include "tokenizer.h"
 #include "ast.h"
+#include "codegen.h"
+
+static void
+print_ir(struct ir_instruction instruction)
+{
+	uint32_t dst = instruction.dst;
+	uint32_t op0 = instruction.op0;
+	uint32_t op1 = instruction.op1;
+
+	switch (instruction.opcode) {
+	case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
+	case IR_MOV:   printf("\tmov r%d, r%d\n", dst, op0); break;
+	case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
+	case IR_SUB:   printf("\tsub r%d, r%d, r%d\n", dst, op0, op1); break;
+	case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
+	case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
+	case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
+	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
+	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
+	case IR_LABEL: printf("L%d:\n", op0); return;
+	}
+}
+
+static void
+print_program(struct ir_instruction *instructions, uint32_t instruction_count)
+{
+	for (uint32_t i = 0; i < instruction_count; i++) {
+		printf("%2d: ", i);
+		print_ir(*instructions++);
+	}
+}
 
 #include "tokenizer.c"
 #include "parser.c"
+#include "codegen.c"
+#include "regalloc.c"
+#include "x86.c"
 
 struct string
 read_file(char *filename, struct arena *arena)
@@ -136,7 +170,15 @@ main(int argc, char *argv[])
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
 	struct stmt *stmt = parse_stmt(&tokenizer, arena);
-	print_stmt(stmt, 0);
+
+	struct generator generator = generator_init(arena);
+	generate_stmt(&generator, stmt);
+
+	struct ir_instruction *instructions = generator.instructions;
+	uint32_t instruction_count = generator.instruction_count;
+	uint32_t register_count = generator.register_count;
+	x86_generate(instructions, instruction_count, register_count, arena);
+
 	free(arena);
 	return 0;
 }

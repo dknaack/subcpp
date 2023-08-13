@@ -1,0 +1,219 @@
+enum x86_register {
+	X86_R12,
+	X86_R13,
+	X86_R14,
+	X86_R15,
+	X86_REGISTER_COUNT,
+
+	X86_R8,
+	X86_R9,
+	X86_R10,
+	X86_R11,
+	X86_RAX,
+	X86_RBX,
+	X86_RCX,
+	X86_RDX,
+	X86_RSI,
+	X86_RDI,
+};
+
+static uint32_t x86_register_size = 8;
+
+static char *
+x86_get_register_name(enum x86_register reg)
+{
+	switch (reg) {
+	case X86_R8:  return "r8";
+	case X86_R9:  return "r9";
+	case X86_R10: return "r10";
+	case X86_R11: return "r11";
+	case X86_R12: return "r12";
+	case X86_R13: return "r13";
+	case X86_R14: return "r14";
+	case X86_R15: return "r15";
+	case X86_RAX: return "rax";
+	case X86_RBX: return "rbx";
+	case X86_RCX: return "rcx";
+	case X86_RDX: return "rdx";
+	case X86_RSI: return "rsi";
+	case X86_RDI: return "rdi";
+	default:      return "(invalid)";
+	}
+}
+
+static void
+x86_emit_location(struct location loc)
+{
+	switch (loc.type) {
+	case LOCATION_STACK:
+		printf("qword[rsp+%d]", loc.address + x86_register_size);
+		break;
+	case LOCATION_REGISTER:
+		printf("%s", x86_get_register_name(loc.address));
+		break;
+	case LOCATION_CONST:
+		printf("%#x", loc.address);
+		break;
+	case LOCATION_LABEL:
+		printf("L%d", loc.address);
+		break;
+	}
+}
+
+static void
+x86_emit0(char *op)
+{
+	printf("\t%s\n", op);
+}
+
+static void
+x86_emit1(char *op, struct location dst)
+{
+	printf("\t%s ", op);
+	x86_emit_location(dst);
+	printf("\n");
+}
+
+static void
+x86_emit2(char *op, struct location dst, struct location op0)
+{
+	printf("\t%s ", op);
+	x86_emit_location(dst);
+	printf(", ");
+	x86_emit_location(op0);
+	printf("\n");
+}
+
+static bool
+location_equals(struct location a, struct location b)
+{
+	bool result = (a.type == b.type && a.address == b.address);
+	return result;
+}
+
+static void
+x86_mov(struct location dst, struct location src)
+{
+	if (!location_equals(dst, src)) {
+		if (dst.type == LOCATION_STACK && src.type == LOCATION_STACK) {
+			printf("\tmov rax, ");
+			x86_emit_location(src);
+			src = register_location(X86_RAX);
+		}
+
+		printf("\tmov ");
+		x86_emit_location(dst);
+		printf(", ");
+		x86_emit_location(src);
+		printf("\n");
+	}
+}
+
+static void
+x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
+    uint32_t virtual_register_count, struct arena *arena)
+{
+	struct location *locations = allocate_registers(
+	    instructions, instruction_count, virtual_register_count,
+	    X86_REGISTER_COUNT, arena);
+
+	uint32_t stack_size = 0;
+	for (uint32_t i = 0; i < virtual_register_count; i++) {
+		if (locations[i].type == LOCATION_STACK) {
+			locations[i].address = stack_size;
+			stack_size += x86_register_size;
+		}
+	}
+
+	if (stack_size > 0) {
+		printf("\tsub rsp, %d\n", stack_size);
+	}
+
+	for (uint32_t i = 0; i < instruction_count; i++) {
+		struct location rax = register_location(X86_RAX);
+		struct location rdx = register_location(X86_RDX);
+		struct location temp = rax;
+
+		struct location dst = const_location(instructions[i].dst);
+		struct location op0 = const_location(instructions[i].op0);
+		struct location op1 = const_location(instructions[i].op1);
+		switch (instructions[i].opcode) {
+		case IR_MOV:
+		case IR_ADD:
+		case IR_SUB:
+		case IR_MUL:
+		case IR_DIV:
+		case IR_MOD:
+			op1 = locations[instructions[i].op1];
+			/* fallthrough */
+		case IR_JIZ:
+			op0 = locations[instructions[i].op0];
+			/* fallthrough */
+		case IR_SET:
+		case IR_JMP:
+			dst = locations[instructions[i].dst];
+		case IR_LABEL:
+			break;
+		}
+
+		if (dst.type != LOCATION_STACK) {
+			temp = dst;
+		}
+
+		switch (instructions[i].opcode) {
+		case IR_SET:
+			x86_mov(dst, op0);
+			break;
+		case IR_MOV:
+			x86_mov(dst, op0);
+			break;
+		case IR_ADD:
+			x86_mov(temp, op0);
+			x86_emit2("add", temp, op1);
+			x86_mov(dst, temp);
+			break;
+		case IR_SUB:
+			x86_mov(temp, op0);
+			x86_emit2("sub", temp, op1);
+			x86_mov(dst, temp);
+			break;
+		case IR_MUL:
+			x86_mov(rax, op0);
+			x86_emit1("imul", op1);
+			x86_mov(dst, rax);
+			break;
+		case IR_DIV:
+			x86_mov(rax, op0);
+			x86_emit1("idiv", op1);
+			x86_mov(dst, rax);
+			break;
+		case IR_MOD:
+			x86_mov(rax, op0);
+			x86_emit1("idiv", op1);
+			x86_mov(dst, rdx);
+			break;
+		case IR_JMP:
+			op0 = label_location(op0.address);
+			x86_emit1("jmp", op0);
+			printf("\n");
+			break;
+		case IR_JIZ:
+			op1 = label_location(op1.address);
+			if (op0.type == LOCATION_STACK) {
+				x86_mov(rax, op0);
+				op0 = rax;
+			}
+
+			x86_emit2("test", op0, op0);
+			x86_emit1("jz", op1);
+			printf("\n");
+			break;
+		case IR_LABEL:
+			printf("L%d:\n", op0.address);
+		}
+	}
+
+	if (stack_size > 0) {
+		printf("\tadd rsp, %d\n", stack_size);
+	}
+}

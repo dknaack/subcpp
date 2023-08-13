@@ -124,7 +124,6 @@ get_token(struct tokenizer *tokenizer)
 				}
 			}
 		}
-
 	} while (token.kind == TOKEN_WHITESPACE);
 
 	return token;
