@@ -18,6 +18,7 @@ enum x86_register {
 };
 
 static uint32_t x86_register_size = 8;
+static FILE *x86_output = NULL;
 
 static char *
 x86_get_register_name(enum x86_register reg)
@@ -46,16 +47,16 @@ x86_emit_location(struct location loc)
 {
 	switch (loc.type) {
 	case LOCATION_STACK:
-		printf("qword[rsp+%d]", loc.address + x86_register_size);
+		fprintf(x86_output, "qword[rsp+%d]", loc.address + x86_register_size);
 		break;
 	case LOCATION_REGISTER:
-		printf("%s", x86_get_register_name(loc.address));
+		fprintf(x86_output, "%s", x86_get_register_name(loc.address));
 		break;
 	case LOCATION_CONST:
-		printf("%#x", loc.address);
+		fprintf(x86_output, "%#x", loc.address);
 		break;
 	case LOCATION_LABEL:
-		printf("L%d", loc.address);
+		fprintf(x86_output, "L%d", loc.address);
 		break;
 	}
 }
@@ -63,25 +64,25 @@ x86_emit_location(struct location loc)
 static void
 x86_emit0(char *op)
 {
-	printf("\t%s\n", op);
+	fprintf(x86_output, "\t%s\n", op);
 }
 
 static void
 x86_emit1(char *op, struct location dst)
 {
-	printf("\t%s ", op);
+	fprintf(x86_output, "\t%s ", op);
 	x86_emit_location(dst);
-	printf("\n");
+	fprintf(x86_output, "\n");
 }
 
 static void
 x86_emit2(char *op, struct location dst, struct location op0)
 {
-	printf("\t%s ", op);
+	fprintf(x86_output, "\t%s ", op);
 	x86_emit_location(dst);
-	printf(", ");
+	fprintf(x86_output, ", ");
 	x86_emit_location(op0);
-	printf("\n");
+	fprintf(x86_output, "\n");
 }
 
 static bool
@@ -96,16 +97,16 @@ x86_mov(struct location dst, struct location src)
 {
 	if (!location_equals(dst, src)) {
 		if (dst.type == LOCATION_STACK && src.type == LOCATION_STACK) {
-			printf("\tmov rax, ");
+			fprintf(x86_output, "\tmov rax, ");
 			x86_emit_location(src);
 			src = register_location(X86_RAX);
 		}
 
-		printf("\tmov ");
+		fprintf(x86_output, "\tmov ");
 		x86_emit_location(dst);
-		printf(", ");
+		fprintf(x86_output, ", ");
 		x86_emit_location(src);
-		printf("\n");
+		fprintf(x86_output, "\n");
 	}
 }
 
@@ -126,8 +127,15 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 	}
 
 	if (stack_size > 0) {
-		printf("\tsub rsp, %d\n", stack_size);
+		fprintf(x86_output, "\tsub rsp, %d\n", stack_size);
 	}
+
+	x86_output = fopen("/tmp/out.s", "w");
+	if (!x86_output) {
+		return;
+	}
+
+	fprintf(x86_output, "global main\nmain:\n");
 
 	for (uint32_t i = 0; i < instruction_count; i++) {
 		struct location rax = register_location(X86_RAX);
@@ -196,7 +204,7 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 		case IR_JMP:
 			op0 = label_location(op0.address);
 			x86_emit1("jmp", op0);
-			printf("\n");
+			fprintf(x86_output, "\n");
 			break;
 		case IR_JIZ:
 			op1 = label_location(op1.address);
@@ -207,14 +215,18 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 
 			x86_emit2("test", op0, op0);
 			x86_emit1("jz", op1);
-			printf("\n");
+			fprintf(x86_output, "\n");
 			break;
 		case IR_LABEL:
-			printf("L%d:\n", op0.address);
+			fprintf(x86_output, "L%d:\n", op0.address);
 		}
 	}
 
 	if (stack_size > 0) {
-		printf("\tadd rsp, %d\n", stack_size);
+		fprintf(x86_output, "\tadd rsp, %d\n", stack_size);
 	}
+
+	fprintf(x86_output, "\tmov rax, 0\n");
+	fprintf(x86_output, "\tret\n");
+	fclose(x86_output);
 }
