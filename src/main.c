@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #include "main.h"
 #include "memory.h"
@@ -158,6 +160,61 @@ print_stmt(struct stmt *stmt, int indent)
 	}
 }
 
+static void
+run_command(char **args)
+{
+	int status;
+	switch (fork()) {
+	case -1:
+		perror("fork");
+		exit(1);
+		break;
+	case 0:
+		execvp(args[0], args);
+		exit(1);
+		break;
+	default:
+		wait(&status);
+	}
+}
+
+static void
+run_assembler(char *input, char *output)
+{
+	char *args[128] = {0};
+	char **arg = args;
+
+	*arg++ = "nasm";
+	*arg++ = "-felf64";
+	*arg++ = "-o";
+	*arg++ = output;
+	*arg++ = input;
+	*arg++ = NULL;
+
+	run_command(args);
+}
+
+static void
+run_linker(char *input, char *output)
+{
+	char *args[128] = {0};
+	char **arg = args;
+
+	*arg++ = "ld";
+	*arg++ = "-dynamic-linker";
+	*arg++ = "/usr/lib/ld-linux-x86-64.so.2";
+	*arg++ = "-o";
+	*arg++ = output;
+	*arg++ = "/lib/crt1.o";
+	*arg++ = "/lib/crti.o";
+	*arg++ = "-lc";
+	*arg++ = input;
+	*arg++ = "/lib/crtn.o";
+	*arg++ = NULL;
+
+	run_command(args);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -178,6 +235,9 @@ main(int argc, char *argv[])
 	uint32_t instruction_count = generator.instruction_count;
 	uint32_t register_count = generator.register_count;
 	x86_generate(instructions, instruction_count, register_count, arena);
+
+	run_assembler("/tmp/out.s", "/tmp/out.o");
+	run_linker("/tmp/out.o", "./a.out");
 
 	free(arena);
 	return 0;
