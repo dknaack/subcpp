@@ -189,6 +189,7 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 			break;
 		case IR_MOD:
 			x86_mov(rax, op0);
+			x86_mov(rdx, const_location(0));
 			x86_emit1("idiv", op1);
 			x86_mov(dst, rdx);
 			break;
