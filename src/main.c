@@ -235,7 +235,6 @@ main(int argc, char *argv[])
 	struct stmt *stmt = parse_stmt(&tokenizer, arena);
 	struct ir_program program = ir_generate(stmt, arena);
 	x86_generate(program, arena);
-	run_command((char*[]){ "cat", "/tmp/out.s", NULL });
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
