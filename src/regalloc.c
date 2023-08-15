@@ -8,7 +8,6 @@ struct live_interval {
 
 struct bit_matrix {
 	bool *bits;
-	// NOTE: The width stores the number of words, not the number of bits.
 	uint32_t width;
 	uint32_t height;
 };
