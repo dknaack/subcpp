@@ -1,10 +1,11 @@
 {
 	a = 420;
 	b = 69;
-	while (a) {
-		t = b;
-		b = a % b;
-		a = t;
+	while (b) {
+		r = a % b;
+		a = b;
+		b = r;
 	}
-	a = a;
+
+	return a;
 }
