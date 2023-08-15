@@ -233,13 +233,8 @@ main(int argc, char *argv[])
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
 	struct stmt *stmt = parse_stmt(&tokenizer, arena);
-
-	struct generator generator = generator_init(arena);
-	generate_stmt(&generator, stmt);
-
-	struct ir_program program = generator.program;
+	struct ir_program program = ir_generate(stmt, arena);
 	x86_generate(program, arena);
-
 	run_command((char*[]){ "cat", "/tmp/out.s", NULL });
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");

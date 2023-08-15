@@ -193,3 +193,11 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		break;
 	}
 }
+
+static struct ir_program
+ir_generate(struct stmt *stmt, struct arena *arena)
+{
+	struct generator generator = generator_init(arena);
+	generate_stmt(&generator, stmt);
+	return generator.program;
+}
