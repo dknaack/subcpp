@@ -19,6 +19,7 @@ enum token_kind {
 	TOKEN_IF,
 	TOKEN_ELSE,
 	TOKEN_WHILE,
+	TOKEN_RETURN,
 	TOKEN_COUNT
 };
 

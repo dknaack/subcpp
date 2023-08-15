@@ -8,8 +8,6 @@ generator_init(struct arena *arena)
 	state.max_label_count = 1024;
 	state.variable_table = ALLOC(arena, 1024, struct variable);
 	state.variable_table_size = 1024;
-	state.label_count++;
-	state.instruction_count++;
 	return state;
 }
 
@@ -150,7 +148,7 @@ generate_expr(struct generator *state, struct expr *expr)
 static void
 generate_stmt(struct generator *state, struct stmt *stmt)
 {
-	uint32_t endif_label, else_label, condition;
+	uint32_t endif_label, else_label, condition, result;
 
 	switch (stmt->kind) {
 	case STMT_COMPOUND:
@@ -183,11 +181,15 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		state->continue_label = new_label(state);
 
 		generate_label(state, state->continue_label);
-		uint32_t result = generate_expr(state, stmt->u._while.condition);
+		result = generate_expr(state, stmt->u._while.condition);
 		emit(state, IR_JIZ, result, state->break_label, 0);
 		generate_stmt(state, stmt->u._while.body);
 		emit(state, IR_JMP, state->continue_label, 0, 0);
 		generate_label(state, state->break_label);
+		break;
+	case STMT_RETURN:
+		result = generate_expr(state, stmt->u.expr);
+		emit(state, IR_RET, result, 0, 0);
 		break;
 	}
 }

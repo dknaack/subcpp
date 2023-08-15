@@ -109,9 +109,10 @@ get_token(struct tokenizer *tokenizer)
 		enum token_kind token;
 		struct string str;
 	} keywords[] = {
-		{ TOKEN_IF,    S("if")    },
-		{ TOKEN_ELSE,  S("else")  },
-		{ TOKEN_WHILE, S("while") },
+		{ TOKEN_IF,     S("if")     },
+		{ TOKEN_ELSE,   S("else")   },
+		{ TOKEN_WHILE,  S("while")  },
+		{ TOKEN_RETURN, S("return") },
 	};
 
 	do {

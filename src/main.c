@@ -26,6 +26,7 @@ print_ir(struct ir_instruction instruction)
 	case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
 	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
+	case IR_RET:   printf("\tret r%d\n", op0); break;
 	case IR_LABEL: printf("L%d:\n", op0); return;
 	}
 }
@@ -34,7 +35,7 @@ static void
 print_program(struct ir_instruction *instructions, uint32_t instruction_count)
 {
 	for (uint32_t i = 0; i < instruction_count; i++) {
-		printf("%2d: ", i);
+		printf("%2d| ", i);
 		print_ir(*instructions++);
 	}
 }
@@ -157,6 +158,11 @@ print_stmt(struct stmt *stmt, int indent)
 		printf(")\n");
 		print_stmt(stmt->u._while.body, indent);
 		break;
+	case STMT_RETURN:
+		printf("return ");
+		print_expr(stmt->u.expr);
+		printf(";\n");
+		break;
 	}
 }
 
@@ -234,8 +240,10 @@ main(int argc, char *argv[])
 	struct ir_instruction *instructions = generator.instructions;
 	uint32_t instruction_count = generator.instruction_count;
 	uint32_t register_count = generator.register_count;
-	x86_generate(instructions, instruction_count, register_count, arena);
+	uint32_t *label_addresses = generator.label_addresses;
+	x86_generate(instructions, instruction_count, register_count, label_addresses, arena);
 
+	run_command((char*[]){ "cat", "/tmp/out.s", NULL });
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 

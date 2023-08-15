@@ -47,7 +47,7 @@ x86_emit_location(struct location loc)
 {
 	switch (loc.type) {
 	case LOCATION_STACK:
-		fprintf(x86_output, "qword[rsp+%d]", loc.address + x86_register_size);
+		fprintf(x86_output, "qword[rsp+%d]", loc.address * x86_register_size);
 		break;
 	case LOCATION_REGISTER:
 		fprintf(x86_output, "%s", x86_get_register_name(loc.address));
@@ -112,11 +112,16 @@ x86_mov(struct location dst, struct location src)
 
 static void
 x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
-    uint32_t virtual_register_count, struct arena *arena)
+    uint32_t virtual_register_count, uint32_t *label_addresses, struct arena *arena)
 {
 	struct location *locations = allocate_registers(
 	    instructions, instruction_count, virtual_register_count,
-	    X86_REGISTER_COUNT, arena);
+	    X86_REGISTER_COUNT, label_addresses, arena);
+
+	x86_output = fopen("/tmp/out.s", "w");
+	if (!x86_output) {
+		return;
+	}
 
 	uint32_t stack_size = 0;
 	for (uint32_t i = 0; i < virtual_register_count; i++) {
@@ -126,16 +131,10 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 		}
 	}
 
+	fprintf(x86_output, "global main\nmain:\n");
 	if (stack_size > 0) {
 		fprintf(x86_output, "\tsub rsp, %d\n", stack_size);
 	}
-
-	x86_output = fopen("/tmp/out.s", "w");
-	if (!x86_output) {
-		return;
-	}
-
-	fprintf(x86_output, "global main\nmain:\n");
 
 	for (uint32_t i = 0; i < instruction_count; i++) {
 		struct location rax = register_location(X86_RAX);
@@ -153,14 +152,16 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 		case IR_DIV:
 		case IR_MOD:
 			op1 = locations[instructions[i].op1];
-			/* fallthrough */
-		case IR_JIZ:
 			op0 = locations[instructions[i].op0];
 			/* fallthrough */
 		case IR_SET:
-		case IR_JMP:
 			dst = locations[instructions[i].dst];
+		case IR_JMP:
 		case IR_LABEL:
+			break;
+		case IR_JIZ:
+		case IR_RET:
+			op0 = locations[instructions[i].op0];
 			break;
 		}
 
@@ -217,6 +218,11 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 			x86_emit1("jz", op1);
 			fprintf(x86_output, "\n");
 			break;
+		case IR_RET:
+			x86_mov(rax, op0);
+			fprintf(x86_output, "\tadd rsp, %d\n", stack_size);
+			x86_emit0("ret");
+			break;
 		case IR_LABEL:
 			fprintf(x86_output, "L%d:\n", op0.address);
 		}
@@ -224,9 +230,8 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 
 	if (stack_size > 0) {
 		fprintf(x86_output, "\tadd rsp, %d\n", stack_size);
+		fprintf(x86_output, "\tret\n");
 	}
 
-	fprintf(x86_output, "\tmov rax, 0\n");
-	fprintf(x86_output, "\tret\n");
 	fclose(x86_output);
 }

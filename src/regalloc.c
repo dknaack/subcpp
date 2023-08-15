@@ -93,7 +93,7 @@ print_matrix(struct bit_matrix matrix)
 
 static struct bit_matrix
 get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
-     uint32_t register_count, struct arena *arena)
+     uint32_t register_count, uint32_t *label_addresses, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
 	struct bit_matrix live_matrix = bit_matrix_init(
@@ -106,30 +106,31 @@ get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
 		has_matrix_changed = false;
 		uint32_t i = instruction_count;
 		while (i-- > 0) {
-			uint32_t def, use0, use1;
-			def = use0 = use1 = 0;
+			uint32_t kill, use0, use1, address;
+			kill = use0 = use1 = register_count;
 
 			clear_row(live_matrix, i);
 			switch (instructions[i].opcode) {
 			case IR_JMP:
-				union_rows(live_matrix, i, instructions[i].op0);
+				address = label_addresses[instructions[i].op0];
+				union_rows(live_matrix, i, address);
 				break;
 			case IR_JIZ:
-				union_rows(live_matrix, i, instructions[i].op1);
+				address = label_addresses[instructions[i].op1];
+				union_rows(live_matrix, i, address);
 				/* fallthrough */
 			default:
 				if (i + 1 != instruction_count) {
 					union_rows(live_matrix, i, i + 1);
 				}
-				break;
 			}
 
 			switch (instructions[i].opcode) {
 			case IR_SET:
-				def = instructions[i].dst;
+				kill = instructions[i].dst;
 				break;
 			case IR_MOV:
-				def = instructions[i].dst;
+				kill = instructions[i].dst;
 				use0 = instructions[i].op0;
 				break;
 			case IR_ADD:
@@ -137,29 +138,29 @@ get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
 			case IR_MUL:
 			case IR_DIV:
 			case IR_MOD:
-				def = instructions[i].dst;
+				kill = instructions[i].dst;
 				use0 = instructions[i].op0;
 				use1 = instructions[i].op1;
 				break;
 			case IR_JIZ:
+			case IR_RET:
 				use0 = instructions[i].op0;
 				break;
 			default:
 				break;
 			}
 
-			if (def) {
-				clear_bit(live_matrix, def, i);
+			if (kill < register_count) {
+				clear_bit(live_matrix, kill, i);
 			}
 
-			if (use0) {
+			if (use0 < register_count) {
 				set_bit(live_matrix, use0, i);
 			}
 
-			if (use1) {
+			if (use1 < register_count) {
 				set_bit(live_matrix, use1, i);
 			}
-
 		}
 
 		size_t matrix_size = live_matrix.width * live_matrix.height * sizeof(bool);
@@ -201,6 +202,10 @@ sort_intervals_by_start(struct live_interval *intervals,
     uint32_t interval_count, struct arena *arena)
 {
 	uint32_t *index = ALLOC(arena, interval_count, uint32_t);
+	for (uint32_t i = 0; i < interval_count; i++) {
+		index[i] = i;
+	}
+
 	for (uint32_t i = 1; i < interval_count; i++) {
 		uint32_t j = i;
 		while (j > 0 && intervals[index[j - 1]].start > intervals[index[j]].start) {
@@ -262,7 +267,8 @@ register_location(uint32_t reg)
 static struct location *
 allocate_registers(struct ir_instruction *instructions,
     uint32_t instruction_count, uint32_t virtual_register_count,
-    uint32_t target_register_count, struct arena *arena)
+    uint32_t target_register_count, uint32_t *label_addresses,
+    struct arena *arena)
 {
 	struct location *location = ZALLOC(arena,
 	    virtual_register_count, struct location);
@@ -270,7 +276,7 @@ allocate_registers(struct ir_instruction *instructions,
 	struct arena_temp temp = arena_temp_begin(arena);
 	struct live_interval *intervals = ALLOC(arena, virtual_register_count, struct live_interval);
 	struct bit_matrix live_matrix = get_live_matrix(instructions,
-	    instruction_count, virtual_register_count, arena);
+	    instruction_count, virtual_register_count, label_addresses, arena);
 
 	for (uint32_t i = 0; i < virtual_register_count; i++) {
 		intervals[i]._register = i;
@@ -289,31 +295,38 @@ allocate_registers(struct ir_instruction *instructions,
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
 	for (uint32_t i = 0; i < virtual_register_count; i++) {
-		uint32_t current_start = intervals[sorted_by_start[i]].start;
-		uint32_t spill = sorted_by_start[active_start];
-		for (uint32_t j = active_start; j < active_count; j++) {
-			uint32_t end = intervals[sorted_by_start[j]].end;
-			bool is_active = (end > current_start);
+		uint32_t current_register = sorted_by_start[i];
+		uint32_t current_start = intervals[current_register].start;
+
+		uint32_t active_end = active_start + active_count;
+		for (uint32_t j = active_start; j < active_end; j++) {
+			uint32_t inactive_register = sorted_by_start[j];
+			uint32_t end = intervals[inactive_register].end;
+			bool is_active = (end >= current_start);
 			if (is_active) {
-				break;
+				continue;
 			}
 
-			active_start++;
 			active_count--;
-			register_pool[active_count] = location[j].address;
+			register_pool[active_count] = location[inactive_register].address;
 
-			uint32_t temp = sorted_by_start[active_start];
-			sorted_by_start[active_start++] = sorted_by_start[j];
-			sorted_by_start[j] = temp;
-
-			if (intervals[spill].end > end) {
-				spill = sorted_by_start[j];
-			}
+			sorted_by_start[j] = sorted_by_start[active_start];
+			sorted_by_start[active_start++] = inactive_register;
 		}
 
 		if (active_count == target_register_count) {
-			if (intervals[spill].end > intervals[sorted_by_start[i]].end) {
-				location[i] = location[spill];
+			uint32_t spill = sorted_by_start[active_start];
+			uint32_t end = 0;
+			for (uint32_t j = active_start; j < active_end; j++) {
+				uint32_t _register = sorted_by_start[j];
+				if (intervals[_register].end > end) {
+					end = intervals[_register].end;
+					spill = _register;
+				}
+			}
+
+			if (intervals[spill].end > intervals[current_register].end) {
+				location[current_register] = location[spill];
 				location[spill] = stack_location(spill_count++);
 				active_start++;
 				active_count++;
@@ -321,7 +334,7 @@ allocate_registers(struct ir_instruction *instructions,
 				location[spill] = stack_location(spill_count++);
 			}
 		} else {
-			location[i] = register_location(register_pool[active_count++]);
+			location[current_register] = register_location(register_pool[active_count++]);
 		}
 	}
 

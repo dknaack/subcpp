@@ -8,7 +8,8 @@ enum ir_opcode {
 	IR_DIV,
 	IR_MOD,
 	IR_JMP,
-	IR_JIZ
+	IR_JIZ,
+	IR_RET,
 };
 
 struct ir_instruction {

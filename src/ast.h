@@ -26,6 +26,7 @@ enum stmt_kind {
 	STMT_EXPR,
 	STMT_IF,
 	STMT_WHILE,
+	STMT_RETURN,
 };
 
 struct stmt_if {
