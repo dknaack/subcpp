@@ -1,7 +1,6 @@
 #include <string.h>
 
 struct live_interval {
-	uint32_t _register;
 	uint32_t start;
 	uint32_t end;
 };
@@ -276,7 +275,6 @@ allocate_registers(struct ir_program program, uint32_t target_register_count,
 	struct bit_matrix live_matrix = get_live_matrix(program, arena);
 
 	for (uint32_t i = 0; i < program.register_count; i++) {
-		intervals[i]._register = i;
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
