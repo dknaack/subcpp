@@ -2,9 +2,9 @@ static struct generator
 generator_init(struct arena *arena)
 {
 	struct generator state = {0};
-	state.instructions = ALLOC(arena, 1024, struct ir_instruction);
+	state.program.instructions = ALLOC(arena, 1024, struct ir_instruction);
 	state.max_instruction_count = 1024;
-	state.label_addresses = ALLOC(arena, 1024, uint32_t);
+	state.program.label_addresses = ALLOC(arena, 1024, uint32_t);
 	state.max_label_count = 1024;
 	state.variable_table = ALLOC(arena, 1024, struct variable);
 	state.variable_table_size = 1024;
@@ -14,15 +14,15 @@ generator_init(struct arena *arena)
 static uint32_t
 new_label(struct generator *state)
 {
-	uint32_t result = state->label_count++;
-	ASSERT(state->label_count <= state->max_label_count);
+	uint32_t result = state->program.label_count++;
+	ASSERT(state->program.label_count <= state->max_label_count);
 	return result;
 }
 
 static uint32_t
 new_register(struct generator *state)
 {
-	uint32_t result = state->register_count++;
+	uint32_t result = state->program.register_count++;
 	return result;
 }
 
@@ -67,8 +67,8 @@ static void
 emit(struct generator *state, enum ir_opcode opcode,
     uint32_t op0, uint32_t op1, uint32_t dst)
 {
-	ASSERT(state->instruction_count <= state->max_instruction_count);
-	struct ir_instruction *instruction = &state->instructions[state->instruction_count++];
+	ASSERT(state->program.instruction_count <= state->max_instruction_count);
+	struct ir_instruction *instruction = &state->program.instructions[state->program.instruction_count++];
 	instruction->opcode = opcode;
 	instruction->op0 = op0;
 	instruction->op1 = op1;
@@ -100,7 +100,7 @@ emit0(struct generator *state, enum ir_opcode opcode)
 static void
 generate_label(struct generator *state, uint32_t label)
 {
-	state->label_addresses[label] = state->instruction_count;
+	state->program.label_addresses[label] = state->program.instruction_count;
 	emit(state, IR_LABEL, label, 0, 0);
 }
 

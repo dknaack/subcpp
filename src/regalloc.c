@@ -92,22 +92,23 @@ print_matrix(struct bit_matrix matrix)
 }
 
 static struct bit_matrix
-get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
-     uint32_t register_count, uint32_t *label_addresses, struct arena *arena)
+get_live_matrix(struct ir_program program, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
 	struct bit_matrix live_matrix = bit_matrix_init(
-	    register_count, instruction_count, arena);
+	    program.register_count, program.instruction_count, arena);
 	struct bit_matrix prev_live_matrix = bit_matrix_init(
-	    register_count, instruction_count, arena);
+	    program.register_count, program.instruction_count, arena);
+	struct ir_instruction *instructions = program.instructions;
+	uint32_t *label_addresses = program.label_addresses;
 
 	bool has_matrix_changed;
 	do {
 		has_matrix_changed = false;
-		uint32_t i = instruction_count;
+		uint32_t i = program.instruction_count;
 		while (i-- > 0) {
 			uint32_t kill, use0, use1, address;
-			kill = use0 = use1 = register_count;
+			kill = use0 = use1 = program.register_count;
 
 			clear_row(live_matrix, i);
 			switch (instructions[i].opcode) {
@@ -120,7 +121,7 @@ get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
 				union_rows(live_matrix, i, address);
 				/* fallthrough */
 			default:
-				if (i + 1 != instruction_count) {
+				if (i + 1 != program.instruction_count) {
 					union_rows(live_matrix, i, i + 1);
 				}
 			}
@@ -150,15 +151,15 @@ get_live_matrix(struct ir_instruction *instructions, uint32_t instruction_count,
 				break;
 			}
 
-			if (kill < register_count) {
+			if (kill < program.register_count) {
 				clear_bit(live_matrix, kill, i);
 			}
 
-			if (use0 < register_count) {
+			if (use0 < program.register_count) {
 				set_bit(live_matrix, use0, i);
 			}
 
-			if (use1 < register_count) {
+			if (use1 < program.register_count) {
 				set_bit(live_matrix, use1, i);
 			}
 		}
@@ -265,26 +266,23 @@ register_location(uint32_t reg)
 }
 
 static struct location *
-allocate_registers(struct ir_instruction *instructions,
-    uint32_t instruction_count, uint32_t virtual_register_count,
-    uint32_t target_register_count, uint32_t *label_addresses,
+allocate_registers(struct ir_program program, uint32_t target_register_count,
     struct arena *arena)
 {
 	struct location *location = ZALLOC(arena,
-	    virtual_register_count, struct location);
+	    program.register_count, struct location);
 
 	struct arena_temp temp = arena_temp_begin(arena);
-	struct live_interval *intervals = ALLOC(arena, virtual_register_count, struct live_interval);
-	struct bit_matrix live_matrix = get_live_matrix(instructions,
-	    instruction_count, virtual_register_count, label_addresses, arena);
+	struct live_interval *intervals = ALLOC(arena, program.register_count, struct live_interval);
+	struct bit_matrix live_matrix = get_live_matrix(program, arena);
 
-	for (uint32_t i = 0; i < virtual_register_count; i++) {
+	for (uint32_t i = 0; i < program.register_count; i++) {
 		intervals[i]._register = i;
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, virtual_register_count, arena);
+	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, program.register_count, arena);
 
 	uint32_t *register_pool = ALLOC(arena, target_register_count, uint32_t);
 	for (uint32_t i = 0; i < target_register_count; i++) {
@@ -294,7 +292,7 @@ allocate_registers(struct ir_instruction *instructions,
 	uint32_t spill_count = 0;
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
-	for (uint32_t i = 0; i < virtual_register_count; i++) {
+	for (uint32_t i = 0; i < program.register_count; i++) {
 		uint32_t current_register = sorted_by_start[i];
 		uint32_t current_start = intervals[current_register].start;
 

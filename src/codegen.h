@@ -19,6 +19,15 @@ struct ir_instruction {
 	uint32_t dst;
 };
 
+struct ir_program {
+	struct ir_instruction *instructions;
+	uint32_t *label_addresses;
+
+	uint32_t register_count;
+	uint32_t instruction_count;
+	uint32_t label_count;
+};
+
 struct variable {
 	struct variable *next;
 	struct string name;
@@ -26,13 +35,9 @@ struct variable {
 };
 
 struct generator {
-	uint32_t register_count;
-	struct ir_instruction *instructions;
-	uint32_t instruction_count;
-	uint32_t max_instruction_count;
+	struct ir_program program;
 
-	uint32_t *label_addresses;
-	uint32_t label_count;
+	uint32_t max_instruction_count;
 	uint32_t max_label_count;
 
 	struct variable *variable_table;

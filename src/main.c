@@ -237,11 +237,8 @@ main(int argc, char *argv[])
 	struct generator generator = generator_init(arena);
 	generate_stmt(&generator, stmt);
 
-	struct ir_instruction *instructions = generator.instructions;
-	uint32_t instruction_count = generator.instruction_count;
-	uint32_t register_count = generator.register_count;
-	uint32_t *label_addresses = generator.label_addresses;
-	x86_generate(instructions, instruction_count, register_count, label_addresses, arena);
+	struct ir_program program = generator.program;
+	x86_generate(program, arena);
 
 	run_command((char*[]){ "cat", "/tmp/out.s", NULL });
 	run_assembler("/tmp/out.s", "/tmp/out.o");

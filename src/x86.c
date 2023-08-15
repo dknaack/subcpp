@@ -111,12 +111,9 @@ x86_mov(struct location dst, struct location src)
 }
 
 static void
-x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
-    uint32_t virtual_register_count, uint32_t *label_addresses, struct arena *arena)
+x86_generate(struct ir_program program, struct arena *arena)
 {
-	struct location *locations = allocate_registers(
-	    instructions, instruction_count, virtual_register_count,
-	    X86_REGISTER_COUNT, label_addresses, arena);
+	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
 
 	x86_output = fopen("/tmp/out.s", "w");
 	if (!x86_output) {
@@ -124,7 +121,7 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 	}
 
 	uint32_t stack_size = 0;
-	for (uint32_t i = 0; i < virtual_register_count; i++) {
+	for (uint32_t i = 0; i < program.register_count; i++) {
 		if (locations[i].type == LOCATION_STACK) {
 			locations[i].address = stack_size;
 			stack_size += x86_register_size;
@@ -136,7 +133,8 @@ x86_generate(struct ir_instruction *instructions, uint32_t instruction_count,
 		fprintf(x86_output, "\tsub rsp, %d\n", stack_size);
 	}
 
-	for (uint32_t i = 0; i < instruction_count; i++) {
+	struct ir_instruction *instructions = program.instructions;
+	for (uint32_t i = 0; i < program.instruction_count; i++) {
 		struct location rax = register_location(X86_RAX);
 		struct location rdx = register_location(X86_RDX);
 		struct location temp = rax;
