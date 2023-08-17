@@ -218,7 +218,9 @@ x86_generate(struct ir_program program, struct arena *arena)
 			break;
 		case IR_RET:
 			x86_mov(rax, op0);
-			fprintf(x86_output, "\tadd rsp, %d\n", stack_size);
+			if (stack_size > 0) {
+				fprintf(x86_output, "\tadd rsp, %d\n", stack_size);
+			}
 			x86_emit0("ret");
 			break;
 		case IR_LABEL:
