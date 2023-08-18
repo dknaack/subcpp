@@ -303,6 +303,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			break;
 		case IR_DIV:
 			x86_mov(&out, rax, op0);
+			x86_mov(&out, rdx, const_location(0));
 			x86_emit1(&out, "idiv", op1);
 			x86_mov(&out, dst, rax);
 			break;
