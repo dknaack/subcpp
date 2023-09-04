@@ -152,6 +152,30 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		stmt->kind = STMT_CONTINUE;
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
+	case TOKEN_FOR:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_FOR;
+		expect(tokenizer, TOKEN_LPAREN);
+
+		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+			/* TODO: parse declaration instead of expression */
+			stmt->u._for.init = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_SEMICOLON);
+		}
+
+		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+			stmt->u._for.condition = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_SEMICOLON);
+		}
+
+		if (!accept(tokenizer, TOKEN_RPAREN)) {
+			stmt->u._for.post = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_RPAREN);
+		}
+
+		stmt->u._for.body = parse_stmt(tokenizer, arena);
+		break;
 	case TOKEN_IF:
 		get_token(tokenizer);
 		stmt = ZALLOC(arena, 1, struct stmt);

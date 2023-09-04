@@ -156,6 +156,21 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 	case STMT_EXPR:
 		generate_expr(state, stmt->u.expr);
 		break;
+	case STMT_FOR:
+		state->break_label = new_label(state);
+		state->continue_label = new_label(state);
+		condition = new_label(state);
+
+		generate_expr(state, stmt->u._for.init);
+		generate_label(state, condition);
+		result = generate_expr(state, stmt->u._for.condition);
+		emit(state, IR_JIZ, result, state->break_label, 0);
+		generate_stmt(state, stmt->u._for.body);
+		generate_label(state, state->continue_label);
+		generate_expr(state, stmt->u._for.post);
+		emit(state, IR_JMP, condition, 0, 0);
+		generate_label(state, state->break_label);
+		break;
 	case STMT_IF:
 		endif_label = new_label(state);
 		else_label = new_label(state);

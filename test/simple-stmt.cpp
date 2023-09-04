@@ -1,12 +1,9 @@
 {
 	a = 420;
-	b = 69;
-	while (b) {
-		r = a % b;
-		a = b;
-		b = r;
+	for (i = 0; i - 10; i = i + 1) {
+		a = a + 10;
 	}
 
 	print a;
-	return;
+	return 0;
 }

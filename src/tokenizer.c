@@ -113,6 +113,7 @@ get_token(struct tokenizer *tokenizer)
 		{ TOKEN_CONTINUE, S("continue") },
 		{ TOKEN_IF,       S("if")       },
 		{ TOKEN_ELSE,     S("else")     },
+		{ TOKEN_FOR,      S("for")      },
 		{ TOKEN_WHILE,    S("while")    },
 		{ TOKEN_RETURN,   S("return")   },
 		{ TOKEN_PRINT,    S("print")    },

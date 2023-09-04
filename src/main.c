@@ -125,12 +125,27 @@ print_stmt(struct stmt *stmt, int indent)
 	}
 
 	switch (stmt->kind) {
+	case STMT_BREAK:
+		printf("break;\n");
+		break;
+	case STMT_CONTINUE:
+		printf("continue;\n");
+		break;
 	case STMT_EMPTY:
 		printf(";\n");
 		break;
 	case STMT_EXPR:
 		print_expr(stmt->u.expr);
 		printf(";\n");
+		break;
+	case STMT_FOR:
+		printf("for (");
+		print_expr(stmt->u._for.init);
+		printf("; ");
+		print_expr(stmt->u._for.condition);
+		printf("; ");
+		print_expr(stmt->u._for.post);
+		printf(")\n");
 		break;
 	case STMT_COMPOUND:
 		printf("{\n");
