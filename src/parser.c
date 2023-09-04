@@ -165,6 +165,15 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		get_token(tokenizer);
 		stmt = ZALLOC(arena, 1, struct stmt);
 		stmt->kind = STMT_RETURN;
+		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+			stmt->u.expr = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_SEMICOLON);
+		}
+		break;
+	case TOKEN_PRINT:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_PRINT;
 		stmt->u.expr = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;

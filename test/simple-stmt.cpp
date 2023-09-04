@@ -7,5 +7,6 @@
 		b = r;
 	}
 
-	return a;
+	print a;
+	return;
 }

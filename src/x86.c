@@ -240,7 +240,14 @@ x86_generate(struct ir_program program, struct arena *arena)
 		}
 	}
 
-	stream_print(&out, "global main\nmain:\n");
+	stream_print(&out,
+	    "global main\n"
+	    "extern printf\n\n"
+	    "section .data\n"
+	    "fmt: db \"%d\", 0x0A, 0\n\n"
+	    "section .text\n"
+	    "main:\n"
+	);
 	if (stack_size > 0) {
 		stream_print(&out, "\tsub rsp, ");
 		stream_printu(&out, stack_size);
@@ -250,6 +257,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 	struct ir_instruction *instructions = program.instructions;
 	for (uint32_t i = 0; i < program.instruction_count; i++) {
 		struct location rax = register_location(X86_RAX);
+		struct location rsi = register_location(X86_RSI);
 		struct location rdx = register_location(X86_RDX);
 		struct location temp = rax;
 
@@ -273,6 +281,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			break;
 		case IR_JIZ:
 		case IR_RET:
+		case IR_PRINT:
 			op0 = locations[instructions[i].op0];
 			break;
 		case IR_NOP:
@@ -341,6 +350,12 @@ x86_generate(struct ir_program program, struct arena *arena)
 				stream_print(&out, "\n");
 			}
 			x86_emit0(&out, "ret");
+			break;
+		case IR_PRINT:
+			stream_print(&out, "\tmov rdi, fmt\n");
+			x86_mov(&out, rsi, op0);
+			x86_mov(&out, rax, const_location(0));
+			stream_print(&out, "\tcall printf wrt ..plt\n");
 			break;
 		case IR_LABEL:
 			stream_print(&out, "L");

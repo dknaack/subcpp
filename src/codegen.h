@@ -13,6 +13,7 @@ enum ir_opcode {
 	IR_JMP,
 	IR_JIZ,
 	IR_RET,
+	IR_PRINT,
 };
 
 struct ir_instruction {

@@ -145,6 +145,7 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 				break;
 			case IR_JIZ:
 			case IR_RET:
+			case IR_PRINT:
 				use0 = instructions[i].op0;
 				break;
 			default:

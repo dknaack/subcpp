@@ -25,6 +25,7 @@ enum stmt_kind {
 	STMT_EMPTY,
 	STMT_EXPR,
 	STMT_IF,
+	STMT_PRINT,
 	STMT_WHILE,
 	STMT_RETURN,
 };

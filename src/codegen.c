@@ -137,7 +137,7 @@ generate_expr(struct generator *state, struct expr *expr)
 static void
 generate_stmt(struct generator *state, struct stmt *stmt)
 {
-	uint32_t endif_label, else_label, condition, result;
+	uint32_t endif_label, else_label, condition, result = 0;
 
 	switch (stmt->kind) {
 	case STMT_COMPOUND:
@@ -177,8 +177,14 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		generate_label(state, state->break_label);
 		break;
 	case STMT_RETURN:
-		result = generate_expr(state, stmt->u.expr);
+		if (stmt->u.expr) {
+			result = generate_expr(state, stmt->u.expr);
+		}
 		emit(state, IR_RET, result, 0, 0);
+		break;
+	case STMT_PRINT:
+		result = generate_expr(state, stmt->u.expr);
+		emit(state, IR_PRINT, result, 0, 0);
 		break;
 	}
 }

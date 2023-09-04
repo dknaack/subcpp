@@ -24,6 +24,7 @@ print_ir(struct ir_instruction instruction)
 	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
 	case IR_RET:   printf("\tret r%d\n", op0); break;
+	case IR_PRINT: printf("\tprint r%d\n", op0); break;
 	case IR_LABEL: printf("L%d:\n", op0); return;
 	}
 }
@@ -157,6 +158,11 @@ print_stmt(struct stmt *stmt, int indent)
 		break;
 	case STMT_RETURN:
 		printf("return ");
+		print_expr(stmt->u.expr);
+		printf(";\n");
+		break;
+	case STMT_PRINT:
+		printf("print ");
 		print_expr(stmt->u.expr);
 		printf(";\n");
 		break;
