@@ -218,18 +218,6 @@ sort_intervals_by_start(struct live_interval *intervals,
 	return index;
 }
 
-enum location_type {
-	LOCATION_REGISTER,
-	LOCATION_STACK,
-	LOCATION_CONST,
-	LOCATION_LABEL,
-};
-
-struct location {
-	enum location_type type;
-	uint32_t address;
-};
-
 static struct location
 new_location(enum location_type type, uint32_t address)
 {
@@ -242,25 +230,25 @@ new_location(enum location_type type, uint32_t address)
 static struct location
 label_location(uint32_t value)
 {
-	return new_location(LOCATION_LABEL, value);
+	return new_location(LOC_LABEL, value);
 }
 
 static struct location
 const_location(uint32_t value)
 {
-	return new_location(LOCATION_CONST, value);
+	return new_location(LOC_CONST, value);
 }
 
 static struct location
 stack_location(uint32_t address)
 {
-	return new_location(LOCATION_STACK, address);
+	return new_location(LOC_STACK, address);
 }
 
 static struct location
 register_location(uint32_t reg)
 {
-	return new_location(LOCATION_REGISTER, reg);
+	return new_location(LOC_REGISTER, reg);
 }
 
 static struct location *

@@ -146,18 +146,18 @@ static void
 x86_emit_location(struct stream *out, struct location loc)
 {
 	switch (loc.type) {
-	case LOCATION_STACK:
+	case LOC_STACK:
 		stream_print(out, "qword[rsp+");
 		stream_printu(out, loc.address * x86_register_size);
 		stream_print(out, "]");
 		break;
-	case LOCATION_REGISTER:
+	case LOC_REGISTER:
 		stream_print(out, x86_get_register_name(loc.address));
 		break;
-	case LOCATION_CONST:
+	case LOC_CONST:
 		stream_print_hex(out, loc.address);
 		break;
-	case LOCATION_LABEL:
+	case LOC_LABEL:
 		stream_print(out, "L");
 		stream_printu(out, loc.address);
 		break;
@@ -205,7 +205,7 @@ static void
 x86_mov(struct stream *out, struct location dst, struct location src)
 {
 	if (!location_equals(dst, src)) {
-		if (dst.type == LOCATION_STACK && src.type == LOCATION_STACK) {
+		if (dst.type == LOC_STACK && src.type == LOC_STACK) {
 			stream_print(out, "\tmov rax, ");
 			x86_emit_location(out, src);
 			src = register_location(X86_RAX);
@@ -232,7 +232,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 
 	uint32_t stack_size = 0;
 	for (uint32_t i = 0; i < program.register_count; i++) {
-		if (locations[i].type == LOCATION_STACK) {
+		if (locations[i].type == LOC_STACK) {
 			locations[i].address = stack_size;
 			stack_size += x86_register_size;
 		}
@@ -275,7 +275,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			break;
 		}
 
-		if (dst.type != LOCATION_STACK) {
+		if (dst.type != LOC_STACK) {
 			temp = dst;
 		}
 
@@ -320,7 +320,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			break;
 		case IR_JIZ:
 			op1 = label_location(op1.address);
-			if (op0.type == LOCATION_STACK) {
+			if (op0.type == LOC_STACK) {
 				x86_mov(&out, rax, op0);
 				op0 = rax;
 			}
