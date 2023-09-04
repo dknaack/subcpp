@@ -110,6 +110,8 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 
 			clear_row(live_matrix, i);
 			switch (instructions[i].opcode) {
+			case IR_RET:
+				break;
 			case IR_JMP:
 				address = block_start[instructions[i].op0];
 				union_rows(live_matrix, i, address);
