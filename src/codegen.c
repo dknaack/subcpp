@@ -186,22 +186,21 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 static void
 construct_cfg(struct ir_program *program, struct arena *arena)
 {
-	program->block_start = ALLOC(arena, 1, uint32_t);
-	program->block_start[0] = 0;
+	program->blocks = ALLOC(arena, 1, struct ir_block);
+	program->blocks[0].start = 0;
 	uint32_t prev_block = 0;
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		uint32_t opcode = program->instructions[i].opcode;
 		if (opcode == IR_JMP || opcode == IR_JIZ) {
-			*ALLOC(arena, 1, uint32_t) = prev_block = i+1;
+			ALLOC(arena, 1, struct ir_block)->start = prev_block = i+1;
 		} else if (prev_block != i && opcode == IR_LABEL) {
-			*ALLOC(arena, 1, uint32_t) = i;
+			ALLOC(arena, 1, struct ir_block)->start = i;
 		}
 	}
 
-	*ALLOC(arena, 1, uint32_t) = program->instruction_count;
-
 	struct arena_temp temp = arena_temp_begin(arena);
 
+	/* replace labels with block indices */
 	uint32_t block_count = 1;
 	prev_block = 0;
 	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
@@ -227,6 +226,36 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	}
 
 	arena_temp_end(temp);
+
+	/* calculate size of each block */
+	struct ir_block *blocks = program->blocks;
+	for (uint32_t i = 0; i < block_count; i++) {
+		if (i + 1 < block_count) {
+			blocks[i].size = blocks[i+1].start - blocks[i].start;
+		} else {
+			blocks[i].size = program->instruction_count - blocks[i].start;
+		}
+	}
+
+	/* determine the next block */
+	struct ir_instruction *instructions = program->instructions;
+	for (uint32_t i = 0; i < block_count; i++) {
+		uint32_t block_end = blocks[i].start + blocks[i].size - 1;
+		switch ((uint32_t)instructions[block_end].opcode) {
+		case IR_JMP:
+			blocks[i].next[0] = instructions[block_end].op0;
+			blocks[i].next[1] = instructions[block_end].op0;
+			break;
+		case IR_JIZ:
+			blocks[i].next[0] = i + 1;
+			blocks[i].next[1] = instructions[block_end].op1;
+			break;
+		case IR_RET:
+			blocks[i].next[0] = program->instruction_count;
+			blocks[i].next[1] = program->instruction_count;
+			break;
+		}
+	}
 }
 
 static struct ir_program

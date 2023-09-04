@@ -22,9 +22,15 @@ struct ir_instruction {
 	uint32_t dst;
 };
 
+struct ir_block {
+	uint32_t start;
+	uint32_t size;
+	uint32_t next[2];
+};
+
 struct ir_program {
 	struct ir_instruction *instructions;
-	uint32_t *block_start;
+	struct ir_block *blocks;
 
 	uint32_t block_count;
 	uint32_t register_count;

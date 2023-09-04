@@ -161,6 +161,8 @@ x86_emit_location(struct stream *out, struct location loc)
 		stream_print(out, "L");
 		stream_printu(out, loc.address);
 		break;
+	default:
+		ASSERT(!"Invalid location");
 	}
 }
 
@@ -344,6 +346,8 @@ x86_generate(struct ir_program program, struct arena *arena)
 			stream_print(&out, "L");
 			stream_printu(&out, op0.address);
 			stream_print(&out, ":\n");
+		default:
+			break;
 		}
 	}
 
