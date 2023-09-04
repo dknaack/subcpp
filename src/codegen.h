@@ -1,6 +1,7 @@
 #define LOC_PAIR(a, b) ((a) * LOC_TYPE_COUNT + (b))
 
 enum ir_opcode {
+	IR_NOP,
 	IR_LABEL,
 	IR_SET,
 	IR_MOV,
@@ -23,8 +24,9 @@ struct ir_instruction {
 
 struct ir_program {
 	struct ir_instruction *instructions;
-	uint32_t *label_addresses;
+	uint32_t *block_start;
 
+	uint32_t block_count;
 	uint32_t register_count;
 	uint32_t instruction_count;
 	uint32_t label_count;
@@ -52,8 +54,8 @@ struct variable {
 struct generator {
 	struct ir_program program;
 
+	uint32_t *label_addresses;
 	uint32_t max_instruction_count;
-	uint32_t max_label_count;
 
 	struct variable *variable_table;
 	uint32_t variable_table_size;

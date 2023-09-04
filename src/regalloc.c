@@ -98,7 +98,7 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 	struct bit_matrix prev_live_matrix = bit_matrix_init(
 	    program.register_count, program.instruction_count, arena);
 	struct ir_instruction *instructions = program.instructions;
-	uint32_t *label_addresses = program.label_addresses;
+	uint32_t *block_start = program.block_start;
 
 	bool has_matrix_changed;
 	do {
@@ -111,11 +111,11 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 			clear_row(live_matrix, i);
 			switch (instructions[i].opcode) {
 			case IR_JMP:
-				address = label_addresses[instructions[i].op0];
+				address = block_start[instructions[i].op0];
 				union_rows(live_matrix, i, address);
 				break;
 			case IR_JIZ:
-				address = label_addresses[instructions[i].op1];
+				address = block_start[instructions[i].op1];
 				union_rows(live_matrix, i, address);
 				/* fallthrough */
 			default:

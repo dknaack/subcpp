@@ -4,8 +4,6 @@ generator_init(struct arena *arena)
 	struct generator state = {0};
 	state.program.instructions = ALLOC(arena, 1024, struct ir_instruction);
 	state.max_instruction_count = 1024;
-	state.program.label_addresses = ALLOC(arena, 1024, uint32_t);
-	state.max_label_count = 1024;
 	state.variable_table = ALLOC(arena, 1024, struct variable);
 	state.variable_table_size = 1024;
 	return state;
@@ -15,7 +13,6 @@ static uint32_t
 new_label(struct generator *state)
 {
 	uint32_t result = state->program.label_count++;
-	ASSERT(state->program.label_count <= state->max_label_count);
 	return result;
 }
 
@@ -90,17 +87,9 @@ emit1(struct generator *state, enum ir_opcode opcode, uint32_t op0)
 	return result;
 }
 
-static uint32_t
-emit0(struct generator *state, enum ir_opcode opcode)
-{
-	uint32_t result = emit2(state, opcode, 0, 0);
-	return result;
-}
-
 static void
 generate_label(struct generator *state, uint32_t label)
 {
-	state->program.label_addresses[label] = state->program.instruction_count;
 	emit(state, IR_LABEL, label, 0, 0);
 }
 
@@ -194,10 +183,57 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 	}
 }
 
+static void
+construct_cfg(struct ir_program *program, struct arena *arena)
+{
+	program->block_start = ALLOC(arena, 1, uint32_t);
+	program->block_start[0] = 0;
+	uint32_t prev_block = 0;
+	for (uint32_t i = 0; i < program->instruction_count; i++) {
+		uint32_t opcode = program->instructions[i].opcode;
+		if (opcode == IR_JMP || opcode == IR_JIZ) {
+			*ALLOC(arena, 1, uint32_t) = prev_block = i+1;
+		} else if (prev_block != i && opcode == IR_LABEL) {
+			*ALLOC(arena, 1, uint32_t) = i;
+		}
+	}
+
+	*ALLOC(arena, 1, uint32_t) = program->instruction_count;
+
+	struct arena_temp temp = arena_temp_begin(arena);
+
+	uint32_t block_count = 1;
+	prev_block = 0;
+	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
+	for (uint32_t i = 0; i < program->instruction_count; i++) {
+		uint32_t opcode = program->instructions[i].opcode;
+		if (opcode == IR_JMP || opcode == IR_JIZ) {
+			block_count++;
+			prev_block = i+1;
+		} else if (prev_block != i && opcode == IR_LABEL) {
+			uint32_t label = program->instructions[i].op0;
+			block_indices[label] = ++block_count;
+			program->instructions[i].op0 = block_indices[label];
+		}
+	}
+
+	for (uint32_t i = 0; i < program->instruction_count; i++) {
+		struct ir_instruction *instruction = &program->instructions[i];
+		if (instruction->opcode == IR_JMP) {
+			instruction->op0 = block_indices[instruction->op0];
+		} else if (instruction->opcode == IR_JIZ) {
+			instruction->op1 = block_indices[instruction->op1];
+		}
+	}
+
+	arena_temp_end(temp);
+}
+
 static struct ir_program
 ir_generate(struct stmt *stmt, struct arena *arena)
 {
 	struct generator generator = generator_init(arena);
 	generate_stmt(&generator, stmt);
+	construct_cfg(&generator.program, arena);
 	return generator.program;
 }
