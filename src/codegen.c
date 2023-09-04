@@ -191,7 +191,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	uint32_t prev_block = 0;
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		uint32_t opcode = program->instructions[i].opcode;
-		if (opcode == IR_JMP || opcode == IR_JIZ) {
+		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_RET) {
 			ALLOC(arena, 1, struct ir_block)->start = prev_block = i+1;
 		} else if (prev_block != i && opcode == IR_LABEL) {
 			ALLOC(arena, 1, struct ir_block)->start = i;
@@ -206,7 +206,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		uint32_t opcode = program->instructions[i].opcode;
-		if (opcode == IR_JMP || opcode == IR_JIZ) {
+		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_RET) {
 			block_count++;
 			prev_block = i+1;
 		} else if (prev_block != i && opcode == IR_LABEL) {
