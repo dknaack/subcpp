@@ -288,7 +288,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			continue;
 		}
 
-		if (dst.type != LOC_STACK) {
+		if (dst.type != LOC_STACK && !location_equals(dst, op1)) {
 			temp = dst;
 		}
 
