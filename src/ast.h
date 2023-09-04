@@ -21,7 +21,9 @@ struct expr {
 };
 
 enum stmt_kind {
+	STMT_BREAK,
 	STMT_COMPOUND,
+	STMT_CONTINUE,
 	STMT_EMPTY,
 	STMT_EXPR,
 	STMT_IF,

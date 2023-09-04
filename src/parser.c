@@ -140,6 +140,18 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 
 	token = peek_token(tokenizer);
 	switch (token.kind) {
+	case TOKEN_BREAK:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_BREAK;
+		expect(tokenizer, TOKEN_SEMICOLON);
+		break;
+	case TOKEN_CONTINUE:
+		get_token(tokenizer);
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_CONTINUE;
+		expect(tokenizer, TOKEN_SEMICOLON);
+		break;
 	case TOKEN_IF:
 		get_token(tokenizer);
 		stmt = ZALLOC(arena, 1, struct stmt);

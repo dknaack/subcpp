@@ -140,10 +140,16 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 	uint32_t endif_label, else_label, condition, result = 0;
 
 	switch (stmt->kind) {
+	case STMT_BREAK:
+		emit(state, IR_JMP, state->break_label, 0, 0);
+		break;
 	case STMT_COMPOUND:
 		for (stmt = stmt->u.compound; stmt; stmt = stmt->next) {
 			generate_stmt(state, stmt);
 		}
+		break;
+	case STMT_CONTINUE:
+		emit(state, IR_JMP, state->continue_label, 0, 0);
 		break;
 	case STMT_EMPTY:
 		break;
