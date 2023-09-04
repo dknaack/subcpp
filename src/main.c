@@ -4,10 +4,6 @@
 #include <sys/wait.h>
 
 #include "main.h"
-#include "memory.h"
-#include "tokenizer.h"
-#include "ast.h"
-#include "codegen.h"
 
 static void
 print_ir(struct ir_instruction instruction)
