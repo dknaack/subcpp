@@ -273,6 +273,8 @@ x86_generate(struct ir_program program, struct arena *arena)
 		case IR_RET:
 			op0 = locations[instructions[i].op0];
 			break;
+		case IR_NOP:
+			continue;
 		}
 
 		if (dst.type != LOC_STACK) {

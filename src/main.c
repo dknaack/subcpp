@@ -13,6 +13,7 @@ print_ir(struct ir_instruction instruction)
 	uint32_t op1 = instruction.op1;
 
 	switch (instruction.opcode) {
+	case IR_NOP:   printf("\tnop\n"); break;
 	case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
 	case IR_MOV:   printf("\tmov r%d, r%d\n", dst, op0); break;
 	case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
