@@ -381,8 +381,6 @@ ir_generate(struct function *function, struct arena *arena)
 	    generator.program.function_count, struct ir_function);
 
 	uint32_t function_count = 0;
-	uint32_t main_label = new_label(&generator);
-	emit(&generator, IR_JMP, main_label, 0, 0);
 	for (; function; function = function->next) {
 		uint32_t function_label = new_label(&generator);
 		generate_label(&generator, function_label);
