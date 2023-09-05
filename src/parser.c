@@ -210,13 +210,18 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	case TOKEN_FOR:
 		get_token(tokenizer);
 		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_FOR;
 		expect(tokenizer, TOKEN_LPAREN);
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			/* TODO: parse declaration instead of expression */
-			stmt->u._for.init = parse_assign_expr(tokenizer, arena);
-			expect(tokenizer, TOKEN_SEMICOLON);
+			token = peek_token(tokenizer);
+			if (token.kind == TOKEN_INT) {
+				stmt->kind = STMT_FOR_DECL;
+				stmt->u._for.init.decl = parse_decl(tokenizer, arena);
+			} else {
+				stmt->kind = STMT_FOR_EXPR;
+				stmt->u._for.init.expr = parse_assign_expr(tokenizer, arena);
+				expect(tokenizer, TOKEN_SEMICOLON);
+			}
 		}
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {

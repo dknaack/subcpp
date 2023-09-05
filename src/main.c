@@ -121,9 +121,26 @@ print_expr(struct expr *expr)
 }
 
 static void
+print_decl(struct decl *decl)
+{
+	printf("int ");
+	while (decl) {
+		printf("%.*s", (int)decl->name.length, decl->name.at);
+		if (decl->expr) {
+			printf(" = ");
+			print_expr(decl->expr);
+		}
+
+		decl = decl->next;
+		if (decl) {
+			printf(", ");
+		}
+	}
+}
+
+static void
 print_stmt(struct stmt *stmt, int indent)
 {
-	struct string name;
 	for (int i = 0; i < indent; i++) {
 		printf("    ");
 	}
@@ -136,8 +153,6 @@ print_stmt(struct stmt *stmt, int indent)
 		printf("continue;\n");
 		break;
 	case STMT_DECL:
-		name = stmt->u.decl->name;
-		printf("int %.*s;\n", (int)name.length, name.at);
 		break;
 	case STMT_EMPTY:
 		printf(";\n");
@@ -146,9 +161,14 @@ print_stmt(struct stmt *stmt, int indent)
 		print_expr(stmt->u.expr);
 		printf(";\n");
 		break;
-	case STMT_FOR:
+	case STMT_FOR_EXPR:
+	case STMT_FOR_DECL:
 		printf("for (");
-		print_expr(stmt->u._for.init);
+		if (stmt->kind == STMT_FOR_EXPR) {
+			print_expr(stmt->u._for.init.expr);
+		} else {
+			print_decl(stmt->u._for.init.decl);
+		}
 		printf("; ");
 		print_expr(stmt->u._for.condition);
 		printf("; ");

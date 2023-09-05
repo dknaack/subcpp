@@ -176,10 +176,14 @@ generate_expr(struct generator *state, struct expr *expr)
 static void
 generate_decl(struct generator *state, struct decl *decl)
 {
-	uint32_t _register = new_register(state, decl->name);
-	if (decl->expr) {
-		uint32_t expr = generate_expr(state, decl->expr);
-		emit(state, IR_MOV, expr, 0, _register);
+	while (decl) {
+		uint32_t _register = new_register(state, decl->name);
+		if (decl->expr) {
+			uint32_t expr = generate_expr(state, decl->expr);
+			emit(state, IR_MOV, expr, 0, _register);
+		}
+
+		decl = decl->next;
 	}
 }
 
@@ -201,21 +205,24 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		emit(state, IR_JMP, state->continue_label, 0, 0);
 		break;
 	case STMT_DECL:
-		for (struct decl *decl = stmt->u.decl; decl; decl = decl->next) {
-			generate_decl(state, decl);
-		}
+		generate_decl(state, stmt->u.decl);
 		break;
 	case STMT_EMPTY:
 		break;
 	case STMT_EXPR:
 		generate_expr(state, stmt->u.expr);
 		break;
-	case STMT_FOR:
+	case STMT_FOR_EXPR:
+	case STMT_FOR_DECL:
 		state->break_label = new_label(state);
 		state->continue_label = new_label(state);
 		condition = new_label(state);
 
-		generate_expr(state, stmt->u._for.init);
+		if (stmt->kind == STMT_FOR_EXPR) {
+			generate_expr(state, stmt->u._for.init.expr);
+		} else {
+			generate_decl(state, stmt->u._for.init.decl);
+		}
 		generate_label(state, condition);
 		result = generate_expr(state, stmt->u._for.condition);
 		emit(state, IR_JIZ, result, state->break_label, 0);

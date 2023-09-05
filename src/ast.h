@@ -39,7 +39,8 @@ enum stmt_kind {
 	STMT_DECL,
 	STMT_EMPTY,
 	STMT_EXPR,
-	STMT_FOR,
+	STMT_FOR_DECL,
+	STMT_FOR_EXPR,
 	STMT_IF,
 	STMT_PRINT,
 	STMT_WHILE,
@@ -58,8 +59,10 @@ struct stmt_while {
 };
 
 struct stmt_for {
-	/* TODO: replace with declaration */
-	struct expr *init;
+	union {
+		struct expr *expr;
+		struct decl *decl;
+	} init;
 	struct expr *condition;
 	struct expr *post;
 	struct stmt *body;
