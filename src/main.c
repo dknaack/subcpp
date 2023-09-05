@@ -123,6 +123,7 @@ print_expr(struct expr *expr)
 static void
 print_stmt(struct stmt *stmt, int indent)
 {
+	struct string name;
 	for (int i = 0; i < indent; i++) {
 		printf("    ");
 	}
@@ -133,6 +134,10 @@ print_stmt(struct stmt *stmt, int indent)
 		break;
 	case STMT_CONTINUE:
 		printf("continue;\n");
+		break;
+	case STMT_DECL:
+		name = stmt->u.decl->name;
+		printf("int %.*s;\n", (int)name.length, name.at);
 		break;
 	case STMT_EMPTY:
 		printf(";\n");

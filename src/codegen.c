@@ -17,13 +17,6 @@ new_label(struct generator *state)
 }
 
 static uint32_t
-new_register(struct generator *state)
-{
-	uint32_t result = state->program.register_count++;
-	return result;
-}
-
-static uint32_t
 hash(struct string str)
 {
 	uint32_t h = 0x811c9dc5;
@@ -34,6 +27,35 @@ hash(struct string str)
 	}
 
 	return h;
+}
+
+static uint32_t
+new_temp_register(struct generator *state)
+{
+	uint32_t result = state->program.register_count++;
+	return result;
+}
+
+static uint32_t
+new_register(struct generator *state, struct string identifier)
+{
+	struct variable *variable_table = state->variable_table;
+	uint32_t h = hash(identifier);
+	for (uint32_t j = 0; j < state->variable_table_size; j++) {
+		uint32_t i = (h + j) & (state->variable_table_size - 1);
+		if (i == 0) {
+			continue;
+		}
+
+		if (!variable_table[i].name.at) {
+			variable_table[i].name = identifier;
+			variable_table[i]._register = new_temp_register(state);
+			return variable_table[i]._register;
+		}
+	}
+
+	ASSERT(!"OOM");
+	return 0;
 }
 
 static uint32_t
@@ -61,16 +83,12 @@ get_register(struct generator *state, struct string identifier)
 			continue;
 		}
 
-		if (!variable_table[i].name.at) {
-			variable_table[i].name = identifier;
-			variable_table[i]._register = new_register(state);
-			return variable_table[i]._register;
-		} else if (string_equals(variable_table[i].name, identifier)) {
+		if (string_equals(variable_table[i].name, identifier)) {
 			return variable_table[i]._register;
 		}
 	}
 
-	ASSERT(!"Out of memory");
+	ASSERT(!"Variable not declared");
 	return 0;
 }
 
@@ -89,7 +107,7 @@ emit(struct generator *state, enum ir_opcode opcode,
 static uint32_t
 emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
 {
-	uint32_t result = new_register(state);
+	uint32_t result = new_temp_register(state);
 	emit(state, opcode, op0, op1, result);
 	return result;
 }
@@ -171,6 +189,9 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		break;
 	case STMT_CONTINUE:
 		emit(state, IR_JMP, state->continue_label, 0, 0);
+		break;
+	case STMT_DECL:
+		new_register(state, stmt->u.decl->name);
 		break;
 	case STMT_EMPTY:
 		break;

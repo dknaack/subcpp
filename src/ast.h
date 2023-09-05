@@ -26,10 +26,15 @@ struct expr {
 	} u;
 };
 
+struct decl {
+	struct string name;
+};
+
 enum stmt_kind {
 	STMT_BREAK,
 	STMT_COMPOUND,
 	STMT_CONTINUE,
+	STMT_DECL,
 	STMT_EMPTY,
 	STMT_EXPR,
 	STMT_FOR,
@@ -67,6 +72,7 @@ struct stmt {
 		struct stmt_while _while;
 		struct stmt_for _for;
 		struct expr *expr;
+		struct decl *decl;
 		struct stmt *compound;
 	} u;
 };

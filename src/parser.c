@@ -52,6 +52,18 @@ parse_int(struct string str)
 	return ival;
 }
 
+static struct string
+parse_identifier(struct tokenizer *tokenizer)
+{
+	struct token token = get_token(tokenizer);
+	if (token.kind != TOKEN_IDENTIFIER) {
+		/* TODO: report error */
+		ASSERT(!"Syntax error");
+	}
+
+	return token.value;
+}
+
 static struct expr *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
 {
@@ -140,6 +152,16 @@ parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 	precedence = get_binary_precedence(TOKEN_ASSIGN);
 	expr = parse_expr(tokenizer, -precedence - 5, arena);
 	return expr;
+}
+
+static struct decl *
+parse_decl(struct tokenizer *tokenizer, struct arena *arena)
+{
+	struct decl *decl = ZALLOC(arena, 1, struct decl);
+	expect(tokenizer, TOKEN_INT);
+	decl->name = parse_identifier(tokenizer);
+	expect(tokenizer, TOKEN_SEMICOLON);
+	return decl;
 }
 
 static struct stmt *parse_stmt(struct tokenizer *tokenizer, struct arena *arena);
@@ -247,6 +269,11 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		stmt = ZALLOC(arena, 1, struct stmt);
 		stmt->kind = STMT_COMPOUND;
 		stmt->u.compound = parse_compound_stmt(tokenizer, arena);
+		break;
+	case TOKEN_INT:
+		stmt = ZALLOC(arena, 1, struct stmt);
+		stmt->kind = STMT_DECL;
+		stmt->u.decl = parse_decl(tokenizer, arena);
 		break;
 	default:
 		stmt = ZALLOC(arena, 1, struct stmt);
