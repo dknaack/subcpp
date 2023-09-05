@@ -174,9 +174,19 @@ generate_expr(struct generator *state, struct expr *expr)
 }
 
 static void
+generate_decl(struct generator *state, struct decl *decl)
+{
+	uint32_t _register = new_register(state, decl->name);
+	if (decl->expr) {
+		uint32_t expr = generate_expr(state, decl->expr);
+		emit(state, IR_MOV, expr, 0, _register);
+	}
+}
+
+static void
 generate_stmt(struct generator *state, struct stmt *stmt)
 {
-	uint32_t endif_label, else_label, condition, operand, result = 0;
+	uint32_t endif_label, else_label, condition, result = 0;
 
 	switch (stmt->kind) {
 	case STMT_BREAK:
@@ -191,10 +201,8 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		emit(state, IR_JMP, state->continue_label, 0, 0);
 		break;
 	case STMT_DECL:
-		result = new_register(state, stmt->u.decl->name);
-		if (stmt->u.decl->expr) {
-			operand = generate_expr(state, stmt->u.decl->expr);
-			emit(state, IR_MOV, operand, 0, result);
+		for (struct decl *decl = stmt->u.decl; decl; decl = decl->next) {
+			generate_decl(state, decl);
 		}
 		break;
 	case STMT_EMPTY:

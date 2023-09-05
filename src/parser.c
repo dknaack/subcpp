@@ -157,12 +157,17 @@ parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 static struct decl *
 parse_decl(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct decl *decl = ZALLOC(arena, 1, struct decl);
+	struct decl *decl;
+	struct decl **ptr = &decl;
 	expect(tokenizer, TOKEN_INT);
-	decl->name = parse_identifier(tokenizer);
-	if (accept(tokenizer, TOKEN_ASSIGN)) {
-		decl->expr = parse_assign_expr(tokenizer, arena);
-	}
+	do {
+		*ptr = ZALLOC(arena, 1, struct decl);
+		(*ptr)->name = parse_identifier(tokenizer);
+		if (accept(tokenizer, TOKEN_ASSIGN)) {
+			(*ptr)->expr = parse_assign_expr(tokenizer, arena);
+		}
+		ptr = &(*ptr)->next;
+	} while (accept(tokenizer, TOKEN_COMMA));
 	expect(tokenizer, TOKEN_SEMICOLON);
 	return decl;
 }

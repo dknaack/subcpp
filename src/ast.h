@@ -27,6 +27,7 @@ struct expr {
 };
 
 struct decl {
+	struct decl *next;
 	struct string name;
 	struct expr *expr;
 };

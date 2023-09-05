@@ -1,6 +1,7 @@
 enum token_kind {
 	TOKEN_INVALID,
 	TOKEN_EOF,
+	TOKEN_COMMA,
 	TOKEN_ADD,
 	TOKEN_SUB,
 	TOKEN_MUL,
