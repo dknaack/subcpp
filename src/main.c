@@ -24,6 +24,7 @@ print_ir(struct ir_instruction instruction)
 	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
 	case IR_RET:   printf("\tret r%d\n", op0); break;
+	case IR_CALL:  printf("\tcall r%d, L%d\n", dst, op0); break;
 	case IR_PRINT: printf("\tprint r%d\n", op0); break;
 	case IR_LABEL: printf("L%d:\n", op0); return;
 	}
@@ -36,6 +37,8 @@ print_program(struct ir_instruction *instructions, uint32_t instruction_count)
 		printf("%2d| ", i);
 		print_ir(*instructions++);
 	}
+
+	fflush(stdout);
 }
 
 #include "tokenizer.c"
@@ -250,7 +253,7 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	struct function *function = parse_function(&tokenizer, arena);
+	struct function *function = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(function, arena);
 	print_program(program.instructions, program.instruction_count);
 	x86_generate(program, arena);

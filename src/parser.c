@@ -55,11 +55,9 @@ parse_int(struct string str)
 static struct expr *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
 {
-	int precedence, right_associative;
-	struct expr *expr, *tmp;
-	struct token token;
+	struct expr *expr;
 
-	token = peek_token(tokenizer);
+	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_IDENTIFIER:
 		get_token(tokenizer);
@@ -90,32 +88,44 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 			break;
 		}
 
-		precedence = get_binary_precedence(token.kind);
-		if (precedence == 0) {
-			/* TODO: report syntax error */
-			ASSERT(!"Invalid expression");
-			return NULL;
+		if (token.kind == TOKEN_LPAREN) {
+			get_token(tokenizer);
+			expect(tokenizer, TOKEN_RPAREN);
+			struct expr *called = expr;
+			expr = ALLOC(arena, 1, struct expr);
+			expr->kind = EXPR_CALL;
+			expr->u.call.called = called;
+		} else {
+			int precedence = get_binary_precedence(token.kind);
+			if (precedence == 0) {
+				/* TODO: report syntax error */
+				ASSERT(!"Invalid expression");
+				return NULL;
+			}
+
+			bool is_right_associative = (precedence < 0);
+			if (is_right_associative) {
+				precedence = -precedence;
+			}
+
+			if (precedence <= prev_precedence) {
+				break;
+			}
+
+			get_token(tokenizer);
+
+			/* NOTE: Ensure that right associative expressions are
+			 * parsed correctly. */
+			precedence -= is_right_associative;
+			struct expr *lhs = expr;
+			struct expr *rhs = parse_expr(tokenizer, precedence, arena);
+
+			expr = ALLOC(arena, 1, struct expr);
+			expr->kind = EXPR_BINARY;
+			expr->u.binary.op = token.kind;
+			expr->u.binary.lhs = lhs;
+			expr->u.binary.rhs = rhs;
 		}
-
-		right_associative = (precedence < 0);
-		if (right_associative) {
-			precedence = -precedence;
-		}
-
-		if (precedence <= prev_precedence) {
-			break;
-		}
-
-		get_token(tokenizer);
-		tmp = expr;
-		/* Ensure that right associative exprs are parsed correctly. */
-		precedence -= right_associative;
-
-		expr = ALLOC(arena, 1, struct expr);
-		expr->kind = EXPR_BINARY;
-		expr->u.binary.op = token.kind;
-		expr->u.binary.lhs = tmp;
-		expr->u.binary.rhs = parse_expr(tokenizer, precedence, arena);
 	}
 
 	return expr;
@@ -266,4 +276,16 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	function->body = parse_compound_stmt(tokenizer, arena);
 
 	return function;
+}
+
+static struct function *
+parse(struct tokenizer *tokenizer, struct arena *arena)
+{
+	struct function *head, **ptr = &head;
+	while (!accept(tokenizer, TOKEN_EOF)) {
+		*ptr = parse_function(tokenizer, arena);
+		ptr = &(*ptr)->next;
+	}
+
+	return head;
 }

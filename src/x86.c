@@ -17,8 +17,8 @@ enum x86_register {
 	X86_RDX,
 	X86_RSI,
 	X86_RDI,
-	X86_RBP,
 	X86_RSP,
+	X86_RBP,
 };
 
 enum x86_opcode {
@@ -275,17 +275,17 @@ x86_generate(struct ir_program program, struct arena *arena)
 			op0 = locations[instructions[i].op0];
 			/* fallthrough */
 		case IR_SET:
+		case IR_CALL:
 			dst = locations[instructions[i].dst];
 		case IR_JMP:
 		case IR_LABEL:
+		case IR_NOP:
 			break;
 		case IR_JIZ:
 		case IR_RET:
 		case IR_PRINT:
 			op0 = locations[instructions[i].op0];
 			break;
-		case IR_NOP:
-			continue;
 		}
 
 		if (dst.type != LOC_STACK && !location_equals(dst, op1)) {
@@ -351,6 +351,21 @@ x86_generate(struct ir_program program, struct arena *arena)
 			}
 			x86_emit0(&out, "ret");
 			break;
+		case IR_CALL:
+			op0 = label_location(op0.address);
+			stream_print(&out,
+			    "\tpush r12\n"
+			    "\tpush r13\n"
+			    "\tpush r14\n"
+			    "\tpush r15\n");
+			x86_emit1(&out, "call", op0);
+			stream_print(&out,
+			    "\tpop r15\n"
+			    "\tpop r14\n"
+			    "\tpop r13\n"
+			    "\tpop r12\n");
+			x86_mov(&out, dst, rax);
+			break;
 		case IR_PRINT:
 			stream_print(&out, "\tmov rdi, fmt\n");
 			x86_mov(&out, rsi, op0);
@@ -361,7 +376,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 			stream_print(&out, "L");
 			stream_printu(&out, op0.address);
 			stream_print(&out, ":\n");
-		default:
+		case IR_NOP:
 			break;
 		}
 	}

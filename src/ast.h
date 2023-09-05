@@ -1,5 +1,6 @@
 enum expr_kind {
 	EXPR_BINARY,
+	EXPR_CALL,
 	EXPR_IDENTIFIER,
 	EXPR_INT,
 };
@@ -10,11 +11,16 @@ struct expr_binary {
 	struct expr *rhs;
 };
 
+struct expr_call {
+	struct expr *called;
+};
+
 struct expr {
 	enum expr_kind kind;
 
 	union {
 		struct expr_binary binary;
+		struct expr_call call;
 		struct string identifier;
 		intmax_t ival;
 	} u;
@@ -66,6 +72,7 @@ struct stmt {
 };
 
 struct function {
+	struct function *next;
 	struct string name;
 	struct stmt *body;
 };

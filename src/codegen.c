@@ -37,6 +37,19 @@ hash(struct string str)
 }
 
 static uint32_t
+get_function(struct generator *state, struct string identifier)
+{
+	for (struct variable *f = state->function_table; f; f = f->next) {
+		if (string_equals(f->name, identifier)) {
+			return f->_register;
+		}
+	}
+
+	ASSERT(!"Function not defined");
+	return 0;
+}
+
+static uint32_t
 get_register(struct generator *state, struct string identifier)
 {
 	struct variable *variable_table = state->variable_table;
@@ -96,9 +109,9 @@ generate_label(struct generator *state, uint32_t label)
 static uint32_t
 generate_expr(struct generator *state, struct expr *expr)
 {
+	uint32_t lhs, rhs, label, result = 0;
 	enum ir_opcode opcode;
-	uint32_t result = 0;
-	uint32_t lhs, rhs;
+	struct expr *called;
 
 	switch (expr->kind) {
 	case EXPR_BINARY:
@@ -121,6 +134,13 @@ generate_expr(struct generator *state, struct expr *expr)
 			emit(state, IR_MOV, rhs, 0, result);
 		} else {
 			result = emit2(state, opcode, lhs, rhs);
+		}
+		break;
+	case EXPR_CALL:
+		called = expr->u.call.called;
+		if (called->kind == EXPR_IDENTIFIER) {
+			label = get_function(state, called->u.identifier);
+			result = emit1(state, IR_CALL, label);
 		}
 		break;
 	case EXPR_IDENTIFIER:
@@ -220,11 +240,14 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		uint32_t opcode = program->instructions[i].opcode;
 		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_RET) {
 			ALLOC(arena, 1, struct ir_block)->start = prev_block = i+1;
+			printf("start = %d\n", i + 1);
 		} else if (prev_block != i && opcode == IR_LABEL) {
 			ALLOC(arena, 1, struct ir_block)->start = i;
+			printf("start = %d\n", i);
 		}
 	}
 
+	fflush(stdout);
 	struct arena_temp temp = arena_temp_begin(arena);
 
 	/* replace labels with block indices */
@@ -237,8 +260,12 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 			block_count++;
 			prev_block = i+1;
 		} else if (prev_block != i && opcode == IR_LABEL) {
+			block_count++;
+		}
+
+		if (opcode == IR_LABEL) {
 			uint32_t label = program->instructions[i].op0;
-			block_indices[label] = ++block_count;
+			block_indices[label] = block_count - 1;
 			program->instructions[i].op0 = block_indices[label];
 		}
 	}
@@ -289,8 +316,26 @@ static struct ir_program
 ir_generate(struct function *function, struct arena *arena)
 {
 	struct generator generator = generator_init(arena);
-	for (struct stmt *stmt = function->body; stmt; stmt = stmt->next) {
-		generate_stmt(&generator, stmt);
+
+	uint32_t main_label = new_label(&generator);
+	emit(&generator, IR_JMP, main_label, 0, 0);
+	for (; function; function = function->next) {
+		uint32_t function_label = main_label;
+		if (!string_equals(function->name, S("main"))) {
+			function_label = new_label(&generator);
+		}
+
+		generate_label(&generator, function_label);
+
+		struct variable *function_variable = ALLOC(arena, 1, struct variable);
+		function_variable->next = generator.function_table;
+		function_variable->name = function->name;
+		function_variable->_register = function_label;
+		generator.function_table = function_variable;
+
+		for (struct stmt *stmt = function->body; stmt; stmt = stmt->next) {
+			generate_stmt(&generator, stmt);
+		}
 	}
 
 	construct_cfg(&generator.program, arena);

@@ -13,6 +13,7 @@ enum ir_opcode {
 	IR_JMP,
 	IR_JIZ,
 	IR_RET,
+	IR_CALL,
 	IR_PRINT,
 };
 
@@ -64,6 +65,7 @@ struct generator {
 	uint32_t *label_addresses;
 	uint32_t max_instruction_count;
 
+	struct variable *function_table;
 	struct variable *variable_table;
 	uint32_t variable_table_size;
 
