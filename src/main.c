@@ -255,7 +255,6 @@ main(int argc, char *argv[])
 	struct tokenizer tokenizer = tokenize(contents);
 	struct function *function = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(function, arena);
-	print_program(program.instructions, program.instruction_count);
 	x86_generate(program, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
