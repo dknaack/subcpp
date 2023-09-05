@@ -160,6 +160,9 @@ parse_decl(struct tokenizer *tokenizer, struct arena *arena)
 	struct decl *decl = ZALLOC(arena, 1, struct decl);
 	expect(tokenizer, TOKEN_INT);
 	decl->name = parse_identifier(tokenizer);
+	if (accept(tokenizer, TOKEN_ASSIGN)) {
+		decl->expr = parse_assign_expr(tokenizer, arena);
+	}
 	expect(tokenizer, TOKEN_SEMICOLON);
 	return decl;
 }

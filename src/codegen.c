@@ -176,7 +176,7 @@ generate_expr(struct generator *state, struct expr *expr)
 static void
 generate_stmt(struct generator *state, struct stmt *stmt)
 {
-	uint32_t endif_label, else_label, condition, result = 0;
+	uint32_t endif_label, else_label, condition, operand, result = 0;
 
 	switch (stmt->kind) {
 	case STMT_BREAK:
@@ -191,7 +191,11 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		emit(state, IR_JMP, state->continue_label, 0, 0);
 		break;
 	case STMT_DECL:
-		new_register(state, stmt->u.decl->name);
+		result = new_register(state, stmt->u.decl->name);
+		if (stmt->u.decl->expr) {
+			operand = generate_expr(state, stmt->u.decl->expr);
+			emit(state, IR_MOV, operand, 0, result);
+		}
 		break;
 	case STMT_EMPTY:
 		break;

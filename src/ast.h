@@ -28,6 +28,7 @@ struct expr {
 
 struct decl {
 	struct string name;
+	struct expr *expr;
 };
 
 enum stmt_kind {
