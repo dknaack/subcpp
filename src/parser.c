@@ -132,13 +132,28 @@ parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 	return expr;
 }
 
+static struct stmt *parse_stmt(struct tokenizer *tokenizer, struct arena *arena);
+
+static struct stmt *
+parse_compound_stmt(struct tokenizer *tokenizer, struct arena *arena)
+{
+	struct stmt *head, **ptr = &head;
+
+	expect(tokenizer, TOKEN_LBRACE);
+	while (!accept(tokenizer, TOKEN_RBRACE)) {
+		*ptr = parse_stmt(tokenizer, arena);
+		ptr = &(*ptr)->next;
+	}
+
+	return head;
+}
+
 static struct stmt *
 parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct token token;
-	struct stmt *stmt, **ptr;
+	struct stmt *stmt;
 
-	token = peek_token(tokenizer);
+	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_BREAK:
 		get_token(tokenizer);
@@ -219,14 +234,9 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		stmt->kind = STMT_EMPTY;
 		break;
 	case TOKEN_LBRACE:
-		get_token(tokenizer);
 		stmt = ZALLOC(arena, 1, struct stmt);
 		stmt->kind = STMT_COMPOUND;
-		ptr = &stmt->u.compound;
-		while (!accept(tokenizer, TOKEN_RBRACE)) {
-			*ptr = parse_stmt(tokenizer, arena);
-			ptr = &(*ptr)->next;
-		}
+		stmt->u.compound = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
 		stmt = ZALLOC(arena, 1, struct stmt);
@@ -236,4 +246,24 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	}
 
 	return stmt;
+}
+
+static struct function *
+parse_function(struct tokenizer *tokenizer, struct arena *arena)
+{
+	struct function *function = ZALLOC(arena, 1, struct function);
+
+	expect(tokenizer, TOKEN_INT);
+	struct token token = get_token(tokenizer);
+	if (token.kind != TOKEN_IDENTIFIER) {
+		ASSERT(!"Expected identifier");
+	}
+
+	function->name = token.value;
+	expect(tokenizer, TOKEN_LPAREN);
+	accept(tokenizer, TOKEN_VOID);
+	expect(tokenizer, TOKEN_RPAREN);
+	function->body = parse_compound_stmt(tokenizer, arena);
+
+	return function;
 }

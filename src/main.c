@@ -250,8 +250,9 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	struct stmt *stmt = parse_stmt(&tokenizer, arena);
-	struct ir_program program = ir_generate(stmt, arena);
+	struct function *function = parse_function(&tokenizer, arena);
+	struct ir_program program = ir_generate(function, arena);
+	print_program(program.instructions, program.instruction_count);
 	x86_generate(program, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");

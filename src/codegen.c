@@ -286,10 +286,13 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 }
 
 static struct ir_program
-ir_generate(struct stmt *stmt, struct arena *arena)
+ir_generate(struct function *function, struct arena *arena)
 {
 	struct generator generator = generator_init(arena);
-	generate_stmt(&generator, stmt);
+	for (struct stmt *stmt = function->body; stmt; stmt = stmt->next) {
+		generate_stmt(&generator, stmt);
+	}
+
 	construct_cfg(&generator.program, arena);
 	return generator.program;
 }

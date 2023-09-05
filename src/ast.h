@@ -64,3 +64,8 @@ struct stmt {
 		struct stmt *compound;
 	} u;
 };
+
+struct function {
+	struct string name;
+	struct stmt *body;
+};

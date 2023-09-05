@@ -111,12 +111,14 @@ get_token(struct tokenizer *tokenizer)
 	} keywords[] = {
 		{ TOKEN_BREAK,    S("break")    },
 		{ TOKEN_CONTINUE, S("continue") },
-		{ TOKEN_IF,       S("if")       },
 		{ TOKEN_ELSE,     S("else")     },
 		{ TOKEN_FOR,      S("for")      },
-		{ TOKEN_WHILE,    S("while")    },
-		{ TOKEN_RETURN,   S("return")   },
+		{ TOKEN_IF,       S("if")       },
+		{ TOKEN_INT,      S("int")      },
 		{ TOKEN_PRINT,    S("print")    },
+		{ TOKEN_RETURN,   S("return")   },
+		{ TOKEN_VOID,     S("void")     },
+		{ TOKEN_WHILE,    S("while")    },
 	};
 
 	do {
