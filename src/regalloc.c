@@ -113,7 +113,7 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 			case IR_RET:
 				break;
 			case IR_JMP:
-				address = blocks[instructions[i].op0].start;
+				address = blocks[instructions[i].dst].start;
 				union_rows(live_matrix, i, address);
 				break;
 			case IR_JIZ:

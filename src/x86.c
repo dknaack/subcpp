@@ -308,8 +308,8 @@ x86_generate_basic_block(struct stream *out,
 			x86_mov(out, dst, rdx);
 			break;
 		case IR_JMP:
-			op0 = label_location(op0.address);
-			x86_emit1(out, "jmp", op0);
+			dst = label_location(dst.address);
+			x86_emit1(out, "jmp", dst);
 			stream_print(out, "\n");
 			break;
 		case IR_JIZ:
