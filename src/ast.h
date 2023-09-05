@@ -13,6 +13,7 @@ struct expr_binary {
 
 struct expr_call {
 	struct expr *called;
+	struct expr *parameter;
 };
 
 struct expr {
@@ -85,5 +86,6 @@ struct stmt {
 struct function {
 	struct function *next;
 	struct string name;
+	struct decl *parameter;
 	struct stmt *body;
 };

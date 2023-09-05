@@ -64,6 +64,8 @@ parse_identifier(struct tokenizer *tokenizer)
 	return token.value;
 }
 
+static struct expr * parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena);
+
 static struct expr *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
 {
@@ -102,11 +104,16 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 
 		if (token.kind == TOKEN_LPAREN) {
 			get_token(tokenizer);
-			expect(tokenizer, TOKEN_RPAREN);
+			struct expr *parameter = NULL;
+			if (!accept(tokenizer, TOKEN_RPAREN)) {
+				parameter = parse_assign_expr(tokenizer, arena);
+				expect(tokenizer, TOKEN_RPAREN);
+			}
 			struct expr *called = expr;
 			expr = ALLOC(arena, 1, struct expr);
 			expr->kind = EXPR_CALL;
 			expr->u.call.called = called;
+			expr->u.call.parameter = parameter;
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {
@@ -154,12 +161,17 @@ parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 	return expr;
 }
 
+enum parse_decl_flags {
+	PARSE_SINGLE_DECL = (1 << 0),
+};
+
 static struct decl *
-parse_decl(struct tokenizer *tokenizer, struct arena *arena)
+parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 {
 	struct decl *decl;
 	struct decl **ptr = &decl;
 	expect(tokenizer, TOKEN_INT);
+
 	do {
 		*ptr = ZALLOC(arena, 1, struct decl);
 		(*ptr)->name = parse_identifier(tokenizer);
@@ -167,8 +179,8 @@ parse_decl(struct tokenizer *tokenizer, struct arena *arena)
 			(*ptr)->expr = parse_assign_expr(tokenizer, arena);
 		}
 		ptr = &(*ptr)->next;
-	} while (accept(tokenizer, TOKEN_COMMA));
-	expect(tokenizer, TOKEN_SEMICOLON);
+	} while (!(flags & PARSE_SINGLE_DECL) && accept(tokenizer, TOKEN_COMMA));
+
 	return decl;
 }
 
@@ -216,12 +228,13 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 			token = peek_token(tokenizer);
 			if (token.kind == TOKEN_INT) {
 				stmt->kind = STMT_FOR_DECL;
-				stmt->u._for.init.decl = parse_decl(tokenizer, arena);
+				stmt->u._for.init.decl = parse_decl(tokenizer, 0, arena);
 			} else {
 				stmt->kind = STMT_FOR_EXPR;
 				stmt->u._for.init.expr = parse_assign_expr(tokenizer, arena);
-				expect(tokenizer, TOKEN_SEMICOLON);
 			}
+
+			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
@@ -286,7 +299,8 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	case TOKEN_INT:
 		stmt = ZALLOC(arena, 1, struct stmt);
 		stmt->kind = STMT_DECL;
-		stmt->u.decl = parse_decl(tokenizer, arena);
+		stmt->u.decl = parse_decl(tokenizer, 0, arena);
+		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	default:
 		stmt = ZALLOC(arena, 1, struct stmt);
@@ -311,7 +325,12 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 
 	function->name = token.value;
 	expect(tokenizer, TOKEN_LPAREN);
-	accept(tokenizer, TOKEN_VOID);
+	token = peek_token(tokenizer);
+	if (token.kind == TOKEN_INT) {
+		function->parameter = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+	} else if (token.kind == TOKEN_VOID) {
+		get_token(tokenizer);
+	}
 	expect(tokenizer, TOKEN_RPAREN);
 	function->body = parse_compound_stmt(tokenizer, arena);
 
