@@ -30,12 +30,20 @@ struct ir_block {
 	uint32_t next[2];
 };
 
+struct ir_function {
+	struct string name;
+	uint32_t block_index;
+	uint32_t block_count;
+};
+
 struct ir_program {
 	struct ir_instruction *instructions;
 	struct ir_block *blocks;
+	struct ir_function *functions;
 
 	uint32_t block_count;
 	uint32_t register_count;
+	uint32_t function_count;
 	uint32_t instruction_count;
 	uint32_t label_count;
 };
@@ -65,7 +73,6 @@ struct generator {
 	uint32_t *label_addresses;
 	uint32_t max_instruction_count;
 
-	struct variable *function_table;
 	struct variable *variable_table;
 	uint32_t variable_table_size;
 

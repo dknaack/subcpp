@@ -80,6 +80,14 @@ stream_write(struct stream *stream, uint8_t byte)
 }
 
 static void
+stream_prints(struct stream *stream, struct string str)
+{
+	while (str.length-- > 0) {
+		stream_write(stream, *str.at++);
+	}
+}
+
+static void
 stream_print(struct stream *stream, char *str)
 {
 	while (*str) {
@@ -222,40 +230,13 @@ x86_mov(struct stream *out, struct location dst, struct location src)
 }
 
 static void
-x86_generate(struct ir_program program, struct arena *arena)
+x86_generate_basic_block(struct stream *out,
+    struct ir_program program, uint32_t block_index,
+    struct location *locations, uint32_t stack_size, char *postamble)
 {
-	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
-
-	// TODO: choose a random file for output
-	struct stream out = stream_open("/tmp/out.s", 4096);
-	if (!out.fd) {
-		return;
-	}
-
-	uint32_t stack_size = 0;
-	for (uint32_t i = 0; i < program.register_count; i++) {
-		if (locations[i].type == LOC_STACK) {
-			locations[i].address = stack_size;
-			stack_size += x86_register_size;
-		}
-	}
-
-	stream_print(&out,
-	    "global main\n"
-	    "extern printf\n\n"
-	    "section .data\n"
-	    "fmt: db \"%d\", 0x0A, 0\n\n"
-	    "section .text\n"
-	    "main:\n"
-	);
-	if (stack_size > 0) {
-		stream_print(&out, "\tsub rsp, ");
-		stream_printu(&out, stack_size);
-		stream_print(&out, "\n");
-	}
-
 	struct ir_instruction *instructions = program.instructions;
-	for (uint32_t i = 0; i < program.instruction_count; i++) {
+	struct ir_block block = program.blocks[block_index];
+	for (uint32_t i = block.start; i < block.start + block.size; i++) {
 		struct location rax = register_location(X86_RAX);
 		struct location rsi = register_location(X86_RSI);
 		struct location rdx = register_location(X86_RDX);
@@ -294,91 +275,150 @@ x86_generate(struct ir_program program, struct arena *arena)
 
 		switch (instructions[i].opcode) {
 		case IR_SET:
-			x86_mov(&out, dst, op0);
+			x86_mov(out, dst, op0);
 			break;
 		case IR_MOV:
-			x86_mov(&out, dst, op0);
+			x86_mov(out, dst, op0);
 			break;
 		case IR_ADD:
-			x86_mov(&out, temp, op0);
-			x86_emit2(&out, "add", temp, op1);
-			x86_mov(&out, dst, temp);
+			x86_mov(out, temp, op0);
+			x86_emit2(out, "add", temp, op1);
+			x86_mov(out, dst, temp);
 			break;
 		case IR_SUB:
-			x86_mov(&out, temp, op0);
-			x86_emit2(&out, "sub", temp, op1);
-			x86_mov(&out, dst, temp);
+			x86_mov(out, temp, op0);
+			x86_emit2(out, "sub", temp, op1);
+			x86_mov(out, dst, temp);
 			break;
 		case IR_MUL:
-			x86_mov(&out, rax, op0);
-			x86_emit1(&out, "imul", op1);
-			x86_mov(&out, dst, rax);
+			x86_mov(out, rax, op0);
+			x86_emit1(out, "imul", op1);
+			x86_mov(out, dst, rax);
 			break;
 		case IR_DIV:
-			x86_mov(&out, rax, op0);
-			x86_mov(&out, rdx, const_location(0));
-			x86_emit1(&out, "idiv", op1);
-			x86_mov(&out, dst, rax);
+			x86_mov(out, rax, op0);
+			x86_mov(out, rdx, const_location(0));
+			x86_emit1(out, "idiv", op1);
+			x86_mov(out, dst, rax);
 			break;
 		case IR_MOD:
-			x86_mov(&out, rax, op0);
-			x86_mov(&out, rdx, const_location(0));
-			x86_emit1(&out, "idiv", op1);
-			x86_mov(&out, dst, rdx);
+			x86_mov(out, rax, op0);
+			x86_mov(out, rdx, const_location(0));
+			x86_emit1(out, "idiv", op1);
+			x86_mov(out, dst, rdx);
 			break;
 		case IR_JMP:
 			op0 = label_location(op0.address);
-			x86_emit1(&out, "jmp", op0);
-			stream_print(&out, "\n");
+			x86_emit1(out, "jmp", op0);
+			stream_print(out, "\n");
 			break;
 		case IR_JIZ:
 			op1 = label_location(op1.address);
 			if (op0.type == LOC_STACK) {
-				x86_mov(&out, rax, op0);
+				x86_mov(out, rax, op0);
 				op0 = rax;
 			}
 
-			x86_emit2(&out, "test", op0, op0);
-			x86_emit1(&out, "jz", op1);
-			stream_print(&out, "\n");
+			x86_emit2(out, "test", op0, op0);
+			x86_emit1(out, "jz", op1);
+			stream_print(out, "\n");
 			break;
 		case IR_RET:
-			x86_mov(&out, rax, op0);
+			x86_mov(out, rax, op0);
 			if (stack_size > 0) {
-				stream_print(&out, "\tadd rsp, ");
-				stream_printu(&out, stack_size);
-				stream_print(&out, "\n");
+				stream_print(out, "\tadd rsp, ");
+				stream_printu(out, stack_size);
+				stream_print(out, "\n");
 			}
-			x86_emit0(&out, "ret");
+
+			stream_print(out, postamble);
 			break;
 		case IR_CALL:
 			op0 = label_location(op0.address);
-			stream_print(&out,
-			    "\tpush r12\n"
-			    "\tpush r13\n"
-			    "\tpush r14\n"
-			    "\tpush r15\n");
-			x86_emit1(&out, "call", op0);
-			stream_print(&out,
-			    "\tpop r15\n"
-			    "\tpop r14\n"
-			    "\tpop r13\n"
-			    "\tpop r12\n");
-			x86_mov(&out, dst, rax);
+			stream_print(out, "\tcall ");
+			stream_prints(out, program.functions[op0.address].name);
+			stream_print(out, "\n");
+			x86_mov(out, dst, rax);
 			break;
 		case IR_PRINT:
-			stream_print(&out, "\tmov rdi, fmt\n");
-			x86_mov(&out, rsi, op0);
-			x86_mov(&out, rax, const_location(0));
-			stream_print(&out, "\tcall printf wrt ..plt\n");
+			stream_print(out, "\tmov rdi, fmt\n");
+			x86_mov(out, rsi, op0);
+			x86_mov(out, rax, const_location(0));
+			stream_print(out, "\tcall printf wrt ..plt\n");
 			break;
 		case IR_LABEL:
-			stream_print(&out, "L");
-			stream_printu(&out, op0.address);
-			stream_print(&out, ":\n");
+			stream_print(out, "L");
+			stream_printu(out, op0.address);
+			stream_print(out, ":\n");
 		case IR_NOP:
 			break;
 		}
+	}
+}
+
+static void
+x86_generate_function(struct stream *out, struct ir_program program,
+    uint32_t function_index, struct location *locations, uint32_t stack_size)
+{
+	struct ir_function function = program.functions[function_index];
+	uint32_t last_block = function.block_index + function.block_count;
+
+	stream_prints(out, function.name);
+	stream_print(out, ":\n");
+	stream_print(out,
+	    "\tpush r12\n"
+	    "\tpush r13\n"
+	    "\tpush r14\n"
+	    "\tpush r15\n"
+	);
+
+	char *postamble = "\n"
+	    "\tpop r15\n"
+	    "\tpop r14\n"
+	    "\tpop r13\n"
+	    "\tpop r12\n"
+	    "\tret\n";
+
+	for (uint32_t i = function.block_index; i < last_block; i++) {
+		x86_generate_basic_block(out, program, i, locations, stack_size, postamble);
+	}
+}
+
+static void
+x86_generate(struct ir_program program, struct arena *arena)
+{
+	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
+
+	// TODO: choose a random file for output
+	struct stream out = stream_open("/tmp/out.s", 4096);
+	if (!out.fd) {
+		return;
+	}
+
+	uint32_t stack_size = 0;
+	for (uint32_t i = 0; i < program.register_count; i++) {
+		if (locations[i].type == LOC_STACK) {
+			locations[i].address = stack_size;
+			stack_size += x86_register_size;
+		}
+	}
+
+	stream_print(&out,
+	    "global main\n"
+	    "extern printf\n\n"
+	    "section .data\n"
+	    "fmt: db \"%d\", 0x0A, 0\n\n"
+	    "section .text\n"
+	);
+
+	if (stack_size > 0) {
+		stream_print(&out, "\tsub rsp, ");
+		stream_printu(&out, stack_size);
+		stream_print(&out, "\n");
+	}
+
+	for (uint32_t i = 0; i < program.function_count; i++) {
+		x86_generate_function(&out, program, i, locations, stack_size);
 	}
 
 	if (stack_size > 0) {
