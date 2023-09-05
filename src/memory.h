@@ -25,6 +25,7 @@ static void *
 alloc(struct arena *arena, size_t count, size_t size)
 {
 	ASSERT(arena->pos + size * count < arena->size);
+	arena->pos = (arena->pos + 7) & -8;
 	void *result = arena->data + arena->pos;
 	arena->pos += size * count;
 	return result;
