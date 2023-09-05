@@ -226,7 +226,7 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		}
 		generate_label(state, condition);
 		result = generate_expr(state, stmt->u._for.condition);
-		emit3(state, IR_JIZ, 0, result, state->break_label);
+		emit2(state, IR_JIZ, state->break_label, result);
 		generate_stmt(state, stmt->u._for.body);
 		generate_label(state, state->continue_label);
 		generate_expr(state, stmt->u._for.post);
@@ -238,7 +238,7 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		else_label = new_label(state);
 
 		condition = generate_expr(state, stmt->u._if.condition);
-		emit3(state, IR_JIZ, 0, condition, else_label);
+		emit2(state, IR_JIZ, else_label, condition);
 		generate_stmt(state, stmt->u._if.then);
 		emit1(state, IR_JMP, endif_label);
 		generate_label(state, else_label);
@@ -254,7 +254,7 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 
 		generate_label(state, state->continue_label);
 		result = generate_expr(state, stmt->u._while.condition);
-		emit3(state, IR_JIZ, 0, result, state->break_label);
+		emit2(state, IR_JIZ, state->break_label, result);
 		generate_stmt(state, stmt->u._while.body);
 		emit1(state, IR_JMP, state->continue_label);
 		generate_label(state, state->break_label);
@@ -316,14 +316,11 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		struct ir_instruction *instruction = &program->instructions[i];
-		if (instruction->opcode == IR_JMP) {
+		enum ir_opcode opcode = instruction->opcode;
+		if (opcode == IR_JMP || opcode == IR_JIZ) {
 			uint32_t block = block_indices[instruction->dst];
 			ASSERT(block > 0);
 			instruction->dst = block;
-		} else if (instruction->opcode == IR_JIZ) {
-			uint32_t block = block_indices[instruction->op1];
-			ASSERT(block > 0);
-			instruction->op1 = block;
 		}
 	}
 
@@ -366,7 +363,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 			break;
 		case IR_JIZ:
 			blocks[i].next[0] = i + 1;
-			blocks[i].next[1] = instructions[block_end].op1;
+			blocks[i].next[1] = instructions[block_end].dst;
 			break;
 		case IR_RET:
 			blocks[i].next[0] = program->instruction_count;

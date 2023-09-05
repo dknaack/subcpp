@@ -313,14 +313,14 @@ x86_generate_basic_block(struct stream *out,
 			stream_print(out, "\n");
 			break;
 		case IR_JIZ:
-			op1 = label_location(op1.address);
+			dst = label_location(dst.address);
 			if (op0.type == LOC_STACK) {
 				x86_mov(out, rax, op0);
 				op0 = rax;
 			}
 
 			x86_emit2(out, "test", op0, op0);
-			x86_emit1(out, "jz", op1);
+			x86_emit1(out, "jz", dst);
 			stream_print(out, "\n");
 			break;
 		case IR_RET:
