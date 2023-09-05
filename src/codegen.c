@@ -254,70 +254,76 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 
 		generate_label(state, state->continue_label);
 		result = generate_expr(state, stmt->u._while.condition);
-		emit(state, IR_JIZ, result, state->break_label, 0);
+		emit3(state, IR_JIZ, 0, result, state->break_label);
 		generate_stmt(state, stmt->u._while.body);
-		emit(state, IR_JMP, state->continue_label, 0, 0);
+		emit3(state, IR_JMP, 0, state->continue_label, 0);
 		generate_label(state, state->break_label);
 		break;
 	case STMT_RETURN:
 		if (stmt->u.expr) {
 			result = generate_expr(state, stmt->u.expr);
 		}
-		emit(state, IR_RET, result, 0, 0);
+		emit3(state, IR_RET, 0, result, 0);
 		break;
 	case STMT_PRINT:
 		result = generate_expr(state, stmt->u.expr);
-		emit(state, IR_PRINT, result, 0, 0);
+		emit3(state, IR_PRINT, 0, result, 0);
 		break;
 	}
+}
+
+static bool
+is_block_start(struct ir_instruction *instructions, uint32_t i)
+{
+	bool result = (i == 0 ||
+	    instructions[i].opcode == IR_LABEL ||
+	    instructions[i-1].opcode == IR_JMP ||
+	    instructions[i-1].opcode == IR_JIZ ||
+	    instructions[i-1].opcode == IR_RET);
+	return result;
 }
 
 static void
 construct_cfg(struct ir_program *program, struct arena *arena)
 {
-	program->blocks = ALLOC(arena, 1, struct ir_block);
-	program->blocks[0].start = 0;
-	uint32_t prev_block = 0;
+	uint32_t block_count = 0;
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
-		uint32_t opcode = program->instructions[i].opcode;
-		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_RET) {
-			ALLOC(arena, 1, struct ir_block)->start = prev_block = i+1;
-		} else if (prev_block != i && opcode == IR_LABEL) {
-			ALLOC(arena, 1, struct ir_block)->start = i;
+		if (is_block_start(program->instructions, i)) {
+			block_count++;
 		}
 	}
 
-	fflush(stdout);
+	program->blocks = ALLOC(arena, block_count, struct ir_block);
+	program->block_count = block_count;
+
 	struct arena_temp temp = arena_temp_begin(arena);
 
 	/* replace labels with block indices */
-	uint32_t block_count = 1;
-	prev_block = 0;
 	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
+	uint32_t block_index = 0;
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
-		uint32_t opcode = program->instructions[i].opcode;
-		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_RET) {
-			block_count++;
-			prev_block = i+1;
-		} else if (prev_block != i && opcode == IR_LABEL) {
-			block_count++;
-		}
+		if (is_block_start(program->instructions, i)) {
+			uint32_t opcode = program->instructions[i].opcode;
+			if (opcode == IR_LABEL) {
+				uint32_t label = program->instructions[i].op0;
+				block_indices[label] = block_index;
+				program->instructions[i].op0 = block_indices[label];
+			}
 
-		if (opcode == IR_LABEL) {
-			uint32_t label = program->instructions[i].op0;
-			block_indices[label] = block_count - 1;
-			program->instructions[i].op0 = block_indices[label];
+			program->blocks[block_index++].start = i;
 		}
 	}
-
-	program->block_count = block_count;
 
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		struct ir_instruction *instruction = &program->instructions[i];
 		if (instruction->opcode == IR_JMP) {
-			instruction->op0 = block_indices[instruction->op0];
+			uint32_t block = block_indices[instruction->op0];
+			ASSERT(block > 0);
+			instruction->op0 = block;
 		} else if (instruction->opcode == IR_JIZ) {
-			instruction->op1 = block_indices[instruction->op1];
+			uint32_t block = block_indices[instruction->op1];
+			ASSERT(block > 0);
+			instruction->op1 = block;
 		}
 	}
 
@@ -339,19 +345,21 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 
 	/* calculate size of each block */
 	struct ir_block *blocks = program->blocks;
-	for (uint32_t i = 0; i < block_count; i++) {
-		if (i + 1 < block_count) {
+	for (uint32_t i = 0; i < program->block_count; i++) {
+		if (i + 1 < program->block_count) {
 			blocks[i].size = blocks[i+1].start - blocks[i].start;
 		} else {
 			blocks[i].size = program->instruction_count - blocks[i].start;
 		}
+
+		ASSERT(blocks[i].size > 0);
 	}
 
 	/* determine the next block */
 	struct ir_instruction *instructions = program->instructions;
-	for (uint32_t i = 0; i < block_count; i++) {
+	for (uint32_t i = 0; i < program->block_count; i++) {
 		uint32_t block_end = blocks[i].start + blocks[i].size - 1;
-		switch ((uint32_t)instructions[block_end].opcode) {
+		switch (instructions[block_end].opcode) {
 		case IR_JMP:
 			blocks[i].next[0] = instructions[block_end].op0;
 			blocks[i].next[1] = instructions[block_end].op0;
@@ -363,6 +371,10 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		case IR_RET:
 			blocks[i].next[0] = program->instruction_count;
 			blocks[i].next[1] = program->instruction_count;
+			break;
+		default:
+			blocks[i].next[0] = i + 1;
+			blocks[i].next[1] = i + 1;
 			break;
 		}
 	}
