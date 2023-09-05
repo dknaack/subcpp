@@ -93,8 +93,8 @@ get_register(struct generator *state, struct string identifier)
 }
 
 static void
-emit(struct generator *state, enum ir_opcode opcode,
-    uint32_t op0, uint32_t op1, uint32_t dst)
+emit3(struct generator *state, enum ir_opcode opcode,
+    uint32_t dst, uint32_t op0, uint32_t op1)
 {
 	ASSERT(state->program.instruction_count <= state->max_instruction_count);
 	struct ir_instruction *instruction = &state->program.instructions[state->program.instruction_count++];
@@ -104,25 +104,23 @@ emit(struct generator *state, enum ir_opcode opcode,
 	instruction->dst = dst;
 }
 
-static uint32_t
-emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
+static void
+emit2(struct generator *state, enum ir_opcode opcode,
+    uint32_t dst, uint32_t op0)
 {
-	uint32_t result = new_temp_register(state);
-	emit(state, opcode, op0, op1, result);
-	return result;
+	emit3(state, opcode, dst, op0, 0);
 }
 
-static uint32_t
-emit1(struct generator *state, enum ir_opcode opcode, uint32_t op0)
+static void
+emit1(struct generator *state, enum ir_opcode opcode, uint32_t dst)
 {
-	uint32_t result = emit2(state, opcode, op0, 0);
-	return result;
+	emit3(state, opcode, dst, 0, 0);
 }
 
 static void
 generate_label(struct generator *state, uint32_t label)
 {
-	emit(state, IR_LABEL, label, 0, 0);
+	emit3(state, IR_LABEL, 0, label, 0);
 }
 
 static uint32_t
@@ -150,23 +148,26 @@ generate_expr(struct generator *state, struct expr *expr)
 
 		if (opcode == IR_MOV) {
 			result = lhs;
-			emit(state, IR_MOV, rhs, 0, result);
+			emit3(state, IR_MOV, result, rhs, 0);
 		} else {
-			result = emit2(state, opcode, lhs, rhs);
+			result = new_temp_register(state);
+			emit3(state, opcode, result, lhs, rhs);
 		}
 		break;
 	case EXPR_CALL:
 		called = expr->u.call.called;
 		if (called->kind == EXPR_IDENTIFIER) {
 			label = get_function(state, called->u.identifier);
-			result = emit1(state, IR_CALL, label);
+			result = new_temp_register(state);
+			emit2(state, IR_CALL, result, label);
 		}
 		break;
 	case EXPR_IDENTIFIER:
 		result = get_register(state, expr->u.identifier);
 		break;
 	case EXPR_INT:
-		result = emit1(state, IR_SET, expr->u.ival);
+		result = new_temp_register(state);
+		emit2(state, IR_SET, result, expr->u.ival);
 		break;
 	}
 
@@ -180,7 +181,7 @@ generate_decl(struct generator *state, struct decl *decl)
 		uint32_t _register = new_register(state, decl->name);
 		if (decl->expr) {
 			uint32_t expr = generate_expr(state, decl->expr);
-			emit(state, IR_MOV, expr, 0, _register);
+			emit3(state, IR_MOV, _register, expr, 0);
 		}
 
 		decl = decl->next;
@@ -194,7 +195,7 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 
 	switch (stmt->kind) {
 	case STMT_BREAK:
-		emit(state, IR_JMP, state->break_label, 0, 0);
+		emit2(state, IR_JMP, 0, state->break_label);
 		break;
 	case STMT_COMPOUND:
 		for (stmt = stmt->u.compound; stmt; stmt = stmt->next) {
@@ -202,7 +203,7 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		}
 		break;
 	case STMT_CONTINUE:
-		emit(state, IR_JMP, state->continue_label, 0, 0);
+		emit2(state, IR_JMP, 0, state->continue_label);
 		break;
 	case STMT_DECL:
 		generate_decl(state, stmt->u.decl);
@@ -225,11 +226,11 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		}
 		generate_label(state, condition);
 		result = generate_expr(state, stmt->u._for.condition);
-		emit(state, IR_JIZ, result, state->break_label, 0);
+		emit3(state, IR_JIZ, 0, result, state->break_label);
 		generate_stmt(state, stmt->u._for.body);
 		generate_label(state, state->continue_label);
 		generate_expr(state, stmt->u._for.post);
-		emit(state, IR_JMP, condition, 0, 0);
+		emit3(state, IR_JMP, 0, condition, 0);
 		generate_label(state, state->break_label);
 		break;
 	case STMT_IF:
@@ -237,9 +238,9 @@ generate_stmt(struct generator *state, struct stmt *stmt)
 		else_label = new_label(state);
 
 		condition = generate_expr(state, stmt->u._if.condition);
-		emit(state, IR_JIZ, condition, else_label, 0);
+		emit3(state, IR_JIZ, 0, condition, else_label);
 		generate_stmt(state, stmt->u._if.then);
-		emit(state, IR_JMP, endif_label, 0, 0);
+		emit3(state, IR_JMP, 0, endif_label, 0);
 		generate_label(state, else_label);
 		if (stmt->u._if.otherwise) {
 			generate_stmt(state, stmt->u._if.otherwise);
