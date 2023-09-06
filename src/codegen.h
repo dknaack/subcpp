@@ -15,6 +15,7 @@ enum ir_opcode {
 	IR_RET,
 	IR_CALL,
 	IR_PARAM,
+	IR_VAR,
 	IR_PRINT,
 };
 

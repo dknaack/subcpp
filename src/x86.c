@@ -243,11 +243,14 @@ x86_generate_basic_block(struct stream *out,
 		struct location rdx = register_location(X86_RDX);
 		struct location temp = rax;
 
-		struct location dst = const_location(instructions[i].dst);
+		struct location dst = const_location(i);
 		struct location op0 = const_location(instructions[i].op0);
 		struct location op1 = const_location(instructions[i].op1);
 		switch (instructions[i].opcode) {
 		case IR_MOV:
+			op1 = locations[instructions[i].op1];
+			op0 = locations[instructions[i].op0];
+			break;
 		case IR_ADD:
 		case IR_SUB:
 		case IR_MUL:
@@ -259,9 +262,10 @@ x86_generate_basic_block(struct stream *out,
 		case IR_SET:
 		case IR_CALL:
 		case IR_PARAM:
-			dst = locations[instructions[i].dst];
+			dst = locations[i];
 		case IR_JMP:
 		case IR_LABEL:
+		case IR_VAR:
 		case IR_NOP:
 			break;
 		case IR_JIZ:
@@ -310,19 +314,19 @@ x86_generate_basic_block(struct stream *out,
 			x86_mov(out, dst, rdx);
 			break;
 		case IR_JMP:
-			dst = label_location(dst.address);
-			x86_emit1(out, "jmp", dst);
+			op0 = label_location(op0.address);
+			x86_emit1(out, "jmp", op0);
 			stream_print(out, "\n");
 			break;
 		case IR_JIZ:
-			dst = label_location(dst.address);
+			op1 = label_location(op1.address);
 			if (op0.type == LOC_STACK) {
 				x86_mov(out, rax, op0);
 				op0 = rax;
 			}
 
 			x86_emit2(out, "test", op0, op0);
-			x86_emit1(out, "jz", dst);
+			x86_emit1(out, "jz", op1);
 			stream_print(out, "\n");
 			break;
 		case IR_RET:
@@ -356,6 +360,7 @@ x86_generate_basic_block(struct stream *out,
 			stream_printu(out, op0.address);
 			stream_print(out, ":\n");
 		case IR_NOP:
+		case IR_VAR:
 			break;
 		}
 	}

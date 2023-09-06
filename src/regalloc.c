@@ -89,6 +89,50 @@ print_matrix(struct bit_matrix matrix)
 	}
 }
 
+struct live_info {
+	uint32_t used[2];
+	uint32_t assigned;
+};
+
+static struct live_info
+get_live_info(struct ir_instruction instruction, uint32_t dst)
+{
+	struct live_info info = {0};
+
+	switch (instruction.opcode) {
+	case IR_LABEL:
+	case IR_JMP:
+	case IR_NOP:
+	case IR_VAR:
+		break;
+	case IR_JIZ:
+	case IR_RET:
+	case IR_PRINT:
+	case IR_PARAM:
+		info.used[0] = instruction.op0;
+		break;
+	case IR_SET:
+	case IR_CALL:
+		info.assigned = dst;
+		break;
+	case IR_MOV:
+		info.assigned = dst;
+		info.used[0] = instruction.op0;
+		break;
+	case IR_ADD:
+	case IR_SUB:
+	case IR_MUL:
+	case IR_DIV:
+	case IR_MOD:
+		info.assigned = dst;
+		info.used[0] = instruction.op0;
+		info.used[1] = instruction.op1;
+		break;
+	}
+
+	return info;
+}
+
 static struct bit_matrix
 get_live_matrix(struct ir_program program, struct arena *arena)
 {
@@ -105,19 +149,18 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 		has_matrix_changed = false;
 		uint32_t i = program.instruction_count;
 		while (i-- > 0) {
-			uint32_t kill, use0, use1, address;
-			kill = use0 = use1 = program.register_count;
+			uint32_t address = 0;
 
 			clear_row(live_matrix, i);
 			switch (instructions[i].opcode) {
 			case IR_RET:
 				break;
 			case IR_JMP:
-				address = blocks[instructions[i].dst].start;
+				address = blocks[instructions[i].op0].start;
 				union_rows(live_matrix, i, address);
 				break;
 			case IR_JIZ:
-				address = blocks[instructions[i].dst].start;
+				address = blocks[instructions[i].op1].start;
 				union_rows(live_matrix, i, address);
 				/* fallthrough */
 			default:
@@ -126,42 +169,17 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 				}
 			}
 
-			switch (instructions[i].opcode) {
-			case IR_SET:
-				kill = instructions[i].dst;
-				break;
-			case IR_MOV:
-				kill = instructions[i].dst;
-				use0 = instructions[i].op0;
-				break;
-			case IR_ADD:
-			case IR_SUB:
-			case IR_MUL:
-			case IR_DIV:
-			case IR_MOD:
-				kill = instructions[i].dst;
-				use0 = instructions[i].op0;
-				use1 = instructions[i].op1;
-				break;
-			case IR_JIZ:
-			case IR_RET:
-			case IR_PRINT:
-				use0 = instructions[i].op0;
-				break;
-			default:
-				break;
+			struct live_info info = get_live_info(instructions[i], i);
+			if (info.assigned != 0) {
+				clear_bit(live_matrix, info.assigned, i);
 			}
 
-			if (kill < program.register_count) {
-				clear_bit(live_matrix, kill, i);
+			if (info.used[0] != 0) {
+				set_bit(live_matrix, info.used[0], i);
 			}
 
-			if (use0 < program.register_count) {
-				set_bit(live_matrix, use0, i);
-			}
-
-			if (use1 < program.register_count) {
-				set_bit(live_matrix, use1, i);
+			if (info.used[1] != 0) {
+				set_bit(live_matrix, info.used[1], i);
 			}
 		}
 

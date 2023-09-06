@@ -6,6 +6,8 @@ generator_init(struct arena *arena)
 	state.max_instruction_count = 1024;
 	state.variable_table = ALLOC(arena, 1024, struct variable);
 	state.variable_table_size = 1024;
+	state.program.register_count++;
+	state.program.label_count++;
 	return state;
 }
 
@@ -30,9 +32,28 @@ hash(struct string str)
 }
 
 static uint32_t
-new_temp_register(struct generator *state)
+emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
 {
-	uint32_t result = state->program.register_count++;
+	ASSERT(state->program.instruction_count <= state->max_instruction_count);
+	struct ir_instruction *instruction = &state->program.instructions[state->program.instruction_count++];
+	instruction->opcode = opcode;
+	instruction->op0 = op0;
+	instruction->op1 = op1;
+	state->program.register_count++;
+	return instruction->dst = state->program.instruction_count - 1;
+}
+
+static uint32_t
+emit1(struct generator *state, enum ir_opcode opcode, uint32_t op0)
+{
+	uint32_t result = emit2(state, opcode, op0, 0);
+	return result;
+}
+
+static uint32_t
+emit0(struct generator *state, enum ir_opcode opcode)
+{
+	uint32_t result = emit2(state, opcode, 0, 0);
 	return result;
 }
 
@@ -49,7 +70,7 @@ new_register(struct generator *state, struct string ident)
 
 		if (!variable_table[i].name.at) {
 			variable_table[i].name = ident;
-			variable_table[i]._register = new_temp_register(state);
+			variable_table[i]._register = emit0(state, IR_VAR);
 			return variable_table[i]._register;
 		}
 	}
@@ -92,37 +113,6 @@ get_register(struct generator *state, struct string ident)
 	return 0;
 }
 
-static void
-emit3(struct generator *state, enum ir_opcode opcode,
-    uint32_t dst, uint32_t op0, uint32_t op1)
-{
-	ASSERT(state->program.instruction_count <= state->max_instruction_count);
-	struct ir_instruction *instruction = &state->program.instructions[state->program.instruction_count++];
-	instruction->opcode = opcode;
-	instruction->op0 = op0;
-	instruction->op1 = op1;
-	instruction->dst = dst;
-}
-
-static void
-emit2(struct generator *state, enum ir_opcode opcode,
-    uint32_t dst, uint32_t op0)
-{
-	emit3(state, opcode, dst, op0, 0);
-}
-
-static void
-emit1(struct generator *state, enum ir_opcode opcode, uint32_t dst)
-{
-	emit3(state, opcode, dst, 0, 0);
-}
-
-static void
-emit_label(struct generator *state, uint32_t label)
-{
-	emit3(state, IR_LABEL, 0, label, 0);
-}
-
 static uint32_t
 generate(struct generator *state, struct ast_node *node)
 {
@@ -150,33 +140,25 @@ generate(struct generator *state, struct ast_node *node)
 			break;
 		}
 
-		if (opcode == IR_MOV) {
-			result = lhs;
-			emit3(state, IR_MOV, result, rhs, 0);
-		} else {
-			result = new_temp_register(state);
-			emit3(state, opcode, result, lhs, rhs);
-		}
+		result = emit2(state, opcode, lhs, rhs);
 		break;
 	case AST_CALL:
 		called = node->u.call_expr.called;
 		if (called->kind == AST_IDENT) {
 			label = get_function(state, called->u.ident);
-			result = new_temp_register(state);
 			parameter = node->u.call_expr.parameter;
 			if (parameter) {
 				parameter_register = generate(state, parameter);
 				emit1(state, IR_PARAM, parameter_register);
 			}
-			emit2(state, IR_CALL, result, label);
+			result = emit1(state, IR_CALL, label);
 		}
 		break;
 	case AST_IDENT:
 		result = get_register(state, node->u.ident);
 		break;
 	case AST_INT:
-		result = new_temp_register(state);
-		emit2(state, IR_SET, result, node->u.ival);
+		result = emit1(state, IR_SET, node->u.ival);
 		break;
 	case AST_BREAK:
 		emit1(state, IR_JMP, state->break_label);
@@ -195,7 +177,7 @@ generate(struct generator *state, struct ast_node *node)
 		result = new_register(state, node->u.decl.name);
 		if (node->u.decl.expr) {
 			uint32_t expr = generate(state, node->u.decl.expr);
-			emit3(state, IR_MOV, result, expr, 0);
+			emit2(state, IR_MOV, result, expr);
 		}
 
 		break;
@@ -207,54 +189,54 @@ generate(struct generator *state, struct ast_node *node)
 		cond_label = new_label(state);
 
 		generate(state, node->u.for_stmt.init);
-		emit_label(state, cond_label);
+		emit1(state, IR_LABEL, cond_label);
 		result = generate(state, node->u.for_stmt.cond);
-		emit2(state, IR_JIZ, state->break_label, result);
+		emit2(state, IR_JIZ, result, state->break_label);
 		generate(state, node->u.for_stmt.body);
-		emit_label(state, state->continue_label);
+		emit1(state, IR_LABEL, state->continue_label);
 		generate(state, node->u.for_stmt.post);
 		emit1(state, IR_JMP, cond_label);
-		emit_label(state, state->break_label);
+		emit1(state, IR_LABEL, state->break_label);
 		break;
 	case AST_IF:
 		endif_label = new_label(state);
 		else_label = new_label(state);
 
-		cond_label = generate(state, node->u.if_stmt.cond);
-		emit2(state, IR_JIZ, else_label, cond_label);
+		result = generate(state, node->u.if_stmt.cond);
+		emit2(state, IR_JIZ, result, else_label);
 		generate(state, node->u.if_stmt.then);
 		emit1(state, IR_JMP, endif_label);
-		emit_label(state, else_label);
+		emit1(state, IR_LABEL, else_label);
 		if (node->u.if_stmt.otherwise) {
 			generate(state, node->u.if_stmt.otherwise);
 		}
 
-		emit_label(state, endif_label);
+		emit1(state, IR_LABEL, endif_label);
 		break;
 	case AST_WHILE:
 		state->break_label = new_label(state);
 		state->continue_label = new_label(state);
 
-		emit_label(state, state->continue_label);
+		emit1(state, IR_LABEL, state->continue_label);
 		result = generate(state, node->u.while_stmt.cond);
-		emit2(state, IR_JIZ, state->break_label, result);
+		emit2(state, IR_JIZ, result, state->break_label);
 		generate(state, node->u.while_stmt.body);
 		emit1(state, IR_JMP, state->continue_label);
-		emit_label(state, state->break_label);
+		emit1(state, IR_LABEL, state->break_label);
 		break;
 	case AST_RETURN:
 		if (node->u.children) {
 			result = generate(state, node->u.children);
 		}
-		emit3(state, IR_RET, 0, result, 0);
+		emit1(state, IR_RET, result);
 		break;
 	case AST_PRINT:
 		result = generate(state, node->u.children);
-		emit3(state, IR_PRINT, 0, result, 0);
+		emit1(state, IR_PRINT, result);
 		break;
 	case AST_FUNCTION:
 		function_label = new_label(state);
-		emit_label(state, function_label);
+		emit1(state, IR_LABEL, function_label);
 		parameter = node->u.function.parameter;
 		if (parameter) {
 			new_register(state, parameter->u.decl.name);
@@ -318,10 +300,14 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	for (uint32_t i = 0; i < program->instruction_count; i++) {
 		struct ir_instruction *instruction = &program->instructions[i];
 		enum ir_opcode opcode = instruction->opcode;
-		if (opcode == IR_JMP || opcode == IR_JIZ) {
-			uint32_t block = block_indices[instruction->dst];
+		if (opcode == IR_JMP) {
+			uint32_t block = block_indices[instruction->op0];
 			ASSERT(block > 0);
-			instruction->dst = block;
+			instruction->op0 = block;
+		} else if (opcode == IR_JIZ) {
+			uint32_t block = block_indices[instruction->op1];
+			ASSERT(block > 0);
+			instruction->op1 = block;
 		}
 	}
 
@@ -359,12 +345,12 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		uint32_t block_end = blocks[i].start + blocks[i].size - 1;
 		switch (instructions[block_end].opcode) {
 		case IR_JMP:
-			blocks[i].next[0] = instructions[block_end].dst;
-			blocks[i].next[1] = instructions[block_end].dst;
+			blocks[i].next[0] = instructions[block_end].op0;
+			blocks[i].next[1] = instructions[block_end].op0;
 			break;
 		case IR_JIZ:
 			blocks[i].next[0] = i + 1;
-			blocks[i].next[1] = instructions[block_end].dst;
+			blocks[i].next[1] = instructions[block_end].op1;
 			break;
 		case IR_RET:
 			blocks[i].next[0] = program->instruction_count;

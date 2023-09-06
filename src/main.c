@@ -21,12 +21,13 @@ print_ir(struct ir_instruction instruction)
 	case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
 	case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
 	case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_JMP:   printf("\tjmp L%d\n", dst); break;
-	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, dst); break;
+	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
+	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
 	case IR_RET:   printf("\tret r%d\n", op0); break;
 	case IR_CALL:  printf("\tcall r%d, L%d\n", dst, op0); break;
 	case IR_PRINT: printf("\tprint r%d\n", op0); break;
 	case IR_PARAM: printf("\tparam r%d\n", dst); break;
+	case IR_VAR:   printf("\tvar r%d\n", dst); break;
 	case IR_LABEL: printf("L%d:\n", op0); return;
 	}
 }
