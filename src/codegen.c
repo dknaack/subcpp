@@ -118,23 +118,27 @@ emit1(struct generator *state, enum ir_opcode opcode, uint32_t dst)
 }
 
 static void
-generate_label(struct generator *state, uint32_t label)
+emit_label(struct generator *state, uint32_t label)
 {
 	emit3(state, IR_LABEL, 0, label, 0);
 }
 
 static uint32_t
-generate_expr(struct generator *state, struct expr *expr)
+generate(struct generator *state, struct ast_node *node)
 {
-	uint32_t lhs, rhs, label, result = 0;
+	uint32_t endif_label, else_label, cond_label, function_label;
+	uint32_t lhs, rhs, label, parameter_register, result = 0;
+	struct ast_node *called, *parameter;
 	enum ir_opcode opcode;
-	struct expr *called;
 
-	switch (expr->kind) {
-	case EXPR_BINARY:
-		lhs = generate_expr(state, expr->u.binary.lhs);
-		rhs = generate_expr(state, expr->u.binary.rhs);
-		switch (expr->u.binary.op) {
+	switch (node->kind) {
+	case AST_INVALID:
+		ASSERT(!"Invalid node");
+		break;
+	case AST_BINARY:
+		lhs = generate(state, node->u.bin_expr.lhs);
+		rhs = generate(state, node->u.bin_expr.rhs);
+		switch (node->u.bin_expr.op) {
 		case TOKEN_ADD:    opcode = IR_ADD; break;
 		case TOKEN_SUB:    opcode = IR_SUB; break;
 		case TOKEN_MUL:    opcode = IR_MUL; break;
@@ -142,7 +146,7 @@ generate_expr(struct generator *state, struct expr *expr)
 		case TOKEN_MOD:    opcode = IR_MOD; break;
 		case TOKEN_ASSIGN: opcode = IR_MOV; break;
 		default:
-			ASSERT(!"Invalid expr");
+			ASSERT(!"Invalid node");
 			break;
 		}
 
@@ -154,122 +158,117 @@ generate_expr(struct generator *state, struct expr *expr)
 			emit3(state, opcode, result, lhs, rhs);
 		}
 		break;
-	case EXPR_CALL:
-		called = expr->u.call.called;
-		if (called->kind == EXPR_IDENTIFIER) {
+	case AST_CALL:
+		called = node->u.call_expr.called;
+		if (called->kind == AST_IDENTIFIER) {
 			label = get_function(state, called->u.identifier);
 			result = new_temp_register(state);
+			parameter = node->u.call_expr.parameter;
+			if (parameter) {
+				parameter_register = generate(state, parameter);
+				emit1(state, IR_PARAM, parameter_register);
+			}
 			emit2(state, IR_CALL, result, label);
 		}
 		break;
-	case EXPR_IDENTIFIER:
-		result = get_register(state, expr->u.identifier);
+	case AST_IDENTIFIER:
+		result = get_register(state, node->u.identifier);
 		break;
-	case EXPR_INT:
+	case AST_INT:
 		result = new_temp_register(state);
-		emit2(state, IR_SET, result, expr->u.ival);
+		emit2(state, IR_SET, result, node->u.ival);
+		break;
+	case AST_BREAK:
+		emit1(state, IR_JMP, state->break_label);
+		break;
+	case AST_COMPOUND:
+		for (node = node->u.children; node; node = node->next) {
+			generate(state, node);
+		}
+		break;
+	case AST_CONTINUE:
+		emit1(state, IR_JMP, state->continue_label);
+		break;
+	case AST_DECL:
+		result = new_register(state, node->u.decl.name);
+		if (node->u.decl.expr) {
+			uint32_t expr = generate(state, node->u.decl.expr);
+			emit3(state, IR_MOV, result, expr, 0);
+		}
+
+		break;
+	case AST_EMPTY:
+		break;
+	case AST_FOR:
+		state->break_label = new_label(state);
+		state->continue_label = new_label(state);
+		cond_label = new_label(state);
+
+		generate(state, node->u.for_stmt.init);
+		emit_label(state, cond_label);
+		result = generate(state, node->u.for_stmt.cond);
+		emit2(state, IR_JIZ, state->break_label, result);
+		generate(state, node->u.for_stmt.body);
+		emit_label(state, state->continue_label);
+		generate(state, node->u.for_stmt.post);
+		emit1(state, IR_JMP, cond_label);
+		emit_label(state, state->break_label);
+		break;
+	case AST_IF:
+		endif_label = new_label(state);
+		else_label = new_label(state);
+
+		cond_label = generate(state, node->u.if_stmt.cond);
+		emit2(state, IR_JIZ, else_label, cond_label);
+		generate(state, node->u.if_stmt.then);
+		emit1(state, IR_JMP, endif_label);
+		emit_label(state, else_label);
+		if (node->u.if_stmt.otherwise) {
+			generate(state, node->u.if_stmt.otherwise);
+		}
+
+		emit_label(state, endif_label);
+		break;
+	case AST_WHILE:
+		state->break_label = new_label(state);
+		state->continue_label = new_label(state);
+
+		emit_label(state, state->continue_label);
+		result = generate(state, node->u.while_stmt.cond);
+		emit2(state, IR_JIZ, state->break_label, result);
+		generate(state, node->u.while_stmt.body);
+		emit1(state, IR_JMP, state->continue_label);
+		emit_label(state, state->break_label);
+		break;
+	case AST_RETURN:
+		if (node->u.children) {
+			result = generate(state, node->u.children);
+		}
+		emit3(state, IR_RET, 0, result, 0);
+		break;
+	case AST_PRINT:
+		result = generate(state, node->u.children);
+		emit3(state, IR_PRINT, 0, result, 0);
+		break;
+	case AST_FUNCTION:
+		function_label = new_label(state);
+		emit_label(state, function_label);
+		parameter = node->u.function.parameter;
+		if (parameter) {
+			new_register(state, parameter->u.decl.name);
+		}
+
+		struct ir_function *ir_function = &state->program.functions[state->program.function_count++];
+		ir_function->name = node->u.function.name;
+		ir_function->block_index = function_label;
+
+		for (struct ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
+			generate(state, stmt);
+		}
 		break;
 	}
 
 	return result;
-}
-
-static void
-generate_decl(struct generator *state, struct decl *decl)
-{
-	while (decl) {
-		uint32_t _register = new_register(state, decl->name);
-		if (decl->expr) {
-			uint32_t expr = generate_expr(state, decl->expr);
-			emit3(state, IR_MOV, _register, expr, 0);
-		}
-
-		decl = decl->next;
-	}
-}
-
-static void
-generate_stmt(struct generator *state, struct stmt *stmt)
-{
-	uint32_t endif_label, else_label, condition, result = 0;
-
-	switch (stmt->kind) {
-	case STMT_BREAK:
-		emit1(state, IR_JMP, state->break_label);
-		break;
-	case STMT_COMPOUND:
-		for (stmt = stmt->u.compound; stmt; stmt = stmt->next) {
-			generate_stmt(state, stmt);
-		}
-		break;
-	case STMT_CONTINUE:
-		emit1(state, IR_JMP, state->continue_label);
-		break;
-	case STMT_DECL:
-		generate_decl(state, stmt->u.decl);
-		break;
-	case STMT_EMPTY:
-		break;
-	case STMT_EXPR:
-		generate_expr(state, stmt->u.expr);
-		break;
-	case STMT_FOR_EXPR:
-	case STMT_FOR_DECL:
-		state->break_label = new_label(state);
-		state->continue_label = new_label(state);
-		condition = new_label(state);
-
-		if (stmt->kind == STMT_FOR_EXPR) {
-			generate_expr(state, stmt->u._for.init.expr);
-		} else {
-			generate_decl(state, stmt->u._for.init.decl);
-		}
-		generate_label(state, condition);
-		result = generate_expr(state, stmt->u._for.condition);
-		emit2(state, IR_JIZ, state->break_label, result);
-		generate_stmt(state, stmt->u._for.body);
-		generate_label(state, state->continue_label);
-		generate_expr(state, stmt->u._for.post);
-		emit1(state, IR_JMP, condition);
-		generate_label(state, state->break_label);
-		break;
-	case STMT_IF:
-		endif_label = new_label(state);
-		else_label = new_label(state);
-
-		condition = generate_expr(state, stmt->u._if.condition);
-		emit2(state, IR_JIZ, else_label, condition);
-		generate_stmt(state, stmt->u._if.then);
-		emit1(state, IR_JMP, endif_label);
-		generate_label(state, else_label);
-		if (stmt->u._if.otherwise) {
-			generate_stmt(state, stmt->u._if.otherwise);
-		}
-
-		generate_label(state, endif_label);
-		break;
-	case STMT_WHILE:
-		state->break_label = new_label(state);
-		state->continue_label = new_label(state);
-
-		generate_label(state, state->continue_label);
-		result = generate_expr(state, stmt->u._while.condition);
-		emit2(state, IR_JIZ, state->break_label, result);
-		generate_stmt(state, stmt->u._while.body);
-		emit1(state, IR_JMP, state->continue_label);
-		generate_label(state, state->break_label);
-		break;
-	case STMT_RETURN:
-		if (stmt->u.expr) {
-			result = generate_expr(state, stmt->u.expr);
-		}
-		emit3(state, IR_RET, 0, result, 0);
-		break;
-	case STMT_PRINT:
-		result = generate_expr(state, stmt->u.expr);
-		emit3(state, IR_PRINT, 0, result, 0);
-		break;
-	}
 }
 
 static bool
@@ -378,29 +377,18 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 }
 
 static struct ir_program
-ir_generate(struct function *function, struct arena *arena)
+ir_generate(struct ast_node *root, struct arena *arena)
 {
 	struct generator generator = generator_init(arena);
 
-	for (struct function *f = function; f; f = f->next) {
-		generator.program.function_count++;
+	uint32_t function_count = 0;
+	for (struct ast_node *node = root; node; node = node->next) {
+		function_count += (node->kind == AST_FUNCTION);
 	}
 
-	generator.program.functions = ALLOC(arena,
-	    generator.program.function_count, struct ir_function);
-
-	uint32_t function_count = 0;
-	for (; function; function = function->next) {
-		uint32_t function_label = new_label(&generator);
-		generate_label(&generator, function_label);
-
-		struct ir_function *ir_function = &generator.program.functions[function_count++];
-		ir_function->name = function->name;
-		ir_function->block_index = function_label;
-
-		for (struct stmt *stmt = function->body; stmt; stmt = stmt->next) {
-			generate_stmt(&generator, stmt);
-		}
+	generator.program.functions = ALLOC(arena, function_count, struct ir_function);
+	for (struct ast_node *node = root; node; node = node->next) {
+		generate(&generator, node);
 	}
 
 	construct_cfg(&generator.program, arena);

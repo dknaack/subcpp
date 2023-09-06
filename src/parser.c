@@ -64,25 +64,25 @@ parse_identifier(struct tokenizer *tokenizer)
 	return token.value;
 }
 
-static struct expr * parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena);
+static struct ast_node * parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena);
 
-static struct expr *
+static struct ast_node *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
 {
-	struct expr *expr;
+	struct ast_node *expr;
 
 	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_IDENTIFIER:
 		get_token(tokenizer);
-		expr = ALLOC(arena, 1, struct expr);
-		expr->kind = EXPR_IDENTIFIER;
+		expr = ALLOC(arena, 1, struct ast_node);
+		expr->kind = AST_IDENTIFIER;
 		expr->u.identifier = token.value;
 		break;
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
-		expr = ALLOC(arena, 1, struct expr);
-		expr->kind = EXPR_INT;
+		expr = ALLOC(arena, 1, struct ast_node);
+		expr->kind = AST_INT;
 		expr->u.ival = parse_int(token.value);
 		break;
 	case TOKEN_LPAREN:
@@ -104,16 +104,16 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 
 		if (token.kind == TOKEN_LPAREN) {
 			get_token(tokenizer);
-			struct expr *parameter = NULL;
+			struct ast_node *parameter = NULL;
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				parameter = parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RPAREN);
 			}
-			struct expr *called = expr;
-			expr = ALLOC(arena, 1, struct expr);
-			expr->kind = EXPR_CALL;
-			expr->u.call.called = called;
-			expr->u.call.parameter = parameter;
+			struct ast_node *called = expr;
+			expr = ALLOC(arena, 1, struct ast_node);
+			expr->kind = AST_CALL;
+			expr->u.call_expr.called = called;
+			expr->u.call_expr.parameter = parameter;
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {
@@ -136,24 +136,24 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 			/* NOTE: Ensure that right associative expressions are
 			 * parsed correctly. */
 			precedence -= is_right_associative;
-			struct expr *lhs = expr;
-			struct expr *rhs = parse_expr(tokenizer, precedence, arena);
+			struct ast_node *lhs = expr;
+			struct ast_node *rhs = parse_expr(tokenizer, precedence, arena);
 
-			expr = ALLOC(arena, 1, struct expr);
-			expr->kind = EXPR_BINARY;
-			expr->u.binary.op = token.kind;
-			expr->u.binary.lhs = lhs;
-			expr->u.binary.rhs = rhs;
+			expr = ALLOC(arena, 1, struct ast_node);
+			expr->kind = AST_BINARY;
+			expr->u.bin_expr.op = token.kind;
+			expr->u.bin_expr.lhs = lhs;
+			expr->u.bin_expr.rhs = rhs;
 		}
 	}
 
 	return expr;
 }
 
-static struct expr *
+static struct ast_node *
 parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct expr *expr;
+	struct ast_node *expr;
 	int precedence;
 
 	precedence = get_binary_precedence(TOKEN_ASSIGN);
@@ -165,18 +165,19 @@ enum parse_decl_flags {
 	PARSE_SINGLE_DECL = (1 << 0),
 };
 
-static struct decl *
+static struct ast_node *
 parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 {
-	struct decl *decl;
-	struct decl **ptr = &decl;
+	struct ast_node *decl;
+	struct ast_node **ptr = &decl;
 	expect(tokenizer, TOKEN_INT);
 
 	do {
-		*ptr = ZALLOC(arena, 1, struct decl);
-		(*ptr)->name = parse_identifier(tokenizer);
+		*ptr = ZALLOC(arena, 1, struct ast_node);
+		(*ptr)->kind = AST_DECL;
+		(*ptr)->u.decl.name = parse_identifier(tokenizer);
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
-			(*ptr)->expr = parse_assign_expr(tokenizer, arena);
+			(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
 		}
 		ptr = &(*ptr)->next;
 	} while (!(flags & PARSE_SINGLE_DECL) && accept(tokenizer, TOKEN_COMMA));
@@ -184,12 +185,12 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 	return decl;
 }
 
-static struct stmt *parse_stmt(struct tokenizer *tokenizer, struct arena *arena);
+static struct ast_node *parse_stmt(struct tokenizer *tokenizer, struct arena *arena);
 
-static struct stmt *
+static struct ast_node *
 parse_compound_stmt(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct stmt *head, **ptr = &head;
+	struct ast_node *head, **ptr = &head;
 
 	expect(tokenizer, TOKEN_LBRACE);
 	while (!accept(tokenizer, TOKEN_RBRACE)) {
@@ -200,122 +201,119 @@ parse_compound_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	return head;
 }
 
-static struct stmt *
+static struct ast_node *
 parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct stmt *stmt;
+	struct ast_node *node = NULL;
 
 	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_BREAK:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_BREAK;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_BREAK;
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_CONTINUE:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_CONTINUE;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_CONTINUE;
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_FOR:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
+		node = ZALLOC(arena, 1, struct ast_node);
 		expect(tokenizer, TOKEN_LPAREN);
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 			token = peek_token(tokenizer);
+			node->kind = AST_FOR;
 			if (token.kind == TOKEN_INT) {
-				stmt->kind = STMT_FOR_DECL;
-				stmt->u._for.init.decl = parse_decl(tokenizer, 0, arena);
+				node->u.for_stmt.init = parse_decl(tokenizer, 0, arena);
 			} else {
-				stmt->kind = STMT_FOR_EXPR;
-				stmt->u._for.init.expr = parse_assign_expr(tokenizer, arena);
+				node->u.for_stmt.init = parse_assign_expr(tokenizer, arena);
 			}
 
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			stmt->u._for.condition = parse_assign_expr(tokenizer, arena);
+			node->u.for_stmt.cond = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 
 		if (!accept(tokenizer, TOKEN_RPAREN)) {
-			stmt->u._for.post = parse_assign_expr(tokenizer, arena);
+			node->u.for_stmt.post = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_RPAREN);
 		}
 
-		stmt->u._for.body = parse_stmt(tokenizer, arena);
+		node->u.for_stmt.body = parse_stmt(tokenizer, arena);
 		break;
 	case TOKEN_IF:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_IF;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_IF;
 		expect(tokenizer, TOKEN_LPAREN);
-		stmt->u._if.condition = parse_assign_expr(tokenizer, arena);
+		node->u.if_stmt.cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
-		stmt->u._if.then = parse_stmt(tokenizer, arena);
+		node->u.if_stmt.then = parse_stmt(tokenizer, arena);
 		if (accept(tokenizer, TOKEN_ELSE)) {
-			stmt->u._if.otherwise = parse_stmt(tokenizer, arena);
+			node->u.if_stmt.otherwise = parse_stmt(tokenizer, arena);
 		}
 		break;
 	case TOKEN_WHILE:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_WHILE;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_WHILE;
 		expect(tokenizer, TOKEN_LPAREN);
-		stmt->u._while.condition = parse_assign_expr(tokenizer, arena);
+		node->u.while_stmt.cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
-		stmt->u._while.body = parse_stmt(tokenizer, arena);
+		node->u.while_stmt.body = parse_stmt(tokenizer, arena);
 		break;
 	case TOKEN_RETURN:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_RETURN;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_RETURN;
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			stmt->u.expr = parse_assign_expr(tokenizer, arena);
+			node->u.children = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 		break;
 	case TOKEN_PRINT:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_PRINT;
-		stmt->u.expr = parse_assign_expr(tokenizer, arena);
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_PRINT;
+		node->u.children = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_SEMICOLON:
 		get_token(tokenizer);
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_EMPTY;
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_EMPTY;
 		break;
 	case TOKEN_LBRACE:
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_COMPOUND;
-		stmt->u.compound = parse_compound_stmt(tokenizer, arena);
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_COMPOUND;
+		node->u.children = parse_compound_stmt(tokenizer, arena);
 		break;
 	case TOKEN_INT:
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_DECL;
-		stmt->u.decl = parse_decl(tokenizer, 0, arena);
+		node = parse_decl(tokenizer, 0, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	default:
-		stmt = ZALLOC(arena, 1, struct stmt);
-		stmt->kind = STMT_EXPR;
-		stmt->u.expr = parse_assign_expr(tokenizer, arena);
+		node = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 	}
 
-	return stmt;
+	return node;
 }
 
-static struct function *
+static struct ast_node *
 parse_function(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct function *function = ZALLOC(arena, 1, struct function);
+	struct ast_node *node = ZALLOC(arena, 1, struct ast_node);
+	struct ast_node *parameter = NULL;
+	struct string name;
 
 	expect(tokenizer, TOKEN_INT);
 	struct token token = get_token(tokenizer);
@@ -323,24 +321,28 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 		ASSERT(!"Expected identifier");
 	}
 
-	function->name = token.value;
+	name = token.value;
 	expect(tokenizer, TOKEN_LPAREN);
 	token = peek_token(tokenizer);
 	if (token.kind == TOKEN_INT) {
-		function->parameter = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+		parameter = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 	} else if (token.kind == TOKEN_VOID) {
 		get_token(tokenizer);
 	}
 	expect(tokenizer, TOKEN_RPAREN);
-	function->body = parse_compound_stmt(tokenizer, arena);
 
-	return function;
+	node->kind = AST_FUNCTION;
+	node->u.function.body = parse_compound_stmt(tokenizer, arena);
+	node->u.function.name = name;
+	node->u.function.parameter = parameter;
+
+	return node;
 }
 
-static struct function *
+static struct ast_node *
 parse(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct function *head, **ptr = &head;
+	struct ast_node *head, **ptr = &head;
 	while (!accept(tokenizer, TOKEN_EOF)) {
 		*ptr = parse_function(tokenizer, arena);
 		ptr = &(*ptr)->next;

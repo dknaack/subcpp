@@ -89,13 +89,17 @@ get_token_name(enum token_kind kind)
 
 
 static void
-print_expr(struct expr *expr)
+print_node(struct ast_node *node, int indent)
 {
-	switch (expr->kind) {
-	case EXPR_BINARY:
+	for (int i = 0; i < indent; i++) {
+		printf("    ");
+	}
+
+	switch (node->kind) {
+	case AST_BINARY:
 		printf("(");
-		print_expr(expr->u.binary.lhs);
-		switch (expr->u.binary.op) {
+		print_node(node->u.bin_expr.lhs, 0);
+		switch (node->u.bin_expr.op) {
 		case TOKEN_ADD:    printf(" + ");  break;
 		case TOKEN_SUB:    printf(" - ");  break;
 		case TOKEN_MUL:    printf(" * ");  break;
@@ -106,109 +110,77 @@ print_expr(struct expr *expr)
 			printf(" (invalid operation) ");
 		}
 
-		print_expr(expr->u.binary.rhs);
+		print_node(node->u.bin_expr.rhs, 0);
 		printf(")");
 		break;
-	case EXPR_IDENTIFIER:
-		printf("%.*s", (int)expr->u.identifier.length, expr->u.identifier.at);
+	case AST_IDENTIFIER:
+		printf("%.*s", (int)node->u.identifier.length, node->u.identifier.at);
 		break;
-	case EXPR_INT:
-		printf("%jd", expr->u.ival);
+	case AST_INT:
+		printf("%jd", node->u.ival);
 		break;
-	default:
-		printf("(invalid)");
-	}
-}
-
-static void
-print_decl(struct decl *decl)
-{
-	printf("int ");
-	while (decl) {
-		printf("%.*s", (int)decl->name.length, decl->name.at);
-		if (decl->expr) {
-			printf(" = ");
-			print_expr(decl->expr);
-		}
-
-		decl = decl->next;
-		if (decl) {
-			printf(", ");
-		}
-	}
-}
-
-static void
-print_stmt(struct stmt *stmt, int indent)
-{
-	for (int i = 0; i < indent; i++) {
-		printf("    ");
-	}
-
-	switch (stmt->kind) {
-	case STMT_BREAK:
+	case AST_BREAK:
 		printf("break;\n");
 		break;
-	case STMT_CONTINUE:
+	case AST_CONTINUE:
 		printf("continue;\n");
 		break;
-	case STMT_DECL:
-		break;
-	case STMT_EMPTY:
-		printf(";\n");
-		break;
-	case STMT_EXPR:
-		print_expr(stmt->u.expr);
-		printf(";\n");
-		break;
-	case STMT_FOR_EXPR:
-	case STMT_FOR_DECL:
-		printf("for (");
-		if (stmt->kind == STMT_FOR_EXPR) {
-			print_expr(stmt->u._for.init.expr);
-		} else {
-			print_decl(stmt->u._for.init.decl);
+	case AST_DECL:
+		printf("%.*s", (int)node->u.decl.name.length, node->u.decl.name.at);
+		if (node->u.decl.expr) {
+			printf(" = ");
+			print_node(node->u.decl.expr, 0);
 		}
+
+		break;
+	case AST_EMPTY:
+		printf(";\n");
+		break;
+	case AST_FOR:
+		printf("for (");
+		print_node(node->u.for_stmt.init, 0);
 		printf("; ");
-		print_expr(stmt->u._for.condition);
+		print_node(node->u.for_stmt.cond, 0);
 		printf("; ");
-		print_expr(stmt->u._for.post);
+		print_node(node->u.for_stmt.post, 0);
 		printf(")\n");
 		break;
-	case STMT_COMPOUND:
+	case AST_COMPOUND:
 		printf("{\n");
-		for (stmt = stmt->u.compound; stmt; stmt = stmt->next) {
-			print_stmt(stmt, indent + 1);
+		for (node = node->u.children; node; node = node->next) {
+			print_node(node, indent + 1);
 		}
 		printf("}\n");
 		break;
-	case STMT_IF:
+	case AST_IF:
 		printf("if (");
-		print_expr(stmt->u._if.condition);
+		print_node(node->u.if_stmt.cond, 0);
 		printf(")\n");
-		print_stmt(stmt->u._if.then, indent);
-		if (stmt->u._if.otherwise) {
+		print_node(node->u.if_stmt.then, indent);
+		if (node->u.if_stmt.otherwise) {
 			printf("else\n");
-			print_stmt(stmt->u._if.otherwise, indent);
+			print_node(node->u.if_stmt.otherwise, indent);
 		}
 
 		break;
-	case STMT_WHILE:
+	case AST_WHILE:
 		printf("while (");
-		print_expr(stmt->u._while.condition);
+		print_node(node->u.while_stmt.cond, 0);
 		printf(")\n");
-		print_stmt(stmt->u._while.body, indent);
+		print_node(node->u.while_stmt.body, indent);
 		break;
-	case STMT_RETURN:
+	case AST_RETURN:
 		printf("return ");
-		print_expr(stmt->u.expr);
+		print_node(node->u.children, 0);
 		printf(";\n");
 		break;
-	case STMT_PRINT:
+	case AST_PRINT:
 		printf("print ");
-		print_expr(stmt->u.expr);
+		print_node(node->u.children, 0);
 		printf(";\n");
 		break;
+	default:
+		printf("(invalid)");
 	}
 }
 
@@ -278,8 +250,8 @@ main(int argc, char *argv[])
 	struct arena *arena = arena_create(1000 * 1000);
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
-	struct function *function = parse(&tokenizer, arena);
-	struct ir_program program = ir_generate(function, arena);
+	struct ast_node *root = parse(&tokenizer, arena);
+	struct ir_program program = ir_generate(root, arena);
 	x86_generate(program, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");

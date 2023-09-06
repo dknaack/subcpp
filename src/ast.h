@@ -1,91 +1,79 @@
-enum expr_kind {
-	EXPR_BINARY,
-	EXPR_CALL,
-	EXPR_IDENTIFIER,
-	EXPR_INT,
-};
-
-struct expr_binary {
+struct ast_bin_expr {
 	enum token_kind op;
-	struct expr *lhs;
-	struct expr *rhs;
+	struct ast_node *lhs;
+	struct ast_node *rhs;
 };
 
-struct expr_call {
-	struct expr *called;
-	struct expr *parameter;
+struct ast_call_expr {
+	struct ast_node *called;
+	struct ast_node *parameter;
 };
 
-struct expr {
-	enum expr_kind kind;
+struct ast_decl {
+	struct string name;
+	struct ast_node *expr;
+};
+
+struct ast_if_stmt {
+	struct ast_node *cond;
+	struct ast_node *then;
+	struct ast_node *otherwise;
+};
+
+struct ast_while_stmt {
+	struct ast_node *cond;
+	struct ast_node *body;
+};
+
+struct ast_for_stmt {
+	struct ast_node *init;
+	struct ast_node *cond;
+	struct ast_node *post;
+	struct ast_node *body;
+};
+
+struct ast_function {
+	struct ast_function *next;
+	struct string name;
+	struct ast_node *parameter;
+	struct ast_node *body;
+};
+
+enum ast_node_kind {
+	AST_INVALID,
+
+	AST_BINARY,
+	AST_CALL,
+	AST_IDENTIFIER,
+	AST_INT,
+
+	AST_BREAK,
+	AST_COMPOUND,
+	AST_CONTINUE,
+	AST_DECL,
+	AST_EMPTY,
+	AST_FOR,
+	AST_IF,
+	AST_PRINT,
+	AST_WHILE,
+	AST_RETURN,
+	AST_FUNCTION,
+};
+
+struct ast_node {
+	enum ast_node_kind kind;
+	struct ast_node *next;
 
 	union {
-		struct expr_binary binary;
-		struct expr_call call;
+		struct ast_for_stmt for_stmt;
+		struct ast_if_stmt if_stmt;
+		struct ast_while_stmt while_stmt;
+		struct ast_bin_expr bin_expr;
+		struct ast_call_expr call_expr;
+		struct ast_function function;
+		struct ast_decl decl;
+		struct ast_node *children;
 		struct string identifier;
 		intmax_t ival;
 	} u;
-};
-
-struct decl {
-	struct decl *next;
-	struct string name;
-	struct expr *expr;
-};
-
-enum stmt_kind {
-	STMT_BREAK,
-	STMT_COMPOUND,
-	STMT_CONTINUE,
-	STMT_DECL,
-	STMT_EMPTY,
-	STMT_EXPR,
-	STMT_FOR_DECL,
-	STMT_FOR_EXPR,
-	STMT_IF,
-	STMT_PRINT,
-	STMT_WHILE,
-	STMT_RETURN,
-};
-
-struct stmt_if {
-	struct expr *condition;
-	struct stmt *then;
-	struct stmt *otherwise;
-};
-
-struct stmt_while {
-	struct expr *condition;
-	struct stmt *body;
-};
-
-struct stmt_for {
-	union {
-		struct expr *expr;
-		struct decl *decl;
-	} init;
-	struct expr *condition;
-	struct expr *post;
-	struct stmt *body;
-};
-
-struct stmt {
-	enum stmt_kind kind;
-	struct stmt *next;
-
-	union {
-		struct stmt_if _if;
-		struct stmt_while _while;
-		struct stmt_for _for;
-		struct expr *expr;
-		struct decl *decl;
-		struct stmt *compound;
-	} u;
-};
-
-struct function {
-	struct function *next;
-	struct string name;
-	struct decl *parameter;
-	struct stmt *body;
 };
