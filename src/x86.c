@@ -285,7 +285,7 @@ x86_generate_basic_block(struct stream *out,
 			x86_mov(out, dst, op0);
 			break;
 		case IR_MOV:
-			x86_mov(out, dst, op0);
+			x86_mov(out, op0, op1);
 			break;
 		case IR_ADD:
 			x86_mov(out, temp, op0);
