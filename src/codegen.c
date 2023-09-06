@@ -182,6 +182,7 @@ generate(struct generator *state, struct ast_node *node)
 		emit1(state, IR_JMP, state->break_label);
 		break;
 	case AST_COMPOUND:
+	case AST_DECL_STMT:
 		for (node = node->u.children; node; node = node->next) {
 			generate(state, node);
 		}

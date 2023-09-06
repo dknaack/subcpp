@@ -297,7 +297,9 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		node->u.children = parse_compound_stmt(tokenizer, arena);
 		break;
 	case TOKEN_INT:
-		node = parse_decl(tokenizer, 0, arena);
+		node = ZALLOC(arena, 1, struct ast_node);
+		node->kind = AST_DECL_STMT;
+		node->u.children = parse_decl(tokenizer, 0, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	default:

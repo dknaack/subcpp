@@ -50,6 +50,7 @@ enum ast_node_kind {
 	AST_COMPOUND,
 	AST_CONTINUE,
 	AST_DECL,
+	AST_DECL_STMT,
 	AST_EMPTY,
 	AST_FOR,
 	AST_IF,
