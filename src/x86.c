@@ -41,12 +41,12 @@ struct stream {
 static uint32_t x86_register_size = 8;
 
 static struct stream
-stream_open(char *filename, size_t size)
+stream_open(char *filename, size_t size, struct arena *arena)
 {
 	struct stream stream = {0};
 	stream.fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0666);
 	stream.size = size;
-	stream.buffer = calloc(size, 1);
+	stream.buffer = zalloc(arena, size, 1);
 	return stream;
 }
 
@@ -395,7 +395,7 @@ x86_generate(struct ir_program program, struct arena *arena)
 	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
 
 	// TODO: choose a random file for output
-	struct stream out = stream_open("/tmp/out.s", 4096);
+	struct stream out = stream_open("/tmp/out.s", 4096, arena);
 	if (!out.fd) {
 		return;
 	}
