@@ -239,6 +239,7 @@ x86_generate_basic_block(struct stream *out,
 	for (uint32_t i = block.start; i < block.start + block.size; i++) {
 		struct location rax = register_location(X86_RAX);
 		struct location rsi = register_location(X86_RSI);
+		struct location rdi = register_location(X86_RDI);
 		struct location rdx = register_location(X86_RDX);
 		struct location temp = rax;
 
@@ -257,6 +258,7 @@ x86_generate_basic_block(struct stream *out,
 			/* fallthrough */
 		case IR_SET:
 		case IR_CALL:
+		case IR_PARAM:
 			dst = locations[instructions[i].dst];
 		case IR_JMP:
 		case IR_LABEL:
@@ -339,6 +341,9 @@ x86_generate_basic_block(struct stream *out,
 			stream_prints(out, program.functions[op0.address].name);
 			stream_print(out, "\n");
 			x86_mov(out, dst, rax);
+			break;
+		case IR_PARAM:
+			x86_mov(out, rdi, dst);
 			break;
 		case IR_PRINT:
 			stream_print(out, "\tmov rdi, fmt\n");

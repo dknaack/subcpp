@@ -26,16 +26,17 @@ print_ir(struct ir_instruction instruction)
 	case IR_RET:   printf("\tret r%d\n", op0); break;
 	case IR_CALL:  printf("\tcall r%d, L%d\n", dst, op0); break;
 	case IR_PRINT: printf("\tprint r%d\n", op0); break;
+	case IR_PARAM: printf("\tparam r%d\n", dst); break;
 	case IR_LABEL: printf("L%d:\n", op0); return;
 	}
 }
 
 static void
-print_program(struct ir_instruction *instructions, uint32_t instruction_count)
+print_program(struct ir_program program)
 {
-	for (uint32_t i = 0; i < instruction_count; i++) {
+	for (uint32_t i = 0; i < program.instruction_count; i++) {
 		printf("%2d| ", i);
-		print_ir(*instructions++);
+		print_ir(*program.instructions++);
 	}
 
 	fflush(stdout);
@@ -252,6 +253,7 @@ main(int argc, char *argv[])
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(root, arena);
+	print_program(program);
 	x86_generate(program, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");

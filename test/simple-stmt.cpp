@@ -1,18 +1,16 @@
 int
-foo(void)
+foo(int n)
 {
-	return 60;
+	return n + 60;
 }
 
 int
 main(void)
 {
-	int a;
-	int i;
+	int a = 420;
 
-	a = 420;
-	for (i = 0; i - 10; i = i + 1) {
-		a = a + foo();
+	for (int i = 0; i - 10; i = i + 1) {
+		a = foo(a);
 	}
 
 	print a;

@@ -14,6 +14,7 @@ enum ir_opcode {
 	IR_JIZ,
 	IR_RET,
 	IR_CALL,
+	IR_PARAM,
 	IR_PRINT,
 };
 
