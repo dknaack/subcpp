@@ -181,6 +181,7 @@ generate(struct generator *state, struct ast_node *node)
 	case AST_BREAK:
 		emit1(state, IR_JMP, state->break_label);
 		break;
+	case AST_ROOT:
 	case AST_COMPOUND:
 	case AST_DECL_STMT:
 		for (node = node->u.children; node; node = node->next) {
@@ -383,15 +384,12 @@ ir_generate(struct ast_node *root, struct arena *arena)
 	struct generator generator = generator_init(arena);
 
 	uint32_t function_count = 0;
-	for (struct ast_node *node = root; node; node = node->next) {
+	for (struct ast_node *node = root->u.children; node; node = node->next) {
 		function_count += (node->kind == AST_FUNCTION);
 	}
 
 	generator.program.functions = ALLOC(arena, function_count, struct ir_function);
-	for (struct ast_node *node = root; node; node = node->next) {
-		generate(&generator, node);
-	}
-
+	generate(&generator, root);
 	construct_cfg(&generator.program, arena);
 	return generator.program;
 }

@@ -344,11 +344,14 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 static struct ast_node *
 parse(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct ast_node *head, **ptr = &head;
+	struct ast_node *root = ZALLOC(arena, 1, struct ast_node);
+	root->kind = AST_ROOT;
+
+	struct ast_node **ptr = &root->u.children;
 	while (!accept(tokenizer, TOKEN_EOF)) {
 		*ptr = parse_function(tokenizer, arena);
 		ptr = &(*ptr)->next;
 	}
 
-	return head;
+	return root;
 }

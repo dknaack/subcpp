@@ -40,6 +40,7 @@ struct ast_function {
 
 enum ast_node_kind {
 	AST_INVALID,
+	AST_ROOT,
 
 	AST_BINARY,
 	AST_CALL,
