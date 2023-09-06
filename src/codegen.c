@@ -37,10 +37,10 @@ new_temp_register(struct generator *state)
 }
 
 static uint32_t
-new_register(struct generator *state, struct string identifier)
+new_register(struct generator *state, struct string ident)
 {
 	struct variable *variable_table = state->variable_table;
-	uint32_t h = hash(identifier);
+	uint32_t h = hash(ident);
 	for (uint32_t j = 0; j < state->variable_table_size; j++) {
 		uint32_t i = (h + j) & (state->variable_table_size - 1);
 		if (i == 0) {
@@ -48,7 +48,7 @@ new_register(struct generator *state, struct string identifier)
 		}
 
 		if (!variable_table[i].name.at) {
-			variable_table[i].name = identifier;
+			variable_table[i].name = ident;
 			variable_table[i]._register = new_temp_register(state);
 			return variable_table[i]._register;
 		}
@@ -59,11 +59,11 @@ new_register(struct generator *state, struct string identifier)
 }
 
 static uint32_t
-get_function(struct generator *state, struct string identifier)
+get_function(struct generator *state, struct string ident)
 {
 	for (uint32_t i = 0; i < state->program.function_count; i++) {
 		struct ir_function *func = &state->program.functions[i];
-		if (string_equals(func->name, identifier)) {
+		if (string_equals(func->name, ident)) {
 			return i;
 		}
 	}
@@ -73,17 +73,17 @@ get_function(struct generator *state, struct string identifier)
 }
 
 static uint32_t
-get_register(struct generator *state, struct string identifier)
+get_register(struct generator *state, struct string ident)
 {
 	struct variable *variable_table = state->variable_table;
-	uint32_t h = hash(identifier);
+	uint32_t h = hash(ident);
 	for (uint32_t j = 0; j < state->variable_table_size; j++) {
 		uint32_t i = (h + j) & (state->variable_table_size - 1);
 		if (i == 0) {
 			continue;
 		}
 
-		if (string_equals(variable_table[i].name, identifier)) {
+		if (string_equals(variable_table[i].name, ident)) {
 			return variable_table[i]._register;
 		}
 	}
@@ -160,8 +160,8 @@ generate(struct generator *state, struct ast_node *node)
 		break;
 	case AST_CALL:
 		called = node->u.call_expr.called;
-		if (called->kind == AST_IDENTIFIER) {
-			label = get_function(state, called->u.identifier);
+		if (called->kind == AST_IDENT) {
+			label = get_function(state, called->u.ident);
 			result = new_temp_register(state);
 			parameter = node->u.call_expr.parameter;
 			if (parameter) {
@@ -171,8 +171,8 @@ generate(struct generator *state, struct ast_node *node)
 			emit2(state, IR_CALL, result, label);
 		}
 		break;
-	case AST_IDENTIFIER:
-		result = get_register(state, node->u.identifier);
+	case AST_IDENT:
+		result = get_register(state, node->u.ident);
 		break;
 	case AST_INT:
 		result = new_temp_register(state);

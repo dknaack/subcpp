@@ -72,7 +72,7 @@ get_raw_token(struct tokenizer *tokenizer)
 		break;
 	default:
 		if (is_alpha(c) || c == '_') {
-			token.kind = TOKEN_IDENTIFIER;
+			token.kind = TOKEN_IDENT;
 			do {
 				c = advance(tokenizer);
 			} while (is_alpha(c) || is_digit(c) || c == '_');
@@ -124,7 +124,7 @@ get_token(struct tokenizer *tokenizer)
 
 	do {
 		token = get_raw_token(tokenizer);
-		if (token.kind == TOKEN_IDENTIFIER) {
+		if (token.kind == TOKEN_IDENT) {
 			for (size_t i = 0; i < LENGTH(keywords); i++) {
 				if (string_equals(token.value, keywords[i].str)) {
 					token.kind = keywords[i].token;

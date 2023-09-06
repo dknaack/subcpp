@@ -53,10 +53,10 @@ parse_int(struct string str)
 }
 
 static struct string
-parse_identifier(struct tokenizer *tokenizer)
+parse_ident(struct tokenizer *tokenizer)
 {
 	struct token token = get_token(tokenizer);
-	if (token.kind != TOKEN_IDENTIFIER) {
+	if (token.kind != TOKEN_IDENT) {
 		/* TODO: report error */
 		ASSERT(!"Syntax error");
 	}
@@ -73,11 +73,11 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 
 	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
-	case TOKEN_IDENTIFIER:
+	case TOKEN_IDENT:
 		get_token(tokenizer);
 		expr = ALLOC(arena, 1, struct ast_node);
-		expr->kind = AST_IDENTIFIER;
-		expr->u.identifier = token.value;
+		expr->kind = AST_IDENT;
+		expr->u.ident = token.value;
 		break;
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
@@ -175,7 +175,7 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 	do {
 		*ptr = ZALLOC(arena, 1, struct ast_node);
 		(*ptr)->kind = AST_DECL;
-		(*ptr)->u.decl.name = parse_identifier(tokenizer);
+		(*ptr)->u.decl.name = parse_ident(tokenizer);
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
 			(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
 		}
@@ -317,7 +317,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 
 	expect(tokenizer, TOKEN_INT);
 	struct token token = get_token(tokenizer);
-	if (token.kind != TOKEN_IDENTIFIER) {
+	if (token.kind != TOKEN_IDENT) {
 		ASSERT(!"Expected identifier");
 	}
 

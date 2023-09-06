@@ -82,7 +82,7 @@ get_token_name(enum token_kind kind)
 	case TOKEN_MOD:        return "'%'";
 	case TOKEN_ASSIGN:     return "'='";
 	case TOKEN_INT:        return "int";
-	case TOKEN_IDENTIFIER: return "identifier";
+	case TOKEN_IDENT:      return "identifier";
 	case TOKEN_WHITESPACE: return "whitespace";
 	default:               return "(invalid)";
 	}
@@ -114,8 +114,8 @@ print_node(struct ast_node *node, int indent)
 		print_node(node->u.bin_expr.rhs, 0);
 		printf(")");
 		break;
-	case AST_IDENTIFIER:
-		printf("%.*s", (int)node->u.identifier.length, node->u.identifier.at);
+	case AST_IDENT:
+		printf("%.*s", (int)node->u.ident.length, node->u.ident.at);
 		break;
 	case AST_INT:
 		printf("%jd", node->u.ival);

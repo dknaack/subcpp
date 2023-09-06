@@ -43,7 +43,7 @@ enum ast_node_kind {
 
 	AST_BINARY,
 	AST_CALL,
-	AST_IDENTIFIER,
+	AST_IDENT,
 	AST_INT,
 
 	AST_BREAK,
@@ -72,7 +72,7 @@ struct ast_node {
 		struct ast_function function;
 		struct ast_decl decl;
 		struct ast_node *children;
-		struct string identifier;
+		struct string ident;
 		intmax_t ival;
 	} u;
 };
