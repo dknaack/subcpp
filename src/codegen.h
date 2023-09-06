@@ -23,7 +23,6 @@ struct ir_instruction {
 	enum ir_opcode opcode;
 	uint32_t op0;
 	uint32_t op1;
-	uint32_t dst;
 };
 
 struct ir_block {

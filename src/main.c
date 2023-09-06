@@ -6,38 +6,33 @@
 #include "main.h"
 
 static void
-print_ir(struct ir_instruction instruction)
-{
-	uint32_t dst = instruction.dst;
-	uint32_t op0 = instruction.op0;
-	uint32_t op1 = instruction.op1;
-
-	switch (instruction.opcode) {
-	case IR_NOP:   printf("\tnop\n"); break;
-	case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
-	case IR_MOV:   printf("\tmov r%d, r%d\n", dst, op0); break;
-	case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_SUB:   printf("\tsub r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
-	case IR_JMP:   printf("\tjmp L%d\n", op0); break;
-	case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
-	case IR_RET:   printf("\tret r%d\n", op0); break;
-	case IR_CALL:  printf("\tcall r%d, L%d\n", dst, op0); break;
-	case IR_PRINT: printf("\tprint r%d\n", op0); break;
-	case IR_PARAM: printf("\tparam r%d\n", dst); break;
-	case IR_VAR:   printf("\tvar r%d\n", dst); break;
-	case IR_LABEL: printf("L%d:\n", op0); return;
-	}
-}
-
-static void
 print_program(struct ir_program program)
 {
 	for (uint32_t i = 0; i < program.instruction_count; i++) {
 		printf("%2d| ", i);
-		print_ir(*program.instructions++);
+		struct ir_instruction instruction = program.instructions[i];
+
+		uint32_t dst = i;
+		uint32_t op0 = instruction.op0;
+		uint32_t op1 = instruction.op1;
+		switch (instruction.opcode) {
+		case IR_NOP:   printf("\tnop\n"); break;
+		case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
+		case IR_MOV:   printf("\tmov r%d, r%d\n", dst, op0); break;
+		case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_SUB:   printf("\tsub r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_JMP:   printf("\tjmp L%d\n", op0); break;
+		case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
+		case IR_RET:   printf("\tret r%d\n", op0); break;
+		case IR_CALL:  printf("\tcall r%d, L%d\n", dst, op0); break;
+		case IR_PRINT: printf("\tprint r%d\n", op0); break;
+		case IR_PARAM: printf("\tparam r%d\n", dst); break;
+		case IR_VAR:   printf("\tvar r%d\n", dst); break;
+		case IR_LABEL: printf("L%d:\n", op0); break;
+		}
 	}
 
 	fflush(stdout);

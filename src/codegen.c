@@ -40,7 +40,7 @@ emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1
 	instruction->op0 = op0;
 	instruction->op1 = op1;
 	state->program.register_count++;
-	return instruction->dst = state->program.instruction_count - 1;
+	return state->program.instruction_count - 1;
 }
 
 static uint32_t
