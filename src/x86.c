@@ -261,17 +261,18 @@ x86_generate_basic_block(struct stream *out,
 			/* fallthrough */
 		case IR_SET:
 		case IR_CALL:
-		case IR_PARAM:
 			dst = locations[i];
-		case IR_JMP:
-		case IR_LABEL:
-		case IR_VAR:
-		case IR_NOP:
 			break;
 		case IR_JIZ:
 		case IR_RET:
 		case IR_PRINT:
+		case IR_PARAM:
 			op0 = locations[instructions[i].op0];
+			break;
+		case IR_JMP:
+		case IR_LABEL:
+		case IR_VAR:
+		case IR_NOP:
 			break;
 		}
 
@@ -347,7 +348,7 @@ x86_generate_basic_block(struct stream *out,
 			x86_mov(out, dst, rax);
 			break;
 		case IR_PARAM:
-			x86_mov(out, rdi, dst);
+			x86_mov(out, rdi, op0);
 			break;
 		case IR_PRINT:
 			stream_print(out, "\tmov rdi, fmt\n");
