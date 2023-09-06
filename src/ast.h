@@ -33,7 +33,6 @@ struct ast_for_stmt {
 };
 
 struct ast_function {
-	struct ast_function *next;
 	struct string name;
 	struct ast_node *parameter;
 	struct ast_node *body;
