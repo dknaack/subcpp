@@ -18,7 +18,7 @@ print_program(struct ir_program program, bool *marked)
 		switch (instruction.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
 		case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
-		case IR_MOV:   printf("\tmov r%d, r%d\n", dst, op0); break;
+		case IR_MOV:   printf("\tmov r%d, r%d\n", op0, op1); break;
 		case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
 		case IR_SUB:   printf("\tsub r%d, r%d, r%d\n", dst, op0, op1); break;
 		case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
