@@ -50,6 +50,7 @@ struct ir_program {
 };
 
 enum location_type {
+	LOC_INVALID,
 	LOC_REGISTER,
 	LOC_STACK,
 	LOC_CONST,
