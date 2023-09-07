@@ -267,11 +267,11 @@ get_root_instructions(struct ir_program program, struct arena *arena)
 			break;
 		case IR_NOP:
 		case IR_VAR:
-		case IR_LABEL:
 			is_root[i] = false;
 		case IR_SET:
 		case IR_JMP:
 		case IR_CALL:
+		case IR_LABEL:
 			break;
 		}
 	}
@@ -296,7 +296,7 @@ main(int argc, char *argv[])
 	bool *is_root = get_root_instructions(program, arena);
 
 	print_program(program, is_root);
-	x86_generate(program, locations, arena);
+	x86_generate(program, locations, is_root, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
