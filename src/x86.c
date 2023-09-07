@@ -396,10 +396,8 @@ x86_generate_function(struct stream *out, struct ir_program program,
 }
 
 static void
-x86_generate(struct ir_program program, struct arena *arena)
+x86_generate(struct ir_program program, struct location *locations, struct arena *arena)
 {
-	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
-
 	// TODO: choose a random file for output
 	struct stream out = stream_open("/tmp/out.s", 4096, arena);
 	if (!out.fd) {

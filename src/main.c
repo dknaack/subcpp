@@ -6,10 +6,10 @@
 #include "main.h"
 
 static void
-print_program(struct ir_program program)
+print_program(struct ir_program program, bool *marked)
 {
 	for (uint32_t i = 0; i < program.instruction_count; i++) {
-		printf("%2d| ", i);
+		printf("%s%2d| ", marked[i] ? "*" : " ", i);
 		struct ir_instruction instruction = program.instructions[i];
 
 		uint32_t dst = i;
@@ -236,6 +236,49 @@ run_linker(char *input, char *output)
 	run_command(args);
 }
 
+/* TODO: terrible name */
+static bool *
+get_root_instructions(struct ir_program program, struct arena *arena)
+{
+	struct ir_instruction *instructions = program.instructions;
+	bool *is_root = ZALLOC(arena, program.register_count, bool);
+	for (uint32_t i = 0; i < program.register_count; i++) {
+		is_root[i] = (instructions[i].opcode != IR_NOP);
+	}
+
+	for (uint32_t i = 0; i < program.register_count; i++) {
+		switch (instructions[i].opcode) {
+		case IR_JIZ:
+		case IR_PRINT:
+		case IR_PARAM:
+		case IR_RET:
+			is_root[instructions[i].op0] = false;
+			break;
+		case IR_MOV:
+			is_root[instructions[i].op1] = false;
+			break;
+		case IR_ADD:
+		case IR_SUB:
+		case IR_MUL:
+		case IR_DIV:
+		case IR_MOD:
+			is_root[instructions[i].op0] = false;
+			is_root[instructions[i].op1] = false;
+			break;
+		case IR_NOP:
+		case IR_VAR:
+		case IR_LABEL:
+			is_root[i] = false;
+		case IR_SET:
+		case IR_JMP:
+		case IR_CALL:
+			break;
+		}
+	}
+
+	return is_root;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -249,8 +292,11 @@ main(int argc, char *argv[])
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(root, arena);
-	print_program(program);
-	x86_generate(program, arena);
+	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
+	bool *is_root = get_root_instructions(program, arena);
+
+	print_program(program, is_root);
+	x86_generate(program, locations, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
