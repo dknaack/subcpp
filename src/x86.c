@@ -238,130 +238,82 @@ struct x86_program {
 };
 
 static void
-x86_generate_instruction(struct stream *out,
-    struct x86_program program, uint32_t instruction_index)
+x86_generate_instruction(struct stream *out, struct x86_program program,
+    uint32_t instruction_index, struct location dst)
 {
 	struct ir_instruction *instr = program.ir.instructions;
 	struct location *locations = program.locations;
 	uint32_t stack_size = program.stack_size;
 
-	uint32_t dst = instruction_index;
 	enum ir_opcode opcode = instr[instruction_index].opcode;
 	uint32_t op0 = instr[instruction_index].op0;
 	uint32_t op1 = instr[instruction_index].op1;
 
 	struct location rax = register_location(X86_RAX);
+	struct location rcx = register_location(X86_RCX);
 	struct location rdx = register_location(X86_RDX);
 	struct location rdi = register_location(X86_RDI);
 	struct location rsi = register_location(X86_RSI);
 
 	switch (opcode) {
 	case IR_SET:
-		x86_mov(out, locations[dst], const_location(op0));
+		x86_mov(out, dst, const_location(op0));
+		break;
+	case IR_VAR:
+		x86_mov(out, dst, locations[instruction_index]);
 		break;
 	case IR_MOV:
-		if (instr[op1].opcode == IR_SET) {
+		ASSERT(location_equals(dst, program.locations[op0]));
+		if (instr[op1].opcode == IR_VAR) {
 			op1 = instr[op1].op0;
-			x86_mov(out, locations[op0], const_location(op1));
-		} else if (instr[op1].opcode == IR_ADD
-		    && instr[op1].op0 == op0
-		    && instr[instr[op1].op1].opcode == IR_SET
-		    && instr[instr[op1].op1].op0 == 1) {
-			x86_emit1(out, "inc", locations[op0]);
-		} else if (instr[op1].opcode == IR_CALL) {
-			uint32_t fn = instr[op1].op0;
-			stream_print(out, "\tcall ");
-			stream_prints(out, program.ir.functions[fn].name);
-			stream_print(out, "\n");
-			x86_mov(out, locations[op0], rax);
-		} else {
-			x86_generate_instruction(out, program, op1);
 			x86_mov(out, locations[op0], locations[op1]);
+		} else {
+			x86_generate_instruction(out, program, op1, program.locations[op0]);
 		}
 		break;
 	case IR_ADD:
-		if (instr[op1].opcode == IR_SET
-		    && instr[op1].op0 == 1) {
-			x86_generate_instruction(out, program, op0);
-			x86_mov(out, locations[dst], locations[op0]);
-			x86_emit1(out, "inc", locations[dst]);
-		} else {
-			x86_generate_instruction(out, program, op0);
-			x86_generate_instruction(out, program, op1);
-			x86_mov(out, rax, locations[op0]);
-			x86_emit2(out, "add", rax, locations[op1]);
-			x86_mov(out, locations[dst], rax);
-		}
+		x86_generate_instruction(out, program, op0, dst);
+		x86_generate_instruction(out, program, op1, locations[op1]);
+		x86_emit2(out, "add", dst, locations[op1]);
 		break;
 	case IR_SUB:
-		if (instr[op1].opcode == IR_SET) {
-			x86_generate_instruction(out, program, op0);
-			if (location_equals(locations[op0], locations[dst])
-			    || locations[dst].type == LOC_REGISTER) {
-				rax = locations[dst];
-			}
-
-			x86_mov(out, rax, locations[op0]);
-			x86_emit2(out, "sub", rax, const_location(instr[op1].op0));
-			x86_mov(out, locations[dst], rax);
-		} else {
-			x86_generate_instruction(out, program, op0);
-			x86_generate_instruction(out, program, op1);
-			x86_mov(out, rax, locations[op0]);
-			x86_emit2(out, "sub", rax, locations[op1]);
-			x86_mov(out, locations[dst], rax);
-		}
+		x86_generate_instruction(out, program, op0, dst);
+		x86_generate_instruction(out, program, op1, locations[op1]);
+		x86_emit2(out, "sub", dst, locations[op1]);
 		break;
 	case IR_MUL:
-		x86_generate_instruction(out, program, op0);
-		x86_generate_instruction(out, program, op1);
-		x86_mov(out, rax, locations[op0]);
+		x86_generate_instruction(out, program, op0, rax);
+		x86_generate_instruction(out, program, op1, locations[op1]);
 		x86_emit1(out, "imul", locations[op1]);
-		x86_mov(out, locations[dst], rax);
+		x86_mov(out, dst, rax);
 		break;
 	case IR_DIV:
-		x86_generate_instruction(out, program, op0);
-		x86_generate_instruction(out, program, op1);
-		x86_mov(out, rax, locations[op0]);
+		x86_generate_instruction(out, program, op0, rax);
+		x86_generate_instruction(out, program, op1, rcx);
 		x86_mov(out, rdx, const_location(0));
-		x86_emit1(out, "idiv", locations[op1]);
-		x86_mov(out, locations[dst], rax);
+		x86_emit1(out, "idiv", rcx);
+		x86_mov(out, dst, rax);
 		break;
 	case IR_MOD:
-		x86_generate_instruction(out, program, op0);
-		x86_generate_instruction(out, program, op1);
-		x86_mov(out, rax, locations[op0]);
+		x86_generate_instruction(out, program, op0, rax);
+		x86_generate_instruction(out, program, op1, rcx);
 		x86_mov(out, rdx, const_location(0));
-		x86_emit1(out, "idiv", locations[op1]);
-		x86_mov(out, locations[dst], rdx);
+		x86_emit1(out, "idiv", rcx);
+		x86_mov(out, dst, rdx);
 		break;
 	case IR_JMP:
 		x86_emit1(out, "jmp", label_location(op0));
 		stream_print(out, "\n");
 		break;
 	case IR_JIZ:
-		x86_generate_instruction(out, program, op0);
-		if (locations[op0].type == LOC_STACK) {
-			x86_mov(out, rax, locations[op0]);
-			if (instr[op0].opcode != IR_SUB) {
-				x86_emit2(out, "test", rax, rax);
-			}
-		} else {
-			if (instr[op0].opcode != IR_SUB) {
-				x86_emit2(out, "test", locations[op0], locations[op0]);
-			}
-		}
-
+		x86_generate_instruction(out, program, op0, rax);
+		x86_emit2(out, "test", rax, rax);
 		x86_emit1(out, "jz", label_location(op1));
 		stream_print(out, "\n");
 		break;
 	case IR_RET:
-		if (instr[op0].opcode == IR_SET) {
-			x86_mov(out, rax, const_location(instr[op0].op0));
-		} else {
-			x86_generate_instruction(out, program, op0);
-			x86_mov(out, rax, locations[op0]);
-		}
+		x86_generate_instruction(out, program, op0, rax);
+
 		if (stack_size > 0) {
 			stream_print(out, "\tadd rsp, ");
 			stream_printu(out, stack_size);
@@ -374,15 +326,14 @@ x86_generate_instruction(struct stream *out,
 		stream_print(out, "\tcall ");
 		stream_prints(out, program.ir.functions[op0].name);
 		stream_print(out, "\n");
-		x86_mov(out, locations[dst], rax);
+		x86_mov(out, dst, rax);
 		break;
 	case IR_PARAM:
-		x86_generate_instruction(out, program, op0);
-		x86_mov(out, rdi, locations[op0]);
+		x86_generate_instruction(out, program, op0, rdi);
 		break;
 	case IR_PRINT:
+		x86_generate_instruction(out, program, op0, rsi);
 		stream_print(out, "\tmov rdi, fmt\n");
-		x86_mov(out, rsi, locations[op0]);
 		x86_mov(out, rax, const_location(0));
 		stream_print(out, "\tcall printf wrt ..plt\n");
 		break;
@@ -390,8 +341,8 @@ x86_generate_instruction(struct stream *out,
 		stream_print(out, "L");
 		stream_printu(out, op0);
 		stream_print(out, ":\n");
+		break;
 	case IR_NOP:
-	case IR_VAR:
 		break;
 	}
 }
@@ -426,7 +377,13 @@ x86_generate_function(struct stream *out,
 				continue;
 			}
 
-			x86_generate_instruction(out, program, i);
+			struct ir_instruction instr = program.ir.instructions[i];
+			struct location dst = program.locations[i];
+			if (instr.opcode == IR_MOV) {
+				dst = program.locations[instr.op0];
+			}
+
+			x86_generate_instruction(out, program, i, dst);
 		}
 	}
 }
