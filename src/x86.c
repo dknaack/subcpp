@@ -232,7 +232,7 @@ x86_mov(struct stream *out, struct location dst, struct location src)
 struct x86_program {
 	struct ir_program ir;
 	struct location *locations;
-	bool *is_root;
+	uint32_t *usage_count;
 	uint32_t stack_size;
 	char *postamble;
 };
@@ -373,7 +373,7 @@ x86_generate_function(struct stream *out,
 	for (uint32_t i = function.block_index; i < last_block; i++) {
 		struct ir_block block = program.ir.blocks[i];
 		for (uint32_t i = block.start; i < block.start + block.size; i++) {
-			if (!program.is_root[i]) {
+			if (program.usage_count[i] != 0) {
 				continue;
 			}
 
@@ -390,12 +390,12 @@ x86_generate_function(struct stream *out,
 
 static void
 x86_generate(struct ir_program program, struct location *locations,
-    bool *is_root, struct arena *arena)
+    uint32_t *usage_count, struct arena *arena)
 {
 	struct x86_program x86_program = {0};
 	x86_program.ir = program;
 	x86_program.locations = locations;
-	x86_program.is_root = is_root;
+	x86_program.usage_count = usage_count;
 
 	// TODO: choose a random file for output
 	struct stream out = stream_open("/tmp/out.s", 4096, arena);

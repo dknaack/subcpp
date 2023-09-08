@@ -6,10 +6,10 @@
 #include "main.h"
 
 static void
-print_program(struct ir_program program, bool *marked)
+print_program(struct ir_program program, uint32_t *usage_count)
 {
 	for (uint32_t i = 0; i < program.instruction_count; i++) {
-		printf("%s%2d| ", marked[i] ? "*" : " ", i);
+		printf("(%d) %2d| ", usage_count[i], i);
 		struct ir_instruction instruction = program.instructions[i];
 
 		uint32_t dst = i;
@@ -237,46 +237,44 @@ run_linker(char *input, char *output)
 }
 
 /* TODO: terrible name */
-static bool *
-get_root_instructions(struct ir_program program, struct arena *arena)
+static uint32_t *
+get_usage_count(struct ir_program program, struct arena *arena)
 {
 	struct ir_instruction *instructions = program.instructions;
-	bool *is_root = ZALLOC(arena, program.register_count, bool);
-	for (uint32_t i = 0; i < program.register_count; i++) {
-		is_root[i] = (instructions[i].opcode != IR_NOP);
-	}
+	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
 
 	for (uint32_t i = 0; i < program.register_count; i++) {
 		switch (instructions[i].opcode) {
-		case IR_JIZ:
+		case IR_JMP:
+			printf("%d\n", instructions[i].op0);
+			/* fallthrough */
 		case IR_PRINT:
 		case IR_PARAM:
 		case IR_RET:
-			is_root[instructions[i].op0] = false;
+			usage_count[instructions[i].op0]++;
 			break;
 		case IR_MOV:
-			is_root[instructions[i].op1] = false;
+			usage_count[instructions[i].op1]++;
 			break;
 		case IR_ADD:
 		case IR_SUB:
 		case IR_MUL:
 		case IR_DIV:
 		case IR_MOD:
-			is_root[instructions[i].op0] = false;
-			is_root[instructions[i].op1] = false;
+		case IR_JIZ:
+			usage_count[instructions[i].op0]++;
+			usage_count[instructions[i].op1]++;
 			break;
 		case IR_NOP:
 		case IR_VAR:
-			is_root[i] = false;
 		case IR_SET:
-		case IR_JMP:
 		case IR_CALL:
 		case IR_LABEL:
 			break;
 		}
 	}
 
-	return is_root;
+	return usage_count;
 }
 
 int
@@ -293,10 +291,10 @@ main(int argc, char *argv[])
 	struct ast_node *root = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(root, arena);
 	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
-	bool *is_root = get_root_instructions(program, arena);
+	uint32_t *usage_count = get_usage_count(program, arena);
 
-	print_program(program, is_root);
-	x86_generate(program, locations, is_root, arena);
+	print_program(program, usage_count);
+	x86_generate(program, locations, usage_count, arena);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
