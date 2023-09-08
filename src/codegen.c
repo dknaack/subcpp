@@ -314,8 +314,8 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 			uint32_t opcode = program->instructions[i].opcode;
 			if (opcode == IR_LABEL) {
 				uint32_t label = program->instructions[i].op0;
-				block_indices[label] = block_index;
-				program->instructions[i].op0 = block_indices[label];
+				block_indices[label] = i;
+				program->instructions[i].op0 = block_index;
 			}
 
 			program->blocks[block_index++].start = i;
@@ -339,6 +339,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	for (uint32_t i = 0; i < program->function_count; i++) {
 		uint32_t label = program->functions[i].block_index;
 		uint32_t block_index = block_indices[label];
+		block_index = program->instructions[block_index].op0;
 		program->functions[i].block_index = block_index;
 		ASSERT(block_index < program->block_count);
 		if (i > 0) {

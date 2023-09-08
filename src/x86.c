@@ -302,12 +302,14 @@ x86_generate_instruction(struct stream *out, struct x86_program program,
 		x86_mov(out, dst, rdx);
 		break;
 	case IR_JMP:
+		op0 = instr[op0].op0;
 		x86_emit1(out, "jmp", label_location(op0));
 		stream_print(out, "\n");
 		break;
 	case IR_JIZ:
 		x86_generate_instruction(out, program, op0, rax);
 		x86_emit2(out, "test", rax, rax);
+		op1 = instr[op1].op0;
 		x86_emit1(out, "jz", label_location(op1));
 		stream_print(out, "\n");
 		break;
@@ -373,11 +375,15 @@ x86_generate_function(struct stream *out,
 	for (uint32_t i = function.block_index; i < last_block; i++) {
 		struct ir_block block = program.ir.blocks[i];
 		for (uint32_t i = block.start; i < block.start + block.size; i++) {
-			if (program.usage_count[i] != 0) {
+			struct ir_instruction instr = program.ir.instructions[i];
+			if (instr.opcode == IR_LABEL) {
+				if (program.usage_count[i] == 0) {
+					continue;
+				}
+			} else if (program.usage_count[i] != 0) {
 				continue;
 			}
 
-			struct ir_instruction instr = program.ir.instructions[i];
 			struct location dst = program.locations[i];
 			if (instr.opcode == IR_MOV) {
 				dst = program.locations[instr.op0];

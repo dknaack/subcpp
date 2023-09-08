@@ -246,8 +246,6 @@ get_usage_count(struct ir_program program, struct arena *arena)
 	for (uint32_t i = 0; i < program.register_count; i++) {
 		switch (instructions[i].opcode) {
 		case IR_JMP:
-			printf("%d\n", instructions[i].op0);
-			/* fallthrough */
 		case IR_PRINT:
 		case IR_PARAM:
 		case IR_RET:
