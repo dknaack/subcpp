@@ -328,7 +328,10 @@ x86_generate_instruction(struct stream *out, struct x86_program program,
 		break;
 	case IR_JIZ:
 		x86_generate_instruction(out, program, op0, rax);
-		x86_emit2(out, "test", rax, rax);
+		if (instr[op0].opcode != IR_SUB) {
+			x86_emit2(out, "test", rax, rax);
+		}
+
 		op1 = instr[op1].op0;
 		x86_emit1(out, "jz", label_location(op1));
 		stream_print(out, "\n");
