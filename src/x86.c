@@ -264,28 +264,48 @@ x86_generate_instruction(struct stream *out, struct x86_program program,
 		break;
 	case IR_MOV:
 		ASSERT(location_equals(dst, program.locations[op0]));
-		if (instr[op1].opcode == IR_VAR) {
-			op1 = instr[op1].op0;
-			x86_mov(out, locations[op0], locations[op1]);
-		} else {
-			x86_generate_instruction(out, program, op1, program.locations[op0]);
-		}
+		x86_generate_instruction(out, program, op1, program.locations[op0]);
 		break;
 	case IR_ADD:
-		x86_generate_instruction(out, program, op0, dst);
-		x86_generate_instruction(out, program, op1, locations[op1]);
-		x86_emit2(out, "add", dst, locations[op1]);
+		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+			x86_generate_instruction(out, program, op0, dst);
+			x86_emit1(out, "inc", dst);
+		} else if (instr[op1].opcode == IR_SET) {
+			op1 = instr[op1].op0;
+			x86_generate_instruction(out, program, op0, dst);
+			x86_emit2(out, "add", dst, const_location(op1));
+		} else {
+			x86_generate_instruction(out, program, op0, dst);
+			x86_generate_instruction(out, program, op1, locations[op1]);
+			x86_emit2(out, "add", dst, locations[op1]);
+		}
 		break;
 	case IR_SUB:
-		x86_generate_instruction(out, program, op0, dst);
-		x86_generate_instruction(out, program, op1, locations[op1]);
-		x86_emit2(out, "sub", dst, locations[op1]);
+		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+			x86_generate_instruction(out, program, op0, dst);
+			x86_emit1(out, "dec", dst);
+		} else if (instr[op1].opcode == IR_SET) {
+			op1 = instr[op1].op0;
+			x86_generate_instruction(out, program, op0, dst);
+			x86_emit2(out, "sub", dst, const_location(op1));
+		} else {
+			x86_generate_instruction(out, program, op0, dst);
+			x86_generate_instruction(out, program, op1, locations[op1]);
+			x86_emit2(out, "sub", dst, locations[op1]);
+		}
 		break;
 	case IR_MUL:
-		x86_generate_instruction(out, program, op0, rax);
-		x86_generate_instruction(out, program, op1, locations[op1]);
-		x86_emit1(out, "imul", locations[op1]);
-		x86_mov(out, dst, rax);
+		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+			x86_generate_instruction(out, program, op0, dst);
+		} else if (instr[op1].opcode == IR_SET && instr[op1].op0 == 2) {
+			x86_generate_instruction(out, program, op0, dst);
+			x86_emit2(out, "add", dst, dst);
+		} else {
+			x86_generate_instruction(out, program, op0, rax);
+			x86_generate_instruction(out, program, op1, locations[op1]);
+			x86_emit1(out, "imul", locations[op1]);
+			x86_mov(out, dst, rax);
+		}
 		break;
 	case IR_DIV:
 		x86_generate_instruction(out, program, op0, rax);
