@@ -418,21 +418,15 @@ x86_generate_function(struct stream *out,
 }
 
 static void
-x86_generate(struct ir_program program, struct location *locations,
-    uint32_t *usage_count, struct arena *arena)
+x86_generate(struct stream *out, struct ir_program program,
+    struct location *locations, uint32_t *usage_count)
 {
 	struct x86_program x86_program = {0};
 	x86_program.ir = program;
 	x86_program.locations = locations;
 	x86_program.usage_count = usage_count;
-
-	// TODO: choose a random file for output
-	struct stream out = stream_open("/tmp/out.s", 4096, arena);
-	if (!out.fd) {
-		return;
-	}
-
 	x86_program.stack_size = 0;
+
 	for (uint32_t i = 0; i < program.register_count; i++) {
 		if (locations[i].type == LOC_STACK) {
 			locations[i].address = x86_program.stack_size;
@@ -440,7 +434,7 @@ x86_generate(struct ir_program program, struct location *locations,
 		}
 	}
 
-	stream_print(&out,
+	stream_print(out,
 	    "global main\n"
 	    "extern printf\n\n"
 	    "section .data\n"
@@ -449,20 +443,18 @@ x86_generate(struct ir_program program, struct location *locations,
 	);
 
 	if (x86_program.stack_size > 0) {
-		stream_print(&out, "\tsub rsp, ");
-		stream_printu(&out, x86_program.stack_size);
-		stream_print(&out, "\n");
+		stream_print(out, "\tsub rsp, ");
+		stream_printu(out, x86_program.stack_size);
+		stream_print(out, "\n");
 	}
 
 	for (uint32_t i = 0; i < program.function_count; i++) {
-		x86_generate_function(&out, x86_program, i);
+		x86_generate_function(out, x86_program, i);
 	}
 
 	if (x86_program.stack_size > 0) {
-		stream_print(&out, "\tadd rsp, ");
-		stream_printu(&out, x86_program.stack_size);
-		stream_print(&out, "\n\tret\n");
+		stream_print(out, "\tadd rsp, ");
+		stream_printu(out, x86_program.stack_size);
+		stream_print(out, "\n\tret\n");
 	}
-
-	stream_close(&out);
 }

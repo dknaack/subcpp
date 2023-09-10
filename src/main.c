@@ -290,9 +290,9 @@ main(int argc, char *argv[])
 	struct ir_program program = ir_generate(root, arena);
 	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
 	uint32_t *usage_count = get_usage_count(program, arena);
-
-	print_program(program, usage_count);
-	x86_generate(program, locations, usage_count, arena);
+	struct stream out = stream_open("/tmp/out.s", 1024, arena);
+	x86_generate(&out, program, locations, usage_count);
+	stream_flush(&out);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
