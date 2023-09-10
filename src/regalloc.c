@@ -95,11 +95,11 @@ struct live_info {
 };
 
 static struct live_info
-get_live_info(struct ir_instruction instruction, uint32_t dst)
+get_live_info(struct ir_instr instr, uint32_t dst)
 {
 	struct live_info info = {0};
 
-	switch (instruction.opcode) {
+	switch (instr.opcode) {
 	case IR_LABEL:
 	case IR_JMP:
 	case IR_NOP:
@@ -109,7 +109,7 @@ get_live_info(struct ir_instruction instruction, uint32_t dst)
 	case IR_RET:
 	case IR_PRINT:
 	case IR_PARAM:
-		info.used[0] = instruction.op0;
+		info.used[0] = instr.op0;
 		break;
 	case IR_SET:
 	case IR_CALL:
@@ -117,7 +117,7 @@ get_live_info(struct ir_instruction instruction, uint32_t dst)
 		break;
 	case IR_MOV:
 		info.assigned = dst;
-		info.used[0] = instruction.op0;
+		info.used[0] = instr.op0;
 		break;
 	case IR_ADD:
 	case IR_SUB:
@@ -125,8 +125,8 @@ get_live_info(struct ir_instruction instruction, uint32_t dst)
 	case IR_DIV:
 	case IR_MOD:
 		info.assigned = dst;
-		info.used[0] = instruction.op0;
-		info.used[1] = instruction.op1;
+		info.used[0] = instr.op0;
+		info.used[1] = instr.op1;
 		break;
 	}
 
@@ -138,38 +138,38 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
 	struct bit_matrix live_matrix = bit_matrix_init(
-	    program.register_count, program.instruction_count, arena);
+	    program.register_count, program.instr_count, arena);
 	struct bit_matrix prev_live_matrix = bit_matrix_init(
-	    program.register_count, program.instruction_count, arena);
-	struct ir_instruction *instructions = program.instructions;
+	    program.register_count, program.instr_count, arena);
+	struct ir_instr *instrs = program.instrs;
 	struct ir_block *blocks = program.blocks;
 
 	bool has_matrix_changed;
 	do {
 		has_matrix_changed = false;
-		uint32_t i = program.instruction_count;
+		uint32_t i = program.instr_count;
 		while (i-- > 0) {
 			uint32_t address = 0;
 
 			clear_row(live_matrix, i);
-			switch (instructions[i].opcode) {
+			switch (instrs[i].opcode) {
 			case IR_RET:
 				break;
 			case IR_JMP:
-				address = blocks[instructions[i].op0].start;
+				address = blocks[instrs[i].op0].start;
 				union_rows(live_matrix, i, address);
 				break;
 			case IR_JIZ:
-				address = blocks[instructions[i].op1].start;
+				address = blocks[instrs[i].op1].start;
 				union_rows(live_matrix, i, address);
 				/* fallthrough */
 			default:
-				if (i + 1 != program.instruction_count) {
+				if (i + 1 != program.instr_count) {
 					union_rows(live_matrix, i, i + 1);
 				}
 			}
 
-			struct live_info info = get_live_info(instructions[i], i);
+			struct live_info info = get_live_info(instrs[i], i);
 			if (info.assigned != 0) {
 				clear_bit(live_matrix, info.assigned, i);
 			}

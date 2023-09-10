@@ -8,14 +8,14 @@
 static void
 print_program(struct ir_program program, uint32_t *usage_count)
 {
-	for (uint32_t i = 0; i < program.instruction_count; i++) {
+	for (uint32_t i = 0; i < program.instr_count; i++) {
 		printf("(%d) %2d| ", usage_count[i], i);
-		struct ir_instruction instruction = program.instructions[i];
+		struct ir_instr instr = program.instrs[i];
 
 		uint32_t dst = i;
-		uint32_t op0 = instruction.op0;
-		uint32_t op1 = instruction.op1;
-		switch (instruction.opcode) {
+		uint32_t op0 = instr.op0;
+		uint32_t op1 = instr.op1;
+		switch (instr.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
 		case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
 		case IR_MOV:   printf("\tmov r%d, r%d\n", op0, op1); break;
@@ -41,6 +41,7 @@ print_program(struct ir_program program, uint32_t *usage_count)
 #include "tokenizer.c"
 #include "parser.c"
 #include "codegen.c"
+#include "optimize.c"
 #include "regalloc.c"
 #include "x86.c"
 
@@ -240,19 +241,19 @@ run_linker(char *input, char *output)
 static uint32_t *
 get_usage_count(struct ir_program program, struct arena *arena)
 {
-	struct ir_instruction *instructions = program.instructions;
+	struct ir_instr *instrs = program.instrs;
 	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
 
 	for (uint32_t i = 0; i < program.register_count; i++) {
-		switch (instructions[i].opcode) {
+		switch (instrs[i].opcode) {
 		case IR_JMP:
 		case IR_PRINT:
 		case IR_PARAM:
 		case IR_RET:
-			usage_count[instructions[i].op0]++;
+			usage_count[instrs[i].op0]++;
 			break;
 		case IR_MOV:
-			usage_count[instructions[i].op1]++;
+			usage_count[instrs[i].op1]++;
 			break;
 		case IR_ADD:
 		case IR_SUB:
@@ -260,8 +261,8 @@ get_usage_count(struct ir_program program, struct arena *arena)
 		case IR_DIV:
 		case IR_MOD:
 		case IR_JIZ:
-			usage_count[instructions[i].op0]++;
-			usage_count[instructions[i].op1]++;
+			usage_count[instrs[i].op0]++;
+			usage_count[instrs[i].op1]++;
 			break;
 		case IR_NOP:
 		case IR_VAR:
@@ -288,6 +289,7 @@ main(int argc, char *argv[])
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
 	struct ir_program program = ir_generate(root, arena);
+	optimize(program, arena);
 	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
 	uint32_t *usage_count = get_usage_count(program, arena);
 	struct stream out = stream_open("/tmp/out.s", 1024, arena);
