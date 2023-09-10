@@ -379,6 +379,8 @@ x86_generate_function(struct stream *out,
 	struct ir_function function = program.ir.functions[function_index];
 	uint32_t last_block = function.block_index + function.block_count;
 
+	/* TODO: allocate stack memory */
+
 	stream_prints(out, function.name);
 	stream_print(out, ":\n");
 	stream_print(out,
@@ -442,19 +444,7 @@ x86_generate(struct stream *out, struct ir_program program,
 	    "section .text\n"
 	);
 
-	if (x86_program.stack_size > 0) {
-		stream_print(out, "\tsub rsp, ");
-		stream_printu(out, x86_program.stack_size);
-		stream_print(out, "\n");
-	}
-
 	for (uint32_t i = 0; i < program.function_count; i++) {
 		x86_generate_function(out, x86_program, i);
-	}
-
-	if (x86_program.stack_size > 0) {
-		stream_print(out, "\tadd rsp, ");
-		stream_printu(out, x86_program.stack_size);
-		stream_print(out, "\n\tret\n");
 	}
 }
