@@ -135,7 +135,6 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select2(out, X86_MOV, dst, make_immediate(op0));
 		break;
 	case IR_VAR:
-		printf("VAR(%d)\n", instr_index);
 		x86_select2(out, X86_MOV, dst, make_vreg(instr_index));
 		break;
 	case IR_MOV:

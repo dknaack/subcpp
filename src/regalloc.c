@@ -210,9 +210,6 @@ allocate_registers(struct machine_program program,
 	struct arena_temp temp = arena_temp_begin(arena);
 	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
 
-	printf("mreg_count=%d, vreg_count=%d\n",
-	    program.vreg_count, program.mreg_count);
-
 	uint32_t instr_count = 0;
 	char *start = (char *)program.code;
 	char *end = start + program.size;
@@ -236,7 +233,6 @@ allocate_registers(struct machine_program program,
 	}
 
 	struct bit_matrix live_matrix = get_live_matrix(program, instr_offsets, instr_count, arena);
-	print_matrix(live_matrix);
 	uint32_t reg_count = program.mreg_count + program.vreg_count;
 	for (uint32_t i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
