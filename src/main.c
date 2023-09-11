@@ -41,6 +41,7 @@ print_program(struct ir_program program, uint32_t *usage_count)
 #include "tokenizer.c"
 #include "parser.c"
 #include "ir.c"
+#include "optimize.c"
 #include "regalloc.c"
 #include "stream.c"
 #include "x86.c"
@@ -250,6 +251,7 @@ main(int argc, char *argv[])
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
 	struct ir_program ir_program = ir_generate(root, arena);
+	optimize(ir_program, arena);
 	struct machine_program machine_program =
 	    x86_select_instructions(ir_program, arena);
 	struct stream out = stream_open(NULL, 1024, arena);
