@@ -342,7 +342,6 @@ x86_generate(struct stream *out, struct machine_program program)
 		if (opcode == X86_PRINT) {
 			stream_print(out,
 			    "\tmov rdi, fmt\n"
-			    "\txor rax, rax\n"
 			    "\tcall printf wrt ..plt\n");
 		} else if (opcode == X86_LABEL) {
 			stream_print(out, "L");
