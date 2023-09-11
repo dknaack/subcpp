@@ -68,25 +68,6 @@ read_file(char *filename, struct arena *arena)
 	return result;
 }
 
-static char *
-get_token_name(enum token_kind kind)
-{
-	switch (kind) {
-	case TOKEN_EOF:        return "EOF";
-	case TOKEN_ADD:        return "'+'";
-	case TOKEN_SUB:        return "'-'";
-	case TOKEN_MUL:        return "'*'";
-	case TOKEN_DIV:        return "'/'";
-	case TOKEN_MOD:        return "'%'";
-	case TOKEN_ASSIGN:     return "'='";
-	case TOKEN_INT:        return "int";
-	case TOKEN_IDENT:      return "identifier";
-	case TOKEN_WHITESPACE: return "whitespace";
-	default:               return "(invalid)";
-	}
-}
-
-
 static void
 print_node(struct ast_node *node, int indent)
 {
@@ -250,6 +231,11 @@ main(int argc, char *argv[])
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
+	if (tokenizer.error) {
+		free(arena);
+		return 1;
+	}
+
 	struct ir_program ir_program = ir_generate(root, arena);
 	optimize(ir_program, arena);
 	struct machine_program machine_program =

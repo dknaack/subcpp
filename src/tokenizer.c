@@ -1,3 +1,38 @@
+static char *
+get_token_name(enum token_kind kind)
+{
+	switch (kind) {
+	case TOKEN_EOF:         return "EOF";
+	case TOKEN_COMMA:       return "','";
+	case TOKEN_ADD:         return "'+'";
+	case TOKEN_SUB:         return "'-'";
+	case TOKEN_MUL:         return "'*'";
+	case TOKEN_DIV:         return "'/'";
+	case TOKEN_MOD:         return "'%'";
+	case TOKEN_ASSIGN:      return "'='";
+	case TOKEN_IDENT:       return "identifier";
+	case TOKEN_WHITESPACE:  return "whitespace";
+	case TOKEN_SEMICOLON:   return "';'";
+	case TOKEN_LPAREN:      return "'('";
+	case TOKEN_RPAREN:      return "')'";
+	case TOKEN_LBRACE:      return "'{'";
+	case TOKEN_RBRACE:      return "'}'";
+	case TOKEN_LITERAL_INT: return "integer";
+	case TOKEN_BREAK:       return "'break'";
+	case TOKEN_CONTINUE:    return "'continue'";
+	case TOKEN_ELSE:        return "'else'";
+	case TOKEN_FOR:         return "'for'";
+	case TOKEN_IF:          return "'if'";
+	case TOKEN_INT:         return "'int'";
+	case TOKEN_PRINT:       return "'print'";
+	case TOKEN_RETURN:      return "'return'";
+	case TOKEN_VOID:        return "'void'";
+	case TOKEN_WHILE:       return "'while'";
+	default:                return "(invalid)";
+	}
+
+}
+
 static struct tokenizer
 tokenize(struct string source)
 {

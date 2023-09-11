@@ -1,3 +1,37 @@
+#include <stdarg.h>
+
+static void
+vsyntax_error(struct tokenizer *tokenizer, char *fmt, va_list ap)
+{
+	uint32_t line = 1;
+	uint32_t column = 0;
+
+	for (uint32_t pos = 0; pos < tokenizer->pos; pos++) {
+		if (tokenizer->source.at[pos] == '\n') {
+			line++;
+			column = 0;
+		}
+
+		column++;
+	}
+
+	fprintf(stderr, "%d:%d: ", line, column);
+	vfprintf(stderr, fmt, ap);
+	fputc('\n', stderr);
+
+	tokenizer->error = true;
+}
+
+static void
+syntax_error(struct tokenizer *tokenizer, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsyntax_error(tokenizer, fmt, ap);
+	va_end(ap);
+}
+
 static bool
 accept(struct tokenizer *tokenizer, enum token_kind expected_token)
 {
@@ -15,8 +49,8 @@ expect(struct tokenizer *tokenizer, enum token_kind expected_token)
 {
 	struct token token = get_token(tokenizer);
 	if (token.kind != expected_token) {
-		/* TODO: report syntax error */
-		ASSERT(!"Syntax error");
+		syntax_error(tokenizer, "Expected %s, but found %s",
+		    get_token_name(expected_token), get_token_name(token.kind));
 	}
 }
 
@@ -55,10 +89,12 @@ parse_int(struct string str)
 static struct string
 parse_ident(struct tokenizer *tokenizer)
 {
+	static struct string empty = {"", 0};
 	struct token token = get_token(tokenizer);
 	if (token.kind != TOKEN_IDENT) {
-		/* TODO: report error */
-		ASSERT(!"Syntax error");
+		syntax_error(tokenizer, "Expected identifier, but found %s",
+		    get_token_name(token.kind));
+		return empty;
 	}
 
 	return token.value;
@@ -117,8 +153,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {
-				/* TODO: report syntax error */
-				ASSERT(!"Invalid expression");
+				syntax_error(tokenizer, "Expected operator");
 				return NULL;
 			}
 
@@ -180,7 +215,9 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 			(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
 		}
 		ptr = &(*ptr)->next;
-	} while (!(flags & PARSE_SINGLE_DECL) && accept(tokenizer, TOKEN_COMMA));
+	} while (!tokenizer->error
+	    && !(flags & PARSE_SINGLE_DECL)
+	    && accept(tokenizer, TOKEN_COMMA));
 
 	return decl;
 }
@@ -193,7 +230,7 @@ parse_compound_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	struct ast_node *head, **ptr = &head;
 
 	expect(tokenizer, TOKEN_LBRACE);
-	while (!accept(tokenizer, TOKEN_RBRACE)) {
+	while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
 		*ptr = parse_stmt(tokenizer, arena);
 		ptr = &(*ptr)->next;
 	}
@@ -320,7 +357,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	expect(tokenizer, TOKEN_INT);
 	struct token token = get_token(tokenizer);
 	if (token.kind != TOKEN_IDENT) {
-		ASSERT(!"Expected identifier");
+		syntax_error(tokenizer, "Expected identifier");
 	}
 
 	name = token.value;
@@ -348,7 +385,7 @@ parse(struct tokenizer *tokenizer, struct arena *arena)
 	root->kind = AST_ROOT;
 
 	struct ast_node **ptr = &root->u.children;
-	while (!accept(tokenizer, TOKEN_EOF)) {
+	while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF)) {
 		*ptr = parse_function(tokenizer, arena);
 		ptr = &(*ptr)->next;
 	}

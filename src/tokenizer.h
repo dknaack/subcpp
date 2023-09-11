@@ -37,4 +37,5 @@ struct token {
 struct tokenizer {
 	struct string source;
 	size_t pos;
+	bool error;
 };
