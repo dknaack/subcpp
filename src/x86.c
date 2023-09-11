@@ -1,131 +1,25 @@
-#include <fcntl.h>
-
-enum x86_register {
-	X86_R12,
-	X86_R13,
-	X86_R14,
-	X86_R15,
-	X86_REGISTER_COUNT,
-
-	X86_R8,
-	X86_R9,
-	X86_R10,
-	X86_R11,
-	X86_RAX,
-	X86_RBX,
-	X86_RCX,
-	X86_RDX,
-	X86_RSI,
-	X86_RDI,
-	X86_RSP,
-	X86_RBP,
-};
-
-enum x86_opcode {
-	X86_MOV,
-	X86_JMP,
-	X86_JZ,
-	X86_ADD,
-	X86_SUB,
-	X86_MUL,
-};
-
-struct stream {
-	uint8_t *buffer;
-	size_t size;
-	size_t used;
-	int error;
-	int fd;
-};
-
-static uint32_t x86_register_size = 8;
-
-static struct stream
-stream_open(char *filename, size_t size, struct arena *arena)
+static char *
+x86_get_opcode_name(enum x86_opcode opcode)
 {
-	struct stream stream = {0};
-	stream.fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0666);
-	stream.size = size;
-	stream.buffer = zalloc(arena, size, 1);
-	return stream;
-}
-
-static void
-stream_flush(struct stream *stream)
-{
-	stream->error |= (stream->fd < 0);
-	if (!stream->error && stream->used > 0) {
-		stream->error |= write(stream->fd, stream->buffer, stream->used);
-		stream->used = 0;
-	}
-}
-
-static void
-stream_close(struct stream *stream)
-{
-	stream_flush(stream);
-	stream->fd = -1;
-}
-
-static void
-stream_write(struct stream *stream, uint8_t byte)
-{
-	if (stream->used == stream->size) {
-		stream_flush(stream);
+	switch (opcode) {
+	case X86_ADD:   return "add";
+	case X86_CALL:  return "call";
+	case X86_DEC:   return "dec";
+	case X86_IDIV:  return "idiv";
+	case X86_IMUL:  return "imul";
+	case X86_INC:   return "inc";
+	case X86_JMP:   return "jmp";
+	case X86_JZ:    return "jz";
+	case X86_MOV:   return "mov";
+	case X86_RET:   return "ret";
+	case X86_SUB:   return "sub";
+	case X86_TEST:  return "test";
+	case X86_XOR:   return "xor";
+	case X86_LABEL: return "label";
+	case X86_PRINT: return "print";
 	}
 
-	if (stream->used != stream->size) {
-		stream->buffer[stream->used++] = byte;
-	}
-}
-
-static void
-stream_prints(struct stream *stream, struct string str)
-{
-	while (str.length-- > 0) {
-		stream_write(stream, *str.at++);
-	}
-}
-
-static void
-stream_print(struct stream *stream, char *str)
-{
-	while (*str) {
-		stream_write(stream, *str++);
-	}
-}
-
-static void
-stream_printu(struct stream *stream, uint32_t value)
-{
-	char number[64] = {0};
-	char *end = number + sizeof(number);
-	char *at = end;
-	*--at = '\0';
-	do {
-		*--at = '0' + (value % 10);
-		value /= 10;
-	} while (value > 0);
-
-	stream_print(stream, at);
-}
-
-static void
-stream_print_hex(struct stream *stream, uint32_t value)
-{
-	char hex_number[64] = {0};
-	char *end = hex_number + sizeof(hex_number);
-	char *at = end;
-	*--at = '\0';
-	do {
-		uint8_t hex_digit = value % 16;
-		*--at = (hex_digit >= 10 ? 'a' - 10 : '0') + hex_digit;
-		value /= 16;
-	} while (value > 0);
-	*--at = 'x';
-	*--at = '0';
-
-	stream_print(stream, at);
+	return "(invalid)";
 }
 
 static char *
@@ -151,300 +45,310 @@ x86_get_register_name(enum x86_register reg)
 }
 
 static void
-x86_emit_location(struct stream *out, struct location loc)
+x86_select0(struct machine_program *out, enum x86_opcode opcode)
 {
-	switch (loc.type) {
-	case LOC_STACK:
-		stream_print(out, "qword[rsp+");
-		stream_printu(out, loc.address * x86_register_size);
-		stream_print(out, "]");
+	push_instr(out, opcode, 0);
+}
+
+static void
+x86_select1(struct machine_program *out, enum x86_opcode opcode,
+    struct machine_operand dst)
+{
+	struct machine_operand op0, op1;
+	switch (opcode) {
+	case X86_IDIV:
+		push_instr(out, opcode, 3);
+		dst.flags |= MOP_USE;
+		push_operand(out, dst);
+		op0 = make_mreg(X86_RAX);
+		op0.flags |= MOP_DEF | MOP_USE;
+		push_operand(out, op0);
+		op1 = make_mreg(X86_RDX);
+		op1.flags |= MOP_DEF | MOP_USE;
+		push_operand(out, op1);
 		break;
-	case LOC_REGISTER:
-		stream_print(out, x86_get_register_name(loc.address));
-		break;
-	case LOC_CONST:
-		stream_print_hex(out, loc.address);
-		break;
-	case LOC_LABEL:
-		stream_print(out, "L");
-		stream_printu(out, loc.address);
+	case X86_IMUL:
+		push_instr(out, opcode, 3);
+		dst.flags |= MOP_USE;
+		push_operand(out, dst);
+		op0 = make_mreg(X86_RAX);
+		op0.flags |= MOP_DEF | MOP_USE;
+		push_operand(out, op0);
+		op1 = make_mreg(X86_RDX);
+		op1.flags |= MOP_DEF;
+		push_operand(out, op1);
 		break;
 	default:
-		ASSERT(!"Invalid location");
+		push_instr(out, opcode, 1);
+		dst.flags |= MOP_USE | MOP_DEF;
+		push_operand(out, dst);
 	}
 }
 
 static void
-x86_emit0(struct stream *out, char *op)
+x86_select2(struct machine_program *out, enum x86_opcode opcode,
+    struct machine_operand dst, struct machine_operand src)
 {
-	stream_print(out, "\t");
-	stream_print(out, op);
-	stream_print(out, "\n");
-}
-
-static void
-x86_emit1(struct stream *out, char *op, struct location dst)
-{
-	stream_print(out, "\t");
-	stream_print(out, op);
-	stream_print(out, " ");
-	x86_emit_location(out, dst);
-	stream_print(out, "\n");
-}
-
-static void
-x86_emit2(struct stream *out, char *op, struct location dst, struct location op0)
-{
-	stream_print(out, "\t");
-	stream_print(out, op);
-	stream_print(out, " ");
-	x86_emit_location(out, dst);
-	stream_print(out, ", ");
-	x86_emit_location(out, op0);
-	stream_print(out, "\n");
-}
-
-static bool
-location_equals(struct location a, struct location b)
-{
-	bool result = (a.type == b.type && a.address == b.address);
-	return result;
-}
-
-static void
-x86_mov(struct stream *out, struct location dst, struct location src)
-{
-	if (!location_equals(dst, src)) {
-		if (dst.type == LOC_STACK && src.type == LOC_STACK) {
-			stream_print(out, "\tmov rax, ");
-			x86_emit_location(out, src);
-			src = register_location(X86_RAX);
+	switch (opcode) {
+	case X86_MOV:
+		if (src.kind == MOP_IMMEDIATE && src.value == 0) {
+			push_instr(out, X86_XOR, 2);
+			dst.flags |= MOP_DEF | MOP_USE;
+			push_operand(out, dst);
+			push_operand(out, dst);
+		} else if (!machine_operand_equals(dst, src)) {
+			push_instr(out, opcode, 2);
+			dst.flags |= MOP_DEF;
+			push_operand(out, dst);
+			src.flags |= MOP_USE;
+			push_operand(out, src);
 		}
-
-		if (src.type == LOC_CONST && src.address == 0) {
-			x86_emit2(out, "xor", dst, dst);
-		} else {
-			x86_emit2(out, "mov", dst, src);
-		}
+		break;
+	default:
+		push_instr(out, opcode, 2);
+		dst.flags |= MOP_DEF | MOP_USE;
+		push_operand(out, dst);
+		src.flags |= MOP_USE;
+		push_operand(out, src);
 	}
 }
 
-struct x86_program {
-	struct ir_program ir;
-	struct location *locations;
-	uint32_t *usage_count;
-	uint32_t stack_size;
-	char *postamble;
-};
-
 static void
-x86_generate_instr(struct stream *out, struct x86_program program,
-    uint32_t instr_index, struct location dst)
+x86_select_instr(struct machine_program *out, struct ir_program program,
+    uint32_t instr_index, struct machine_operand dst)
 {
-	struct ir_instr *instr = program.ir.instrs;
-	struct location *locations = program.locations;
-	uint32_t stack_size = program.stack_size;
+	struct ir_instr *instr = program.instrs;
 
 	enum ir_opcode opcode = instr[instr_index].opcode;
 	uint32_t op0 = instr[instr_index].op0;
 	uint32_t op1 = instr[instr_index].op1;
 
-	struct location rax = register_location(X86_RAX);
-	struct location rcx = register_location(X86_RCX);
-	struct location rdx = register_location(X86_RDX);
-	struct location rdi = register_location(X86_RDI);
-	struct location rsi = register_location(X86_RSI);
+	struct machine_operand rax = make_mreg(X86_RAX);
+	struct machine_operand rcx = make_mreg(X86_RCX);
+	struct machine_operand rdx = make_mreg(X86_RDX);
+	struct machine_operand rdi = make_mreg(X86_RDI);
+	struct machine_operand rsi = make_mreg(X86_RSI);
+	struct machine_operand src = {0};
 
 	switch (opcode) {
 	case IR_SET:
-		x86_mov(out, dst, const_location(op0));
+		x86_select2(out, X86_MOV, dst, make_immediate(op0));
 		break;
 	case IR_VAR:
-		x86_mov(out, dst, locations[instr_index]);
+		printf("VAR(%d)\n", instr_index);
+		x86_select2(out, X86_MOV, dst, make_vreg(instr_index));
 		break;
 	case IR_MOV:
-		ASSERT(location_equals(dst, program.locations[op0]));
-		x86_generate_instr(out, program, op1, program.locations[op0]);
+		x86_select_instr(out, program, op1, dst);
 		break;
 	case IR_ADD:
 		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
-			x86_generate_instr(out, program, op0, dst);
-			x86_emit1(out, "inc", dst);
+			x86_select_instr(out, program, op0, dst);
+			x86_select1(out, X86_INC, dst);
 		} else if (instr[op1].opcode == IR_SET) {
+			x86_select_instr(out, program, op0, dst);
 			op1 = instr[op1].op0;
-			x86_generate_instr(out, program, op0, dst);
-			x86_emit2(out, "add", dst, const_location(op1));
+			x86_select2(out, X86_ADD, dst, make_immediate(op1));
+		} else if (instr[op0].opcode == IR_SET) {
+			x86_select_instr(out, program, op1, dst);
+			op0 = instr[op0].op0;
+			x86_select2(out, X86_ADD, dst, make_immediate(op0));
 		} else {
-			x86_generate_instr(out, program, op0, dst);
-			x86_generate_instr(out, program, op1, locations[op1]);
-			x86_emit2(out, "add", dst, locations[op1]);
+			src = make_vreg(op1);
+			x86_select_instr(out, program, op0, dst);
+			x86_select_instr(out, program, op1, src);
+			x86_select2(out, X86_ADD, dst, src);
 		}
 		break;
 	case IR_SUB:
 		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
-			x86_generate_instr(out, program, op0, dst);
-			x86_emit1(out, "dec", dst);
+			x86_select_instr(out, program, op0, dst);
+			x86_select1(out, X86_DEC, dst);
 		} else if (instr[op1].opcode == IR_SET) {
 			op1 = instr[op1].op0;
-			x86_generate_instr(out, program, op0, dst);
-			x86_emit2(out, "sub", dst, const_location(op1));
+			x86_select_instr(out, program, op0, dst);
+			x86_select2(out, X86_SUB, dst, make_immediate(op1));
 		} else {
-			x86_generate_instr(out, program, op0, dst);
-			x86_generate_instr(out, program, op1, locations[op1]);
-			x86_emit2(out, "sub", dst, locations[op1]);
+			src = make_vreg(op1);
+			x86_select_instr(out, program, op0, dst);
+			x86_select_instr(out, program, op1, src);
+			x86_select2(out, X86_SUB, dst, src);
 		}
 		break;
 	case IR_MUL:
 		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
-			x86_generate_instr(out, program, op0, dst);
+			x86_select_instr(out, program, op0, dst);
 		} else if (instr[op1].opcode == IR_SET && instr[op1].op0 == 2) {
-			x86_generate_instr(out, program, op0, dst);
-			x86_emit2(out, "add", dst, dst);
+			x86_select_instr(out, program, op0, dst);
+			x86_select2(out, X86_ADD, dst, dst);
 		} else {
-			x86_generate_instr(out, program, op0, rax);
-			x86_generate_instr(out, program, op1, locations[op1]);
-			x86_emit1(out, "imul", locations[op1]);
-			x86_mov(out, dst, rax);
+			src = make_vreg(op1);
+			x86_select_instr(out, program, op0, rax);
+			x86_select_instr(out, program, op1, src);
+			x86_select1(out, X86_IMUL, src);
+			x86_select2(out, X86_MOV, dst, rax);
 		}
 		break;
 	case IR_DIV:
-		x86_generate_instr(out, program, op0, rax);
-		x86_generate_instr(out, program, op1, rcx);
-		x86_mov(out, rdx, const_location(0));
-		x86_emit1(out, "idiv", rcx);
-		x86_mov(out, dst, rax);
+		x86_select_instr(out, program, op0, rax);
+		x86_select_instr(out, program, op1, rcx);
+		x86_select2(out, X86_MOV, rdx, make_immediate(0));
+		x86_select1(out, X86_IDIV, rcx);
+		x86_select2(out, X86_MOV, dst, rax);
 		break;
 	case IR_MOD:
-		x86_generate_instr(out, program, op0, rax);
-		x86_generate_instr(out, program, op1, rcx);
-		x86_mov(out, rdx, const_location(0));
-		x86_emit1(out, "idiv", rcx);
-		x86_mov(out, dst, rdx);
+		x86_select_instr(out, program, op0, rax);
+		x86_select_instr(out, program, op1, rcx);
+		x86_select2(out, X86_MOV, rdx, make_immediate(0));
+		x86_select1(out, X86_IDIV, rcx);
+		x86_select2(out, X86_MOV, dst, rdx);
 		break;
 	case IR_JMP:
 		op0 = instr[op0].op0;
-		x86_emit1(out, "jmp", label_location(op0));
-		stream_print(out, "\n");
+		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
-		x86_generate_instr(out, program, op0, rax);
+		src = make_vreg(op0);
+		x86_select_instr(out, program, op0, src);
 		if (instr[op0].opcode != IR_SUB) {
-			x86_emit2(out, "test", rax, rax);
+			x86_select2(out, X86_TEST, src, src);
 		}
 
 		op1 = instr[op1].op0;
-		x86_emit1(out, "jz", label_location(op1));
-		stream_print(out, "\n");
+		x86_select1(out, X86_JZ, make_label(op1));
 		break;
 	case IR_RET:
-		x86_generate_instr(out, program, op0, rax);
-
-		if (stack_size > 0) {
-			stream_print(out, "\tadd rsp, ");
-			stream_printu(out, stack_size);
-			stream_print(out, "\n");
-		}
-
-		stream_print(out, program.postamble);
+		x86_select_instr(out, program, op0, rax);
+		x86_select0(out, X86_RET);
 		break;
 	case IR_CALL:
-		stream_print(out, "\tcall ");
-		stream_prints(out, program.ir.functions[op0].name);
-		stream_print(out, "\n");
-		x86_mov(out, dst, rax);
+		/* TODO: Use function index here */
+		x86_select1(out, X86_CALL, make_immediate(0));
+		x86_select2(out, X86_MOV, dst, rax);
 		break;
 	case IR_PARAM:
-		x86_generate_instr(out, program, op0, rdi);
+		x86_select_instr(out, program, op0, rdi);
 		break;
 	case IR_PRINT:
-		x86_generate_instr(out, program, op0, rsi);
-		stream_print(out, "\tmov rdi, fmt\n");
-		x86_mov(out, rax, const_location(0));
-		stream_print(out, "\tcall printf wrt ..plt\n");
+		x86_select_instr(out, program, op0, rsi);
+		x86_select2(out, X86_MOV, rax, make_immediate(0));
+		x86_select2(out, X86_PRINT, rdi, rsi);
 		break;
 	case IR_LABEL:
-		stream_print(out, "L");
-		stream_printu(out, op0);
-		stream_print(out, ":\n");
+		x86_select1(out, X86_LABEL, make_immediate(op0));
 		break;
 	case IR_NOP:
 		break;
 	}
 }
 
-static void
-x86_generate_function(struct stream *out,
-    struct x86_program program, uint32_t function_index)
+static struct machine_program
+x86_select_instructions(struct ir_program program, struct arena *arena)
 {
-	struct ir_function function = program.ir.functions[function_index];
-	uint32_t last_block = function.block_index + function.block_count;
+	struct machine_program out = {0};
+	out.max_size = 1024 * 8;
+	out.code = alloc(arena, out.max_size, 1);
+	out.vreg = ALLOC(arena, program.register_count, uint32_t);
+	out.vreg_count = program.register_count;
+	out.mreg_count = X86_REGISTER_COUNT;
 
-	/* TODO: allocate stack memory */
+	for (uint32_t f = 0; f < program.function_count; f++) {
+		struct ir_function function = program.functions[f];
+		uint32_t last_block = function.block_index + function.block_count;
 
-	stream_prints(out, function.name);
-	stream_print(out, ":\n");
-	stream_print(out,
-	    "\tpush r12\n"
-	    "\tpush r13\n"
-	    "\tpush r14\n"
-	    "\tpush r15\n"
-	);
-
-	program.postamble = "\n"
-	    "\tpop r15\n"
-	    "\tpop r14\n"
-	    "\tpop r13\n"
-	    "\tpop r12\n"
-	    "\tret\n";
-
-	for (uint32_t i = function.block_index; i < last_block; i++) {
-		struct ir_block block = program.ir.blocks[i];
-		for (uint32_t i = block.start; i < block.start + block.size; i++) {
-			struct ir_instr instr = program.ir.instrs[i];
-			if (instr.opcode == IR_LABEL) {
-				if (program.usage_count[i] == 0) {
-					continue;
+		for (uint32_t b = function.block_index; b < last_block; b++) {
+			struct ir_block block = program.blocks[b];
+			for (uint32_t i = block.start; i < block.start + block.size; i++) {
+				uint32_t instr_index = program.toplevel_instr_indices[i];
+				struct ir_instr instr = program.instrs[instr_index];
+				struct machine_operand dst = make_vreg(instr_index);
+				if (instr.opcode == IR_MOV) {
+					dst = make_vreg(instr.op0);
 				}
-			} else if (program.usage_count[i] != 0) {
-				continue;
-			}
 
-			struct location dst = program.locations[i];
-			if (instr.opcode == IR_MOV) {
-				dst = program.locations[instr.op0];
+				x86_select_instr(&out, program, instr_index, dst);
 			}
-
-			x86_generate_instr(out, program, i, dst);
 		}
+	}
+
+	return out;
+}
+
+static void
+x86_emit_operand(struct stream *out, struct machine_operand operand)
+{
+	switch (operand.kind) {
+	case MOP_SPILL:
+		ASSERT(!"Spilled variables have not been implemented yet");
+		break;
+	case MOP_LABEL:
+		stream_print(out, "L");
+		stream_printu(out, operand.value);
+		break;
+	case MOP_MREG:
+		stream_print(out, x86_get_register_name(operand.value));
+		break;
+	case MOP_IMMEDIATE:
+		stream_printu(out, operand.value);
+		break;
+	case MOP_FUNC:
+		ASSERT(!"Function labels have not been implemented yet");
+		break;
+	case MOP_VREG:
+		stream_print(out, "v");
+		stream_printu(out, operand.value);
+		//ASSERT(!"Cannot use virtual register during code generation");
+		break;
+	default:
+		stream_print(out, "(invalid operand)");
 	}
 }
 
 static void
-x86_generate(struct stream *out, struct ir_program program,
-    struct location *locations, uint32_t *usage_count)
+x86_generate(struct stream *out, struct machine_program program)
 {
-	struct x86_program x86_program = {0};
-	x86_program.ir = program;
-	x86_program.locations = locations;
-	x86_program.usage_count = usage_count;
-	x86_program.stack_size = 0;
-
-	for (uint32_t i = 0; i < program.register_count; i++) {
-		if (locations[i].type == LOC_STACK) {
-			locations[i].address = x86_program.stack_size;
-			x86_program.stack_size += x86_register_size;
-		}
-	}
-
 	stream_print(out,
 	    "global main\n"
 	    "extern printf\n\n"
 	    "section .data\n"
 	    "fmt: db \"%d\", 0x0A, 0\n\n"
-	    "section .text\n"
-	);
+	    "section .text\n");
 
-	for (uint32_t i = 0; i < program.function_count; i++) {
-		x86_generate_function(out, x86_program, i);
+	char *code = program.code;
+	char *end = code + program.size;
+	while (code < end) {
+		struct machine_instr *instr = (struct machine_instr *)code;
+		struct machine_operand *operands
+		    = (struct machine_operand *)(instr + 1);
+		enum x86_opcode opcode = instr->opcode;
+		uint32_t operand_count = instr->operand_count;
+		code += sizeof(*instr) + operand_count * sizeof(*operands);
+
+		if (opcode == X86_PRINT) {
+			stream_print(out,
+			    "\tmov rdi, fmt\n"
+			    "\txor rax, rax\n"
+			    "\tcall printf wrt ..plt\n");
+		} else if (opcode == X86_LABEL) {
+			stream_print(out, "L");
+			x86_emit_operand(out, operands[0]);
+			stream_print(out, ":\n");
+		} else {
+			if (opcode == X86_IMUL || opcode == X86_IDIV) {
+				operand_count -= 2;
+			}
+
+			stream_print(out, "\t");
+			stream_print(out, x86_get_opcode_name(opcode));
+			stream_print(out, " ");
+			while (operand_count-- > 0) {
+				x86_emit_operand(out, *operands++);
+				if (operand_count > 0) {
+					stream_print(out, ", ");
+				}
+			}
+
+			stream_print(out, "\n");
+		}
 	}
 }

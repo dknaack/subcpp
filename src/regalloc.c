@@ -23,7 +23,7 @@ bit_matrix_init(uint32_t width, uint32_t height, struct arena *arena)
 }
 
 static void
-set_bit(struct bit_matrix matrix, uint32_t x, uint32_t y)
+set_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
 {
 	ASSERT(x < matrix.width);
 	ASSERT(y < matrix.height);
@@ -32,7 +32,7 @@ set_bit(struct bit_matrix matrix, uint32_t x, uint32_t y)
 }
 
 static void
-clear_bit(struct bit_matrix matrix, uint32_t x, uint32_t y)
+clear_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
 {
 	ASSERT(x < matrix.width);
 	ASSERT(y < matrix.height);
@@ -89,97 +89,59 @@ print_matrix(struct bit_matrix matrix)
 	}
 }
 
-struct live_info {
-	uint32_t used[2];
-	uint32_t assigned;
-};
-
-static struct live_info
-get_live_info(struct ir_instr instr, uint32_t dst)
-{
-	struct live_info info = {0};
-
-	switch (instr.opcode) {
-	case IR_LABEL:
-	case IR_JMP:
-	case IR_NOP:
-	case IR_VAR:
-		break;
-	case IR_JIZ:
-	case IR_RET:
-	case IR_PRINT:
-	case IR_PARAM:
-		info.used[0] = instr.op0;
-		break;
-	case IR_SET:
-	case IR_CALL:
-		info.assigned = dst;
-		break;
-	case IR_MOV:
-		info.assigned = dst;
-		info.used[0] = instr.op0;
-		break;
-	case IR_ADD:
-	case IR_SUB:
-	case IR_MUL:
-	case IR_DIV:
-	case IR_MOD:
-		info.assigned = dst;
-		info.used[0] = instr.op0;
-		info.used[1] = instr.op1;
-		break;
-	}
-
-	return info;
-}
-
 static struct bit_matrix
-get_live_matrix(struct ir_program program, struct arena *arena)
+get_live_matrix(struct machine_program program, uint32_t *instr_offsets,
+    uint32_t instr_count, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
 	struct bit_matrix live_matrix = bit_matrix_init(
-	    program.register_count, program.instr_count, arena);
+	    program.vreg_count + program.mreg_count, instr_count, arena);
+	struct arena_temp temp = arena_temp_begin(arena);
 	struct bit_matrix prev_live_matrix = bit_matrix_init(
-	    program.register_count, program.instr_count, arena);
-	struct ir_instr *instrs = program.instrs;
-	struct ir_block *blocks = program.blocks;
+	    program.vreg_count, instr_count, arena);
 
-	bool has_matrix_changed;
+	char *code = program.code;
+	bool has_matrix_changed = false;
 	do {
-		has_matrix_changed = false;
-		uint32_t i = program.instr_count;
+		uint32_t i = instr_count;
 		while (i-- > 0) {
-			uint32_t address = 0;
+			uint32_t offset = instr_offsets[i];
+			struct machine_instr *instr = (struct machine_instr *)(code + offset);
 
 			clear_row(live_matrix, i);
-			switch (instrs[i].opcode) {
-			case IR_RET:
-				break;
-			case IR_JMP:
-				address = blocks[instrs[i].op0].start;
-				union_rows(live_matrix, i, address);
-				break;
-			case IR_JIZ:
-				address = blocks[instrs[i].op1].start;
-				union_rows(live_matrix, i, address);
-				/* fallthrough */
-			default:
-				if (i + 1 != program.instr_count) {
-					union_rows(live_matrix, i, i + 1);
+			/* TODO: successor of jump instructions */
+			if (i + 1 != instr_count) {
+				union_rows(live_matrix, i, i + 1);
+			}
+
+			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
+			for (uint32_t j = 0; j < instr->operand_count; j++) {
+				switch (operands[j].kind) {
+				case MOP_MREG:
+					if (operands[j].flags & MOP_DEF) {
+						clear_bit(live_matrix, i, live_matrix.width - operands[j].value - 1);
+					}
+
+					if (operands[j].flags & MOP_USE) {
+						set_bit(live_matrix, i, live_matrix.width - operands[j].value - 1);
+					}
+					break;
+				case MOP_VREG:
+					if (operands[j].flags & MOP_DEF) {
+						clear_bit(live_matrix, i, operands[j].value);
+					}
+
+					if (operands[j].flags & MOP_USE) {
+						set_bit(live_matrix, i, operands[j].value);
+					}
+					break;
+				case MOP_SPILL:
+				case MOP_LABEL:
+				case MOP_IMMEDIATE:
+					break;
+				default:
+					ASSERT(!"Invalid operand type");
 				}
-			}
-
-			struct live_info info = get_live_info(instrs[i], i);
-			if (info.assigned != 0) {
-				clear_bit(live_matrix, info.assigned, i);
-			}
-
-			if (info.used[0] != 0) {
-				set_bit(live_matrix, info.used[0], i);
-			}
-
-			if (info.used[1] != 0) {
-				set_bit(live_matrix, info.used[1], i);
 			}
 		}
 
@@ -188,6 +150,7 @@ get_live_matrix(struct ir_program program, struct arena *arena)
 		memcpy(prev_live_matrix.bits, live_matrix.bits, matrix_size);
 	} while (has_matrix_changed);
 
+	arena_temp_end(temp);
 	return live_matrix;
 }
 
@@ -239,66 +202,60 @@ sort_intervals_by_start(struct live_interval *intervals,
 	return index;
 }
 
-static struct location
-new_location(enum location_type type, uint32_t address)
+static void
+allocate_registers(struct machine_program program,
+    uint32_t mreg_count, struct arena *arena)
 {
-	struct location location;
-	location.type = type;
-	location.address = address;
-	return location;
-}
-
-static struct location
-label_location(uint32_t value)
-{
-	return new_location(LOC_LABEL, value);
-}
-
-static struct location
-const_location(uint32_t value)
-{
-	return new_location(LOC_CONST, value);
-}
-
-static struct location
-stack_location(uint32_t address)
-{
-	return new_location(LOC_STACK, address);
-}
-
-static struct location
-register_location(uint32_t reg)
-{
-	return new_location(LOC_REGISTER, reg);
-}
-
-static struct location *
-allocate_registers(struct ir_program program, uint32_t target_register_count,
-    struct arena *arena)
-{
-	struct location *location = ZALLOC(arena,
-	    program.register_count, struct location);
-
 	struct arena_temp temp = arena_temp_begin(arena);
-	struct live_interval *intervals = ALLOC(arena, program.register_count, struct live_interval);
-	struct bit_matrix live_matrix = get_live_matrix(program, arena);
+	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
 
-	for (uint32_t i = 0; i < program.register_count; i++) {
+	printf("mreg_count=%d, vreg_count=%d\n",
+	    program.vreg_count, program.mreg_count);
+
+	uint32_t instr_count = 0;
+	char *start = (char *)program.code;
+	char *end = start + program.size;
+	char *code = start;
+	while (code < end) {
+		struct machine_instr *instr = (struct machine_instr *)code;
+		code += sizeof(*instr);
+		code += instr->operand_count * sizeof(struct machine_operand);
+		instr_count++;
+	}
+
+	uint32_t *instr_offsets = ALLOC(arena, instr_count, uint32_t);
+	uint32_t instr_index = 0;
+	code = start;
+	while (code < end) {
+		struct machine_instr *instr = (struct machine_instr *)code;
+		code += sizeof(*instr);
+		code += instr->operand_count * sizeof(struct machine_operand);
+
+		instr_offsets[instr_index++] = code - start;
+	}
+
+	struct bit_matrix live_matrix = get_live_matrix(program, instr_offsets, instr_count, arena);
+	print_matrix(live_matrix);
+	uint32_t reg_count = program.mreg_count + program.vreg_count;
+	for (uint32_t i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, program.register_count, arena);
+	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, reg_count, arena);
 
-	uint32_t *register_pool = ALLOC(arena, target_register_count, uint32_t);
-	for (uint32_t i = 0; i < target_register_count; i++) {
+	uint32_t *register_pool = ALLOC(arena, mreg_count, uint32_t);
+	for (uint32_t i = 0; i < mreg_count; i++) {
 		register_pool[i] = i;
 	}
+
+	struct machine_operand *vreg = ALLOC(arena,
+	    program.vreg_count, struct machine_operand);
 
 	uint32_t spill_count = 0;
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
-	for (uint32_t i = 0; i < program.register_count; i++) {
+	for (uint32_t i = 0; i < reg_count; i++) {
 		uint32_t current_register = sorted_by_start[i];
 		uint32_t current_start = intervals[current_register].start;
 
@@ -312,36 +269,58 @@ allocate_registers(struct ir_program program, uint32_t target_register_count,
 			}
 
 			active_count--;
-			register_pool[active_count] = location[inactive_register].address;
+			register_pool[active_count] = vreg[inactive_register].value;
 
 			sorted_by_start[j] = sorted_by_start[active_start];
 			sorted_by_start[active_start++] = inactive_register;
 		}
 
-		if (active_count == target_register_count) {
+		if (current_register < mreg_count && false) {
+			/* TODO: ensure that register is not used */
+			vreg[current_register] = make_mreg(current_register);
+			active_count++;
+		} else if (active_count == mreg_count) {
 			uint32_t spill = sorted_by_start[active_start];
 			uint32_t end = 0;
 			for (uint32_t j = active_start; j < active_end; j++) {
-				uint32_t _register = sorted_by_start[j];
-				if (intervals[_register].end > end) {
-					end = intervals[_register].end;
-					spill = _register;
+				uint32_t reg = sorted_by_start[j];
+				if (intervals[reg].end > end) {
+					end = intervals[reg].end;
+					spill = reg;
 				}
 			}
 
 			if (intervals[spill].end > intervals[current_register].end) {
-				location[current_register] = location[spill];
-				location[spill] = stack_location(spill_count++);
+				vreg[current_register] = vreg[spill];
+				vreg[spill] = make_spill(spill_count++);
 				active_start++;
 				active_count++;
 			} else {
-				location[spill] = stack_location(spill_count++);
+				vreg[spill] = make_spill(spill_count++);
 			}
 		} else {
-			location[current_register] = register_location(register_pool[active_count++]);
+			vreg[current_register] = make_mreg(register_pool[active_count++]);
+		}
+	}
+
+	code = start;
+	while (code < end) {
+		struct machine_instr *instr = (struct machine_instr *)code;
+		uint32_t operand_count = instr->operand_count;
+		code += sizeof(struct machine_instr);
+
+		struct machine_operand *operands = (struct machine_operand *)code;
+		code += operand_count * sizeof(struct machine_operand);
+
+		for (uint32_t i = 0; i < operand_count; i++) {
+			if (operands[i].kind == MOP_VREG) {
+				uint32_t reg = operands[i].value;
+				ASSERT(reg < program.vreg_count);
+				operands[i].kind = vreg[reg].kind;
+				operands[i].value = vreg[reg].value;
+			}
 		}
 	}
 
 	arena_temp_end(temp);
-	return location;
 }

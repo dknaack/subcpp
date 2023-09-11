@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #define TRAP() __builtin_trap()
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
@@ -15,3 +16,5 @@ struct string {
 #include "tokenizer.h"
 #include "ast.h"
 #include "ir.h"
+#include "codegen.h"
+#include "x86.h"

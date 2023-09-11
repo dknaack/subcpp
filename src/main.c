@@ -41,8 +41,8 @@ print_program(struct ir_program program, uint32_t *usage_count)
 #include "tokenizer.c"
 #include "parser.c"
 #include "ir.c"
-#include "optimize.c"
 #include "regalloc.c"
+#include "stream.c"
 #include "x86.c"
 
 struct string
@@ -249,16 +249,19 @@ main(int argc, char *argv[])
 	struct string contents = read_file(argv[1], arena);
 	struct tokenizer tokenizer = tokenize(contents);
 	struct ast_node *root = parse(&tokenizer, arena);
-	struct ir_program program = ir_generate(root, arena);
-	optimize(program, arena);
-	struct location *locations = allocate_registers(program, X86_REGISTER_COUNT, arena);
-	uint32_t *usage_count = get_usage_count(program, arena);
-	struct stream out = stream_open("/tmp/out.s", 1024, arena);
-	x86_generate(&out, program, locations, usage_count);
-	stream_flush(&out);
+	struct ir_program ir_program = ir_generate(root, arena);
+	struct machine_program machine_program =
+	    x86_select_instructions(ir_program, arena);
+	struct stream out = stream_open(NULL, 1024, arena);
+	x86_generate(&out, machine_program);
+	stream_close(&out);
+	allocate_registers(machine_program, X86_REGISTER_COUNT, arena);
+	out = stream_open("/tmp/out.s", 1024, arena);
+	x86_generate(&out, machine_program);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
+	stream_close(&out);
 	free(arena);
 	return 0;
 }
