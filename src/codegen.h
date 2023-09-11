@@ -24,14 +24,21 @@ struct machine_operand {
 	uint32_t value;
 };
 
+struct machine_function {
+	struct string name;
+	uint32_t start;
+};
+
 struct machine_program {
 	void *code;
 	uint32_t *vreg;
+	struct machine_function *functions;
 
 	uint32_t size;
 	uint32_t max_size;
 	uint32_t mreg_count;
 	uint32_t vreg_count;
+	uint32_t function_count;
 };
 
 static bool
@@ -83,6 +90,15 @@ make_label(uint32_t value)
 	struct machine_operand operand = {0};
 	operand.kind = MOP_LABEL;
 	operand.value = value;
+	return operand;
+}
+
+static struct machine_operand
+make_func(uint32_t index)
+{
+	struct machine_operand operand = {0};
+	operand.kind = MOP_FUNC;
+	operand.value = index;
 	return operand;
 }
 

@@ -223,7 +223,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		break;
 	case IR_CALL:
 		/* TODO: Use function index here */
-		x86_select1(out, X86_CALL, make_immediate(0));
+		x86_select1(out, X86_CALL, make_func(op0));
 		x86_select2(out, X86_MOV, dst, rax);
 		break;
 	case IR_PARAM:
@@ -247,16 +247,22 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 {
 	struct machine_program out = {0};
 	out.max_size = 1024 * 8;
+	out.functions = ZALLOC(arena, program.function_count, struct machine_function);
+	out.function_count = program.function_count;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg = ALLOC(arena, program.register_count, uint32_t);
 	out.vreg_count = program.register_count;
 	out.mreg_count = X86_REGISTER_COUNT;
 
 	for (uint32_t f = 0; f < program.function_count; f++) {
-		struct ir_function function = program.functions[f];
-		uint32_t last_block = function.block_index + function.block_count;
+		struct ir_function ir_function = program.functions[f];
+		struct machine_function *function = &out.functions[f];
+		function->name = ir_function.name;
+		function->start = out.size;
 
-		for (uint32_t b = function.block_index; b < last_block; b++) {
+		uint32_t first_block = ir_function.block_index;
+		uint32_t last_block = first_block + ir_function.block_count;
+		for (uint32_t b = first_block; b < last_block; b++) {
 			struct ir_block block = program.blocks[b];
 			for (uint32_t i = block.start; i < block.start + block.size; i++) {
 				uint32_t instr_index = program.toplevel_instr_indices[i];
@@ -275,7 +281,8 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 }
 
 static void
-x86_emit_operand(struct stream *out, struct machine_operand operand)
+x86_emit_operand(struct stream *out, struct machine_operand operand,
+    struct machine_function *functions)
 {
 	switch (operand.kind) {
 	case MOP_SPILL:
@@ -292,7 +299,7 @@ x86_emit_operand(struct stream *out, struct machine_operand operand)
 		stream_printu(out, operand.value);
 		break;
 	case MOP_FUNC:
-		ASSERT(!"Function labels have not been implemented yet");
+		stream_prints(out, functions[operand.value].name);
 		break;
 	case MOP_VREG:
 		stream_print(out, "v");
@@ -314,9 +321,17 @@ x86_generate(struct stream *out, struct machine_program program)
 	    "fmt: db \"%d\", 0x0A, 0\n\n"
 	    "section .text\n");
 
-	char *code = program.code;
+	char *start = (char *)program.code;
+	char *code = start;
 	char *end = code + program.size;
+	struct machine_function *function = program.functions;
 	while (code < end) {
+		while (start + function->start < code) {
+			stream_prints(out, function->name);
+			stream_print(out, ":\n");
+			function++;
+		}
+
 		struct machine_instr *instr = (struct machine_instr *)code;
 		struct machine_operand *operands
 		    = (struct machine_operand *)(instr + 1);
@@ -331,7 +346,7 @@ x86_generate(struct stream *out, struct machine_program program)
 			    "\tcall printf wrt ..plt\n");
 		} else if (opcode == X86_LABEL) {
 			stream_print(out, "L");
-			x86_emit_operand(out, operands[0]);
+			x86_emit_operand(out, operands[0], program.functions);
 			stream_print(out, ":\n");
 		} else {
 			if (opcode == X86_IMUL || opcode == X86_IDIV) {
@@ -342,7 +357,7 @@ x86_generate(struct stream *out, struct machine_program program)
 			stream_print(out, x86_get_opcode_name(opcode));
 			stream_print(out, " ");
 			while (operand_count-- > 0) {
-				x86_emit_operand(out, *operands++);
+				x86_emit_operand(out, *operands++, program.functions);
 				if (operand_count > 0) {
 					stream_print(out, ", ");
 				}

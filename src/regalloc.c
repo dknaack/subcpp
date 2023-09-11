@@ -138,6 +138,7 @@ get_live_matrix(struct machine_program program, uint32_t *instr_offsets,
 				case MOP_SPILL:
 				case MOP_LABEL:
 				case MOP_IMMEDIATE:
+				case MOP_FUNC:
 					break;
 				default:
 					ASSERT(!"Invalid operand type");

@@ -260,10 +260,10 @@ main(int argc, char *argv[])
 	allocate_registers(machine_program, X86_REGISTER_COUNT, arena);
 	out = stream_open("/tmp/out.s", 1024, arena);
 	x86_generate(&out, machine_program);
+	stream_close(&out);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 
-	stream_close(&out);
 	free(arena);
 	return 0;
 }
