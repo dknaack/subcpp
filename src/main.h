@@ -14,4 +14,4 @@ struct string {
 #include "memory.h"
 #include "tokenizer.h"
 #include "ast.h"
-#include "codegen.h"
+#include "ir.h"

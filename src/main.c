@@ -40,7 +40,7 @@ print_program(struct ir_program program, uint32_t *usage_count)
 
 #include "tokenizer.c"
 #include "parser.c"
-#include "codegen.c"
+#include "ir.c"
 #include "optimize.c"
 #include "regalloc.c"
 #include "x86.c"
@@ -235,45 +235,6 @@ run_linker(char *input, char *output)
 	*arg++ = NULL;
 
 	run_command(args);
-}
-
-/* TODO: terrible name */
-static uint32_t *
-get_usage_count(struct ir_program program, struct arena *arena)
-{
-	struct ir_instr *instrs = program.instrs;
-	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
-
-	for (uint32_t i = 0; i < program.register_count; i++) {
-		switch (instrs[i].opcode) {
-		case IR_JMP:
-		case IR_PRINT:
-		case IR_PARAM:
-		case IR_RET:
-			usage_count[instrs[i].op0]++;
-			break;
-		case IR_MOV:
-			usage_count[instrs[i].op1]++;
-			break;
-		case IR_ADD:
-		case IR_SUB:
-		case IR_MUL:
-		case IR_DIV:
-		case IR_MOD:
-		case IR_JIZ:
-			usage_count[instrs[i].op0]++;
-			usage_count[instrs[i].op1]++;
-			break;
-		case IR_NOP:
-		case IR_VAR:
-		case IR_SET:
-		case IR_CALL:
-		case IR_LABEL:
-			break;
-		}
-	}
-
-	return usage_count;
 }
 
 int

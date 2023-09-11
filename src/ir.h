@@ -41,10 +41,12 @@ struct ir_program {
 	struct ir_instr *instrs;
 	struct ir_block *blocks;
 	struct ir_function *functions;
+	uint32_t *toplevel_instr_indices;
 
 	uint32_t block_count;
 	uint32_t register_count;
 	uint32_t function_count;
+	uint32_t toplevel_count;
 	uint32_t instr_count;
 	uint32_t label_count;
 };

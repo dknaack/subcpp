@@ -281,13 +281,17 @@ generate(struct generator *state, struct ast_node *node)
 }
 
 static bool
-is_block_start(struct ir_instr *instrs, uint32_t i)
+is_block_start(struct ir_program *program, uint32_t i)
 {
-	bool result = (i == 0 ||
-	    instrs[i].opcode == IR_LABEL ||
-	    instrs[i-1].opcode == IR_JMP ||
-	    instrs[i-1].opcode == IR_JIZ ||
-	    instrs[i-1].opcode == IR_RET);
+	uint32_t curr = program->toplevel_instr_indices[i];
+	bool result = (i == 0 || program->instrs[curr].opcode == IR_LABEL);
+	if (!result) {
+		uint32_t prev = program->toplevel_instr_indices[i-1];
+		result = (program->instrs[prev].opcode == IR_JMP
+		    || program->instrs[prev].opcode == IR_JIZ
+		    || program->instrs[prev].opcode == IR_RET);
+	}
+
 	return result;
 }
 
@@ -295,8 +299,8 @@ static void
 construct_cfg(struct ir_program *program, struct arena *arena)
 {
 	uint32_t block_count = 0;
-	for (uint32_t i = 0; i < program->instr_count; i++) {
-		if (is_block_start(program->instrs, i)) {
+	for (uint32_t i = 0; i < program->toplevel_count; i++) {
+		if (is_block_start(program, i)) {
 			block_count++;
 		}
 	}
@@ -309,8 +313,9 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	/* replace labels with block indices */
 	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
 	uint32_t block_index = 0;
-	for (uint32_t i = 0; i < program->instr_count; i++) {
-		if (is_block_start(program->instrs, i)) {
+	for (uint32_t j = 0; j < program->toplevel_count; j++) {
+		if (is_block_start(program, j)) {
+			uint32_t i = program->toplevel_instr_indices[j];
 			uint32_t opcode = program->instrs[i].opcode;
 			if (opcode == IR_LABEL) {
 				uint32_t label = program->instrs[i].op0;
@@ -318,11 +323,12 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 				program->instrs[i].op0 = block_index;
 			}
 
-			program->blocks[block_index++].start = i;
+			program->blocks[block_index++].start = j;
 		}
 	}
 
-	for (uint32_t i = 0; i < program->instr_count; i++) {
+	for (uint32_t j = 0; j < program->toplevel_count; j++) {
+		uint32_t i = program->toplevel_instr_indices[j];
 		struct ir_instr *instr = &program->instrs[i];
 		enum ir_opcode opcode = instr->opcode;
 		if (opcode == IR_JMP) {
@@ -359,7 +365,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		if (i + 1 < program->block_count) {
 			blocks[i].size = blocks[i+1].start - blocks[i].start;
 		} else {
-			blocks[i].size = program->instr_count - blocks[i].start;
+			blocks[i].size = program->toplevel_count - blocks[i].start;
 		}
 
 		ASSERT(blocks[i].size > 0);
@@ -390,6 +396,65 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	}
 }
 
+static uint32_t *
+get_usage_count(struct ir_program program, struct arena *arena)
+{
+	struct ir_instr *instrs = program.instrs;
+	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
+
+	for (uint32_t i = 0; i < program.register_count; i++) {
+		switch (instrs[i].opcode) {
+		case IR_JMP:
+		case IR_PRINT:
+		case IR_PARAM:
+		case IR_RET:
+			usage_count[instrs[i].op0]++;
+			break;
+		case IR_MOV:
+			usage_count[instrs[i].op1]++;
+			break;
+		case IR_ADD:
+		case IR_SUB:
+		case IR_MUL:
+		case IR_DIV:
+		case IR_MOD:
+		case IR_JIZ:
+			usage_count[instrs[i].op0]++;
+			usage_count[instrs[i].op1]++;
+			break;
+		case IR_NOP:
+		case IR_VAR:
+		case IR_SET:
+		case IR_CALL:
+		case IR_LABEL:
+			break;
+		}
+	}
+
+	return usage_count;
+}
+
+static void
+mark_toplevel_instructions(struct ir_program *program, struct arena *arena)
+{
+	struct arena_temp temp = arena_temp_begin(arena);
+	uint32_t *toplevel_instrs = ALLOC(arena, program->instr_count, uint32_t);
+	uint32_t *usage_count = get_usage_count(*program, arena);
+	struct ir_instr *instrs = program->instrs;
+	uint32_t toplevel_count = 0;
+	for (uint32_t i = 0; i < program->instr_count; i++) {
+		enum ir_opcode opcode = instrs[i].opcode;
+		bool is_toplevel_instr = (usage_count[i] == 0 || opcode == IR_LABEL);
+		if (is_toplevel_instr) {
+			toplevel_instrs[toplevel_count++] = i;
+		}
+	}
+
+	arena_temp_end(temp);
+	program->toplevel_instr_indices = ALLOC(arena, toplevel_count, uint32_t);
+	program->toplevel_count = toplevel_count;
+}
+
 static struct ir_program
 ir_generate(struct ast_node *root, struct arena *arena)
 {
@@ -402,6 +467,7 @@ ir_generate(struct ast_node *root, struct arena *arena)
 
 	generator.program.functions = ALLOC(arena, function_count, struct ir_function);
 	generate(&generator, root);
+	mark_toplevel_instructions(&generator.program, arena);
 	construct_cfg(&generator.program, arena);
 	return generator.program;
 }
