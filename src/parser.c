@@ -351,7 +351,8 @@ static struct ast_node *
 parse_function(struct tokenizer *tokenizer, struct arena *arena)
 {
 	struct ast_node *node = ZALLOC(arena, 1, struct ast_node);
-	struct ast_node *parameter = NULL;
+	struct ast_node *parameters = NULL;
+	struct ast_node **ptr = &parameters;
 	struct string name;
 
 	expect(tokenizer, TOKEN_INT);
@@ -364,7 +365,10 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	expect(tokenizer, TOKEN_LPAREN);
 	token = peek_token(tokenizer);
 	if (token.kind == TOKEN_INT) {
-		parameter = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+		do {
+			*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+			ptr = &(*ptr)->next;
+		} while (accept(tokenizer, TOKEN_COMMA));
 	} else if (token.kind == TOKEN_VOID) {
 		get_token(tokenizer);
 	}
@@ -373,7 +377,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	node->kind = AST_FUNCTION;
 	node->u.function.body = parse_compound_stmt(tokenizer, arena);
 	node->u.function.name = name;
-	node->u.function.parameter = parameter;
+	node->u.function.parameter = parameters;
 
 	return node;
 }

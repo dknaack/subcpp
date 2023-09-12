@@ -1,5 +1,5 @@
 int
-foo(int n)
+foo(int n, int i, int j)
 {
 	return n + 60;
 }
