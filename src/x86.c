@@ -137,6 +137,23 @@ x86_select2(struct machine_program *out, enum x86_opcode opcode,
 	}
 }
 
+static void x86_select_instr(struct machine_program *out,
+    struct ir_program program, uint32_t instr_index, struct machine_operand dst);
+
+static struct machine_operand
+x86_select_immediate(struct machine_program *out, struct ir_program program, uint32_t instr_index)
+{
+	struct machine_operand result;
+	if (program.instrs[instr_index].opcode == IR_SET) {
+		result = make_immediate(program.instrs[instr_index].op0);
+	} else {
+		result = make_vreg(instr_index);
+		x86_select_instr(out, program, instr_index, result);
+	}
+
+	return result;
+}
+
 static void
 x86_select_instr(struct machine_program *out, struct ir_program program,
     uint32_t instr_index, struct machine_operand dst)
@@ -237,9 +254,15 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
-		src = make_vreg(op0);
-		x86_select_instr(out, program, op0, src);
-		if (instr[op0].opcode != IR_SUB) {
+		if (instr[op0].opcode == IR_EQL) {
+			dst = x86_select_immediate(out, program, instr[op0].op0);
+			src = x86_select_immediate(out, program, instr[op0].op1);
+			x86_select2(out, X86_CMP, dst, src);
+		} else if (instr[op0].opcode == IR_SUB) {
+			x86_select_instr(out, program, op0, src);
+		} else {
+			src = make_vreg(op0);
+			x86_select_instr(out, program, op0, src);
 			x86_select2(out, X86_TEST, src, src);
 		}
 
