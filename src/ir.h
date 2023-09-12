@@ -1,5 +1,3 @@
-#define LOC_PAIR(a, b) ((a) * LOC_TYPE_COUNT + (b))
-
 enum ir_opcode {
 	IR_NOP,
 	IR_LABEL,
@@ -49,20 +47,6 @@ struct ir_program {
 	uint32_t toplevel_count;
 	uint32_t instr_count;
 	uint32_t label_count;
-};
-
-enum location_type {
-	LOC_INVALID,
-	LOC_REGISTER,
-	LOC_STACK,
-	LOC_CONST,
-	LOC_LABEL,
-	LOC_TYPE_COUNT
-};
-
-struct location {
-	enum location_type type;
-	uint32_t address;
 };
 
 struct variable {
