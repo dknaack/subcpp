@@ -108,8 +108,8 @@ optimize(struct ir_program program, struct arena *arena)
 		(void)op0;
 		(void)op1;
 
-		while (instrs[op1].opcode == IR_MOV &&
-		    instrs[op1].op0 == op1) {
+		while (instrs[op1].opcode == IR_MOV
+		    && instrs[op1].op0 == op1) {
 			instrs[op1].opcode = IR_NOP;
 			instrs[i].op1 = instrs[op1].op1;
 		}

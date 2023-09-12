@@ -140,7 +140,7 @@ string_equals(struct string a, struct string b)
 static struct token
 get_token(struct tokenizer *tokenizer)
 {
-	struct token token = {0};
+	struct token token = {TOKEN_INVALID};
 	struct {
 		enum token_kind token;
 		struct string str;

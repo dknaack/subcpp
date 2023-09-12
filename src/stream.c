@@ -1,7 +1,7 @@
 #include <fcntl.h>
 
 struct stream {
-	uint8_t *buffer;
+	char *buffer;
 	size_t size;
 	size_t used;
 	int error;
@@ -19,7 +19,7 @@ stream_open(char *filename, size_t size, struct arena *arena)
 	}
 
 	stream.size = size;
-	stream.buffer = zalloc(arena, size, 1);
+	stream.buffer = ZALLOC(arena, size, char);
 	return stream;
 }
 

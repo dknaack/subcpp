@@ -5,7 +5,7 @@
 #define TRAP() __builtin_trap()
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define LENGTH(x) (sizeof(x)/sizeof((x)[0]))
-#define S(x) (struct string){(x), sizeof(x) - 1}
+#define S(x) {(x), sizeof(x) - 1}
 
 struct string {
 	char *at;

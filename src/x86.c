@@ -282,6 +282,7 @@ static void
 x86_emit_operand(struct stream *out, struct machine_operand operand,
     struct machine_function *functions)
 {
+	enum x86_register reg;
 	switch (operand.kind) {
 	case MOP_SPILL:
 		ASSERT(!"Spilled variables have not been implemented yet");
@@ -291,7 +292,8 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 		stream_printu(out, operand.value);
 		break;
 	case MOP_MREG:
-		stream_print(out, x86_get_register_name(operand.value));
+		reg = (enum x86_register)operand.value;
+		stream_print(out, x86_get_register_name(reg));
 		break;
 	case MOP_IMMEDIATE:
 		stream_printu(out, operand.value);
@@ -333,7 +335,7 @@ x86_generate(struct stream *out, struct machine_program program)
 		struct machine_instr *instr = (struct machine_instr *)code;
 		struct machine_operand *operands
 		    = (struct machine_operand *)(instr + 1);
-		enum x86_opcode opcode = instr->opcode;
+		enum x86_opcode opcode = (enum x86_opcode)instr->opcode;
 		uint32_t operand_count = instr->operand_count;
 		code += sizeof(*instr) + operand_count * sizeof(*operands);
 

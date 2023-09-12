@@ -144,6 +144,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 	uint32_t endif_label, else_label, cond_label, function_label;
 	uint32_t lhs, rhs, label, parameter_register, result = 0;
 	struct ast_node *called, *parameter;
+	struct ir_function *ir_function;
 	enum ir_opcode opcode;
 
 	switch (node->kind) {
@@ -267,7 +268,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 			new_register(state, parameter->u.decl.name);
 		}
 
-		struct ir_function *ir_function = &state->program.functions[state->program.function_count++];
+		ir_function = &state->program.functions[state->program.function_count++];
 		ir_function->name = node->u.function.name;
 		ir_function->block_index = function_label;
 

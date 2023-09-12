@@ -15,7 +15,7 @@ struct arena_temp {
 static struct arena *
 arena_create(size_t size)
 {
-	struct arena *arena = calloc(size + sizeof(*arena), 1);
+	struct arena *arena = (struct arena *)calloc(size + sizeof(*arena), 1);
 	arena->data = (char *)(arena + 1);
 	arena->size = size;
 	return arena;

@@ -100,7 +100,7 @@ get_live_matrix(struct machine_program program, uint32_t *instr_offsets,
 	struct bit_matrix prev_live_matrix = bit_matrix_init(
 	    program.vreg_count, instr_count, arena);
 
-	char *code = program.code;
+	char *code = (char *)program.code;
 	bool has_matrix_changed = false;
 	do {
 		uint32_t i = instr_count;
