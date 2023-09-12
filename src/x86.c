@@ -11,9 +11,17 @@ x86_get_opcode_name(enum x86_opcode opcode)
 	case X86_INC:   return "inc";
 	case X86_JMP:   return "jmp";
 	case X86_JZ:    return "jz";
+	case X86_JL:    return "jl";
+	case X86_JG:    return "jg";
+	case X86_JLE:   return "jle";
+	case X86_JGE:   return "jge";
 	case X86_MOV:   return "mov";
 	case X86_RET:   return "ret";
 	case X86_SETZ:  return "setz";
+	case X86_SETL:  return "setl";
+	case X86_SETG:  return "setg";
+	case X86_SETLE: return "setle";
+	case X86_SETGE: return "setge";
 	case X86_SUB:   return "sub";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";
@@ -137,6 +145,51 @@ x86_select2(struct machine_program *out, enum x86_opcode opcode,
 	}
 }
 
+static bool
+x86_is_comparison_opcode(enum ir_opcode ir_opcode)
+{
+	switch (ir_opcode) {
+	case IR_EQL:
+	case IR_LT:
+	case IR_GT:
+	case IR_LEQ:
+	case IR_GEQ:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static enum x86_opcode
+x86_get_setcc_opcode(enum ir_opcode ir_opcode)
+{
+	switch (ir_opcode) {
+	case IR_EQL: return X86_SETZ;
+	case IR_LT:  return X86_SETL;
+	case IR_GT:  return X86_SETG;
+	case IR_LEQ: return X86_SETLE;
+	case IR_GEQ: return X86_SETGE;
+	default:
+		ASSERT(!"Not a comparison operator");
+		return X86_SETZ;
+	}
+}
+
+static enum x86_opcode
+x86_get_jcc_opcode(enum ir_opcode ir_opcode)
+{
+	switch (ir_opcode) {
+	case IR_EQL: return X86_JZ;
+	case IR_LT:  return X86_JGE;
+	case IR_GT:  return X86_JLE;
+	case IR_LEQ: return X86_JG;
+	case IR_GEQ: return X86_JL;
+	default:
+		ASSERT(!"Not a comparison operator");
+		return X86_SETZ;
+	}
+}
+
 static void x86_select_instr(struct machine_program *out,
     struct ir_program program, uint32_t instr_index, struct machine_operand dst);
 
@@ -160,6 +213,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 {
 	struct ir_instr *instr = program.instrs;
 
+	enum x86_opcode x86_opcode = (enum x86_opcode)0;
 	enum ir_opcode opcode = instr[instr_index].opcode;
 	uint32_t op0 = instr[instr_index].op0;
 	uint32_t op1 = instr[instr_index].op1;
@@ -244,20 +298,27 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select2(out, X86_MOV, dst, rdx);
 		break;
 	case IR_EQL:
-		x86_select_instr(out, program, op0, make_vreg(op0));
-		x86_select_instr(out, program, op1, dst);
+	case IR_LT:
+	case IR_GT:
+	case IR_GEQ:
+	case IR_LEQ:
+		x86_select_instr(out, program, op0, dst);
+		x86_select_instr(out, program, op1, make_vreg(op1));
 		x86_select2(out, X86_CMP, dst, make_vreg(op1));
-		x86_select1(out, X86_SETZ, dst);
+		x86_select1(out, x86_get_setcc_opcode(opcode), dst);
 		break;
 	case IR_JMP:
 		op0 = instr[op0].op0;
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
-		if (instr[op0].opcode == IR_EQL) {
-			dst = x86_select_immediate(out, program, instr[op0].op0);
+		x86_opcode = X86_JZ;
+		if (x86_is_comparison_opcode(instr[op0].opcode)) {
+			dst = make_vreg(instr[op0].op0);
+			x86_select_instr(out, program, instr[op0].op0, dst);
 			src = x86_select_immediate(out, program, instr[op0].op1);
 			x86_select2(out, X86_CMP, dst, src);
+			x86_opcode = x86_get_jcc_opcode(instr[op0].opcode);
 		} else if (instr[op0].opcode == IR_SUB) {
 			x86_select_instr(out, program, op0, src);
 		} else {
@@ -267,7 +328,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		}
 
 		op1 = instr[op1].op0;
-		x86_select1(out, X86_JZ, make_label(op1));
+		x86_select1(out, x86_opcode, make_label(op1));
 		break;
 	case IR_RET:
 		x86_select_instr(out, program, op0, rax);
@@ -364,6 +425,21 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 	}
 }
 
+static bool
+x86_is_setcc(enum x86_opcode opcode)
+{
+	switch (opcode) {
+	case X86_SETZ:
+	case X86_SETL:
+	case X86_SETG:
+	case X86_SETLE:
+	case X86_SETGE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void
 x86_generate(struct stream *out, struct machine_program program)
 {
@@ -400,9 +476,11 @@ x86_generate(struct stream *out, struct machine_program program)
 			stream_print(out, "L");
 			x86_emit_operand(out, operands[0], program.functions);
 			stream_print(out, ":\n");
-		} else if (opcode == X86_SETZ) {
+		} else if (x86_is_setcc(opcode)) {
 			ASSERT(operands[0].kind == MOP_MREG);
-			stream_print(out, "\tsetz ");
+			stream_print(out, "\t");
+			stream_print(out, x86_get_opcode_name(opcode));
+			stream_print(out, " ");
 			char *name = x86_get_byte_register_name(operands[0].value);
 			stream_print(out, name);
 			stream_print(out, "\n");

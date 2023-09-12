@@ -91,6 +91,18 @@ is_digit(char c)
 	return result;
 }
 
+static enum token_kind
+eat1(struct tokenizer *tokenizer, enum token_kind default_kind, char c1, enum token_kind kind1)
+{
+	char c = advance(tokenizer);
+	if (c == c1) {
+		return kind1;
+	} else {
+		tokenizer->pos--;
+		return default_kind;
+	}
+}
+
 static struct token
 get_raw_token(struct tokenizer *tokenizer)
 {
@@ -118,13 +130,13 @@ get_raw_token(struct tokenizer *tokenizer)
 	case ',': token.kind = TOKEN_COMMA; break;
 	case ';': token.kind = TOKEN_SEMICOLON; break;
 	case '=':
-		token.kind = TOKEN_ASSIGN;
-		c = advance(tokenizer);
-		if (c == '=') {
-			token.kind = TOKEN_EQUALS;
-		} else {
-			tokenizer->pos--;
-		}
+		token.kind = eat1(tokenizer, TOKEN_ASSIGN, '=', TOKEN_EQUALS);
+		break;
+	case '<':
+		token.kind = eat1(tokenizer, TOKEN_LT, '=', TOKEN_LEQ);
+		break;
+	case '>':
+		token.kind = eat1(tokenizer, TOKEN_GT, '=', TOKEN_GEQ);
 		break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;

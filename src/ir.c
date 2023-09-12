@@ -12,6 +12,10 @@ get_opcode_name(enum ir_opcode opcode)
 	case IR_DIV:   return "div";
 	case IR_MOD:   return "mod";
 	case IR_EQL:   return "eql";
+	case IR_LT:    return "lt";
+	case IR_GT:    return "gt";
+	case IR_LEQ:   return "leq";
+	case IR_GEQ:   return "geq";
 	case IR_JMP:   return "jmp";
 	case IR_JIZ:   return "jiz";
 	case IR_RET:   return "ret";
@@ -163,6 +167,10 @@ generate(struct ir_generator *state, struct ast_node *node)
 		case TOKEN_MOD:    opcode = IR_MOD; break;
 		case TOKEN_ASSIGN: opcode = IR_MOV; break;
 		case TOKEN_EQUALS: opcode = IR_EQL; break;
+		case TOKEN_LT:     opcode = IR_LT;  break;
+		case TOKEN_GT:     opcode = IR_GT;  break;
+		case TOKEN_LEQ:    opcode = IR_LEQ; break;
+		case TOKEN_GEQ:    opcode = IR_GEQ; break;
 		default:
 			ASSERT(!"Invalid operator");
 			break;
@@ -422,6 +430,10 @@ get_usage_count(struct ir_program program, struct arena *arena)
 		case IR_DIV:
 		case IR_MOD:
 		case IR_EQL:
+		case IR_LT:
+		case IR_GT:
+		case IR_LEQ:
+		case IR_GEQ:
 		case IR_JIZ:
 			usage_count[instrs[i].op0]++;
 			usage_count[instrs[i].op1]++;
