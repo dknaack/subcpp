@@ -6,6 +6,10 @@ vsyntax_error(struct tokenizer *tokenizer, char *fmt, va_list ap)
 	uint32_t line = 1;
 	uint32_t column = 0;
 
+	if (tokenizer->error) {
+		return;
+	}
+
 	for (uint32_t pos = 0; pos < tokenizer->pos; pos++) {
 		if (tokenizer->source.at[pos] == '\n') {
 			line++;
@@ -344,6 +348,14 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	default:
 		node = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
+	}
+
+	if (tokenizer->error) {
+		tokenizer->error = false;
+		while (!accept(tokenizer, TOKEN_SEMICOLON)
+		    && !accept(tokenizer, TOKEN_RBRACE)) {
+			get_token(tokenizer);
+		}
 	}
 
 	return node;
