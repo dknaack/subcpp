@@ -8,6 +8,7 @@ enum ir_opcode {
 	IR_MUL,
 	IR_DIV,
 	IR_MOD,
+	IR_EQL,
 	IR_JMP,
 	IR_JIZ,
 	IR_RET,

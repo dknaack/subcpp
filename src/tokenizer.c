@@ -9,6 +9,7 @@ get_token_name(enum token_kind kind)
 	case TOKEN_MUL:         return "'*'";
 	case TOKEN_DIV:         return "'/'";
 	case TOKEN_MOD:         return "'%'";
+	case TOKEN_EQUALS:      return "'=='";
 	case TOKEN_ASSIGN:      return "'='";
 	case TOKEN_IDENT:       return "identifier";
 	case TOKEN_WHITESPACE:  return "whitespace";
@@ -110,13 +111,21 @@ get_raw_token(struct tokenizer *tokenizer)
 	case '*': token.kind = TOKEN_MUL; break;
 	case '/': token.kind = TOKEN_DIV; break;
 	case '%': token.kind = TOKEN_MOD; break;
-	case '=': token.kind = TOKEN_ASSIGN; break;
 	case '(': token.kind = TOKEN_LPAREN; break;
 	case ')': token.kind = TOKEN_RPAREN; break;
 	case '{': token.kind = TOKEN_LBRACE; break;
 	case '}': token.kind = TOKEN_RBRACE; break;
 	case ',': token.kind = TOKEN_COMMA; break;
 	case ';': token.kind = TOKEN_SEMICOLON; break;
+	case '=':
+		token.kind = TOKEN_ASSIGN;
+		c = advance(tokenizer);
+		if (c == '=') {
+			token.kind = TOKEN_EQUALS;
+		} else {
+			tokenizer->pos--;
+		}
+		break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
 		break;

@@ -1,7 +1,7 @@
 int
 foo(int n, int i, int j)
 {
-	int a = 3, b = 2, c = 1;
+	int a = 5, b = 2, c = 1;
 	return n + 60;
 }
 
@@ -10,7 +10,7 @@ main(void)
 {
 	int a = 420;
 
-	for (int i = 0; i - 10; i = i + 1) {
+	for (int i = 0; i == 10; i = i + 1) {
 		a = foo(a);
 	}
 

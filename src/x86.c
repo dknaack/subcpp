@@ -4,6 +4,7 @@ x86_get_opcode_name(enum x86_opcode opcode)
 	switch (opcode) {
 	case X86_ADD:   return "add";
 	case X86_CALL:  return "call";
+	case X86_CMP:   return "cmp";
 	case X86_DEC:   return "dec";
 	case X86_IDIV:  return "idiv";
 	case X86_IMUL:  return "imul";
@@ -12,6 +13,7 @@ x86_get_opcode_name(enum x86_opcode opcode)
 	case X86_JZ:    return "jz";
 	case X86_MOV:   return "mov";
 	case X86_RET:   return "ret";
+	case X86_SETZ:  return "setz";
 	case X86_SUB:   return "sub";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";
@@ -20,6 +22,28 @@ x86_get_opcode_name(enum x86_opcode opcode)
 	}
 
 	return "(invalid)";
+}
+
+static char *
+x86_get_byte_register_name(enum x86_register reg)
+{
+	switch (reg) {
+	case X86_R8:  return "r8b";
+	case X86_R9:  return "r9b";
+	case X86_R10: return "r10b";
+	case X86_R11: return "r11b";
+	case X86_R12: return "r12b";
+	case X86_R13: return "r13b";
+	case X86_R14: return "r14b";
+	case X86_R15: return "r15b";
+	case X86_RAX: return "al";
+	case X86_RBX: return "bl";
+	case X86_RCX: return "cl";
+	case X86_RDX: return "dl";
+	case X86_RSI: return "sil";
+	case X86_RDI: return "dil";
+	default:      return "(invalid)";
+	}
 }
 
 static char *
@@ -202,6 +226,12 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select1(out, X86_IDIV, rcx);
 		x86_select2(out, X86_MOV, dst, rdx);
 		break;
+	case IR_EQL:
+		x86_select_instr(out, program, op0, make_vreg(op0));
+		x86_select_instr(out, program, op1, dst);
+		x86_select2(out, X86_CMP, dst, make_vreg(op1));
+		x86_select1(out, X86_SETZ, dst);
+		break;
 	case IR_JMP:
 		op0 = instr[op0].op0;
 		x86_select1(out, X86_JMP, make_label(op0));
@@ -347,6 +377,12 @@ x86_generate(struct stream *out, struct machine_program program)
 			stream_print(out, "L");
 			x86_emit_operand(out, operands[0], program.functions);
 			stream_print(out, ":\n");
+		} else if (opcode == X86_SETZ) {
+			ASSERT(operands[0].kind == MOP_MREG);
+			stream_print(out, "\tsetz ");
+			char *name = x86_get_byte_register_name(operands[0].value);
+			stream_print(out, name);
+			stream_print(out, "\n");
 		} else {
 			if (opcode == X86_IMUL || opcode == X86_IDIV) {
 				operand_count -= 2;

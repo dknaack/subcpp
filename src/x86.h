@@ -21,6 +21,7 @@ enum x86_register {
 enum x86_opcode {
 	X86_ADD,
 	X86_CALL,
+	X86_CMP,
 	X86_DEC,
 	X86_IDIV,
 	X86_IMUL,
@@ -29,6 +30,7 @@ enum x86_opcode {
 	X86_JZ,
 	X86_MOV,
 	X86_RET,
+	X86_SETZ,
 	X86_SUB,
 	X86_TEST,
 	X86_XOR,

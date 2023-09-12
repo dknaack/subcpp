@@ -74,6 +74,8 @@ get_binary_precedence(enum token_kind token)
 	case TOKEN_DIV:
 	case TOKEN_MOD:
 		return 30;
+	case TOKEN_EQUALS:
+		return 40;
 	default:
 		return 0;
 	}

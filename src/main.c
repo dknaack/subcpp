@@ -24,6 +24,7 @@ print_program(struct ir_program program, uint32_t *usage_count)
 		case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
 		case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
 		case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
+		case IR_EQL:   printf("\teql r%d, r%d, r%d\n", dst, op0, op1); break;
 		case IR_JMP:   printf("\tjmp L%d\n", op0); break;
 		case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
 		case IR_RET:   printf("\tret r%d\n", op0); break;
