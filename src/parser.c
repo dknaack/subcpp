@@ -59,6 +59,8 @@ static int
 get_binary_precedence(enum token_kind token)
 {
 	switch (token) {
+	case TOKEN_COMMA:
+		return -5;
 	case TOKEN_ASSIGN:
 		return -10;
 	case TOKEN_ADD:

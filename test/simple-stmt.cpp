@@ -1,6 +1,7 @@
 int
 foo(int n, int i, int j)
 {
+	int a = 3, b = 2, c = 1;
 	return n + 60;
 }
 
