@@ -133,6 +133,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 		expect(tokenizer, TOKEN_RPAREN);
 		break;
 	default:
+		syntax_error(tokenizer, "Expected expression");
 		return NULL;
 	}
 
