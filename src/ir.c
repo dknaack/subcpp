@@ -23,10 +23,10 @@ get_opcode_name(enum ir_opcode opcode)
 	return "(invalid)";
 }
 
-static struct generator
-generator_init(struct arena *arena)
+static struct ir_generator
+ir_generator_init(struct arena *arena)
 {
-	struct generator state = {0};
+	struct ir_generator state = {0};
 	state.program.instrs = ALLOC(arena, 1024, struct ir_instr);
 	state.max_instr_count = 1024;
 	state.variable_table = ALLOC(arena, 1024, struct variable);
@@ -37,7 +37,7 @@ generator_init(struct arena *arena)
 }
 
 static uint32_t
-new_label(struct generator *state)
+new_label(struct ir_generator *state)
 {
 	uint32_t result = state->program.label_count++;
 	return result;
@@ -57,7 +57,7 @@ hash(struct string str)
 }
 
 static uint32_t
-emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
+emit2(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
 {
 	ASSERT(state->program.instr_count <= state->max_instr_count);
 	struct ir_instr *instr = &state->program.instrs[state->program.instr_count++];
@@ -69,21 +69,21 @@ emit2(struct generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1
 }
 
 static uint32_t
-emit1(struct generator *state, enum ir_opcode opcode, uint32_t op0)
+emit1(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0)
 {
 	uint32_t result = emit2(state, opcode, op0, 0);
 	return result;
 }
 
 static uint32_t
-emit0(struct generator *state, enum ir_opcode opcode)
+emit0(struct ir_generator *state, enum ir_opcode opcode)
 {
 	uint32_t result = emit2(state, opcode, 0, 0);
 	return result;
 }
 
 static uint32_t
-new_register(struct generator *state, struct string ident)
+new_register(struct ir_generator *state, struct string ident)
 {
 	struct variable *variable_table = state->variable_table;
 	uint32_t h = hash(ident);
@@ -105,7 +105,7 @@ new_register(struct generator *state, struct string ident)
 }
 
 static uint32_t
-get_function(struct generator *state, struct string ident)
+get_function(struct ir_generator *state, struct string ident)
 {
 	for (uint32_t i = 0; i < state->program.function_count; i++) {
 		struct ir_function *func = &state->program.functions[i];
@@ -119,7 +119,7 @@ get_function(struct generator *state, struct string ident)
 }
 
 static uint32_t
-get_register(struct generator *state, struct string ident)
+get_register(struct ir_generator *state, struct string ident)
 {
 	struct variable *variable_table = state->variable_table;
 	uint32_t h = hash(ident);
@@ -139,7 +139,7 @@ get_register(struct generator *state, struct string ident)
 }
 
 static uint32_t
-generate(struct generator *state, struct ast_node *node)
+generate(struct ir_generator *state, struct ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
 	uint32_t lhs, rhs, label, parameter_register, result = 0;
@@ -458,7 +458,7 @@ mark_toplevel_instructions(struct ir_program *program, struct arena *arena)
 static struct ir_program
 ir_generate(struct ast_node *root, struct arena *arena)
 {
-	struct generator generator = generator_init(arena);
+	struct ir_generator generator = ir_generator_init(arena);
 
 	uint32_t function_count = 0;
 	for (struct ast_node *node = root->u.children; node; node = node->next) {

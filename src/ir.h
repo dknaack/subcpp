@@ -55,7 +55,7 @@ struct variable {
 	uint32_t _register;
 };
 
-struct generator {
+struct ir_generator {
 	struct ir_program program;
 
 	uint32_t *label_addresses;
