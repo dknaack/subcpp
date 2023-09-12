@@ -36,6 +36,7 @@ struct token {
 
 struct tokenizer {
 	struct string source;
+	char *filename;
 	size_t pos;
 	bool error;
 };

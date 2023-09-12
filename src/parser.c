@@ -15,7 +15,7 @@ vsyntax_error(struct tokenizer *tokenizer, char *fmt, va_list ap)
 		column++;
 	}
 
-	fprintf(stderr, "%d:%d: ", line, column);
+	fprintf(stderr, "%s:%d:%d: ", tokenizer->filename, line, column);
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
 

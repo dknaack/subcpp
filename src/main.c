@@ -46,28 +46,6 @@ print_program(struct ir_program program, uint32_t *usage_count)
 #include "stream.c"
 #include "x86.c"
 
-struct string
-read_file(char *filename, struct arena *arena)
-{
-	struct string result = {0};
-	FILE *file = fopen(filename, "rb");
-	if (file) {
-		fseek(file, 0, SEEK_END);
-		result.length = ftell(file);
-		fseek(file, 0, SEEK_SET);
-
-		result.at = ALLOC(arena, result.length + 1, char);
-		if (result.at) {
-			fread(result.at, result.length, 1, file);
-			result.at[result.length] = '\0';
-		}
-
-		fclose(file);
-	}
-
-	return result;
-}
-
 static void
 print_node(struct ast_node *node, int indent)
 {
@@ -228,8 +206,7 @@ main(int argc, char *argv[])
 	}
 
 	struct arena *arena = arena_create(1000 * 1000);
-	struct string contents = read_file(argv[1], arena);
-	struct tokenizer tokenizer = tokenize(contents);
+	struct tokenizer tokenizer = tokenize(argv[1], arena);
 	struct ast_node *root = parse(&tokenizer, arena);
 	if (tokenizer.error) {
 		free(arena);
