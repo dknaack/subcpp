@@ -31,7 +31,6 @@ struct machine_function {
 
 struct machine_program {
 	void *code;
-	uint32_t *vreg;
 	struct machine_function *functions;
 
 	uint32_t size;

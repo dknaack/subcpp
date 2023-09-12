@@ -249,7 +249,6 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 	out.functions = ZALLOC(arena, program.function_count, struct machine_function);
 	out.function_count = program.function_count;
 	out.code = alloc(arena, out.max_size, 1);
-	out.vreg = ALLOC(arena, program.register_count, uint32_t);
 	out.vreg_count = program.register_count;
 	out.mreg_count = X86_REGISTER_COUNT;
 
