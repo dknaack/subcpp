@@ -95,8 +95,8 @@ new_register(struct ir_generator *state, struct string ident)
 
 		if (!variable_table[i].name.at) {
 			variable_table[i].name = ident;
-			variable_table[i]._register = emit0(state, IR_VAR);
-			return variable_table[i]._register;
+			variable_table[i].vreg = emit0(state, IR_VAR);
+			return variable_table[i].vreg;
 		}
 	}
 
@@ -130,7 +130,7 @@ get_register(struct ir_generator *state, struct string ident)
 		}
 
 		if (string_equals(variable_table[i].name, ident)) {
-			return variable_table[i]._register;
+			return variable_table[i].vreg;
 		}
 	}
 

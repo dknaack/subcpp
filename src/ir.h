@@ -52,7 +52,7 @@ struct ir_program {
 struct variable {
 	struct variable *next;
 	struct string name;
-	uint32_t _register;
+	uint32_t vreg;
 };
 
 struct ir_generator {
