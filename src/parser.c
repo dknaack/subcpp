@@ -153,16 +153,21 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 
 		if (token.kind == TOKEN_LPAREN) {
 			get_token(tokenizer);
-			struct ast_node *parameter = NULL;
+			struct ast_node *parameters = NULL;
+			struct ast_node **ptr = &parameters;
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
-				parameter = parse_assign_expr(tokenizer, arena);
+				do {
+					*ptr = parse_assign_expr(tokenizer, arena);
+					ptr = &(*ptr)->next;
+				} while (accept(tokenizer, TOKEN_COMMA));
 				expect(tokenizer, TOKEN_RPAREN);
 			}
+
 			struct ast_node *called = expr;
 			expr = ALLOC(arena, 1, struct ast_node);
 			expr->kind = AST_CALL;
 			expr->u.call_expr.called = called;
-			expr->u.call_expr.parameter = parameter;
+			expr->u.call_expr.parameters = parameters;
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {
@@ -398,7 +403,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	node->kind = AST_FUNCTION;
 	node->u.function.body = parse_compound_stmt(tokenizer, arena);
 	node->u.function.name = name;
-	node->u.function.parameter = parameters;
+	node->u.function.parameters = parameters;
 
 	return node;
 }
