@@ -335,12 +335,31 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select0(out, X86_RET);
 		break;
 	case IR_CALL:
-		/* TODO: Use function index here */
+		for (uint32_t i = 1; i <= op1; i++) {
+			ASSERT(instr[instr_index - i].opcode == IR_PARAM);
+			src = make_vreg(instr[instr_index - i].op0);
+			uint32_t parameter_index = i - 1;
+			switch (parameter_index) {
+			case 0:
+				x86_select_instr(out, program, src.value, rdi);
+				break;
+			case 1:
+				x86_select_instr(out, program, src.value, rsi);
+				break;
+			case 2:
+				x86_select_instr(out, program, src.value, rdx);
+				break;
+			case 3:
+				x86_select_instr(out, program, src.value, rcx);
+				break;
+			default:
+				ASSERT(!"Too many arguments");
+				break;
+			}
+		}
+
 		x86_select1(out, X86_CALL, make_func(op0));
 		x86_select2(out, X86_MOV, dst, rax);
-		break;
-	case IR_PARAM:
-		x86_select_instr(out, program, op0, rdi);
 		break;
 	case IR_PRINT:
 		x86_select_instr(out, program, op0, rsi);
@@ -351,6 +370,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select1(out, X86_LABEL, make_immediate(op0));
 		break;
 	case IR_NOP:
+	case IR_PARAM:
 		break;
 	}
 }
