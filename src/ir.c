@@ -147,7 +147,8 @@ static uint32_t
 generate(struct ir_generator *state, struct ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
-	uint32_t lhs, rhs, label, parameter_register, result = 0;
+	uint32_t lhs, rhs, label, parameter_register[128];
+	uint32_t parameter_count, result = 0;
 	struct ast_node *called, *parameter;
 	struct ir_function *ir_function;
 	enum ir_opcode opcode;
@@ -183,11 +184,18 @@ generate(struct ir_generator *state, struct ast_node *node)
 		if (called->kind == AST_IDENT) {
 			label = get_function(state, called->u.ident);
 			parameter = node->u.call_expr.parameters;
-			if (parameter) {
-				parameter_register = generate(state, parameter);
-				emit1(state, IR_PARAM, parameter_register);
+			parameter_count = 0;
+			while (parameter) {
+				ASSERT(parameter_count < 128);
+				parameter_register[parameter_count++] = generate(state, parameter);
+				parameter = parameter->next;
 			}
-			result = emit1(state, IR_CALL, label);
+
+			for (uint32_t i = 0; i < parameter_count; i++) {
+				emit1(state, IR_PARAM, parameter_register[i]);
+			}
+
+			result = emit2(state, IR_CALL, label, parameter_count);
 		}
 		break;
 	case AST_IDENT:
