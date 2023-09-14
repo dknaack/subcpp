@@ -136,6 +136,13 @@ x86_select2(struct machine_program *out, enum x86_opcode opcode,
 			push_operand(out, src);
 		}
 		break;
+	case X86_CMP:
+		push_instr(out, opcode, 2);
+		dst.flags |= MOP_USE;
+		push_operand(out, dst);
+		src.flags |= MOP_USE;
+		push_operand(out, src);
+		break;
 	default:
 		push_instr(out, opcode, 2);
 		dst.flags |= MOP_DEF | MOP_USE;
