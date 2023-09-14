@@ -392,6 +392,33 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		function->name = ir_function.name;
 		function->start = out.size;
 
+		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
+			struct ir_instr instr = program.instrs[ir_function.instr_index+i];
+			ASSERT(instr.opcode == IR_VAR);
+			struct machine_operand dst = make_vreg(ir_function.instr_index+i);
+			struct machine_operand src;
+			switch (i) {
+			case 0:
+				src = make_mreg(X86_RDI);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			case 1:
+				src = make_mreg(X86_RSI);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			case 2:
+				src = make_mreg(X86_RDX);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			case 3:
+				src = make_mreg(X86_RCX);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			default:
+				ASSERT(!"Too many parameters");
+			}
+		}
+
 		uint32_t first_block = ir_function.block_index;
 		uint32_t last_block = first_block + ir_function.block_count;
 		for (uint32_t b = first_block; b < last_block; b++) {
@@ -471,55 +498,57 @@ x86_generate(struct stream *out, struct machine_program program)
 	    "section .text\n");
 
 	char *start = (char *)program.code;
-	char *code = start;
-	char *end = code + program.size;
-	struct machine_function *function = program.functions;
-	while (code < end) {
-		while (start + function->start < code) {
-			stream_prints(out, function->name);
-			stream_print(out, ":\n");
-			function++;
+	char *end = start + program.size;
+	for (uint32_t i = 0; i < program.function_count; i++) {
+		char *code = start + program.functions[i].start;
+		char *function_end = end;
+		if (i + 1 < program.function_count) {
+			function_end = start + program.functions[i+1].start;
 		}
 
-		struct machine_instr *instr = (struct machine_instr *)code;
-		struct machine_operand *operands
-		    = (struct machine_operand *)(instr + 1);
-		enum x86_opcode opcode = (enum x86_opcode)instr->opcode;
-		uint32_t operand_count = instr->operand_count;
-		code += sizeof(*instr) + operand_count * sizeof(*operands);
+		stream_prints(out, program.functions[i].name);
+		stream_print(out, ":\n");
+		while (code < function_end) {
+			struct machine_instr *instr = (struct machine_instr *)code;
+			struct machine_operand *operands
+			    = (struct machine_operand *)(instr + 1);
+			enum x86_opcode opcode = (enum x86_opcode)instr->opcode;
+			uint32_t operand_count = instr->operand_count;
+			code += sizeof(*instr) + operand_count * sizeof(*operands);
 
-		if (opcode == X86_PRINT) {
-			stream_print(out,
-			    "\tmov rdi, fmt\n"
-			    "\tcall printf wrt ..plt\n");
-		} else if (opcode == X86_LABEL) {
-			stream_print(out, "L");
-			x86_emit_operand(out, operands[0], program.functions);
-			stream_print(out, ":\n");
-		} else if (x86_is_setcc(opcode)) {
-			ASSERT(operands[0].kind == MOP_MREG);
-			stream_print(out, "\t");
-			stream_print(out, x86_get_opcode_name(opcode));
-			stream_print(out, " ");
-			char *name = x86_get_byte_register_name(operands[0].value);
-			stream_print(out, name);
-			stream_print(out, "\n");
-		} else {
-			if (opcode == X86_IMUL || opcode == X86_IDIV) {
-				operand_count -= 2;
-			}
-
-			stream_print(out, "\t");
-			stream_print(out, x86_get_opcode_name(opcode));
-			stream_print(out, " ");
-			while (operand_count-- > 0) {
-				x86_emit_operand(out, *operands++, program.functions);
-				if (operand_count > 0) {
-					stream_print(out, ", ");
+			if (opcode == X86_PRINT) {
+				stream_print(out,
+				    "\tmov rdi, fmt\n"
+				    "\tcall printf wrt ..plt\n");
+			} else if (opcode == X86_LABEL) {
+				stream_print(out, "L");
+				x86_emit_operand(out, operands[0], program.functions);
+				stream_print(out, ":\n");
+			} else if (x86_is_setcc(opcode)) {
+				ASSERT(operands[0].kind == MOP_MREG);
+				stream_print(out, "\t");
+				stream_print(out, x86_get_opcode_name(opcode));
+				stream_print(out, " ");
+				char *name = x86_get_byte_register_name(operands[0].value);
+				stream_print(out, name);
+				stream_print(out, "\n");
+			} else {
+				if (opcode == X86_IMUL || opcode == X86_IDIV) {
+					operand_count -= 2;
 				}
-			}
 
-			stream_print(out, "\n");
+				stream_print(out, "\t");
+				stream_print(out, x86_get_opcode_name(opcode));
+				stream_print(out, " ");
+				while (operand_count-- > 0) {
+					x86_emit_operand(out, *operands++, program.functions);
+					if (operand_count > 0) {
+						stream_print(out, ", ");
+					}
+				}
+
+				stream_print(out, "\n");
+			}
 		}
 	}
 }

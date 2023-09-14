@@ -282,14 +282,20 @@ generate(struct ir_generator *state, struct ast_node *node)
 		function_label = new_label(state);
 		emit1(state, IR_LABEL, function_label);
 		parameter = node->u.function.parameters;
-		while (parameter) {
-			new_register(state, parameter->u.decl.name);
-			parameter = parameter->next;
-		}
+		parameter_count = 0;
 
 		ir_function = &state->program.functions[state->program.function_count++];
 		ir_function->name = node->u.function.name;
 		ir_function->block_index = function_label;
+		ir_function->instr_index = state->program.instr_count;
+
+		while (parameter) {
+			new_register(state, parameter->u.decl.name);
+			parameter_count++;
+			parameter = parameter->next;
+		}
+
+		ir_function->parameter_count = parameter_count;
 
 		for (struct ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
 			generate(state, stmt);

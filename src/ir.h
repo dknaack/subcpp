@@ -36,6 +36,8 @@ struct ir_block {
 
 struct ir_function {
 	struct string name;
+	uint32_t parameter_count;
+	uint32_t instr_index;
 	uint32_t block_index;
 	uint32_t block_count;
 };
