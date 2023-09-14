@@ -1,8 +1,7 @@
 int
-foo(int n, int i, int j)
+foo(int n, int m, int k)
 {
-	int a = 5, b = 2, c = 1;
-	return n + 60;
+	return n + m + k;
 }
 
 int
@@ -11,7 +10,7 @@ main(void)
 	int a = 420;
 
 	for (int i = 0; i < 10; i = i + 1) {
-		a = foo(a);
+		a = foo(a, a, a);
 	}
 
 	print a;
