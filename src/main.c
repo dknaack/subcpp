@@ -34,7 +34,7 @@ print_program(struct ir_program program, uint32_t *usage_count)
 		case IR_RET:   printf("\tret r%d\n", op0); break;
 		case IR_CALL:  printf("\tcall r%d, L%d, %d\n", dst, op0, op1); break;
 		case IR_PRINT: printf("\tprint r%d\n", op0); break;
-		case IR_PARAM: printf("\tparam r%d\n", dst); break;
+		case IR_PARAM: printf("\tparam r%d\n", op0); break;
 		case IR_VAR:   printf("\tvar r%d\n", dst); break;
 		case IR_LABEL: printf("L%d:\n", op0); break;
 		}
