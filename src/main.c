@@ -6,10 +6,10 @@
 #include "main.h"
 
 static void
-print_program(struct ir_program program, uint32_t *usage_count)
+print_program(struct ir_program program)
 {
 	for (uint32_t i = 0; i < program.instr_count; i++) {
-		printf("(%d) %2d| ", usage_count[i], i);
+		printf("%2d| ", i);
 		struct ir_instr instr = program.instrs[i];
 
 		uint32_t dst = i;
