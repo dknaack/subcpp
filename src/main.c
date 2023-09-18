@@ -17,25 +17,25 @@ print_program(struct ir_program program)
 		uint32_t op1 = instr.op1;
 		switch (instr.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
-		case IR_SET:   printf("\tset r%d, %d\n", dst, op0); break;
-		case IR_MOV:   printf("\tmov r%d, r%d\n", op0, op1); break;
-		case IR_ADD:   printf("\tadd r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_SUB:   printf("\tsub r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_MUL:   printf("\tmul r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_DIV:   printf("\tdiv r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_MOD:   printf("\tmod r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_EQL:   printf("\teql r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_LT:   printf("\tsetl r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_GT:   printf("\tsetg r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_LEQ:   printf("\tsetle r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_GEQ:   printf("\tsetge r%d, r%d, r%d\n", dst, op0, op1); break;
-		case IR_JMP:   printf("\tjmp L%d\n", op0); break;
-		case IR_JIZ:   printf("\tjiz r%d, L%d\n", op0, op1); break;
+		case IR_SET:   printf("\tr%d = %d\n", dst, op0); break;
+		case IR_MOV:   printf("\tr%d = r%d\n", op0, op1); break;
+		case IR_ADD:   printf("\tr%d = r%d + r%d\n", dst, op0, op1); break;
+		case IR_SUB:   printf("\tr%d = r%d - r%d\n", dst, op0, op1); break;
+		case IR_MUL:   printf("\tr%d = r%d * r%d\n", dst, op0, op1); break;
+		case IR_DIV:   printf("\tr%d = r%d / r%d\n", dst, op0, op1); break;
+		case IR_MOD:   printf("\tr%d = r%d %% r%d\n", dst, op0, op1); break;
+		case IR_EQL:   printf("\tr%d = r%d == r%d\n", dst, op0, op1); break;
+		case IR_LT:    printf("\tr%d = r%d < r%d\n", dst, op0, op1); break;
+		case IR_GT:    printf("\tr%d = r%d > r%d\n", dst, op0, op1); break;
+		case IR_LEQ:   printf("\tr%d = r%d <= r%d\n", dst, op0, op1); break;
+		case IR_GEQ:   printf("\tr%d = r%d >= r%d\n", dst, op0, op1); break;
+		case IR_JMP:   printf("\tgoto L%d\n", op0); break;
+		case IR_JIZ:   printf("\tif r%d == 0 goto L%d\n", op0, op1); break;
 		case IR_RET:   printf("\tret r%d\n", op0); break;
-		case IR_CALL:  printf("\tcall r%d, L%d, %d\n", dst, op0, op1); break;
+		case IR_CALL:  printf("\tr%d = call L%d, %d\n", dst, op0, op1); break;
 		case IR_PRINT: printf("\tprint r%d\n", op0); break;
 		case IR_PARAM: printf("\tparam r%d\n", op0); break;
-		case IR_VAR:   printf("\tvar r%d\n", dst); break;
+		case IR_VAR:   printf("\tr%d = var\n", dst); break;
 		case IR_LABEL: printf("L%d:\n", op0); break;
 		}
 	}
