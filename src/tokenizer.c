@@ -20,6 +20,7 @@ get_token_name(enum token_kind kind)
 	case TOKEN_RBRACE:      return "'}'";
 	case TOKEN_LITERAL_INT: return "integer";
 	case TOKEN_BREAK:       return "'break'";
+	case TOKEN_CHAR:        return "'char'";
 	case TOKEN_CONTINUE:    return "'continue'";
 	case TOKEN_ELSE:        return "'else'";
 	case TOKEN_FOR:         return "'for'";
@@ -190,6 +191,7 @@ get_token(struct tokenizer *tokenizer)
 		struct string str;
 	} keywords[] = {
 		{ TOKEN_BREAK,    S("break")    },
+		{ TOKEN_CHAR,     S("char")     },
 		{ TOKEN_CONTINUE, S("continue") },
 		{ TOKEN_ELSE,     S("else")     },
 		{ TOKEN_FOR,      S("for")      },

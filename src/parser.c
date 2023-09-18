@@ -223,7 +223,15 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 {
 	struct ast_node *decl;
 	struct ast_node **ptr = &decl;
-	expect(tokenizer, TOKEN_INT);
+	struct token token = peek_token(tokenizer);
+	switch (token.kind) {
+	case TOKEN_INT:
+	case TOKEN_CHAR:
+		get_token(tokenizer);
+		break;
+	default:
+		return NULL;
+	}
 
 	do {
 		*ptr = ZALLOC(arena, 1, struct ast_node);
@@ -260,6 +268,7 @@ static struct ast_node *
 parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 {
 	struct ast_node *node = NULL;
+	struct ast_node *decl = NULL;
 
 	struct token token = peek_token(tokenizer);
 	switch (token.kind) {
@@ -283,9 +292,8 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 			token = peek_token(tokenizer);
 			node->kind = AST_FOR;
-			if (token.kind == TOKEN_INT) {
-				node->u.for_stmt.init = parse_decl(tokenizer, 0, arena);
-			} else {
+			node->u.for_stmt.init = parse_decl(tokenizer, 0, arena);
+			if (!node->u.for_stmt.init) {
 				node->u.for_stmt.init = parse_assign_expr(tokenizer, arena);
 			}
 
@@ -351,15 +359,17 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		node->kind = AST_COMPOUND;
 		node->u.children = parse_compound_stmt(tokenizer, arena);
 		break;
-	case TOKEN_INT:
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_DECL_STMT;
-		node->u.children = parse_decl(tokenizer, 0, arena);
+	default:
+		decl = parse_decl(tokenizer, 0, arena);
+		if (decl) {
+			node = ZALLOC(arena, 1, struct ast_node);
+			node->kind = AST_DECL_STMT;
+			node->u.children = decl;
+		} else {
+			node = parse_assign_expr(tokenizer, arena);
+		}
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
-	default:
-		node = parse_assign_expr(tokenizer, arena);
-		expect(tokenizer, TOKEN_SEMICOLON);
 	}
 
 	if (tokenizer->error) {
@@ -390,7 +400,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	name = token.value;
 	expect(tokenizer, TOKEN_LPAREN);
 	token = peek_token(tokenizer);
-	if (token.kind == TOKEN_INT) {
+	if (token.kind == TOKEN_INT || token.kind == TOKEN_CHAR) {
 		do {
 			*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 			ptr = &(*ptr)->next;
