@@ -222,9 +222,9 @@ main(int argc, char *argv[])
 	optimize(ir_program, arena);
 	struct machine_program machine_program =
 	    x86_select_instructions(ir_program, arena);
-	allocate_registers(machine_program, X86_REGISTER_COUNT, arena);
+	struct allocation_info info = allocate_registers(machine_program, X86_REGISTER_COUNT, arena);
 	struct stream out = stream_open("/tmp/out.s", 1024, arena);
-	x86_generate(&out, machine_program);
+	x86_generate(&out, machine_program, info);
 	stream_close(&out);
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");

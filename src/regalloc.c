@@ -203,10 +203,17 @@ sort_intervals_by_start(struct live_interval *intervals,
 	return index;
 }
 
-static void
+struct allocation_info {
+	bool *used;
+};
+
+static struct allocation_info
 allocate_registers(struct machine_program program,
     uint32_t mreg_count, struct arena *arena)
 {
+	struct allocation_info info = {0};
+	info.used = ZALLOC(arena, program.mreg_count, bool);
+
 	struct arena_temp temp = arena_temp_begin(arena);
 	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
 
@@ -296,7 +303,9 @@ allocate_registers(struct machine_program program,
 				vreg[spill] = make_spill(spill_count++);
 			}
 		} else {
-			vreg[current_register] = make_mreg(register_pool[active_count++]);
+			uint32_t mreg = register_pool[active_count++];
+			info.used[mreg] = true;
+			vreg[current_register] = make_mreg(mreg);
 		}
 	}
 
@@ -320,4 +329,5 @@ allocate_registers(struct machine_program program,
 	}
 
 	arena_temp_end(temp);
+	return info;
 }
