@@ -120,3 +120,11 @@ push_operand(struct machine_program *program, struct machine_operand operand)
 	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
 	program->size += sizeof(operand);
 }
+
+static uint32_t
+get_instr_size(struct machine_instr instr)
+{
+	uint32_t size = sizeof(instr);
+	size += instr.operand_count * sizeof(struct machine_operand);
+	return size;
+}

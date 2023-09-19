@@ -218,10 +218,7 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	char *code = start;
 	while (code < end) {
 		instr_count++;
-
-		struct machine_instr *instr = (struct machine_instr *)code;
-		code += sizeof(*instr);
-		code += instr->operand_count * sizeof(struct machine_operand);
+		code += get_instr_size(*(struct machine_instr *)code);
 	}
 
 	uint32_t *instr_offsets = ALLOC(arena, instr_count, uint32_t);
@@ -229,10 +226,7 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	code = start;
 	while (code < end) {
 		instr_offsets[instr_index++] = code - start;
-
-		struct machine_instr *instr = (struct machine_instr *)code;
-		code += sizeof(*instr);
-		code += instr->operand_count * sizeof(struct machine_operand);
+		code += get_instr_size(*(struct machine_instr *)code);
 	}
 
 	uint32_t reg_count = program.mreg_count + program.vreg_count;
