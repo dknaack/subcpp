@@ -453,7 +453,9 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 	enum x86_register reg;
 	switch (operand.kind) {
 	case MOP_SPILL:
-		ASSERT(!"Spilled variables have not been implemented yet");
+		stream_print(out, "qword[rsp+");
+		stream_printu(out, operand.value * 8 + 8);
+		stream_print(out, "]");
 		break;
 	case MOP_LABEL:
 		stream_print(out, "L");
@@ -525,6 +527,13 @@ x86_generate(struct stream *out, struct machine_program program,
 			}
 		}
 
+		uint32_t stack_size = info[i].spill_count * 8;
+		if (stack_size > 0) {
+			stream_print(out, "\tsub rsp, ");
+			stream_printu(out, stack_size);
+			stream_print(out, "\n");
+		}
+
 		while (code < function_end) {
 			struct machine_instr *instr = (struct machine_instr *)code;
 			struct machine_operand *operands
@@ -563,20 +572,37 @@ x86_generate(struct stream *out, struct machine_program program,
 							stream_print(out, "\n");
 						}
 					}
-				}
 
-
-				stream_print(out, "\t");
-				stream_print(out, x86_get_opcode_name(opcode));
-				stream_print(out, " ");
-				while (operand_count-- > 0) {
-					x86_emit_operand(out, *operands++, program.functions);
-					if (operand_count > 0) {
-						stream_print(out, ", ");
+					if (stack_size > 0) {
+						stream_print(out, "\tadd rsp, ");
+						stream_printu(out, stack_size);
+						stream_print(out, "\n");
 					}
 				}
 
-				stream_print(out, "\n");
+				if (opcode == X86_XOR
+				    && operands[0].kind == MOP_SPILL
+				    && operands[1].kind == MOP_SPILL) {
+					stream_print(out, "\tmov rax, ");
+					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, "\n\txor rax, ");
+					x86_emit_operand(out, operands[1], program.functions);
+					stream_print(out, "\n\tmov ");
+					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, ", rax\n");
+				} else {
+					stream_print(out, "\t");
+					stream_print(out, x86_get_opcode_name(opcode));
+					stream_print(out, " ");
+					while (operand_count-- > 0) {
+						x86_emit_operand(out, *operands++, program.functions);
+						if (operand_count > 0) {
+							stream_print(out, ", ");
+						}
+					}
+
+					stream_print(out, "\n");
+				}
 			}
 		}
 	}

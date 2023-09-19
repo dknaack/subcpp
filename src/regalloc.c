@@ -194,6 +194,7 @@ sort_intervals_by_start(struct live_interval *intervals,
 
 struct allocation_info {
 	bool *used;
+	uint32_t spill_count;
 };
 
 static struct allocation_info
@@ -247,7 +248,6 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	struct machine_operand *vreg = ALLOC(arena,
 	    program.vreg_count, struct machine_operand);
 
-	uint32_t spill_count = 0;
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
 	for (uint32_t i = 0; i < program.vreg_count; i++) {
@@ -272,27 +272,31 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 			sorted_by_start[active_start++] = inactive_register;
 		}
 
-		if (active_count == mreg_count) {
+		if (active_count >= mreg_count) {
 			uint32_t spill = sorted_by_start[active_start];
-			uint32_t end = 0;
-			for (uint32_t j = active_start; j < active_end; j++) {
+			uint32_t spill_index = active_start;
+			uint32_t end = intervals[spill_index].end;
+			for (uint32_t j = active_start + 1; j < active_end; j++) {
 				uint32_t reg = sorted_by_start[j];
-				if (intervals[reg].end > end) {
+				if (intervals[reg].end < end) {
 					end = intervals[reg].end;
+					spill_index = j;
 					spill = reg;
 				}
 			}
 
 			if (intervals[spill].end > intervals[current_register].end) {
 				vreg[current_register] = vreg[spill];
-				vreg[spill] = make_spill(spill_count++);
+				vreg[spill] = make_spill(info.spill_count++);
+				sorted_by_start[spill_index] = sorted_by_start[active_start];
+				sorted_by_start[active_start] = spill;
 				active_start++;
-				active_count++;
 			} else {
-				vreg[spill] = make_spill(spill_count++);
+				vreg[spill] = make_spill(info.spill_count++);
 			}
 		} else {
 			uint32_t mreg = register_pool[active_count++];
+			ASSERT(mreg < mreg_count);
 			info.used[mreg] |= !is_empty;
 			vreg[current_register] = make_mreg(mreg);
 		}
