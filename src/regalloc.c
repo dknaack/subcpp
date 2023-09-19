@@ -114,15 +114,6 @@ get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
 			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
 			for (uint32_t j = 0; j < instr->operand_count; j++) {
 				switch (operands[j].kind) {
-				case MOP_MREG:
-					if (operands[j].flags & MOP_DEF) {
-						clear_bit(live_matrix, i, live_matrix.width - operands[j].value - 1);
-					}
-
-					if (operands[j].flags & MOP_USE) {
-						set_bit(live_matrix, i, live_matrix.width - operands[j].value - 1);
-					}
-					break;
 				case MOP_VREG:
 					if (operands[j].flags & MOP_DEF) {
 						clear_bit(live_matrix, i, operands[j].value);
@@ -132,6 +123,7 @@ get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
 						set_bit(live_matrix, i, operands[j].value);
 					}
 					break;
+				case MOP_MREG:
 				case MOP_SPILL:
 				case MOP_LABEL:
 				case MOP_IMMEDIATE:
@@ -267,6 +259,8 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	for (uint32_t i = 0; i < program.vreg_count; i++) {
 		uint32_t current_register = sorted_by_start[i];
 		uint32_t current_start = intervals[current_register].start;
+		uint32_t current_end = intervals[current_register].end;
+		bool is_empty = (current_start > current_end);
 
 		uint32_t active_end = active_start + active_count;
 		for (uint32_t j = active_start; j < active_end; j++) {
@@ -305,7 +299,7 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 			}
 		} else {
 			uint32_t mreg = register_pool[active_count++];
-			info.used[mreg] = true;
+			info.used[mreg] |= !is_empty;
 			vreg[current_register] = make_mreg(mreg);
 		}
 	}
