@@ -248,6 +248,20 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	struct machine_operand *vreg = ALLOC(arena,
 	    program.vreg_count, struct machine_operand);
 
+	bool *force_mreg_for = ALLOC(arena, program.vreg_count, bool);
+	code = start;
+	while (code < end) {
+		struct machine_instr *instr = (struct machine_instr *)code;
+		struct machine_operand *operands = (struct machine_operand *)(instr + 1);
+		for (uint32_t i = 0; i < instr->operand_count; i++) {
+			if (operands[i].kind == MOP_VREG) {
+				force_mreg_for[operands[0].value] |= ((operands[i].flags & MOP_FORCE_MREG) != 0);
+			}
+		}
+
+		code += get_instr_size(*instr);
+	}
+
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
 	for (uint32_t i = 0; i < program.vreg_count; i++) {
@@ -275,10 +289,13 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 		if (active_count >= mreg_count) {
 			uint32_t spill = sorted_by_start[active_start];
 			uint32_t spill_index = active_start;
-			uint32_t end = intervals[spill_index].end;
+			uint32_t end = 0;
 			for (uint32_t j = active_start + 1; j < active_end; j++) {
 				uint32_t reg = sorted_by_start[j];
-				if (intervals[reg].end < end) {
+				if (force_mreg_for[reg]) {
+					continue;
+				}
+				if (intervals[reg].end > end) {
 					end = intervals[reg].end;
 					spill_index = j;
 					spill = reg;
@@ -286,13 +303,15 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 			}
 
 			if (intervals[spill].end > intervals[current_register].end) {
+				ASSERT(!force_mreg_for[spill]);
 				vreg[current_register] = vreg[spill];
 				vreg[spill] = make_spill(info.spill_count++);
 				sorted_by_start[spill_index] = sorted_by_start[active_start];
 				sorted_by_start[active_start] = spill;
 				active_start++;
 			} else {
-				vreg[spill] = make_spill(info.spill_count++);
+				ASSERT(!force_mreg_for[current_register]);
+				vreg[current_register] = make_spill(info.spill_count++);
 			}
 		} else {
 			uint32_t mreg = register_pool[active_count++];

@@ -14,8 +14,9 @@ enum machine_operand_kind {
 };
 
 enum machine_operand_flags {
-	MOP_USE = (1 << 0),
-	MOP_DEF = (1 << 1),
+	MOP_USE        = (1 << 0),
+	MOP_DEF        = (1 << 1),
+	MOP_FORCE_MREG = (1 << 2),
 };
 
 struct machine_operand {
