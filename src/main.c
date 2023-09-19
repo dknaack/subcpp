@@ -222,7 +222,7 @@ main(int argc, char *argv[])
 	optimize(ir_program, arena);
 	struct machine_program machine_program =
 	    x86_select_instructions(ir_program, arena);
-	struct allocation_info info = allocate_registers(machine_program, arena);
+	struct allocation_info *info = allocate_registers(machine_program, arena);
 	struct stream out = stream_open("/tmp/out.s", 1024, arena);
 	x86_generate(&out, machine_program, info);
 	stream_close(&out);

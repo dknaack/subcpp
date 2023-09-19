@@ -496,7 +496,7 @@ x86_is_setcc(enum x86_opcode opcode)
 
 static void
 x86_generate(struct stream *out, struct machine_program program,
-    struct allocation_info info)
+    struct allocation_info *info)
 {
 	stream_print(out,
 	    "global main\n"
@@ -518,7 +518,7 @@ x86_generate(struct stream *out, struct machine_program program,
 		stream_print(out, ":\n");
 
 		for (uint32_t j = 0; j < X86_REGISTER_COUNT; j++) {
-			if (info.used[j]) {
+			if (info[i].used[j]) {
 				stream_print(out, "\tpush ");
 				x86_emit_operand(out, make_mreg(j), program.functions);
 				stream_print(out, "\n");
@@ -557,7 +557,7 @@ x86_generate(struct stream *out, struct machine_program program,
 				if (opcode == X86_RET) {
 					uint32_t j = X86_REGISTER_COUNT;
 					while (j-- > 0) {
-						if (info.used[j]) {
+						if (info[i].used[j]) {
 							stream_print(out, "\tpop ");
 							x86_emit_operand(out, make_mreg(j), program.functions);
 							stream_print(out, "\n");

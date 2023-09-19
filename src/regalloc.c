@@ -208,7 +208,8 @@ struct allocation_info {
 };
 
 static struct allocation_info
-allocate_registers(struct machine_program program, struct arena *arena)
+allocate_function_registers(struct machine_program program, uint32_t function_index,
+    struct arena *arena)
 {
 	struct allocation_info info = {0};
 	uint32_t mreg_count = program.mreg_count;
@@ -217,9 +218,15 @@ allocate_registers(struct machine_program program, struct arena *arena)
 	struct arena_temp temp = arena_temp_begin(arena);
 	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
 
+	struct machine_function function = program.functions[function_index];
+	char *start = (char *)program.code + function.start;
+	char *end = (char *)program.code + program.size;
+	if (function_index+1 < program.function_count) {
+		struct machine_function next_function = program.functions[function_index+1];
+		end = (char *)program.code + next_function.start;
+	}
+
 	uint32_t instr_count = 0;
-	char *start = (char *)program.code;
-	char *end = start + program.size;
 	char *code = start;
 	while (code < end) {
 		struct machine_instr *instr = (struct machine_instr *)code;
@@ -329,5 +336,17 @@ allocate_registers(struct machine_program program, struct arena *arena)
 	}
 
 	arena_temp_end(temp);
+	return info;
+}
+
+static struct allocation_info *
+allocate_registers(struct machine_program program, struct arena *arena)
+{
+	struct allocation_info *info = ALLOC(arena, program.function_count,
+	    struct allocation_info);
+	for (uint32_t i = 0; i < program.function_count; i++) {
+		info[i] = allocate_function_registers(program, i, arena);
+	}
+
 	return info;
 }
