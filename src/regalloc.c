@@ -90,17 +90,14 @@ print_matrix(struct bit_matrix matrix)
 }
 
 static struct bit_matrix
-get_live_matrix(struct machine_program program, uint32_t *instr_offsets,
+get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
     uint32_t instr_count, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
-	struct bit_matrix live_matrix = bit_matrix_init(
-	    program.vreg_count + program.mreg_count, instr_count, arena);
+	struct bit_matrix live_matrix = bit_matrix_init(reg_count, instr_count, arena);
 	struct arena_temp temp = arena_temp_begin(arena);
-	struct bit_matrix prev_live_matrix = bit_matrix_init(
-	    program.vreg_count, instr_count, arena);
+	struct bit_matrix prev_live_matrix = bit_matrix_init(reg_count, instr_count, arena);
 
-	char *code = (char *)program.code;
 	bool has_matrix_changed = false;
 	do {
 		uint32_t i = instr_count;
@@ -216,12 +213,11 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	info.used = ZALLOC(arena, program.mreg_count, bool);
 
 	struct arena_temp temp = arena_temp_begin(arena);
-	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
 
 	struct machine_function function = program.functions[function_index];
 	char *start = (char *)program.code + function.start;
 	char *end = (char *)program.code + program.size;
-	if (function_index+1 < program.function_count) {
+	if (function_index + 1 < program.function_count) {
 		struct machine_function next_function = program.functions[function_index+1];
 		end = (char *)program.code + next_function.start;
 	}
@@ -229,31 +225,33 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	uint32_t instr_count = 0;
 	char *code = start;
 	while (code < end) {
+		instr_count++;
+
 		struct machine_instr *instr = (struct machine_instr *)code;
 		code += sizeof(*instr);
 		code += instr->operand_count * sizeof(struct machine_operand);
-		instr_count++;
 	}
 
 	uint32_t *instr_offsets = ALLOC(arena, instr_count, uint32_t);
 	uint32_t instr_index = 0;
 	code = start;
 	while (code < end) {
+		instr_offsets[instr_index++] = code - start;
+
 		struct machine_instr *instr = (struct machine_instr *)code;
 		code += sizeof(*instr);
 		code += instr->operand_count * sizeof(struct machine_operand);
-
-		instr_offsets[instr_index++] = code - start;
 	}
 
-	struct bit_matrix live_matrix = get_live_matrix(program, instr_offsets, instr_count, arena);
 	uint32_t reg_count = program.mreg_count + program.vreg_count;
-	for (uint32_t i = 0; i < reg_count; i++) {
+	struct bit_matrix live_matrix = get_live_matrix(start, reg_count, instr_offsets, instr_count, arena);
+	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
+	for (uint32_t i = 0; i < program.vreg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, reg_count, arena);
+	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, program.vreg_count, arena);
 
 	uint32_t *register_pool = ALLOC(arena, mreg_count, uint32_t);
 	for (uint32_t i = 0; i < mreg_count; i++) {
@@ -266,7 +264,7 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	uint32_t spill_count = 0;
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
-	for (uint32_t i = 0; i < reg_count; i++) {
+	for (uint32_t i = 0; i < program.vreg_count; i++) {
 		uint32_t current_register = sorted_by_start[i];
 		uint32_t current_start = intervals[current_register].start;
 
@@ -286,11 +284,7 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 			sorted_by_start[active_start++] = inactive_register;
 		}
 
-		if (current_register < mreg_count && false) {
-			/* TODO: ensure that register is not used */
-			vreg[current_register] = make_mreg(current_register);
-			active_count++;
-		} else if (active_count == mreg_count) {
+		if (active_count == mreg_count) {
 			uint32_t spill = sorted_by_start[active_start];
 			uint32_t end = 0;
 			for (uint32_t j = active_start; j < active_end; j++) {
