@@ -208,10 +208,10 @@ struct allocation_info {
 };
 
 static struct allocation_info
-allocate_registers(struct machine_program program,
-    uint32_t mreg_count, struct arena *arena)
+allocate_registers(struct machine_program program, struct arena *arena)
 {
 	struct allocation_info info = {0};
+	uint32_t mreg_count = program.mreg_count;
 	info.used = ZALLOC(arena, program.mreg_count, bool);
 
 	struct arena_temp temp = arena_temp_begin(arena);
