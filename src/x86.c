@@ -580,29 +580,25 @@ x86_generate(struct stream *out, struct machine_program program,
 					}
 				}
 
-				if (opcode == X86_XOR
-				    && operands[0].kind == MOP_SPILL
+				if (operands[0].kind == MOP_SPILL
 				    && operands[1].kind == MOP_SPILL) {
 					stream_print(out, "\tmov rax, ");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, "\n\txor rax, ");
 					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, "\n\tmov ");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, ", rax\n");
-				} else {
-					stream_print(out, "\t");
-					stream_print(out, x86_get_opcode_name(opcode));
-					stream_print(out, " ");
-					while (operand_count-- > 0) {
-						x86_emit_operand(out, *operands++, program.functions);
-						if (operand_count > 0) {
-							stream_print(out, ", ");
-						}
-					}
-
+					operands[1] = make_mreg(X86_RAX);
 					stream_print(out, "\n");
 				}
+
+				stream_print(out, "\t");
+				stream_print(out, x86_get_opcode_name(opcode));
+				stream_print(out, " ");
+				while (operand_count-- > 0) {
+					x86_emit_operand(out, *operands++, program.functions);
+					if (operand_count > 0) {
+						stream_print(out, ", ");
+					}
+				}
+
+				stream_print(out, "\n");
 			}
 		}
 	}
