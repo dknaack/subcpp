@@ -73,7 +73,12 @@ print_row(struct bit_matrix matrix, uint32_t y)
 				printf(", ");
 			}
 
-			printf("r%d", x);
+			uint32_t mreg = matrix.width - 1 - x;
+			if (mreg < X86_REGISTER_COUNT) {
+				printf("%s", x86_get_register_name(mreg));
+			} else {
+				printf("r%d", x);
+			}
 		}
 	}
 
@@ -124,6 +129,14 @@ get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
 					}
 					break;
 				case MOP_MREG:
+					if (operands[j].flags & MOP_DEF) {
+						clear_bit(live_matrix, i, live_matrix.width - 1 - operands[j].value);
+					}
+
+					if (operands[j].flags & MOP_USE) {
+						set_bit(live_matrix, i, live_matrix.width - 1 - operands[j].value);
+					}
+					break;
 				case MOP_SPILL:
 				case MOP_LABEL:
 				case MOP_IMMEDIATE:
@@ -232,23 +245,22 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 
 	uint32_t reg_count = program.mreg_count + program.vreg_count;
 	struct bit_matrix live_matrix = get_live_matrix(start, reg_count, instr_offsets, instr_count, arena);
-	struct live_interval *intervals = ALLOC(arena, program.vreg_count, struct live_interval);
-	for (uint32_t i = 0; i < program.vreg_count; i++) {
+	struct live_interval *intervals = ALLOC(arena, reg_count, struct live_interval);
+	for (uint32_t i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, program.vreg_count, arena);
+	uint32_t *sorted_by_start = sort_intervals_by_start(intervals, reg_count, arena);
 
 	uint32_t *register_pool = ALLOC(arena, mreg_count, uint32_t);
 	for (uint32_t i = 0; i < mreg_count; i++) {
 		register_pool[i] = i;
 	}
 
-	struct machine_operand *vreg = ALLOC(arena,
-	    program.vreg_count, struct machine_operand);
+	struct machine_operand *vreg = ALLOC(arena, reg_count, struct machine_operand);
 
-	bool *force_mreg_for = ALLOC(arena, program.vreg_count, bool);
+	bool *force_mreg_for = ALLOC(arena, reg_count, bool);
 	code = start;
 	while (code < end) {
 		struct machine_instr *instr = (struct machine_instr *)code;
@@ -262,9 +274,12 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 		code += get_instr_size(*instr);
 	}
 
+	/* NOTE: the register pool is only valid after active_count. In the
+	 * active part of the array, there be multiple registers with the same
+	 * value. */
 	uint32_t active_start = 0;
 	uint32_t active_count = 0;
-	for (uint32_t i = 0; i < program.vreg_count; i++) {
+	for (uint32_t i = 0; i < reg_count; i++) {
 		uint32_t current_register = sorted_by_start[i];
 		uint32_t current_start = intervals[current_register].start;
 		uint32_t current_end = intervals[current_register].end;
@@ -279,13 +294,54 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 				continue;
 			}
 
+			/* Free the register again */
 			active_count--;
-			register_pool[active_count] = vreg[inactive_register].value;
+			bool is_mreg = (inactive_register >= program.vreg_count);
+			if (is_mreg) {
+				uint32_t mreg = reg_count - 1 - inactive_register;
+				register_pool[active_count] = mreg;
+				ASSERT(register_pool[active_count] < program.mreg_count);
+			} else if (vreg[inactive_register].kind == MOP_MREG) {
+				register_pool[active_count] = vreg[inactive_register].value;
+				ASSERT(register_pool[active_count] < program.mreg_count);
+			}
 
 			sorted_by_start[j] = sorted_by_start[active_start];
 			sorted_by_start[active_start++] = inactive_register;
 		}
 
+		bool is_mreg = (current_register >= program.vreg_count);
+		if (is_mreg) {
+			struct machine_operand mreg = make_mreg(reg_count - 1 - current_register);
+			bool should_reallocate = false;
+			for (uint32_t j = active_start; j < active_end; j++) {
+				uint32_t previous_register = sorted_by_start[j];
+				if (machine_operand_equals(mreg, vreg[previous_register])) {
+					/* Reallocate the previous register */
+					current_register = previous_register;
+					should_reallocate = true;
+					/* There can only be one such register */
+					break;
+				}
+			}
+
+			/* Remove the register from the pool if it exists */
+			for (uint32_t j = active_count; j < program.mreg_count; j++) {
+				if (register_pool[j] == mreg.value) {
+					uint32_t tmp = register_pool[j];
+					ASSERT(tmp < program.mreg_count);
+					register_pool[j] = register_pool[active_count];
+					register_pool[active_count++] = tmp;
+					break;
+				}
+			}
+
+			if (!should_reallocate) {
+				continue;
+			}
+		}
+
+		ASSERT(current_register < program.vreg_count);
 		if (active_count >= mreg_count) {
 			uint32_t spill = sorted_by_start[active_start];
 			uint32_t spill_index = active_start;
