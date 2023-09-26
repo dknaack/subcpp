@@ -443,6 +443,34 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		}
 	}
 
+	out.instr_count = 0;
+	char *start = out.code;
+	char *code = start;
+	char *end = start + out.size;
+	while (code < end) {
+		out.instr_count++;
+		code += get_instr_size(*(struct machine_instr *)code);
+	}
+
+	out.instr_offsets = ALLOC(arena, out.instr_count, uint32_t);
+	uint32_t instr_index = 0;
+	code = start;
+	while (code < end) {
+		out.instr_offsets[instr_index++] = code - start;
+		code += get_instr_size(*(struct machine_instr *)code);
+	}
+
+	/* Convert instruction offset to instruction index */
+	instr_index = 0;
+	for (uint32_t i = 0; i < out.function_count; i++) {
+		uint32_t offset = out.functions[i].start;
+		while (out.instr_offsets[instr_index] < offset) {
+			instr_index++;
+		}
+
+		out.functions[i].start = instr_index;
+	}
+
 	return out;
 }
 
@@ -507,13 +535,11 @@ x86_generate(struct stream *out, struct machine_program program,
 	    "fmt: db \"%d\", 0x0A, 0\n\n"
 	    "section .text\n");
 
-	char *start = (char *)program.code;
-	char *end = start + program.size;
 	for (uint32_t i = 0; i < program.function_count; i++) {
-		char *code = start + program.functions[i].start;
-		char *function_end = end;
+		uint32_t first_instr = program.functions[i].start;
+		uint32_t last_instr = program.instr_count;
 		if (i + 1 < program.function_count) {
-			function_end = start + program.functions[i+1].start;
+			last_instr = program.functions[i+1].start;
 		}
 
 		stream_prints(out, program.functions[i].name);
@@ -534,13 +560,11 @@ x86_generate(struct stream *out, struct machine_program program,
 			stream_print(out, "\n");
 		}
 
-		while (code < function_end) {
-			struct machine_instr *instr = (struct machine_instr *)code;
-			struct machine_operand *operands
-			    = (struct machine_operand *)(instr + 1);
+		for (uint32_t i = first_instr; i < last_instr; i++) {
+			struct machine_instr *instr = get_instr(program, i);
+			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
 			enum x86_opcode opcode = (enum x86_opcode)instr->opcode;
 			uint32_t operand_count = instr->operand_count;
-			code += sizeof(*instr) + operand_count * sizeof(*operands);
 
 			if (opcode == X86_PRINT) {
 				stream_print(out,

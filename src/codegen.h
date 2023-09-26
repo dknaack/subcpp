@@ -32,12 +32,14 @@ struct machine_function {
 
 struct machine_program {
 	void *code;
+	uint32_t *instr_offsets;
 	struct machine_function *functions;
 
 	uint32_t size;
 	uint32_t max_size;
 	uint32_t mreg_count;
 	uint32_t vreg_count;
+	uint32_t instr_count;
 	uint32_t function_count;
 };
 
@@ -128,4 +130,13 @@ get_instr_size(struct machine_instr instr)
 	uint32_t size = sizeof(instr);
 	size += instr.operand_count * sizeof(struct machine_operand);
 	return size;
+}
+
+static struct machine_instr *
+get_instr(struct machine_program program, uint32_t instr_index)
+{
+	uint32_t offset = program.instr_offsets[instr_index];
+	char *ptr = (char *)program.code;
+	struct machine_instr *instr = (struct machine_instr *)(ptr + offset);
+	return instr;
 }

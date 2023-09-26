@@ -95,10 +95,11 @@ print_matrix(struct bit_matrix matrix)
 }
 
 static struct bit_matrix
-get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
-    uint32_t instr_count, struct arena *arena)
+get_live_matrix(struct machine_program program, uint32_t first_instr,
+    uint32_t last_instr, uint32_t reg_count, struct arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
+	uint32_t instr_count = last_instr - first_instr;
 	struct bit_matrix live_matrix = bit_matrix_init(reg_count, instr_count, arena);
 	struct arena_temp temp = arena_temp_begin(arena);
 	struct bit_matrix prev_live_matrix = bit_matrix_init(reg_count, instr_count, arena);
@@ -107,8 +108,7 @@ get_live_matrix(char *code, uint32_t reg_count, uint32_t *instr_offsets,
 	do {
 		uint32_t i = instr_count;
 		while (i-- > 0) {
-			uint32_t offset = instr_offsets[i];
-			struct machine_instr *instr = (struct machine_instr *)(code + offset);
+			struct machine_instr *instr = get_instr(program, first_instr + i);
 
 			clear_row(live_matrix, i);
 			/* TODO: successor of jump instructions */
@@ -216,35 +216,20 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 {
 	struct allocation_info info = {0};
 	uint32_t mreg_count = program.mreg_count;
+	uint32_t reg_count = program.mreg_count + program.vreg_count;
 	info.used = ZALLOC(arena, program.mreg_count, bool);
 
 	struct arena_temp temp = arena_temp_begin(arena);
 
 	struct machine_function function = program.functions[function_index];
-	char *start = (char *)program.code + function.start;
-	char *end = (char *)program.code + program.size;
+	uint32_t first_instr = function.start;
+	uint32_t last_instr = program.instr_count;
 	if (function_index + 1 < program.function_count) {
 		struct machine_function next_function = program.functions[function_index+1];
-		end = (char *)program.code + next_function.start;
+		last_instr = next_function.start;
 	}
 
-	uint32_t instr_count = 0;
-	char *code = start;
-	while (code < end) {
-		instr_count++;
-		code += get_instr_size(*(struct machine_instr *)code);
-	}
-
-	uint32_t *instr_offsets = ALLOC(arena, instr_count, uint32_t);
-	uint32_t instr_index = 0;
-	code = start;
-	while (code < end) {
-		instr_offsets[instr_index++] = code - start;
-		code += get_instr_size(*(struct machine_instr *)code);
-	}
-
-	uint32_t reg_count = program.mreg_count + program.vreg_count;
-	struct bit_matrix live_matrix = get_live_matrix(start, reg_count, instr_offsets, instr_count, arena);
+	struct bit_matrix live_matrix = get_live_matrix(program, first_instr, last_instr, reg_count, arena);
 	struct live_interval *intervals = ALLOC(arena, reg_count, struct live_interval);
 	for (uint32_t i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
@@ -260,19 +245,8 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 
 	struct machine_operand *vreg = ALLOC(arena, reg_count, struct machine_operand);
 
-	bool *force_mreg_for = ALLOC(arena, reg_count, bool);
-	code = start;
-	while (code < end) {
-		struct machine_instr *instr = (struct machine_instr *)code;
-		struct machine_operand *operands = (struct machine_operand *)(instr + 1);
-		for (uint32_t i = 0; i < instr->operand_count; i++) {
-			if (operands[i].kind == MOP_VREG) {
-				force_mreg_for[operands[0].value] |= ((operands[i].flags & MOP_FORCE_MREG) != 0);
-			}
-		}
-
-		code += get_instr_size(*instr);
-	}
+	bool *force_mreg_for = ZALLOC(arena, reg_count, bool);
+	/* TODO: Mark registers where the force flag is set */
 
 	/* NOTE: the register pool is only valid after active_count. In the
 	 * active part of the array, there be multiple registers with the same
@@ -377,15 +351,11 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 		}
 	}
 
-	code = start;
-	while (code < end) {
-		struct machine_instr *instr = (struct machine_instr *)code;
+	for (uint32_t i = first_instr; i < last_instr; i++) {
+		struct machine_instr *instr = get_instr(program, i);
 		uint32_t operand_count = instr->operand_count;
-		code += sizeof(struct machine_instr);
 
-		struct machine_operand *operands = (struct machine_operand *)code;
-		code += operand_count * sizeof(struct machine_operand);
-
+		struct machine_operand *operands = (struct machine_operand *)(instr + 1);
 		for (uint32_t i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				uint32_t reg = operands[i].value;
