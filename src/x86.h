@@ -46,3 +46,83 @@ enum x86_opcode {
 	X86_LABEL,
 	X86_PRINT
 };
+
+static char *
+x86_get_opcode_name(enum x86_opcode opcode)
+{
+	switch (opcode) {
+	case X86_ADD:   return "add";
+	case X86_CALL:  return "call";
+	case X86_CMP:   return "cmp";
+	case X86_DEC:   return "dec";
+	case X86_IDIV:  return "idiv";
+	case X86_IMUL:  return "imul";
+	case X86_INC:   return "inc";
+	case X86_JMP:   return "jmp";
+	case X86_JZ:    return "jz";
+	case X86_JL:    return "jl";
+	case X86_JG:    return "jg";
+	case X86_JLE:   return "jle";
+	case X86_JGE:   return "jge";
+	case X86_MOV:   return "mov";
+	case X86_RET:   return "ret";
+	case X86_SETZ:  return "setz";
+	case X86_SETL:  return "setl";
+	case X86_SETG:  return "setg";
+	case X86_SETLE: return "setle";
+	case X86_SETGE: return "setge";
+	case X86_SUB:   return "sub";
+	case X86_TEST:  return "test";
+	case X86_XOR:   return "xor";
+	case X86_LABEL: return "label";
+	case X86_PRINT: return "print";
+	}
+
+	return "(invalid)";
+}
+
+static char *
+x86_get_byte_register_name(enum x86_register reg)
+{
+	switch (reg) {
+	case X86_R8:  return "r8b";
+	case X86_R9:  return "r9b";
+	case X86_R10: return "r10b";
+	case X86_R11: return "r11b";
+	case X86_R12: return "r12b";
+	case X86_R13: return "r13b";
+	case X86_R14: return "r14b";
+	case X86_R15: return "r15b";
+	case X86_RAX: return "al";
+	case X86_RBX: return "bl";
+	case X86_RCX: return "cl";
+	case X86_RDX: return "dl";
+	case X86_RSI: return "sil";
+	case X86_RDI: return "dil";
+	default:      return "(invalid)";
+	}
+}
+
+static char *
+x86_get_register_name(enum x86_register reg)
+{
+	switch (reg) {
+	case X86_R8:  return "r8";
+	case X86_R9:  return "r9";
+	case X86_R10: return "r10";
+	case X86_R11: return "r11";
+	case X86_R12: return "r12";
+	case X86_R13: return "r13";
+	case X86_R14: return "r14";
+	case X86_R15: return "r15";
+	case X86_RAX: return "rax";
+	case X86_RBX: return "rbx";
+	case X86_RCX: return "rcx";
+	case X86_RDX: return "rdx";
+	case X86_RSI: return "rsi";
+	case X86_RDI: return "rdi";
+	case X86_RSP: return "rsp";
+	case X86_RBP: return "rbp";
+	default:      return "(invalid)";
+	}
+}
