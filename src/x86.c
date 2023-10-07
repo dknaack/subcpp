@@ -309,8 +309,10 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 {
 	struct machine_program out = {0};
 	out.max_size = 1024 * 8;
+	out.blocks = ZALLOC(arena, program.block_count, struct machine_block);
 	out.functions = ZALLOC(arena, program.function_count, struct machine_function);
 	out.function_count = program.function_count;
+	out.block_count = program.block_count;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
 	out.mreg_count = X86_REGISTER_COUNT;
@@ -319,7 +321,7 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		struct ir_function ir_function = program.functions[f];
 		struct machine_function *function = &out.functions[f];
 		function->name = ir_function.name;
-		function->start = out.size;
+		function->block_index = ir_function.block_index;
 
 		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
 			struct ir_instr instr = program.instrs[ir_function.instr_index+i];
@@ -352,6 +354,7 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		uint32_t last_block = first_block + ir_function.block_count;
 		for (uint32_t b = first_block; b < last_block; b++) {
 			struct ir_block block = program.blocks[b];
+			out.blocks[b].instr_index = out.size;
 			for (uint32_t i = block.start; i < block.start + block.size; i++) {
 				uint32_t instr_index = program.toplevel_instr_indices[i];
 				struct ir_instr instr = program.instrs[instr_index];
@@ -384,14 +387,15 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 
 	/* Convert instruction offset to instruction index */
 	instr_index = 0;
-	for (uint32_t i = 0; i < out.function_count; i++) {
-		uint32_t offset = out.functions[i].start;
+	for (uint32_t i = 0; i < out.block_count; i++) {
+		uint32_t offset = out.blocks[i].instr_index;
 		while (out.instr_offsets[instr_index] < offset) {
 			instr_index++;
 		}
 
-		out.functions[i].start = instr_index;
+		out.blocks[i].instr_index = instr_index;
 	}
+
 
 	return out;
 }
@@ -458,10 +462,10 @@ x86_generate(struct stream *out, struct machine_program program,
 	    "section .text\n");
 
 	for (uint32_t i = 0; i < program.function_count; i++) {
-		uint32_t first_instr = program.functions[i].start;
+		uint32_t first_instr = program.functions[i].instr_index;
 		uint32_t last_instr = program.instr_count;
 		if (i + 1 < program.function_count) {
-			last_instr = program.functions[i+1].start;
+			last_instr = program.functions[i+1].instr_index;
 		}
 
 		stream_prints(out, program.functions[i].name);

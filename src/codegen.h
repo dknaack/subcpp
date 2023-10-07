@@ -25,14 +25,20 @@ struct machine_operand {
 	uint32_t value;
 };
 
+struct machine_block {
+	uint32_t instr_index;
+};
+
 struct machine_function {
 	struct string name;
-	uint32_t start;
+	uint32_t block_index;
+	uint32_t instr_index;
 };
 
 struct machine_program {
 	void *code;
 	uint32_t *instr_offsets;
+	struct machine_block *blocks;
 	struct machine_function *functions;
 
 	uint32_t size;
@@ -40,6 +46,7 @@ struct machine_program {
 	uint32_t mreg_count;
 	uint32_t vreg_count;
 	uint32_t instr_count;
+	uint32_t block_count;
 	uint32_t function_count;
 };
 

@@ -118,6 +118,14 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 
 			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
 			for (uint32_t j = 0; j < instr->operand_count; j++) {
+				if (operands[j].kind == MOP_LABEL) {
+					uint32_t block_index = operands[j].value;
+					uint32_t instr_index = program.blocks[block_index].instr_index;
+					union_rows(live_matrix, i, instr_index);
+				}
+			}
+
+			for (uint32_t j = 0; j < instr->operand_count; j++) {
 				switch (operands[j].kind) {
 				case MOP_VREG:
 					if (operands[j].flags & MOP_DEF) {
@@ -222,11 +230,11 @@ allocate_function_registers(struct machine_program program, uint32_t function_in
 	struct arena_temp temp = arena_temp_begin(arena);
 
 	struct machine_function function = program.functions[function_index];
-	uint32_t first_instr = function.start;
+	uint32_t first_instr = function.instr_index;
 	uint32_t last_instr = program.instr_count;
 	if (function_index + 1 < program.function_count) {
 		struct machine_function next_function = program.functions[function_index+1];
-		last_instr = next_function.start;
+		last_instr = next_function.instr_index;
 	}
 
 	struct bit_matrix live_matrix = get_live_matrix(program, first_instr, last_instr, reg_count, arena);
