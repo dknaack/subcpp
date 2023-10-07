@@ -120,7 +120,10 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 			for (uint32_t j = 0; j < instr->operand_count; j++) {
 				if (operands[j].kind == MOP_LABEL) {
 					uint32_t block_index = operands[j].value;
-					uint32_t instr_index = program.blocks[block_index].instr_index;
+					ASSERT(block_index < program.block_count);
+
+					struct machine_block block = program.blocks[block_index];
+					uint32_t instr_index = block.instr_index - first_instr;
 					union_rows(live_matrix, i, instr_index);
 				}
 			}

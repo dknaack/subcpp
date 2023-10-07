@@ -319,9 +319,9 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 
 	for (uint32_t f = 0; f < program.function_count; f++) {
 		struct ir_function ir_function = program.functions[f];
-		struct machine_function *function = &out.functions[f];
-		function->name = ir_function.name;
-		function->block_index = ir_function.block_index;
+		out.functions[f].name = ir_function.name;
+		out.functions[f].block_index = ir_function.block_index;
+		out.functions[f].instr_index = out.size;
 
 		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
 			struct ir_instr instr = program.instrs[ir_function.instr_index+i];
@@ -394,6 +394,16 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		}
 
 		out.blocks[i].instr_index = instr_index;
+	}
+
+	instr_index = 0;
+	for (uint32_t i = 0; i < out.function_count; i++) {
+		uint32_t offset = out.functions[i].instr_index;
+		while (out.instr_offsets[instr_index] < offset) {
+			instr_index++;
+		}
+
+		out.functions[i].instr_index = instr_index;
 	}
 
 
