@@ -118,13 +118,26 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 
 			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
 			for (uint32_t j = 0; j < instr->operand_count; j++) {
-				if (operands[j].kind == MOP_LABEL) {
-					uint32_t block_index = operands[j].value;
-					ASSERT(block_index < program.block_count);
+				if (operands[j].kind != MOP_LABEL) {
+					continue;
+				}
 
-					struct machine_block block = program.blocks[block_index];
-					uint32_t instr_index = block.instr_index - first_instr;
-					union_rows(live_matrix, i, instr_index);
+				uint32_t block_index = operands[j].value;
+				ASSERT(block_index < program.block_count);
+
+				struct machine_block block = program.blocks[block_index];
+				uint32_t instr_index = block.instr_index - first_instr;
+				union_rows(live_matrix, i, instr_index);
+			}
+
+			for (uint32_t j = 0; j < instr->operand_count; j++) {
+				if (operands[j].kind != MOP_FUNC) {
+					continue;
+				}
+
+				for (uint32_t k = 0; k < program.temp_mreg_count; k++) {
+					uint32_t mreg = program.temp_mregs[k];
+					set_bit(live_matrix, i, live_matrix.width - 1 - mreg);
 				}
 			}
 
@@ -222,8 +235,8 @@ struct allocation_info {
 };
 
 static struct allocation_info
-allocate_function_registers(struct machine_program program, uint32_t function_index,
-    struct arena *arena)
+allocate_function_registers(struct machine_program program,
+    uint32_t function_index, struct arena *arena)
 {
 	struct allocation_info info = {0};
 	uint32_t mreg_count = program.mreg_count;

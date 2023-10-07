@@ -13,9 +13,9 @@ enum x86_register {
 	X86_R13,
 	X86_R14,
 	X86_R15,
+	X86_RBP,
 	X86_REGISTER_COUNT,
 	X86_RSP,
-	X86_RBP,
 };
 
 enum x86_opcode {
@@ -45,6 +45,27 @@ enum x86_opcode {
 	/* NOTE: pseudo opcodes; they don't actually exist. */
 	X86_LABEL,
 	X86_PRINT
+};
+
+static uint32_t x86_temp_regs[] = {
+	X86_RAX,
+	X86_RCX,
+	X86_RDX,
+	X86_RSI,
+	X86_RDI,
+	X86_R8,
+	X86_R9,
+	X86_R10,
+	X86_R11,
+};
+
+static uint32_t x86_preserved_regs[] = {
+	X86_RBX,
+	X86_RBP,
+	X86_R12,
+	X86_R13,
+	X86_R14,
+	X86_R15,
 };
 
 static char *

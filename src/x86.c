@@ -317,6 +317,9 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 	out.vreg_count = program.register_count;
 	out.mreg_count = X86_REGISTER_COUNT;
 
+	out.temp_mregs = x86_temp_regs;
+	out.temp_mreg_count = LENGTH(x86_temp_regs);
+
 	for (uint32_t f = 0; f < program.function_count; f++) {
 		struct ir_function ir_function = program.functions[f];
 		out.functions[f].name = ir_function.name;
@@ -471,25 +474,26 @@ x86_generate(struct stream *out, struct machine_program program,
 	    "fmt: db \"%d\", 0x0A, 0\n\n"
 	    "section .text\n");
 
-	for (uint32_t i = 0; i < program.function_count; i++) {
-		uint32_t first_instr = program.functions[i].instr_index;
+	for (uint32_t function_index = 0; function_index < program.function_count; function_index++) {
+		uint32_t first_instr = program.functions[function_index].instr_index;
 		uint32_t last_instr = program.instr_count;
-		if (i + 1 < program.function_count) {
-			last_instr = program.functions[i+1].instr_index;
+		if (function_index + 1 < program.function_count) {
+			last_instr = program.functions[function_index+1].instr_index;
 		}
 
-		stream_prints(out, program.functions[i].name);
+		stream_prints(out, program.functions[function_index].name);
 		stream_print(out, ":\n");
 
-		for (uint32_t j = 0; j < X86_REGISTER_COUNT; j++) {
-			if (info[i].used[j]) {
+		for (uint32_t j = 0; j < LENGTH(x86_preserved_regs); j++) {
+			uint32_t mreg = x86_preserved_regs[j];
+			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_mreg(j), program.functions);
+				x86_emit_operand(out, make_mreg(mreg), program.functions);
 				stream_print(out, "\n");
 			}
 		}
 
-		uint32_t stack_size = info[i].spill_count * 8;
+		uint32_t stack_size = info[function_index].spill_count * 8;
 		if (stack_size > 0) {
 			stream_print(out, "\tsub rsp, ");
 			stream_printu(out, stack_size);
@@ -524,11 +528,12 @@ x86_generate(struct stream *out, struct machine_program program,
 				}
 
 				if (opcode == X86_RET) {
-					uint32_t j = X86_REGISTER_COUNT;
+					uint32_t j = LENGTH(x86_preserved_regs);
 					while (j-- > 0) {
-						if (info[i].used[j]) {
+						uint32_t mreg = x86_preserved_regs[j];
+						if (info[function_index].used[mreg]) {
 							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_mreg(j), program.functions);
+							x86_emit_operand(out, make_mreg(mreg), program.functions);
 							stream_print(out, "\n");
 						}
 					}

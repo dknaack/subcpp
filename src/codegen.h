@@ -40,6 +40,7 @@ struct machine_program {
 	uint32_t *instr_offsets;
 	struct machine_block *blocks;
 	struct machine_function *functions;
+	uint32_t *temp_mregs;
 
 	uint32_t size;
 	uint32_t max_size;
@@ -48,6 +49,7 @@ struct machine_program {
 	uint32_t instr_count;
 	uint32_t block_count;
 	uint32_t function_count;
+	uint32_t temp_mreg_count;
 };
 
 static bool
