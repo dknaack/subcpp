@@ -253,7 +253,8 @@ static struct ast_node *parse_stmt(struct tokenizer *tokenizer, struct arena *ar
 static struct ast_node *
 parse_compound_stmt(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct ast_node *head, **ptr = &head;
+	struct ast_node *head = NULL;
+	struct ast_node **ptr = &head;
 
 	expect(tokenizer, TOKEN_LBRACE);
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
@@ -403,7 +404,9 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	if (token.kind == TOKEN_INT || token.kind == TOKEN_CHAR) {
 		do {
 			*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
-			ptr = &(*ptr)->next;
+			if (*ptr) {
+				ptr = &(*ptr)->next;
+			}
 		} while (accept(tokenizer, TOKEN_COMMA));
 	} else if (token.kind == TOKEN_VOID) {
 		get_token(tokenizer);
