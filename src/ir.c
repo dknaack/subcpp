@@ -4,7 +4,7 @@ get_opcode_name(enum ir_opcode opcode)
 	switch (opcode) {
 	case IR_NOP:   return "nop";
 	case IR_LABEL: return "label";
-	case IR_SET:   return "set";
+	case IR_CONST: return "const";
 	case IR_MOV:   return "mov";
 	case IR_ADD:   return "add";
 	case IR_SUB:   return "sub";
@@ -202,7 +202,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 		result = get_register(state, node->u.ident);
 		break;
 	case AST_INT:
-		result = emit1(state, IR_SET, node->u.ival);
+		result = emit1(state, IR_CONST, node->u.ival);
 		break;
 	case AST_BREAK:
 		emit1(state, IR_JMP, state->break_label);
@@ -455,7 +455,7 @@ get_usage_count(struct ir_program program, struct arena *arena)
 			break;
 		case IR_NOP:
 		case IR_VAR:
-		case IR_SET:
+		case IR_CONST:
 		case IR_CALL:
 		case IR_LABEL:
 			break;

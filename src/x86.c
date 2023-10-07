@@ -126,7 +126,7 @@ static struct machine_operand
 x86_select_immediate(struct machine_program *out, struct ir_program program, uint32_t instr_index)
 {
 	struct machine_operand result;
-	if (program.instrs[instr_index].opcode == IR_SET) {
+	if (program.instrs[instr_index].opcode == IR_CONST) {
 		result = make_immediate(program.instrs[instr_index].op0);
 	} else {
 		result = make_vreg(instr_index);
@@ -155,7 +155,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 	struct machine_operand src = {0};
 
 	switch (opcode) {
-	case IR_SET:
+	case IR_CONST:
 		x86_select2(out, X86_MOV, dst, make_immediate(op0));
 		break;
 	case IR_VAR:
@@ -165,14 +165,14 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		x86_select_instr(out, program, op1, dst);
 		break;
 	case IR_ADD:
-		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, program, op0, dst);
 			x86_select1(out, X86_INC, dst);
-		} else if (instr[op1].opcode == IR_SET) {
+		} else if (instr[op1].opcode == IR_CONST) {
 			x86_select_instr(out, program, op0, dst);
 			op1 = instr[op1].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op1));
-		} else if (instr[op0].opcode == IR_SET) {
+		} else if (instr[op0].opcode == IR_CONST) {
 			x86_select_instr(out, program, op1, dst);
 			op0 = instr[op0].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op0));
@@ -184,10 +184,10 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		}
 		break;
 	case IR_SUB:
-		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, program, op0, dst);
 			x86_select1(out, X86_DEC, dst);
-		} else if (instr[op1].opcode == IR_SET) {
+		} else if (instr[op1].opcode == IR_CONST) {
 			op1 = instr[op1].op0;
 			x86_select_instr(out, program, op0, dst);
 			x86_select2(out, X86_SUB, dst, make_immediate(op1));
@@ -199,9 +199,9 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 		}
 		break;
 	case IR_MUL:
-		if (instr[op1].opcode == IR_SET && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, program, op0, dst);
-		} else if (instr[op1].opcode == IR_SET && instr[op1].op0 == 2) {
+		} else if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 2) {
 			x86_select_instr(out, program, op0, dst);
 			x86_select2(out, X86_ADD, dst, dst);
 		} else {

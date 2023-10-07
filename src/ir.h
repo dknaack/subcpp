@@ -1,7 +1,7 @@
 enum ir_opcode {
 	IR_NOP,
 	IR_LABEL,
-	IR_SET,
+	IR_CONST,
 	IR_MOV,
 	IR_ADD,
 	IR_SUB,
