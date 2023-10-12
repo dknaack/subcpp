@@ -555,11 +555,11 @@ x86_generate(struct stream *out, struct machine_program program,
 
 				stream_print(out, "\t");
 				stream_print(out, x86_get_opcode_name(opcode));
-				stream_print(out, " ");
 				while (operand_count-- > 0) {
+					stream_print(out, " ");
 					x86_emit_operand(out, *operands++, program.functions);
 					if (operand_count > 0) {
-						stream_print(out, ", ");
+						stream_print(out, ",");
 					}
 				}
 
