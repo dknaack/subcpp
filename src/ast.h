@@ -41,16 +41,19 @@ struct ast_function {
 enum ast_node_kind {
 	AST_INVALID,
 	AST_ROOT,
+	AST_DECL,
+	AST_FUNCTION,
 
+	/* NOTE: expressions */
 	AST_BINARY,
 	AST_CALL,
 	AST_IDENT,
 	AST_INT,
 
+	/* NOTE: statements */
 	AST_BREAK,
 	AST_COMPOUND,
 	AST_CONTINUE,
-	AST_DECL,
 	AST_DECL_STMT,
 	AST_EMPTY,
 	AST_FOR,
@@ -58,7 +61,6 @@ enum ast_node_kind {
 	AST_PRINT,
 	AST_WHILE,
 	AST_RETURN,
-	AST_FUNCTION,
 };
 
 struct ast_node {
