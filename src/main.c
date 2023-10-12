@@ -17,7 +17,7 @@ print_program(struct ir_program program)
 		uint32_t op1 = instr.op1;
 		switch (instr.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
-		case IR_CONST:   printf("\tr%d = %d\n", dst, op0); break;
+		case IR_CONST: printf("\tr%d = %d\n", dst, op0); break;
 		case IR_MOV:   printf("\tr%d = r%d\n", op0, op1); break;
 		case IR_ADD:   printf("\tr%d = r%d + r%d\n", dst, op0, op1); break;
 		case IR_SUB:   printf("\tr%d = r%d - r%d\n", dst, op0, op1); break;
