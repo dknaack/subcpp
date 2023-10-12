@@ -130,7 +130,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
 		expr = ALLOC(arena, 1, struct ast_node);
-		expr->kind = AST_INT;
+		expr->kind = AST_LITERAL_INT;
 		expr->u.ival = parse_int(token.value);
 		break;
 	case TOKEN_LPAREN:
@@ -224,9 +224,16 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 	struct ast_node *decl;
 	struct ast_node **ptr = &decl;
 	struct token token = peek_token(tokenizer);
+	struct ast_node *type = NULL;
 	switch (token.kind) {
 	case TOKEN_INT:
+		type = ZALLOC(arena, 1, struct ast_node);
+		type->kind = AST_INT;
+		get_token(tokenizer);
+		break;
 	case TOKEN_CHAR:
+		type = ZALLOC(arena, 1, struct ast_node);
+		type->kind = AST_CHAR;
 		get_token(tokenizer);
 		break;
 	default:
@@ -237,6 +244,7 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 		*ptr = ZALLOC(arena, 1, struct ast_node);
 		(*ptr)->kind = AST_DECL;
 		(*ptr)->u.decl.name = parse_ident(tokenizer);
+		(*ptr)->u.decl.type = type;
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
 			(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
 		}

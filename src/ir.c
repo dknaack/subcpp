@@ -201,7 +201,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 	case AST_IDENT:
 		result = get_register(state, node->u.ident);
 		break;
-	case AST_INT:
+	case AST_LITERAL_INT:
 		result = emit1(state, IR_CONST, node->u.ival);
 		break;
 	case AST_BREAK:
@@ -300,6 +300,10 @@ generate(struct ir_generator *state, struct ast_node *node)
 		for (struct ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
 			generate(state, stmt);
 		}
+		break;
+	case AST_VOID:
+	case AST_CHAR:
+	case AST_INT:
 		break;
 	}
 

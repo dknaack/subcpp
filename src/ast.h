@@ -12,6 +12,7 @@ struct ast_call_expr {
 struct ast_decl {
 	struct string name;
 	struct ast_node *expr;
+	struct ast_node *type;
 };
 
 struct ast_if_stmt {
@@ -44,11 +45,16 @@ enum ast_node_kind {
 	AST_DECL,
 	AST_FUNCTION,
 
+	/* NOTE: types */
+	AST_VOID,
+	AST_CHAR,
+	AST_INT,
+
 	/* NOTE: expressions */
 	AST_BINARY,
 	AST_CALL,
 	AST_IDENT,
-	AST_INT,
+	AST_LITERAL_INT,
 
 	/* NOTE: statements */
 	AST_BREAK,
@@ -80,3 +86,33 @@ struct ast_node {
 		intmax_t ival;
 	} u;
 };
+
+static char *
+get_ast_name(enum ast_node_kind kind)
+{
+	switch (kind) {
+	case AST_INVALID:     return "INVALID";
+	case AST_ROOT:        return "ROOT";
+	case AST_DECL:        return "DECL";
+	case AST_FUNCTION:    return "FUNCTION";
+	case AST_VOID:        return "VOID";
+	case AST_CHAR:        return "CHAR";
+	case AST_INT:         return "INT";
+	case AST_BINARY:      return "BINARY";
+	case AST_CALL:        return "CALL";
+	case AST_IDENT:       return "IDENT";
+	case AST_LITERAL_INT: return "LITERAL_INT";
+	case AST_BREAK:       return "BREAK";
+	case AST_COMPOUND:    return "COMPOUND";
+	case AST_CONTINUE:    return "CONTINUE";
+	case AST_DECL_STMT:   return "DECL_STMT";
+	case AST_EMPTY:       return "EMPTY";
+	case AST_FOR:         return "FOR";
+	case AST_IF:          return "IF";
+	case AST_PRINT:       return "PRINT";
+	case AST_WHILE:       return "WHILE";
+	case AST_RETURN:      return "RETURN";
+	}
+
+	return "(invalid)";
+}
