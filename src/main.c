@@ -338,8 +338,6 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		type = TYPE_VOID;
 		lhs = check_node(node->u.decl.expr, symbols, arena);
 		rhs = check_node(node->u.decl.type, symbols, arena);
-		printf("%s, %s, %.*s\n", get_type_name(lhs), get_type_name(rhs),
-			(int)node->u.decl.name.length, node->u.decl.name.at);
 		ASSERT(lhs == rhs);
 		add_variable(symbols, node->u.decl.name, rhs, arena);
 		break;
@@ -405,7 +403,6 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		break;
 	}
 
-	printf("return(%s)\n", get_type_name(type));
 	return type;
 }
 
