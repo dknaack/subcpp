@@ -545,6 +545,10 @@ x86_generate(struct stream *out, struct machine_program program,
 					}
 				}
 
+				if (opcode == X86_MOV && machine_operand_equals(operands[0], operands[1])) {
+					continue;
+				}
+
 				if (operands[0].kind == MOP_SPILL
 				    && operands[1].kind == MOP_SPILL) {
 					stream_print(out, "\tmov rax, ");
