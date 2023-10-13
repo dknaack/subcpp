@@ -40,9 +40,15 @@ struct token {
 	struct string value;
 };
 
+struct location {
+	char *file;
+	uint32_t line;
+	uint32_t column;
+};
+
 struct tokenizer {
+	struct location loc;
 	struct string source;
-	char *filename;
 	size_t pos;
 	bool error;
 };

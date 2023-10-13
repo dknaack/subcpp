@@ -21,24 +21,11 @@ errorf(struct location loc, char *fmt, ...)
 static void
 vsyntax_error(struct tokenizer *tokenizer, char *fmt, va_list ap)
 {
-	struct location loc = {0};
-
 	if (tokenizer->error) {
 		return;
 	}
 
-	loc.file = tokenizer->filename;
-	loc.line++;
-	for (uint32_t pos = 0; pos < tokenizer->pos; pos++) {
-		if (tokenizer->source.at[pos] == '\n') {
-			loc.line++;
-			loc.column = 0;
-		}
-
-		loc.column++;
-	}
-
-	verrorf(loc, fmt, ap);
+	verrorf(tokenizer->loc, fmt, ap);
 	tokenizer->error = true;
 }
 
@@ -72,6 +59,15 @@ expect(struct tokenizer *tokenizer, enum token_kind expected_token)
 		syntax_error(tokenizer, "Expected %s, but found %s",
 		    get_token_name(expected_token), get_token_name(token.kind));
 	}
+}
+
+static struct ast_node *
+new_ast_node(enum ast_node_kind kind, struct location loc, struct arena *arena)
+{
+	struct ast_node *node = ZALLOC(arena, 1, struct ast_node);
+	node->kind = kind;
+	node->loc = loc;
+	return node;
 }
 
 /* NOTE: An operator with negative precedence is right associative. */
@@ -128,7 +124,7 @@ parse_ident(struct tokenizer *tokenizer)
 	return token.value;
 }
 
-static struct ast_node * parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena);
+static struct ast_node *parse_assign_expr(struct tokenizer *tokenizer, struct arena *arena);
 
 static struct ast_node *
 parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena)
@@ -139,14 +135,12 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 	switch (token.kind) {
 	case TOKEN_IDENT:
 		get_token(tokenizer);
-		expr = ALLOC(arena, 1, struct ast_node);
-		expr->kind = AST_IDENT;
+		expr = new_ast_node(AST_IDENT, tokenizer->loc, arena);
 		expr->u.ident = token.value;
 		break;
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
-		expr = ALLOC(arena, 1, struct ast_node);
-		expr->kind = AST_LITERAL_INT;
+		expr = new_ast_node(AST_LITERAL_INT, tokenizer->loc, arena);
 		expr->u.ival = parse_int(token.value);
 		break;
 	case TOKEN_LPAREN:
@@ -180,8 +174,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 			}
 
 			struct ast_node *called = expr;
-			expr = ALLOC(arena, 1, struct ast_node);
-			expr->kind = AST_CALL;
+			expr = new_ast_node(AST_CALL, tokenizer->loc, arena);
 			expr->u.call_expr.called = called;
 			expr->u.call_expr.parameters = parameters;
 		} else {
@@ -208,8 +201,7 @@ parse_expr(struct tokenizer *tokenizer, int prev_precedence, struct arena *arena
 			struct ast_node *lhs = expr;
 			struct ast_node *rhs = parse_expr(tokenizer, precedence, arena);
 
-			expr = ALLOC(arena, 1, struct ast_node);
-			expr->kind = AST_BINARY;
+			expr = new_ast_node(AST_BINARY, tokenizer->loc, arena);
 			expr->u.bin_expr.op = token.kind;
 			expr->u.bin_expr.lhs = lhs;
 			expr->u.bin_expr.rhs = rhs;
@@ -243,13 +235,11 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 	struct ast_node *type = NULL;
 	switch (token.kind) {
 	case TOKEN_INT:
-		type = ZALLOC(arena, 1, struct ast_node);
-		type->kind = AST_INT;
+		type = new_ast_node(AST_INT, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
 	case TOKEN_CHAR:
-		type = ZALLOC(arena, 1, struct ast_node);
-		type->kind = AST_CHAR;
+		type = new_ast_node(AST_CHAR, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
 	default:
@@ -257,8 +247,7 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 	}
 
 	do {
-		*ptr = ZALLOC(arena, 1, struct ast_node);
-		(*ptr)->kind = AST_DECL;
+		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
 		(*ptr)->u.decl.name = parse_ident(tokenizer);
 		(*ptr)->u.decl.type = type;
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
@@ -299,24 +288,21 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 	switch (token.kind) {
 	case TOKEN_BREAK:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_BREAK;
+		node = new_ast_node(AST_BREAK, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_CONTINUE:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_CONTINUE;
+		node = new_ast_node(AST_CONTINUE, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_FOR:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
+		node = new_ast_node(AST_FOR, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_LPAREN);
 
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 			token = peek_token(tokenizer);
-			node->kind = AST_FOR;
 			node->u.for_stmt.init = parse_decl(tokenizer, 0, arena);
 			if (!node->u.for_stmt.init) {
 				node->u.for_stmt.init = parse_assign_expr(tokenizer, arena);
@@ -339,8 +325,7 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		break;
 	case TOKEN_IF:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_IF;
+		node = new_ast_node(AST_IF, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_LPAREN);
 		node->u.if_stmt.cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
@@ -351,8 +336,7 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		break;
 	case TOKEN_WHILE:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_WHILE;
+		node = new_ast_node(AST_WHILE, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_LPAREN);
 		node->u.while_stmt.cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
@@ -360,8 +344,7 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		break;
 	case TOKEN_RETURN:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_RETURN;
+		node = new_ast_node(AST_RETURN, tokenizer->loc, arena);
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 			node->u.children = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_SEMICOLON);
@@ -369,26 +352,22 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 		break;
 	case TOKEN_PRINT:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_PRINT;
+		node = new_ast_node(AST_PRINT, tokenizer->loc, arena);
 		node->u.children = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_SEMICOLON:
 		get_token(tokenizer);
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_EMPTY;
+		node = new_ast_node(AST_EMPTY, tokenizer->loc, arena);
 		break;
 	case TOKEN_LBRACE:
-		node = ZALLOC(arena, 1, struct ast_node);
-		node->kind = AST_COMPOUND;
+		node = new_ast_node(AST_COMPOUND, tokenizer->loc, arena);
 		node->u.children = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
 		decl = parse_decl(tokenizer, 0, arena);
 		if (decl) {
-			node = ZALLOC(arena, 1, struct ast_node);
-			node->kind = AST_DECL_STMT;
+			node = new_ast_node(AST_DECL_STMT, tokenizer->loc, arena);
 			node->u.children = decl;
 		} else {
 			node = parse_assign_expr(tokenizer, arena);
@@ -411,10 +390,11 @@ parse_stmt(struct tokenizer *tokenizer, struct arena *arena)
 static struct ast_node *
 parse_function(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct ast_node *node = ZALLOC(arena, 1, struct ast_node);
+	struct ast_node *node;
 	struct ast_node *parameters = NULL;
 	struct ast_node **ptr = &parameters;
 	struct string name;
+	struct location loc = tokenizer->loc;
 
 	expect(tokenizer, TOKEN_INT);
 	struct token token = get_token(tokenizer);
@@ -437,7 +417,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 	}
 	expect(tokenizer, TOKEN_RPAREN);
 
-	node->kind = AST_FUNCTION;
+	node = new_ast_node(AST_FUNCTION, loc, arena);
 	node->u.function.body = parse_compound_stmt(tokenizer, arena);
 	node->u.function.name = name;
 	node->u.function.parameters = parameters;
@@ -448,9 +428,7 @@ parse_function(struct tokenizer *tokenizer, struct arena *arena)
 static struct ast_node *
 parse(struct tokenizer *tokenizer, struct arena *arena)
 {
-	struct ast_node *root = ZALLOC(arena, 1, struct ast_node);
-	root->kind = AST_ROOT;
-
+	struct ast_node *root = new_ast_node(AST_ROOT, tokenizer->loc, arena);
 	struct ast_node **ptr = &root->u.children;
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF)) {
 		*ptr = parse_function(tokenizer, arena);

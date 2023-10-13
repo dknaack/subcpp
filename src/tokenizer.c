@@ -61,7 +61,8 @@ static struct tokenizer
 tokenize(char *filename, struct arena *arena)
 {
 	struct tokenizer tokenizer = {0};
-	tokenizer.filename = filename;
+	tokenizer.loc.file = filename;
+	tokenizer.loc.line = 1;
 	tokenizer.source = read_file(filename, arena);
 	return tokenizer;
 }
@@ -73,6 +74,11 @@ advance(struct tokenizer *tokenizer)
 
 	if (tokenizer->pos < tokenizer->source.length) {
 		c = tokenizer->source.at[tokenizer->pos++];
+		tokenizer->loc.column++;
+		if (c == '\n') {
+			tokenizer->loc.line++;
+			tokenizer->loc.column = 0;
+		}
 	}
 
 	return c;

@@ -72,6 +72,7 @@ enum ast_node_kind {
 struct ast_node {
 	enum ast_node_kind kind;
 	struct ast_node *next;
+	struct location loc;
 
 	union {
 		struct ast_for_stmt for_stmt;
