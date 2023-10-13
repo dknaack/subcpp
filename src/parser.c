@@ -1,28 +1,44 @@
 #include <stdarg.h>
 
 static void
+verrorf(struct location loc, char *fmt, va_list ap)
+{
+	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line, loc.column);
+	vfprintf(stderr, fmt, ap);
+	fputc('\n', stderr);
+}
+
+static void
+errorf(struct location loc, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verrorf(loc, fmt, ap);
+	va_end(ap);
+}
+
+static void
 vsyntax_error(struct tokenizer *tokenizer, char *fmt, va_list ap)
 {
-	uint32_t line = 1;
-	uint32_t column = 0;
+	struct location loc = {0};
 
 	if (tokenizer->error) {
 		return;
 	}
 
+	loc.file = tokenizer->filename;
+	loc.line++;
 	for (uint32_t pos = 0; pos < tokenizer->pos; pos++) {
 		if (tokenizer->source.at[pos] == '\n') {
-			line++;
-			column = 0;
+			loc.line++;
+			loc.column = 0;
 		}
 
-		column++;
+		loc.column++;
 	}
 
-	fprintf(stderr, "%s:%d:%d: ", tokenizer->filename, line, column);
-	vfprintf(stderr, fmt, ap);
-	fputc('\n', stderr);
-
+	verrorf(loc, fmt, ap);
 	tokenizer->error = true;
 }
 
