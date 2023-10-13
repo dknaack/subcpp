@@ -15,6 +15,7 @@ struct string {
 #include "memory.h"
 #include "tokenizer.h"
 #include "ast.h"
+#include "type.h"
 #include "ir.h"
 #include "codegen.h"
 #include "x86.h"

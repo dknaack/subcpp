@@ -202,42 +202,14 @@ run_linker(char *input, char *output)
 	run_command(args);
 }
 
-enum type_kind {
-	TYPE_VOID,
-	TYPE_INT,
-	TYPE_CHAR,
-};
-
-struct symbol {
-	struct symbol *next;
-	struct string name;
-	enum type_kind type;
-};
-
-struct symbol_table {
-	struct symbol *symbols;
-	struct symbol *free_symbols;
-};
-
-static struct string scope_marker = S("(scope)");
-
-static char *
-get_type_name(enum type_kind type)
-{
-	switch (type) {
-	case TYPE_VOID: return "void";
-	case TYPE_INT:  return "int";
-	case TYPE_CHAR: return "char";
-	}
-
-	return "(invalid)";
-}
-
 static void
-add_variable(struct symbol_table *table, struct string name, enum type_kind type, struct arena *arena)
+add_variable(struct symbol_table *table, struct string name,
+	struct type *type, struct arena *arena)
 {
 	struct symbol *symbol = table->free_symbols;
-	if (!symbol) {
+	if (symbol) {
+		table->free_symbols = symbol->next;
+	} else {
 		symbol = ALLOC(arena, 1, struct symbol);
 	}
 
@@ -247,10 +219,10 @@ add_variable(struct symbol_table *table, struct string name, enum type_kind type
 	table->symbols = symbol;
 }
 
-static enum type_kind
+static struct type *
 get_variable(struct symbol_table *table, struct string name)
 {
-	enum type_kind type = TYPE_VOID;
+	struct type *type = &type_void;
 
 	for (struct symbol *symbol = table->symbols; symbol; symbol = symbol->next) {
 		if (string_equals(symbol->name, name)) {
@@ -265,43 +237,75 @@ get_variable(struct symbol_table *table, struct string name)
 static void
 push_scope(struct symbol_table *table, struct arena *arena)
 {
-	add_variable(table, scope_marker, TYPE_VOID, arena);
+	add_variable(table, scope_marker, &type_void, arena);
 }
 
 static void
 pop_scope(struct symbol_table *table)
 {
-	struct symbol *symbol, *next;
+	struct symbol *symbol;
 
-	for (symbol = table->symbols; symbol; symbol = next) {
-		next = symbol->next;
+	for (symbol = table->symbols; symbol; symbol = table->symbols) {
+		table->symbols = symbol->next;
 		symbol->next = table->free_symbols;
 		table->free_symbols = symbol;
 
 		if (symbol->name.at == scope_marker.at) {
-			table->symbols = next;
 			break;
 		}
 	}
 }
 
-static enum type_kind
-check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *arena)
+static bool
+type_equals(struct type *lhs, struct type *rhs)
 {
-	enum type_kind lhs, rhs;
-	enum type_kind type;
-	struct ast_node *param;
-	if (!node) {
-		return TYPE_VOID;
+	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
+		return false;
 	}
 
-	printf("%s\n", get_ast_name(node->kind));
+	if (lhs->kind != rhs->kind) {
+		return false;
+	}
+
+	switch (lhs->kind) {
+	case TYPE_FUNCTION:
+		if (!type_equals(lhs, rhs)) {
+			return false;
+		}
+
+		lhs = lhs->u.function.param_types;
+		rhs = rhs->u.function.param_types;
+		while (lhs && rhs) {
+			if (!type_equals(lhs, rhs)) {
+				return false;
+			}
+
+			lhs = lhs->next;
+			rhs = rhs->next;
+		}
+
+		bool result = (lhs == NULL && rhs == NULL);
+		return result;
+	default:
+		return true;
+	}
+}
+
+static struct type *
+check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *arena)
+{
+	struct type *lhs, *rhs, *type, **param_type;
+	struct ast_node *param;
+	if (!node) {
+		return &type_void;
+	}
+
 	switch (node->kind) {
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
 		break;
 	case AST_ROOT:
-		type = TYPE_VOID;
+		type = &type_void;
 		for (node = node->u.children; node; node = node->next) {
 			check_node(node, symbols, arena);
 		}
@@ -309,24 +313,41 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 	case AST_BINARY:
 		lhs = check_node(node->u.bin_expr.lhs, symbols, arena);
 		rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
-		if (lhs != rhs) {
-			ASSERT(!"Incompatible types");
+		if (!type_equals(lhs, rhs)) {
+			errorf(node->loc, "Incompatible types: %s, %s",
+				type_get_name(lhs->kind), type_get_name(rhs->kind));
 		}
 
 		type = lhs;
 		break;
 	case AST_CALL:
-		type = TYPE_INT;
+		type = check_node(node->u.call_expr.called, symbols, arena);
+		if (type->kind != TYPE_FUNCTION) {
+			errorf(node->loc, "Not a function: %s", type_get_name(type->kind));
+			break;
+		}
+
+		rhs = type->u.function.param_types;
+		for (param = node->u.call_expr.parameters; param; param = param->next) {
+			lhs = check_node(param, symbols, arena);
+			if (!type_equals(lhs, rhs)) {
+				errorf(node->loc, "Incompatible types: %s, %s",
+					type_get_name(lhs->kind), type_get_name(rhs->kind));
+			}
+
+			rhs = rhs->next;
+		}
+
+		type = type->u.function.return_type;
 		break;
 	case AST_IDENT:
-		printf("get %.*s\n", (int)node->u.ident.length, node->u.ident.at);
 		type = get_variable(symbols, node->u.ident);
 		break;
 	case AST_BREAK:
-		type = TYPE_VOID;
+		type = type_create(TYPE_VOID, arena);
 		break;
 	case AST_COMPOUND:
-		type = TYPE_VOID;
+		type = type_create(TYPE_VOID, arena);
 		push_scope(symbols, arena);
 		for (node = node->u.children; node; node = node->next) {
 			check_node(node, symbols, arena);
@@ -335,55 +356,71 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		pop_scope(symbols);
 		break;
 	case AST_DECL:
-		type = TYPE_VOID;
-		lhs = check_node(node->u.decl.expr, symbols, arena);
-		rhs = check_node(node->u.decl.type, symbols, arena);
-		ASSERT(lhs == rhs);
-		add_variable(symbols, node->u.decl.name, rhs, arena);
+		lhs = check_node(node->u.decl.type, symbols, arena);
+		if (node->u.decl.expr) {
+			rhs = check_node(node->u.decl.expr, symbols, arena);
+			if (!type_equals(lhs, rhs)) {
+				errorf(node->loc, "Incompatible types: %s, %s",
+					type_get_name(lhs->kind), type_get_name(rhs->kind));
+			}
+		}
+
+		add_variable(symbols, node->u.decl.name, lhs, arena);
+		type = lhs;
 		break;
 	case AST_DECL_STMT:
-		type = TYPE_VOID;
+		type = type_create(TYPE_VOID, arena);
 		for (node = node->u.children; node; node = node->next) {
 			check_node(node, symbols, arena);
 		}
 
 		break;
 	case AST_CONTINUE:
-		type = TYPE_VOID;
+		type = &type_void;
 		break;
 	case AST_EMPTY:
-		type = TYPE_VOID;
+		type = &type_void;
 		break;
 	case AST_FOR:
-		type = TYPE_VOID;
+		type = &type_void;
 		check_node(node->u.for_stmt.init, symbols, arena);
 		check_node(node->u.for_stmt.cond, symbols, arena);
 		check_node(node->u.for_stmt.post, symbols, arena);
 		break;
 	case AST_IF:
-		type = TYPE_VOID;
+		type = &type_void;
 		check_node(node->u.if_stmt.cond, symbols, arena);
 		check_node(node->u.if_stmt.then, symbols, arena);
 		check_node(node->u.if_stmt.otherwise, symbols, arena);
 		break;
 	case AST_PRINT:
-		type = TYPE_VOID;
+		type = &type_void;
 		check_node(node->u.children, symbols, arena);
 		break;
 	case AST_WHILE:
-		type = TYPE_VOID;
+		type = &type_void;
 		check_node(node->u.while_stmt.cond, symbols, arena);
 		check_node(node->u.while_stmt.body, symbols, arena);
 		break;
 	case AST_RETURN:
-		type = TYPE_VOID;
+		type = &type_void;
 		check_node(node->u.children, symbols, arena);
 		break;
 	case AST_FUNCTION:
-		type = TYPE_VOID;
-		push_scope(symbols, arena);
+		type = type_create(TYPE_FUNCTION, arena);
+		type->u.function.return_type = type_create(TYPE_INT, arena);
+		param_type = &type->u.function.param_types;
 		for (param = node->u.function.parameters; param; param = param->next) {
-			add_variable(symbols, param->u.decl.name, TYPE_INT, arena);
+			*param_type = check_node(param, symbols, arena);
+			param_type = &(*param_type)->next;
+		}
+
+		add_variable(symbols, node->u.function.name, type, arena);
+		push_scope(symbols, arena);
+		param_type = &type->u.function.param_types;
+		for (param = node->u.function.parameters; param; param = param->next) {
+			add_variable(symbols, param->u.decl.name, *param_type, arena);
+			param_type = &(*param_type)->next;
 		}
 
 		for (node = node->u.function.body; node; node = node->next) {
@@ -392,14 +429,14 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		pop_scope(symbols);
 		break;
 	case AST_VOID:
-		type = TYPE_VOID;
+		type = type_create(TYPE_VOID, arena);
 		break;
 	case AST_CHAR:
-		type = TYPE_CHAR;
+		type = type_create(TYPE_CHAR, arena);
 		break;
 	case AST_INT:
 	case AST_LITERAL_INT:
-		type = TYPE_INT;
+		type = type_create(TYPE_INT, arena);
 		break;
 	}
 

@@ -37,6 +37,7 @@ struct ast_function {
 	struct string name;
 	struct ast_node *parameters;
 	struct ast_node *body;
+	struct ast_node *return_type;
 };
 
 enum ast_node_kind {
