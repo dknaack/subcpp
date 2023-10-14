@@ -83,6 +83,13 @@ emit2(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t 
 }
 
 static uint32_t
+emit1_sized(struct ir_generator *state, enum ir_opcode opcode, uint32_t size, uint32_t op0)
+{
+	uint32_t result = emit2_sized(state, opcode, size, op0, 0);
+	return result;
+}
+
+static uint32_t
 emit1(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0)
 {
 	uint32_t result = emit2(state, opcode, op0, 0);
@@ -156,10 +163,10 @@ static uint32_t
 generate(struct ir_generator *state, struct ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
-	uint32_t lhs, rhs, label, parameter_register[128];
-	uint32_t parameter_count, result = 0;
+	uint32_t lhs, rhs, label, param_register[128];
+	uint32_t param_count, result = 0;
 	size_t result_size;
-	struct ast_node *called, *parameter;
+	struct ast_node *called, *param;
 	struct ir_function *ir_function;
 	struct type *return_type;
 	enum ir_opcode opcode;
@@ -195,21 +202,24 @@ generate(struct ir_generator *state, struct ast_node *node)
 		called = node->u.call_expr.called;
 		if (called->kind == AST_EXPR_IDENT) {
 			label = get_function(state, called->u.ident);
-			parameter = node->u.call_expr.params;
-			parameter_count = 0;
-			while (parameter) {
-				ASSERT(parameter_count < 128);
-				parameter_register[parameter_count++] = generate(state, parameter);
-				parameter = parameter->next;
+			param = node->u.call_expr.params;
+			param_count = 0;
+			while (param) {
+				ASSERT(param_count < 128);
+				param_register[param_count++] = generate(state, param);
+				param = param->next;
 			}
 
-			for (uint32_t i = 0; i < parameter_count; i++) {
-				emit1(state, IR_PARAM, parameter_register[i]);
+			param = node->u.call_expr.params;
+			for (uint32_t i = 0; i < param_count; i++) {
+				uint32_t param_size = type_sizeof(param->type);
+				emit1_sized(state, IR_PARAM, param_size, param_register[i]);
+				param = param->next;
 			}
 
 			return_type = called->type->u.function.return_type;
 			result_size = type_sizeof(return_type);
-			result = emit2_sized(state, IR_CALL, result_size, label, parameter_count);
+			result = emit2_sized(state, IR_CALL, result_size, label, param_count);
 		}
 		break;
 	case AST_EXPR_IDENT:
@@ -295,21 +305,21 @@ generate(struct ir_generator *state, struct ast_node *node)
 	case AST_FUNCTION:
 		function_label = new_label(state);
 		emit1(state, IR_LABEL, function_label);
-		parameter = node->u.function.params;
-		parameter_count = 0;
+		param = node->u.function.params;
+		param_count = 0;
 
 		ir_function = &state->program.functions[state->program.function_count++];
 		ir_function->name = node->u.function.name;
 		ir_function->block_index = function_label;
 		ir_function->instr_index = state->program.instr_count;
 
-		while (parameter) {
-			new_register(state, parameter->u.decl.name);
-			parameter_count++;
-			parameter = parameter->next;
+		while (param) {
+			new_register(state, param->u.decl.name);
+			param_count++;
+			param = param->next;
 		}
 
-		ir_function->parameter_count = parameter_count;
+		ir_function->parameter_count = param_count;
 
 		for (struct ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
 			generate(state, stmt);
