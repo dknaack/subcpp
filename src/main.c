@@ -213,6 +213,7 @@ add_variable(struct symbol_table *table, struct string name,
 		symbol = ALLOC(arena, 1, struct symbol);
 	}
 
+	ASSERT(name.at == scope_marker.at || type->kind != TYPE_VOID);
 	symbol->name = name;
 	symbol->type = type;
 	symbol->next = table->symbols;
@@ -300,6 +301,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		return &type_void;
 	}
 
+	struct ast_node *orig_node = node;
 	switch (node->kind) {
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
@@ -386,6 +388,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		check_node(node->u.for_stmt.init, symbols, arena);
 		check_node(node->u.for_stmt.cond, symbols, arena);
 		check_node(node->u.for_stmt.post, symbols, arena);
+		check_node(node->u.for_stmt.body, symbols, arena);
 		break;
 	case AST_STMT_IF:
 		type = &type_void;
@@ -440,6 +443,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		break;
 	}
 
+	orig_node->type = type;
 	return type;
 }
 
