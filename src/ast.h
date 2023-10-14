@@ -33,6 +33,10 @@ struct ast_stmt_for {
 	struct ast_node *body;
 };
 
+struct ast_type_pointer {
+	struct ast_node *target;
+};
+
 struct ast_function {
 	struct string name;
 	struct ast_node *params;
@@ -64,6 +68,7 @@ enum ast_node_kind {
 
 	AST_TYPE_CHAR,
 	AST_TYPE_INT,
+	AST_TYPE_POINTER,
 	AST_TYPE_VOID,
 };
 
@@ -79,6 +84,7 @@ struct ast_node {
 		struct ast_stmt_while while_stmt;
 		struct ast_expr_bin bin_expr;
 		struct ast_expr_call call_expr;
+		struct ast_type_pointer pointer_type;
 		struct ast_function function;
 		struct ast_decl decl;
 		struct ast_node *children;
@@ -98,6 +104,7 @@ get_ast_name(enum ast_node_kind kind)
 	case AST_TYPE_VOID:     return "VOID";
 	case AST_TYPE_CHAR:     return "CHAR";
 	case AST_TYPE_INT:      return "INT";
+	case AST_TYPE_POINTER:  return "POINTER";
 	case AST_EXPR_BINARY:   return "BINARY";
 	case AST_EXPR_CALL:     return "CALL";
 	case AST_EXPR_IDENT:    return "IDENT";

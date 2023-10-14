@@ -246,6 +246,12 @@ parse_decl(struct tokenizer *tokenizer, uint32_t flags, struct arena *arena)
 		return NULL;
 	}
 
+	if (accept(tokenizer, TOKEN_MUL)) {
+		struct ast_node *target = type;
+		type = new_ast_node(AST_TYPE_POINTER, tokenizer->loc, arena);
+		type->u.pointer_type.target = target;
+	}
+
 	do {
 		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
 		(*ptr)->u.decl.name = parse_ident(tokenizer);
