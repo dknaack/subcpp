@@ -183,7 +183,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 		called = node->u.call_expr.called;
 		if (called->kind == AST_IDENT) {
 			label = get_function(state, called->u.ident);
-			parameter = node->u.call_expr.parameters;
+			parameter = node->u.call_expr.params;
 			parameter_count = 0;
 			while (parameter) {
 				ASSERT(parameter_count < 128);
@@ -281,7 +281,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 	case AST_FUNCTION:
 		function_label = new_label(state);
 		emit1(state, IR_LABEL, function_label);
-		parameter = node->u.function.parameters;
+		parameter = node->u.function.params;
 		parameter_count = 0;
 
 		ir_function = &state->program.functions[state->program.function_count++];

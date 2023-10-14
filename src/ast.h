@@ -6,7 +6,7 @@ struct ast_bin_expr {
 
 struct ast_call_expr {
 	struct ast_node *called;
-	struct ast_node *parameters;
+	struct ast_node *params;
 };
 
 struct ast_decl {
@@ -35,7 +35,7 @@ struct ast_for_stmt {
 
 struct ast_function {
 	struct string name;
-	struct ast_node *parameters;
+	struct ast_node *params;
 	struct ast_node *body;
 	struct ast_node *return_type;
 };

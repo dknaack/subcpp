@@ -328,7 +328,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		}
 
 		rhs = type->u.function.param_types;
-		for (param = node->u.call_expr.parameters; param; param = param->next) {
+		for (param = node->u.call_expr.params; param; param = param->next) {
 			lhs = check_node(param, symbols, arena);
 			if (!type_equals(lhs, rhs)) {
 				errorf(node->loc, "Incompatible types: %s, %s",
@@ -410,7 +410,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		type = type_create(TYPE_FUNCTION, arena);
 		type->u.function.return_type = type_create(TYPE_INT, arena);
 		param_type = &type->u.function.param_types;
-		for (param = node->u.function.parameters; param; param = param->next) {
+		for (param = node->u.function.params; param; param = param->next) {
 			*param_type = check_node(param, symbols, arena);
 			param_type = &(*param_type)->next;
 		}
@@ -418,7 +418,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		add_variable(symbols, node->u.function.name, type, arena);
 		push_scope(symbols, arena);
 		param_type = &type->u.function.param_types;
-		for (param = node->u.function.parameters; param; param = param->next) {
+		for (param = node->u.function.params; param; param = param->next) {
 			add_variable(symbols, param->u.decl.name, *param_type, arena);
 			param_type = &(*param_type)->next;
 		}
