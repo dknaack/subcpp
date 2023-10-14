@@ -157,7 +157,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
 		break;
-	case AST_BINARY:
+	case AST_EXPR_BINARY:
 		lhs = generate(state, node->u.bin_expr.lhs);
 		rhs = generate(state, node->u.bin_expr.rhs);
 		switch (node->u.bin_expr.op) {
@@ -179,9 +179,9 @@ generate(struct ir_generator *state, struct ast_node *node)
 
 		result = emit2(state, opcode, lhs, rhs);
 		break;
-	case AST_CALL:
+	case AST_EXPR_CALL:
 		called = node->u.call_expr.called;
-		if (called->kind == AST_IDENT) {
+		if (called->kind == AST_EXPR_IDENT) {
 			label = get_function(state, called->u.ident);
 			parameter = node->u.call_expr.params;
 			parameter_count = 0;
@@ -198,23 +198,23 @@ generate(struct ir_generator *state, struct ast_node *node)
 			result = emit2(state, IR_CALL, label, parameter_count);
 		}
 		break;
-	case AST_IDENT:
+	case AST_EXPR_IDENT:
 		result = get_register(state, node->u.ident);
 		break;
-	case AST_LITERAL_INT:
+	case AST_EXPR_INT:
 		result = emit1(state, IR_CONST, node->u.ival);
 		break;
-	case AST_BREAK:
+	case AST_STMT_BREAK:
 		emit1(state, IR_JMP, state->break_label);
 		break;
 	case AST_ROOT:
-	case AST_COMPOUND:
-	case AST_DECL_STMT:
+	case AST_STMT_COMPOUND:
+	case AST_STMT_DECL:
 		for (node = node->u.children; node; node = node->next) {
 			generate(state, node);
 		}
 		break;
-	case AST_CONTINUE:
+	case AST_STMT_CONTINUE:
 		emit1(state, IR_JMP, state->continue_label);
 		break;
 	case AST_DECL:
@@ -225,9 +225,9 @@ generate(struct ir_generator *state, struct ast_node *node)
 		}
 
 		break;
-	case AST_EMPTY:
+	case AST_STMT_EMPTY:
 		break;
-	case AST_FOR:
+	case AST_STMT_FOR:
 		state->break_label = new_label(state);
 		state->continue_label = new_label(state);
 		cond_label = new_label(state);
@@ -242,7 +242,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 		emit1(state, IR_JMP, cond_label);
 		emit1(state, IR_LABEL, state->break_label);
 		break;
-	case AST_IF:
+	case AST_STMT_IF:
 		endif_label = new_label(state);
 		else_label = new_label(state);
 
@@ -257,7 +257,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 
 		emit1(state, IR_LABEL, endif_label);
 		break;
-	case AST_WHILE:
+	case AST_STMT_WHILE:
 		state->break_label = new_label(state);
 		state->continue_label = new_label(state);
 
@@ -268,13 +268,13 @@ generate(struct ir_generator *state, struct ast_node *node)
 		emit1(state, IR_JMP, state->continue_label);
 		emit1(state, IR_LABEL, state->break_label);
 		break;
-	case AST_RETURN:
+	case AST_STMT_RETURN:
 		if (node->u.children) {
 			result = generate(state, node->u.children);
 		}
 		emit1(state, IR_RET, result);
 		break;
-	case AST_PRINT:
+	case AST_STMT_PRINT:
 		result = generate(state, node->u.children);
 		emit1(state, IR_PRINT, result);
 		break;
@@ -301,9 +301,9 @@ generate(struct ir_generator *state, struct ast_node *node)
 			generate(state, stmt);
 		}
 		break;
-	case AST_VOID:
-	case AST_CHAR:
-	case AST_INT:
+	case AST_TYPE_VOID:
+	case AST_TYPE_CHAR:
+	case AST_TYPE_INT:
 		break;
 	}
 

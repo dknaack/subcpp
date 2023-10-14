@@ -59,7 +59,7 @@ print_node(struct ast_node *node, int indent)
 	}
 
 	switch (node->kind) {
-	case AST_BINARY:
+	case AST_EXPR_BINARY:
 		printf("(");
 		print_node(node->u.bin_expr.lhs, 0);
 		switch (node->u.bin_expr.op) {
@@ -76,16 +76,16 @@ print_node(struct ast_node *node, int indent)
 		print_node(node->u.bin_expr.rhs, 0);
 		printf(")");
 		break;
-	case AST_IDENT:
+	case AST_EXPR_IDENT:
 		printf("%.*s", (int)node->u.ident.length, node->u.ident.at);
 		break;
-	case AST_LITERAL_INT:
+	case AST_EXPR_INT:
 		printf("%jd", node->u.ival);
 		break;
-	case AST_BREAK:
+	case AST_STMT_BREAK:
 		printf("break;\n");
 		break;
-	case AST_CONTINUE:
+	case AST_STMT_CONTINUE:
 		printf("continue;\n");
 		break;
 	case AST_DECL:
@@ -96,10 +96,10 @@ print_node(struct ast_node *node, int indent)
 		}
 
 		break;
-	case AST_EMPTY:
+	case AST_STMT_EMPTY:
 		printf(";\n");
 		break;
-	case AST_FOR:
+	case AST_STMT_FOR:
 		printf("for (");
 		print_node(node->u.for_stmt.init, 0);
 		printf("; ");
@@ -108,14 +108,14 @@ print_node(struct ast_node *node, int indent)
 		print_node(node->u.for_stmt.post, 0);
 		printf(")\n");
 		break;
-	case AST_COMPOUND:
+	case AST_STMT_COMPOUND:
 		printf("{\n");
 		for (node = node->u.children; node; node = node->next) {
 			print_node(node, indent + 1);
 		}
 		printf("}\n");
 		break;
-	case AST_IF:
+	case AST_STMT_IF:
 		printf("if (");
 		print_node(node->u.if_stmt.cond, 0);
 		printf(")\n");
@@ -126,18 +126,18 @@ print_node(struct ast_node *node, int indent)
 		}
 
 		break;
-	case AST_WHILE:
+	case AST_STMT_WHILE:
 		printf("while (");
 		print_node(node->u.while_stmt.cond, 0);
 		printf(")\n");
 		print_node(node->u.while_stmt.body, indent);
 		break;
-	case AST_RETURN:
+	case AST_STMT_RETURN:
 		printf("return ");
 		print_node(node->u.children, 0);
 		printf(";\n");
 		break;
-	case AST_PRINT:
+	case AST_STMT_PRINT:
 		printf("print ");
 		print_node(node->u.children, 0);
 		printf(";\n");
@@ -310,7 +310,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 			check_node(node, symbols, arena);
 		}
 		break;
-	case AST_BINARY:
+	case AST_EXPR_BINARY:
 		lhs = check_node(node->u.bin_expr.lhs, symbols, arena);
 		rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
 		if (!type_equals(lhs, rhs)) {
@@ -320,7 +320,7 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 
 		type = lhs;
 		break;
-	case AST_CALL:
+	case AST_EXPR_CALL:
 		type = check_node(node->u.call_expr.called, symbols, arena);
 		if (type->kind != TYPE_FUNCTION) {
 			errorf(node->loc, "Not a function: %s", type_get_name(type->kind));
@@ -340,13 +340,13 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 
 		type = type->u.function.return_type;
 		break;
-	case AST_IDENT:
+	case AST_EXPR_IDENT:
 		type = get_variable(symbols, node->u.ident);
 		break;
-	case AST_BREAK:
+	case AST_STMT_BREAK:
 		type = type_create(TYPE_VOID, arena);
 		break;
-	case AST_COMPOUND:
+	case AST_STMT_COMPOUND:
 		type = type_create(TYPE_VOID, arena);
 		push_scope(symbols, arena);
 		for (node = node->u.children; node; node = node->next) {
@@ -368,41 +368,41 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		add_variable(symbols, node->u.decl.name, lhs, arena);
 		type = lhs;
 		break;
-	case AST_DECL_STMT:
+	case AST_STMT_DECL:
 		type = type_create(TYPE_VOID, arena);
 		for (node = node->u.children; node; node = node->next) {
 			check_node(node, symbols, arena);
 		}
 
 		break;
-	case AST_CONTINUE:
+	case AST_STMT_CONTINUE:
 		type = &type_void;
 		break;
-	case AST_EMPTY:
+	case AST_STMT_EMPTY:
 		type = &type_void;
 		break;
-	case AST_FOR:
+	case AST_STMT_FOR:
 		type = &type_void;
 		check_node(node->u.for_stmt.init, symbols, arena);
 		check_node(node->u.for_stmt.cond, symbols, arena);
 		check_node(node->u.for_stmt.post, symbols, arena);
 		break;
-	case AST_IF:
+	case AST_STMT_IF:
 		type = &type_void;
 		check_node(node->u.if_stmt.cond, symbols, arena);
 		check_node(node->u.if_stmt.then, symbols, arena);
 		check_node(node->u.if_stmt.otherwise, symbols, arena);
 		break;
-	case AST_PRINT:
+	case AST_STMT_PRINT:
 		type = &type_void;
 		check_node(node->u.children, symbols, arena);
 		break;
-	case AST_WHILE:
+	case AST_STMT_WHILE:
 		type = &type_void;
 		check_node(node->u.while_stmt.cond, symbols, arena);
 		check_node(node->u.while_stmt.body, symbols, arena);
 		break;
-	case AST_RETURN:
+	case AST_STMT_RETURN:
 		type = &type_void;
 		check_node(node->u.children, symbols, arena);
 		break;
@@ -428,14 +428,14 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		}
 		pop_scope(symbols);
 		break;
-	case AST_VOID:
+	case AST_TYPE_VOID:
 		type = type_create(TYPE_VOID, arena);
 		break;
-	case AST_CHAR:
+	case AST_TYPE_CHAR:
 		type = type_create(TYPE_CHAR, arena);
 		break;
-	case AST_INT:
-	case AST_LITERAL_INT:
+	case AST_TYPE_INT:
+	case AST_EXPR_INT:
 		type = type_create(TYPE_INT, arena);
 		break;
 	}
