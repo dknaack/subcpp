@@ -125,25 +125,91 @@ x86_get_byte_register_name(enum x86_register reg)
 }
 
 static char *
-x86_get_register_name(enum x86_register reg)
+x86_get_register_name(enum x86_register reg, uint32_t size)
 {
-	switch (reg) {
-	case X86_R8:  return "r8";
-	case X86_R9:  return "r9";
-	case X86_R10: return "r10";
-	case X86_R11: return "r11";
-	case X86_R12: return "r12";
-	case X86_R13: return "r13";
-	case X86_R14: return "r14";
-	case X86_R15: return "r15";
-	case X86_RAX: return "rax";
-	case X86_RBX: return "rbx";
-	case X86_RCX: return "rcx";
-	case X86_RDX: return "rdx";
-	case X86_RSI: return "rsi";
-	case X86_RDI: return "rdi";
-	case X86_RSP: return "rsp";
-	case X86_RBP: return "rbp";
-	default:      return "(invalid)";
+	switch (size) {
+	case 1:
+		switch (reg) {
+		case X86_R8:  return "r8";
+		case X86_R9:  return "r9";
+		case X86_R10: return "r10";
+		case X86_R11: return "r11";
+		case X86_R12: return "r12";
+		case X86_R13: return "r13";
+		case X86_R14: return "r14";
+		case X86_R15: return "r15";
+		case X86_RAX: return "al";
+		case X86_RBX: return "bl";
+		case X86_RCX: return "cl";
+		case X86_RDX: return "dl";
+		case X86_RSI: return "sil";
+		case X86_RDI: return "dil";
+		case X86_RSP: return "spl";
+		case X86_RBP: return "bpl";
+		default:      return "(invalid)";
+		}
+	case 2:
+		switch (reg) {
+		case X86_R8:  return "r8w";
+		case X86_R9:  return "r9w";
+		case X86_R10: return "r10w";
+		case X86_R11: return "r11w";
+		case X86_R12: return "r12w";
+		case X86_R13: return "r13w";
+		case X86_R14: return "r14w";
+		case X86_R15: return "r15w";
+		case X86_RAX: return "ax";
+		case X86_RBX: return "bx";
+		case X86_RCX: return "cx";
+		case X86_RDX: return "dx";
+		case X86_RSI: return "si";
+		case X86_RDI: return "di";
+		case X86_RSP: return "sp";
+		case X86_RBP: return "bp";
+		default:      return "(invalid)";
+		}
+	case 4:
+		switch (reg) {
+		case X86_R8:  return "r8d";
+		case X86_R9:  return "r9d";
+		case X86_R10: return "r10d";
+		case X86_R11: return "r11d";
+		case X86_R12: return "r12d";
+		case X86_R13: return "r13d";
+		case X86_R14: return "r14d";
+		case X86_R15: return "r15d";
+		case X86_RAX: return "eax";
+		case X86_RBX: return "ebx";
+		case X86_RCX: return "ecx";
+		case X86_RDX: return "edx";
+		case X86_RSI: return "esi";
+		case X86_RDI: return "edi";
+		case X86_RSP: return "esp";
+		case X86_RBP: return "ebp";
+		default:      return "(invalid)";
+		}
+	case 8:
+	case 0:
+		switch (reg) {
+		case X86_R8:  return "r8";
+		case X86_R9:  return "r9";
+		case X86_R10: return "r10";
+		case X86_R11: return "r11";
+		case X86_R12: return "r12";
+		case X86_R13: return "r13";
+		case X86_R14: return "r14";
+		case X86_R15: return "r15";
+		case X86_RAX: return "rax";
+		case X86_RBX: return "rbx";
+		case X86_RCX: return "rcx";
+		case X86_RDX: return "rdx";
+		case X86_RSI: return "rsi";
+		case X86_RDI: return "rdi";
+		case X86_RSP: return "rsp";
+		case X86_RBP: return "rbp";
+		default:      return "(invalid)";
+		}
 	}
+
+	return "(invalid size)";
 }

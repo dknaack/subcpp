@@ -5,6 +5,7 @@
 #define TRAP() __builtin_trap()
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define LENGTH(x) (sizeof(x)/sizeof((x)[0]))
+#define MIN(a, b) ((a) < (b)? (a) : (b))
 #define S(x) {(x), sizeof(x) - 1}
 
 struct string {

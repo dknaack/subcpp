@@ -75,7 +75,7 @@ print_row(struct bit_matrix matrix, uint32_t y)
 
 			uint32_t mreg = matrix.width - 1 - x;
 			if (mreg < X86_REGISTER_COUNT) {
-				printf("%s", x86_get_register_name(mreg));
+				printf("%s", x86_get_register_name(mreg, 8));
 			} else {
 				printf("r%d", x);
 			}

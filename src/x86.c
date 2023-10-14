@@ -146,6 +146,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 	enum ir_opcode opcode = instr[instr_index].opcode;
 	uint32_t op0 = instr[instr_index].op0;
 	uint32_t op1 = instr[instr_index].op1;
+	dst.size = MIN(dst.size, instr[instr_index].size);
 
 	struct machine_operand rax = make_mreg(X86_RAX);
 	struct machine_operand rcx = make_mreg(X86_RCX);
@@ -420,7 +421,25 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 	enum x86_register reg;
 	switch (operand.kind) {
 	case MOP_SPILL:
-		stream_print(out, "qword[rsp+");
+		switch (operand.size) {
+		case 1:
+			stream_print(out, "byte");
+			break;
+		case 2:
+			stream_print(out, "word");
+			break;
+		case 4:
+			stream_print(out, "dword");
+			break;
+		case 8:
+		case 0:
+			stream_print(out, "qword");
+			break;
+		default:
+			ASSERT(!"Invalid size");
+		}
+
+		stream_print(out, "[rsp+");
 		stream_printu(out, operand.value * 8 + 8);
 		stream_print(out, "]");
 		break;
@@ -430,7 +449,7 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 		break;
 	case MOP_MREG:
 		reg = (enum x86_register)operand.value;
-		stream_print(out, x86_get_register_name(reg));
+		stream_print(out, x86_get_register_name(reg, operand.size));
 		break;
 	case MOP_IMMEDIATE:
 		stream_printu(out, operand.value);

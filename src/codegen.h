@@ -20,7 +20,8 @@ enum machine_operand_flags {
 };
 
 struct machine_operand {
-	uint16_t kind;
+	uint8_t kind;
+	uint8_t size;
 	uint16_t flags;
 	uint32_t value;
 };
@@ -74,6 +75,7 @@ make_vreg(uint32_t vreg)
 	struct machine_operand operand = {0};
 	operand.kind = MOP_VREG;
 	operand.value = vreg;
+	operand.size = 8;
 	return operand;
 }
 
@@ -83,6 +85,7 @@ make_spill(uint32_t index)
 	struct machine_operand operand = {0};
 	operand.kind = MOP_SPILL;
 	operand.value = index;
+	operand.size = 8;
 	return operand;
 }
 
