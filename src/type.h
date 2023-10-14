@@ -59,3 +59,22 @@ type_create(enum type_kind kind, struct arena *arena)
 	type->kind = kind;
 	return type;
 }
+
+static size_t
+type_sizeof(struct type *type)
+{
+	switch (type->kind) {
+	case TYPE_CHAR:
+		return 1;
+	case TYPE_INT:
+		return 4;
+	case TYPE_VOID:
+	case TYPE_FUNCTION:
+		ASSERT(!"Type does not have a size");
+		return 0;
+	default:
+		ASSERT(!"Invalid type");
+	}
+
+	return 0;
+}

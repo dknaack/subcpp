@@ -62,15 +62,24 @@ hash(struct string str)
 }
 
 static uint32_t
-emit2(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
+emit2_sized(struct ir_generator *state, enum ir_opcode opcode, uint32_t size,
+	uint32_t op0, uint32_t op1)
 {
 	ASSERT(state->program.instr_count <= state->max_instr_count);
 	struct ir_instr *instr = &state->program.instrs[state->program.instr_count++];
 	instr->opcode = opcode;
+	instr->size = size;
 	instr->op0 = op0;
 	instr->op1 = op1;
 	state->program.register_count++;
 	return state->program.instr_count - 1;
+}
+
+static uint32_t
+emit2(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
+{
+	uint32_t result = emit2_sized(state, opcode, 0, op0, op1);
+	return result;
 }
 
 static uint32_t
@@ -149,8 +158,10 @@ generate(struct ir_generator *state, struct ast_node *node)
 	uint32_t endif_label, else_label, cond_label, function_label;
 	uint32_t lhs, rhs, label, parameter_register[128];
 	uint32_t parameter_count, result = 0;
+	size_t result_size;
 	struct ast_node *called, *parameter;
 	struct ir_function *ir_function;
+	struct type *return_type;
 	enum ir_opcode opcode;
 
 	switch (node->kind) {
@@ -177,7 +188,8 @@ generate(struct ir_generator *state, struct ast_node *node)
 			break;
 		}
 
-		result = emit2(state, opcode, lhs, rhs);
+		result_size = type_sizeof(node->type);
+		result = emit2_sized(state, opcode, result_size, lhs, rhs);
 		break;
 	case AST_EXPR_CALL:
 		called = node->u.call_expr.called;
@@ -195,7 +207,9 @@ generate(struct ir_generator *state, struct ast_node *node)
 				emit1(state, IR_PARAM, parameter_register[i]);
 			}
 
-			result = emit2(state, IR_CALL, label, parameter_count);
+			return_type = called->type->u.function.return_type;
+			result_size = type_sizeof(return_type);
+			result = emit2_sized(state, IR_CALL, result_size, label, parameter_count);
 		}
 		break;
 	case AST_EXPR_IDENT:

@@ -23,7 +23,8 @@ enum ir_opcode {
 };
 
 struct ir_instr {
-	enum ir_opcode opcode;
+	enum ir_opcode opcode:24;
+	uint32_t size:8;
 	uint32_t op0;
 	uint32_t op1;
 };
