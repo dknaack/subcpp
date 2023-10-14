@@ -4,15 +4,20 @@ struct type_id {
 
 enum type_kind {
 	TYPE_UNKNOWN,
-	TYPE_VOID,
-	TYPE_INT,
 	TYPE_CHAR,
-	TYPE_FUNCTION
+	TYPE_FUNCTION,
+	TYPE_INT,
+	TYPE_POINTER,
+	TYPE_VOID,
 };
 
 struct type_function {
 	struct type *return_type;
 	struct type *param_types;
+};
+
+struct type_pointer {
+	struct type *target;
 };
 
 struct type {
@@ -21,6 +26,7 @@ struct type {
 
 	union {
 		struct type_function function;
+		struct type_pointer pointer;
 	} u;
 };
 
@@ -45,7 +51,8 @@ type_get_name(enum type_kind type)
 	case TYPE_VOID:     return "void";
 	case TYPE_INT:      return "int";
 	case TYPE_CHAR:     return "char";
-	case TYPE_FUNCTION: return "function";
+	case TYPE_FUNCTION: return "(function)";
+	case TYPE_POINTER:  return "(pointer)";
 	case TYPE_UNKNOWN:  return "(unknown)";
 	}
 
@@ -68,6 +75,8 @@ type_sizeof(struct type *type)
 		return 1;
 	case TYPE_INT:
 		return 4;
+	case TYPE_POINTER:
+		return 8;
 	case TYPE_VOID:
 	case TYPE_FUNCTION:
 		ASSERT(!"Type does not have a size");

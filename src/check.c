@@ -227,6 +227,10 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		}
 		pop_scope(symbols);
 		break;
+	case AST_TYPE_POINTER:
+		type = type_create(TYPE_POINTER, arena);
+		type->u.pointer.target = check_node(node->u.pointer_type.target, symbols, arena);
+		break;
 	case AST_TYPE_VOID:
 		type = type_create(TYPE_VOID, arena);
 		break;
