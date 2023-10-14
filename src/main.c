@@ -13,23 +13,31 @@ print_program(struct ir_program program)
 		printf("%2d| ", i);
 		struct ir_instr instr = program.instrs[i];
 
+		char c = ' ';
+		switch (instr.size) {
+		case 1: c = 'b'; break;
+		case 2: c = 'w'; break;
+		case 4: c = 'd'; break;
+		case 8: c = 'q'; break;
+		}
+
 		uint32_t dst = i;
 		uint32_t op0 = instr.op0;
 		uint32_t op1 = instr.op1;
 		switch (instr.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
-		case IR_CONST: printf("\tr%d = %d\n", dst, op0); break;
-		case IR_MOV:   printf("\tr%d = r%d\n", op0, op1); break;
-		case IR_ADD:   printf("\tr%d = r%d + r%d\n", dst, op0, op1); break;
-		case IR_SUB:   printf("\tr%d = r%d - r%d\n", dst, op0, op1); break;
-		case IR_MUL:   printf("\tr%d = r%d * r%d\n", dst, op0, op1); break;
-		case IR_DIV:   printf("\tr%d = r%d / r%d\n", dst, op0, op1); break;
-		case IR_MOD:   printf("\tr%d = r%d %% r%d\n", dst, op0, op1); break;
-		case IR_EQL:   printf("\tr%d = r%d == r%d\n", dst, op0, op1); break;
-		case IR_LT:    printf("\tr%d = r%d < r%d\n", dst, op0, op1); break;
-		case IR_GT:    printf("\tr%d = r%d > r%d\n", dst, op0, op1); break;
-		case IR_LEQ:   printf("\tr%d = r%d <= r%d\n", dst, op0, op1); break;
-		case IR_GEQ:   printf("\tr%d = r%d >= r%d\n", dst, op0, op1); break;
+		case IR_CONST: printf("\tr%d%c = %d\n", c, dst, op0); break;
+		case IR_MOV:   printf("\tr%d%c = r%d\n", c, op0, op1); break;
+		case IR_ADD:   printf("\tr%d%c = r%d + r%d\n", c, dst, op0, op1); break;
+		case IR_SUB:   printf("\tr%d%c = r%d - r%d\n", c, dst, op0, op1); break;
+		case IR_MUL:   printf("\tr%d%c = r%d * r%d\n", c, dst, op0, op1); break;
+		case IR_DIV:   printf("\tr%d%c = r%d / r%d\n", c, dst, op0, op1); break;
+		case IR_MOD:   printf("\tr%d%c = r%d %% r%d\n", c, dst, op0, op1); break;
+		case IR_EQL:   printf("\tr%d%c = r%d == r%d\n", c, dst, op0, op1); break;
+		case IR_LT:    printf("\tr%d%c = r%d < r%d\n", c, dst, op0, op1); break;
+		case IR_GT:    printf("\tr%d%c = r%d > r%d\n", c, dst, op0, op1); break;
+		case IR_LEQ:   printf("\tr%d%c = r%d <= r%d\n", c, dst, op0, op1); break;
+		case IR_GEQ:   printf("\tr%d%c = r%d >= r%d\n", c, dst, op0, op1); break;
 		case IR_JMP:   printf("\tgoto L%d\n", op0); break;
 		case IR_JIZ:   printf("\tif r%d == 0 goto L%d\n", op0, op1); break;
 		case IR_RET:   printf("\tret r%d\n", op0); break;
