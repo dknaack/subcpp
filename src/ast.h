@@ -4,6 +4,11 @@ struct ast_expr_bin {
 	struct ast_node *rhs;
 };
 
+struct ast_expr_unary {
+	enum token_kind op;
+	struct ast_node *operand;
+};
+
 struct ast_expr_call {
 	struct ast_node *called;
 	struct ast_node *params;
@@ -54,6 +59,7 @@ enum ast_node_kind {
 	AST_EXPR_CALL,
 	AST_EXPR_IDENT,
 	AST_EXPR_INT,
+	AST_EXPR_UNARY,
 
 	AST_STMT_BREAK,
 	AST_STMT_COMPOUND,
@@ -84,6 +90,7 @@ struct ast_node {
 		struct ast_stmt_while while_stmt;
 		struct ast_expr_bin bin_expr;
 		struct ast_expr_call call_expr;
+		struct ast_expr_unary unary_expr;
 		struct ast_type_pointer pointer_type;
 		struct ast_function function;
 		struct ast_decl decl;
@@ -109,6 +116,7 @@ get_ast_name(enum ast_node_kind kind)
 	case AST_EXPR_CALL:     return "CALL";
 	case AST_EXPR_IDENT:    return "IDENT";
 	case AST_EXPR_INT:      return "EXPR_INT";
+	case AST_EXPR_UNARY:      return "UNARY";
 	case AST_STMT_BREAK:    return "BREAK";
 	case AST_STMT_COMPOUND: return "COMPOUND";
 	case AST_STMT_CONTINUE: return "CONTINUE";
