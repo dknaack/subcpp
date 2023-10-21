@@ -460,6 +460,60 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	}
 }
 
+static struct ir_opcode_info
+get_opcode_info(enum ir_opcode opcode)
+{
+	struct ir_opcode_info info = {0};
+	switch (opcode) {
+	case IR_JMP:
+		info.op0 = IR_OPERAND_LABEL;
+		break;
+	case IR_PRINT:
+	case IR_PARAM:
+	case IR_RET:
+		info.op0 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_MOV:
+	case IR_LOAD:
+	case IR_STORE:
+		info.op0 = IR_OPERAND_REG_DST;
+		info.op1 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_ADD:
+	case IR_SUB:
+	case IR_MUL:
+	case IR_DIV:
+	case IR_MOD:
+	case IR_EQL:
+	case IR_LT:
+	case IR_GT:
+	case IR_LEQ:
+	case IR_GEQ:
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_JIZ:
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_LABEL;
+		break;
+	case IR_ALLOC:
+	case IR_CONST:
+		info.op0 = IR_OPERAND_CONST;
+		break;
+	case IR_CALL:
+		info.op0 = IR_OPERAND_REG_DST;
+		info.op1 = IR_OPERAND_FUNC;
+		break;
+	case IR_LABEL:
+		info.op0 = IR_OPERAND_LABEL;
+		break;
+	case IR_NOP:
+		break;
+	}
+
+	return info;
+}
+
 static uint32_t *
 get_usage_count(struct ir_program program, struct arena *arena)
 {
@@ -467,38 +521,13 @@ get_usage_count(struct ir_program program, struct arena *arena)
 	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
 
 	for (uint32_t i = 0; i < program.register_count; i++) {
-		switch (instrs[i].opcode) {
-		case IR_JMP:
-		case IR_PRINT:
-		case IR_PARAM:
-		case IR_RET:
+		struct ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_LABEL) {
 			usage_count[instrs[i].op0]++;
-			break;
-		case IR_MOV:
-		case IR_LOAD:
-		case IR_STORE:
+		}
+
+		if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_LABEL) {
 			usage_count[instrs[i].op1]++;
-			break;
-		case IR_ADD:
-		case IR_SUB:
-		case IR_MUL:
-		case IR_DIV:
-		case IR_MOD:
-		case IR_EQL:
-		case IR_LT:
-		case IR_GT:
-		case IR_LEQ:
-		case IR_GEQ:
-		case IR_JIZ:
-			usage_count[instrs[i].op0]++;
-			usage_count[instrs[i].op1]++;
-			break;
-		case IR_NOP:
-		case IR_ALLOC:
-		case IR_CONST:
-		case IR_CALL:
-		case IR_LABEL:
-			break;
 		}
 	}
 

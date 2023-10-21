@@ -24,6 +24,20 @@ enum ir_opcode {
 	IR_STORE,
 };
 
+enum ir_operand_type {
+	IR_OPERAND_NONE,
+	IR_OPERAND_REG_SRC,
+	IR_OPERAND_REG_DST,
+	IR_OPERAND_CONST,
+	IR_OPERAND_LABEL,
+	IR_OPERAND_FUNC,
+	IR_OPERAND_COUNT
+};
+
+struct ir_opcode_info {
+	enum ir_operand_type op0, op1;
+};
+
 struct ir_instr {
 	enum ir_opcode opcode:24;
 	uint32_t size:8;
