@@ -22,8 +22,47 @@ multiply(uint32_t a, uint32_t b)
 static void
 optimize(struct ir_program program, struct arena *arena)
 {
-	(void)arena;
 	struct ir_instr *instrs = program.instrs;
+
+	bool *addr_used = ZALLOC(arena, program.instr_count, bool);
+	for (uint32_t i = 0; i < program.instr_count; i++) {
+		uint32_t op0 = instrs[i].op0;
+		uint32_t op1 = instrs[i].op1;
+
+		struct ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		if (info.op0 == IR_OPERAND_REG_SRC && instrs[op0].opcode == IR_ALLOC) {
+			addr_used[op0] |= true;
+		}
+
+		if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_ALLOC) {
+			addr_used[op1] |= true;
+		}
+	}
+
+	for (uint32_t i = 0; i < program.instr_count; i++) {
+		if (instrs[i].opcode == IR_LOAD) {
+			uint32_t op0 = instrs[i].op0;
+			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+				instrs[i].opcode = IR_MOV;
+				instrs[i].op0 = i;
+				instrs[i].op1 = op0;
+			}
+		} else if (instrs[i].opcode == IR_STORE) {
+			uint32_t op0 = instrs[i].op0;
+			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+				instrs[i].opcode = IR_MOV;
+			}
+		}
+	}
+
+	for (uint32_t i = 0; i < program.instr_count; i++) {
+		if (instrs[i].opcode == IR_ALLOC) {
+			if (!addr_used[i]) {
+				instrs[i].opcode = IR_NOP;
+			}
+		}
+	}
+
 	for (uint32_t i = 0; i < program.instr_count; i++) {
 		uint32_t op0 = instrs[i].op0;
 		uint32_t op1 = instrs[i].op1;
