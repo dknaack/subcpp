@@ -20,6 +20,8 @@ enum ir_opcode {
 	IR_PARAM,
 	IR_VAR,
 	IR_PRINT,
+	IR_LOAD,
+	IR_STORE,
 };
 
 struct ir_instr {

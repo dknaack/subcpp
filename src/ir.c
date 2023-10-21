@@ -23,6 +23,8 @@ get_opcode_name(enum ir_opcode opcode)
 	case IR_PARAM: return "param";
 	case IR_VAR:   return "var";
 	case IR_PRINT: return "print";
+	case IR_LOAD:  return "load";
+	case IR_STORE: return "store";
 	}
 
 	return "(invalid)";
@@ -163,7 +165,7 @@ static uint32_t
 generate(struct ir_generator *state, struct ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
-	uint32_t lhs, rhs, label, param_register[128];
+	uint32_t label, param_register[128];
 	uint32_t param_count, result = 0;
 	size_t result_size;
 	struct ast_node *called, *param;
@@ -176,28 +178,32 @@ generate(struct ir_generator *state, struct ast_node *node)
 		ASSERT(!"Invalid node");
 		break;
 	case AST_EXPR_BINARY:
-		lhs = generate(state, node->u.bin_expr.lhs);
-		rhs = generate(state, node->u.bin_expr.rhs);
-		switch (node->u.bin_expr.op) {
-		case TOKEN_ADD:    opcode = IR_ADD; break;
-		case TOKEN_SUB:    opcode = IR_SUB; break;
-		case TOKEN_MUL:    opcode = IR_MUL; break;
-		case TOKEN_DIV:    opcode = IR_DIV; break;
-		case TOKEN_MOD:    opcode = IR_MOD; break;
-		case TOKEN_ASSIGN: opcode = IR_MOV; break;
-		case TOKEN_EQUALS: opcode = IR_EQL; break;
-		case TOKEN_LT:     opcode = IR_LT;  break;
-		case TOKEN_GT:     opcode = IR_GT;  break;
-		case TOKEN_LEQ:    opcode = IR_LEQ; break;
-		case TOKEN_GEQ:    opcode = IR_GEQ; break;
-		default:
-			ASSERT(!"Invalid operator");
-			break;
-		}
+		{
+			uint32_t operator = node->u.bin_expr.op;
+			switch (operator) {
+			case TOKEN_ADD:    opcode = IR_ADD;   break;
+			case TOKEN_SUB:    opcode = IR_SUB;   break;
+			case TOKEN_MUL:    opcode = IR_MUL;   break;
+			case TOKEN_DIV:    opcode = IR_DIV;   break;
+			case TOKEN_MOD:    opcode = IR_MOD;   break;
+			case TOKEN_ASSIGN: opcode = IR_STORE; break;
+			case TOKEN_EQUALS: opcode = IR_EQL;   break;
+			case TOKEN_LT:     opcode = IR_LT;    break;
+			case TOKEN_GT:     opcode = IR_GT;    break;
+			case TOKEN_LEQ:    opcode = IR_LEQ;   break;
+			case TOKEN_GEQ:    opcode = IR_GEQ;   break;
+			default:
+				ASSERT(!"Invalid operator");
+				break;
+			}
 
-		result_size = type_sizeof(node->type);
-		result = emit2_sized(state, opcode, result_size, lhs, rhs);
-		break;
+			struct ast_node *lhs = node->u.bin_expr.lhs;
+			struct ast_node *rhs = node->u.bin_expr.rhs;
+			uint32_t size = type_sizeof(node->type);
+			uint32_t lhs_reg = generate(state, lhs);
+			uint32_t rhs_reg = generate(state, rhs);
+			result = emit2_sized(state, opcode, size, lhs_reg, rhs_reg);
+		} break;
 	case AST_EXPR_CALL:
 		called = node->u.call_expr.called;
 		if (called->kind == AST_EXPR_IDENT) {
@@ -223,8 +229,11 @@ generate(struct ir_generator *state, struct ast_node *node)
 		}
 		break;
 	case AST_EXPR_IDENT:
-		result = get_register(state, node->u.ident);
-		break;
+		{
+			uint32_t size = type_sizeof(node->type);
+			uint32_t addr = get_register(state, node->u.ident);
+			result = emit1_sized(state, IR_LOAD, size, addr);
+		} break;
 	case AST_EXPR_INT:
 		result = emit1(state, IR_CONST, node->u.ival);
 		break;
@@ -245,7 +254,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 		result = new_register(state, node->u.decl.name);
 		if (node->u.decl.expr) {
 			uint32_t expr = generate(state, node->u.decl.expr);
-			emit2(state, IR_MOV, result, expr);
+			emit2(state, IR_STORE, result, expr);
 		}
 
 		break;
@@ -325,6 +334,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 			generate(state, stmt);
 		}
 		break;
+	case AST_TYPE_POINTER:
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:
@@ -465,6 +475,8 @@ get_usage_count(struct ir_program program, struct arena *arena)
 			usage_count[instrs[i].op0]++;
 			break;
 		case IR_MOV:
+		case IR_LOAD:
+		case IR_STORE:
 			usage_count[instrs[i].op1]++;
 			break;
 		case IR_ADD:

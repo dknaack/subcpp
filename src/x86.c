@@ -165,6 +165,9 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 	case IR_MOV:
 		x86_select_instr(out, program, op1, dst);
 		break;
+	case IR_LOAD:
+	case IR_STORE:
+		break;
 	case IR_ADD:
 		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, program, op0, dst);
