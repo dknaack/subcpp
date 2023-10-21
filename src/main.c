@@ -13,12 +13,12 @@ print_program(struct ir_program program)
 		printf("%2d| ", i);
 		struct ir_instr instr = program.instrs[i];
 
-		char c = ' ';
+		char *c = "";
 		switch (instr.size) {
-		case 1: c = 'b'; break;
-		case 2: c = 'w'; break;
-		case 4: c = 'd'; break;
-		case 8: c = 'q'; break;
+		case 1: c = "b"; break;
+		case 2: c = "w"; break;
+		case 4: c = "d"; break;
+		case 8: c = "q"; break;
 		}
 
 		uint32_t dst = i;
@@ -26,25 +26,27 @@ print_program(struct ir_program program)
 		uint32_t op1 = instr.op1;
 		switch (instr.opcode) {
 		case IR_NOP:   printf("\tnop\n"); break;
-		case IR_CONST: printf("\tr%d%c = %d\n", c, dst, op0); break;
-		case IR_MOV:   printf("\tr%d%c = r%d\n", c, op0, op1); break;
-		case IR_ADD:   printf("\tr%d%c = r%d + r%d\n", c, dst, op0, op1); break;
-		case IR_SUB:   printf("\tr%d%c = r%d - r%d\n", c, dst, op0, op1); break;
-		case IR_MUL:   printf("\tr%d%c = r%d * r%d\n", c, dst, op0, op1); break;
-		case IR_DIV:   printf("\tr%d%c = r%d / r%d\n", c, dst, op0, op1); break;
-		case IR_MOD:   printf("\tr%d%c = r%d %% r%d\n", c, dst, op0, op1); break;
-		case IR_EQL:   printf("\tr%d%c = r%d == r%d\n", c, dst, op0, op1); break;
-		case IR_LT:    printf("\tr%d%c = r%d < r%d\n", c, dst, op0, op1); break;
-		case IR_GT:    printf("\tr%d%c = r%d > r%d\n", c, dst, op0, op1); break;
-		case IR_LEQ:   printf("\tr%d%c = r%d <= r%d\n", c, dst, op0, op1); break;
-		case IR_GEQ:   printf("\tr%d%c = r%d >= r%d\n", c, dst, op0, op1); break;
-		case IR_JMP:   printf("\tgoto L%d\n", op0); break;
-		case IR_JIZ:   printf("\tif r%d == 0 goto L%d\n", op0, op1); break;
-		case IR_RET:   printf("\tret r%d\n", op0); break;
-		case IR_CALL:  printf("\tr%d = call L%d, %d\n", dst, op0, op1); break;
-		case IR_PRINT: printf("\tprint r%d\n", op0); break;
-		case IR_PARAM: printf("\tparam r%d\n", op0); break;
-		case IR_VAR:   printf("\tr%d = var\n", dst); break;
+		case IR_CONST: printf("\tMOV\tr%d%s, %d\n", dst, c, op0); break;
+		case IR_MOV:   printf("\tMOV\tr%d%s, r%d\n", op0, c, op1); break;
+		case IR_LOAD:  printf("\tLOAD\tr%d%s, r%d\n", dst, c, op0); break;
+		case IR_STORE: printf("\tSTORE\tr%d%s, r%d\n", op0, c, op1); break;
+		case IR_ADD:   printf("\tADD\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_SUB:   printf("\tSUB\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_MUL:   printf("\tMUL\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_DIV:   printf("\tDIV\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_MOD:   printf("\tMOD\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
+		case IR_EQL:   printf("\tEQL\tr%d%s, r%d,= r%d\n", dst, c, op0, op1); break;
+		case IR_LEQ:   printf("\tLEQ\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
+		case IR_GEQ:   printf("\tGEQ\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
+		case IR_LT:    printf("\tLT\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_GT:    printf("\tGT\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
+		case IR_JMP:   printf("\tGOTO\tL%d\n", op0); break;
+		case IR_JIZ:   printf("\tJIZ\tr%d, L%d\n", op0, op1); break;
+		case IR_RET:   printf("\tRET\tr%d\n", op0); break;
+		case IR_CALL:  printf("\tCALL\tr%d, L%d, %d\n", dst, op0, op1); break;
+		case IR_PRINT: printf("\tPRINT\tr%d\n", op0); break;
+		case IR_PARAM: printf("\tPARAM\tr%d\n", op0); break;
+		case IR_VAR:   printf("\tALLOCA\tr%d, 8\n", dst); break;
 		case IR_LABEL: printf("L%d:\n", op0); break;
 		}
 	}
