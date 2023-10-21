@@ -136,6 +136,7 @@ get_raw_token(struct tokenizer *tokenizer)
 	case '}': token.kind = TOKEN_RBRACE; break;
 	case ',': token.kind = TOKEN_COMMA; break;
 	case ';': token.kind = TOKEN_SEMICOLON; break;
+	case '&': token.kind = TOKEN_AMPERSAND; break;
 	case '=':
 		token.kind = eat1(tokenizer, TOKEN_ASSIGN, '=', TOKEN_EQUALS);
 		break;
