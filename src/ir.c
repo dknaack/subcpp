@@ -162,6 +162,45 @@ get_register(struct ir_generator *state, struct string ident)
 }
 
 static uint32_t
+generate_lvalue(struct ir_generator *state, struct ast_node *node)
+{
+	uint32_t result = 0;
+
+	switch (node->kind) {
+	case AST_EXPR_IDENT:
+		{
+			result = get_register(state, node->u.ident);
+		} break;
+	case AST_EXPR_BINARY:
+		{
+			enum ir_opcode opcode = IR_NOP;
+			uint32_t operator = node->u.bin_expr.op;
+			switch (operator) {
+			case TOKEN_ADD: opcode = IR_ADD; break;
+			case TOKEN_SUB: opcode = IR_SUB; break;
+			default:
+				ASSERT(!"Not an lvalue");
+			}
+
+			struct ast_node *lhs = node->u.bin_expr.lhs;
+			struct ast_node *rhs = node->u.bin_expr.rhs;
+			uint32_t size = type_sizeof(node->type);
+			uint32_t lhs_reg = generate_lvalue(state, lhs);
+			uint32_t rhs_reg = generate_lvalue(state, rhs);
+			result = emit2_sized(state, opcode, size, lhs_reg, rhs_reg);
+		} break;
+	case AST_EXPR_INT:
+		{
+			result = emit1_sized(state, IR_CONST, 4, node->u.ival);
+		} break;
+	default:
+		ASSERT(!"Not an lvalue");
+	}
+
+	return result;
+}
+
+static uint32_t
 generate(struct ir_generator *state, struct ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
@@ -198,10 +237,17 @@ generate(struct ir_generator *state, struct ast_node *node)
 			}
 
 			struct ast_node *lhs = node->u.bin_expr.lhs;
+			uint32_t lhs_reg = 0;
+			if (opcode == IR_STORE) {
+				lhs_reg = generate_lvalue(state, lhs);
+			} else {
+				lhs_reg = generate(state, lhs);
+			}
+
 			struct ast_node *rhs = node->u.bin_expr.rhs;
-			uint32_t size = type_sizeof(node->type);
-			uint32_t lhs_reg = generate(state, lhs);
 			uint32_t rhs_reg = generate(state, rhs);
+
+			uint32_t size = type_sizeof(node->type);
 			result = emit2_sized(state, opcode, size, lhs_reg, rhs_reg);
 		} break;
 	case AST_EXPR_CALL:
@@ -237,6 +283,22 @@ generate(struct ir_generator *state, struct ast_node *node)
 	case AST_EXPR_INT:
 		result = emit1_sized(state, IR_CONST, 4, node->u.ival);
 		break;
+	case AST_EXPR_UNARY:
+		{
+			switch (node->u.unary_expr.op) {
+			case TOKEN_AMPERSAND:
+				{
+					result = generate_lvalue(state, node->u.unary_expr.operand);
+				} break;
+			case TOKEN_MUL:
+				{
+					result = generate(state, node->u.unary_expr.operand);
+					result = emit1(state, IR_LOAD, result);
+				} break;
+			default:
+				ASSERT(!"Invalid operator");
+			}
+		} break;
 	case AST_STMT_BREAK:
 		emit1(state, IR_JMP, state->break_label);
 		break;
