@@ -46,7 +46,7 @@ print_program(struct ir_program program)
 		case IR_CALL:  printf("\tCALL\tr%d, L%d, %d\n", dst, op0, op1); break;
 		case IR_PRINT: printf("\tPRINT\tr%d\n", op0); break;
 		case IR_PARAM: printf("\tPARAM\tr%d\n", op0); break;
-		case IR_VAR:   printf("\tALLOCA\tr%d, 8\n", dst); break;
+		case IR_ALLOC: printf("\tALLOC\tr%d, 8\n", dst); break;
 		case IR_LABEL: printf("L%d:\n", op0); break;
 		}
 	}

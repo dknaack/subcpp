@@ -21,7 +21,7 @@ get_opcode_name(enum ir_opcode opcode)
 	case IR_RET:   return "ret";
 	case IR_CALL:  return "call";
 	case IR_PARAM: return "param";
-	case IR_VAR:   return "var";
+	case IR_ALLOC: return "alloc";
 	case IR_PRINT: return "print";
 	case IR_LOAD:  return "load";
 	case IR_STORE: return "store";
@@ -118,7 +118,7 @@ new_register(struct ir_generator *state, struct string ident)
 
 		if (!variable_table[i].name.at) {
 			variable_table[i].name = ident;
-			variable_table[i].vreg = emit0(state, IR_VAR);
+			variable_table[i].vreg = emit0(state, IR_ALLOC);
 			return variable_table[i].vreg;
 		}
 	}
@@ -494,7 +494,7 @@ get_usage_count(struct ir_program program, struct arena *arena)
 			usage_count[instrs[i].op1]++;
 			break;
 		case IR_NOP:
-		case IR_VAR:
+		case IR_ALLOC:
 		case IR_CONST:
 		case IR_CALL:
 		case IR_LABEL:

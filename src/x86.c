@@ -159,7 +159,7 @@ x86_select_instr(struct machine_program *out, struct ir_program program,
 	case IR_CONST:
 		x86_select2(out, X86_MOV, dst, make_immediate(op0));
 		break;
-	case IR_VAR:
+	case IR_ALLOC:
 		x86_select2(out, X86_MOV, dst, make_vreg(instr_index));
 		break;
 	case IR_MOV:
@@ -332,7 +332,7 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 
 		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
 			struct ir_instr instr = program.instrs[ir_function.instr_index+i];
-			ASSERT(instr.opcode == IR_VAR);
+			ASSERT(instr.opcode == IR_ALLOC);
 			struct machine_operand dst = make_vreg(ir_function.instr_index+i);
 			struct machine_operand src;
 			switch (i) {
