@@ -138,29 +138,33 @@ x86_select_immediate(struct machine_program *out,
 }
 
 static void
+x86_alloc(struct machine_program *out, uint32_t id, uint32_t size)
+{
+	(void)out;
+	(void)id;
+	(void)size;
+}
+
+static void
 x86_select_instr(struct machine_program *out, struct ir_instr *instr,
     uint32_t instr_index, struct machine_operand dst)
 {
-	enum x86_opcode x86_opcode = (enum x86_opcode)0;
-	enum ir_opcode opcode = instr[instr_index].opcode;
-	uint32_t op0 = instr[instr_index].op0;
-	uint32_t op1 = instr[instr_index].op1;
 	dst.size = MIN(dst.size, instr[instr_index].size);
 
-	struct machine_operand rax = make_mreg(X86_RAX);
-	struct machine_operand rcx = make_mreg(X86_RCX);
-	struct machine_operand rdx = make_mreg(X86_RDX);
-	struct machine_operand rdi = make_mreg(X86_RDI);
-	struct machine_operand rsi = make_mreg(X86_RSI);
-	struct machine_operand src = {0};
-
+	uint32_t op0 = instr[instr_index].op0;
+	uint32_t op1 = instr[instr_index].op1;
+	enum ir_opcode opcode = instr[instr_index].opcode;
 	switch (opcode) {
 	case IR_CONST:
-		x86_select2(out, X86_MOV, dst, make_immediate(op0));
-		break;
+		{
+			struct machine_operand src = make_immediate(op0);
+			x86_select2(out, X86_MOV, dst, src);
+		} break;
 	case IR_ALLOC:
-		x86_select2(out, X86_MOV, dst, make_vreg(instr_index));
-		break;
+		{
+			struct machine_operand src = make_vreg(instr_index);
+			x86_select2(out, X86_MOV, dst, src);
+		} break;
 	case IR_MOV:
 		x86_select_instr(out, instr, op1, dst);
 		break;
@@ -180,7 +184,7 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			op0 = instr[op0].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op0));
 		} else {
-			src = make_vreg(op1);
+			struct machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
 			x86_select2(out, X86_ADD, dst, src);
@@ -195,7 +199,7 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_SUB, dst, make_immediate(op1));
 		} else {
-			src = make_vreg(op1);
+			struct machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
 			x86_select2(out, X86_SUB, dst, src);
@@ -208,7 +212,8 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_ADD, dst, dst);
 		} else {
-			src = make_vreg(op1);
+			struct machine_operand rax = make_mreg(X86_RAX);
+			struct machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, rax);
 			x86_select_instr(out, instr, op1, src);
 			x86_select1(out, X86_IMUL, src);
@@ -216,19 +221,18 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 		}
 		break;
 	case IR_DIV:
-		x86_select_instr(out, instr, op0, rax);
-		x86_select_instr(out, instr, op1, rcx);
-		x86_select2(out, X86_MOV, rdx, make_immediate(0));
-		x86_select1(out, X86_IDIV, rcx);
-		x86_select2(out, X86_MOV, dst, rax);
-		break;
 	case IR_MOD:
-		x86_select_instr(out, instr, op0, rax);
-		x86_select_instr(out, instr, op1, rcx);
-		x86_select2(out, X86_MOV, rdx, make_immediate(0));
-		x86_select1(out, X86_IDIV, rcx);
-		x86_select2(out, X86_MOV, dst, rdx);
-		break;
+		{
+			struct machine_operand rax = make_mreg(X86_RAX);
+			struct machine_operand rcx = make_mreg(X86_RCX);
+			struct machine_operand rdx = make_mreg(X86_RDX);
+
+			x86_select_instr(out, instr, op0, rax);
+			x86_select_instr(out, instr, op1, rcx);
+			x86_select2(out, X86_MOV, rdx, make_immediate(0));
+			x86_select1(out, X86_IDIV, rcx);
+			x86_select2(out, X86_MOV, dst, opcode == IR_DIV ? rax : rdx);
+		} break;
 	case IR_EQL:
 	case IR_LT:
 	case IR_GT:
@@ -244,60 +248,79 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
-		x86_opcode = X86_JZ;
-		if (x86_is_comparison_opcode(instr[op0].opcode)) {
-			dst = make_vreg(instr[op0].op0);
-			x86_select_instr(out, instr, instr[op0].op0, dst);
-			src = x86_select_immediate(out, instr, instr[op0].op1);
-			x86_select2(out, X86_CMP, dst, src);
-			x86_opcode = x86_get_jcc_opcode(instr[op0].opcode);
-		} else if (instr[op0].opcode == IR_SUB) {
-			x86_select_instr(out, instr, op0, src);
-		} else {
-			src = make_vreg(op0);
-			x86_select_instr(out, instr, op0, src);
-			x86_select2(out, X86_TEST, src, src);
-		}
-
-		op1 = instr[op1].op0;
-		x86_select1(out, x86_opcode, make_label(op1));
-		break;
-	case IR_RET:
-		x86_select_instr(out, instr, op0, rax);
-		x86_select0(out, X86_RET);
-		break;
-	case IR_CALL:
-		for (uint32_t i = 1; i <= op1; i++) {
-			ASSERT(instr[instr_index - i].opcode == IR_PARAM);
-			src = make_vreg(instr[instr_index - i].op0);
-			uint32_t parameter_index = i - 1;
-			switch (parameter_index) {
-			case 0:
-				x86_select_instr(out, instr, src.value, rdi);
-				break;
-			case 1:
-				x86_select_instr(out, instr, src.value, rsi);
-				break;
-			case 2:
-				x86_select_instr(out, instr, src.value, rdx);
-				break;
-			case 3:
-				x86_select_instr(out, instr, src.value, rcx);
-				break;
-			default:
-				ASSERT(!"Too many arguments");
-				break;
+		{
+			enum x86_opcode x86_opcode = X86_JZ;
+			if (x86_is_comparison_opcode(instr[op0].opcode)) {
+				dst = make_vreg(instr[op0].op0);
+				x86_select_instr(out, instr, instr[op0].op0, dst);
+				struct machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
+				x86_select2(out, X86_CMP, dst, src);
+				x86_opcode = x86_get_jcc_opcode(instr[op0].opcode);
+			} else if (instr[op0].opcode == IR_SUB) {
+				struct machine_operand src = {0};
+				x86_select_instr(out, instr, op0, src);
+			} else {
+				struct machine_operand src = make_vreg(op0);
+				x86_select_instr(out, instr, op0, src);
+				x86_select2(out, X86_TEST, src, src);
 			}
-		}
 
-		x86_select1(out, X86_CALL, make_func(op0));
-		x86_select2(out, X86_MOV, dst, rax);
-		break;
+			op1 = instr[op1].op0;
+			x86_select1(out, x86_opcode, make_label(op1));
+		} break;
+	case IR_RET:
+		{
+			struct machine_operand rax = make_mreg(X86_RAX);
+			x86_select_instr(out, instr, op0, rax);
+			x86_select0(out, X86_RET);
+		} break;
+	case IR_CALL:
+		{
+			for (uint32_t i = 1; i <= op1; i++) {
+				ASSERT(instr[instr_index - i].opcode == IR_PARAM);
+				struct machine_operand src = make_vreg(instr[instr_index - i].op0);
+				uint32_t parameter_index = i - 1;
+				switch (parameter_index) {
+				case 0:
+					{
+						struct machine_operand rdi = make_mreg(X86_RDI);
+						x86_select_instr(out, instr, src.value, rdi);
+					} break;
+				case 1:
+					{
+						struct machine_operand rsi = make_mreg(X86_RSI);
+						x86_select_instr(out, instr, src.value, rsi);
+					} break;
+				case 2:
+					{
+						struct machine_operand rdx = make_mreg(X86_RDX);
+						x86_select_instr(out, instr, src.value, rdx);
+					} break;
+				case 3:
+					{
+						struct machine_operand rcx = make_mreg(X86_RCX);
+						x86_select_instr(out, instr, src.value, rcx);
+					} break;
+				default:
+					ASSERT(!"Too many arguments");
+					break;
+				}
+			}
+
+			struct machine_operand rax = make_mreg(X86_RAX);
+			x86_select1(out, X86_CALL, make_func(op0));
+			x86_select2(out, X86_MOV, dst, rax);
+		} break;
 	case IR_PRINT:
-		x86_select_instr(out, instr, op0, rsi);
-		x86_select2(out, X86_MOV, rax, make_immediate(0));
-		x86_select2(out, X86_PRINT, rdi, rsi);
-		break;
+		{
+			struct machine_operand rsi = make_mreg(X86_RSI);
+			struct machine_operand rdi = make_mreg(X86_RDI);
+			struct machine_operand rax = make_mreg(X86_RAX);
+
+			x86_select_instr(out, instr, op0, rsi);
+			x86_select2(out, X86_MOV, rax, make_immediate(0));
+			x86_select2(out, X86_PRINT, rdi, rsi);
+		} break;
 	case IR_LABEL:
 		x86_select1(out, X86_LABEL, make_immediate(op0));
 		break;
