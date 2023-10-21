@@ -235,7 +235,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 			result = emit1_sized(state, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
-		result = emit1(state, IR_CONST, node->u.ival);
+		result = emit1_sized(state, IR_CONST, 4, node->u.ival);
 		break;
 	case AST_STMT_BREAK:
 		emit1(state, IR_JMP, state->break_label);
