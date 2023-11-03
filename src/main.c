@@ -25,11 +25,11 @@ print_program(struct ir_program program)
 		uint32_t op0 = instr.op0;
 		uint32_t op1 = instr.op1;
 		switch (instr.opcode) {
-		case IR_NOP:   printf("\tnop\n"); break;
+		case IR_NOP:   printf("\tNOP\n"); break;
 		case IR_CONST: printf("\tMOV\tr%d%s, %d\n", dst, c, op0); break;
 		case IR_MOV:   printf("\tMOV\tr%d%s, r%d\n", op0, c, op1); break;
 		case IR_LOAD:  printf("\tLOAD\tr%d%s, r%d\n", dst, c, op0); break;
-		case IR_STORE: printf("\tSTORE\tr%d%s, r%d\n", op0, c, op1); break;
+		case IR_STORE: printf("\tSTORE\tr%d, r%d%s\n", op0, op1, c); break;
 		case IR_ADD:   printf("\tADD\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
 		case IR_SUB:   printf("\tSUB\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
 		case IR_MUL:   printf("\tMUL\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
