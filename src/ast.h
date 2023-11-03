@@ -116,7 +116,7 @@ get_ast_name(enum ast_node_kind kind)
 	case AST_EXPR_CALL:     return "CALL";
 	case AST_EXPR_IDENT:    return "IDENT";
 	case AST_EXPR_INT:      return "EXPR_INT";
-	case AST_EXPR_UNARY:      return "UNARY";
+	case AST_EXPR_UNARY:    return "UNARY";
 	case AST_STMT_BREAK:    return "BREAK";
 	case AST_STMT_COMPOUND: return "COMPOUND";
 	case AST_STMT_CONTINUE: return "CONTINUE";
