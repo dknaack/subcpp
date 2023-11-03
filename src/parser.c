@@ -3,7 +3,7 @@
 static void
 verrorf(struct location loc, char *fmt, va_list ap)
 {
-	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line, loc.column);
+	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line-1, loc.column);
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
 }
