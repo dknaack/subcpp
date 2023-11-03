@@ -91,13 +91,14 @@ type_equals(struct type *lhs, struct type *rhs)
 static struct type *
 check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *arena)
 {
-	struct type *lhs, *rhs, *type, **param_type;
+	struct type *lhs, *rhs, *type, *operand_type, **param_type;
 	struct ast_node *param;
 	if (!node) {
 		return &type_void;
 	}
 
 	struct ast_node *orig_node = node;
+	type = &type_void;
 	switch (node->kind) {
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
@@ -140,6 +141,25 @@ check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *ar
 		break;
 	case AST_EXPR_IDENT:
 		type = get_variable(symbols, node->u.ident);
+		break;
+	case AST_EXPR_UNARY:
+		operand_type = check_node(node->u.unary_expr.operand, symbols, arena);
+		switch (node->u.unary_expr.op) {
+		case TOKEN_MUL:
+			if (operand_type->kind == TYPE_POINTER) {
+				type = operand_type->u.pointer.target;
+			} else {
+				errorf(node->loc, "Expected pointer type");
+			}
+			break;
+		case TOKEN_AMPERSAND:
+			type = type_create(TYPE_POINTER, arena);
+			type->u.pointer.target = operand_type;
+			break;
+		default:
+			ASSERT(!"Invalid operator");
+			break;
+		}
 		break;
 	case AST_STMT_BREAK:
 		type = type_create(TYPE_VOID, arena);
