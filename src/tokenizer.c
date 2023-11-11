@@ -1,5 +1,5 @@
 static char *
-get_token_name(enum token_kind kind)
+get_token_name(token_kind kind)
 {
 	switch (kind) {
 	case TOKEN_EOF:         return "EOF";
@@ -35,10 +35,10 @@ get_token_name(enum token_kind kind)
 
 }
 
-struct string
-read_file(char *filename, struct arena *arena)
+static string
+read_file(char *filename, arena *arena)
 {
-	struct string result = {0};
+	string result = {0};
 	FILE *file = fopen(filename, "rb");
 	if (file) {
 		fseek(file, 0, SEEK_END);
@@ -57,10 +57,10 @@ read_file(char *filename, struct arena *arena)
 	return result;
 }
 
-static struct tokenizer
-tokenize(char *filename, struct arena *arena)
+static tokenizer
+tokenize(char *filename, arena *arena)
 {
-	struct tokenizer tokenizer = {0};
+	tokenizer tokenizer = {0};
 	tokenizer.loc.file = filename;
 	tokenizer.loc.line = 1;
 	tokenizer.source = read_file(filename, arena);
@@ -68,7 +68,7 @@ tokenize(char *filename, struct arena *arena)
 }
 
 static char
-advance(struct tokenizer *tokenizer)
+advance(tokenizer *tokenizer)
 {
 	char c = '\0';
 
@@ -99,7 +99,7 @@ is_digit(char c)
 }
 
 static enum token_kind
-eat1(struct tokenizer *tokenizer, enum token_kind default_kind, char c1, enum token_kind kind1)
+eat1(tokenizer *tokenizer, enum token_kind default_kind, char c1, enum token_kind kind1)
 {
 	char c = advance(tokenizer);
 	if (c == c1) {
@@ -110,10 +110,10 @@ eat1(struct tokenizer *tokenizer, enum token_kind default_kind, char c1, enum to
 	}
 }
 
-static struct token
-get_raw_token(struct tokenizer *tokenizer)
+static token
+get_raw_token(tokenizer *tokenizer)
 {
-	struct token token;
+	token token;
 	token.kind = TOKEN_INVALID;
 	token.value.at = tokenizer->source.at + tokenizer->pos;
 	token.value.length = 0;
@@ -174,7 +174,7 @@ get_raw_token(struct tokenizer *tokenizer)
 }
 
 static bool
-string_equals(struct string a, struct string b)
+string_equals(string a, string b)
 {
 	if (a.length != b.length) {
 		return false;
@@ -189,13 +189,13 @@ string_equals(struct string a, struct string b)
 	return true;
 }
 
-static struct token
-get_token(struct tokenizer *tokenizer)
+static token
+get_token(tokenizer *tokenizer)
 {
-	struct token token = {TOKEN_INVALID};
+	token token = {TOKEN_INVALID};
 	struct {
-		enum token_kind token;
-		struct string str;
+		token_kind token;
+		string str;
 	} keywords[] = {
 		{ TOKEN_BREAK,    S("break")    },
 		{ TOKEN_CHAR,     S("char")     },
@@ -225,10 +225,10 @@ get_token(struct tokenizer *tokenizer)
 	return token;
 }
 
-static struct token
-peek_token(struct tokenizer *tokenizer)
+static token
+peek_token(tokenizer *t)
 {
-	struct tokenizer tmp = *tokenizer;
-	struct token token = get_token(&tmp);
+	tokenizer tmp = *t;
+	token token = get_token(&tmp);
 	return token;
 }
