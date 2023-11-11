@@ -221,11 +221,8 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 static ast_node *
 parse_assign_expr(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *expr;
-	int precedence;
-
-	precedence = get_binary_precedence(TOKEN_ASSIGN);
-	expr = parse_expr(tokenizer, -precedence - 5, arena);
+	int precedence = get_binary_precedence(TOKEN_ASSIGN);
+	ast_node *expr = parse_expr(tokenizer, -precedence - 5, arena);
 	return expr;
 }
 
