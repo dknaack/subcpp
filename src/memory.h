@@ -1,28 +1,28 @@
 #define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
 #define ZALLOC(arena, count, type) ((type *)zalloc(arena, count, sizeof(type)))
 
-struct arena {
+typedef struct arena {
 	char *data;
 	size_t size;
 	size_t pos;
-};
+} arena;
 
-struct arena_temp {
+typedef struct arena_temp {
 	struct arena *arena;
 	size_t pos;
-};
+} arena_temp;
 
-static struct arena *
+static arena *
 arena_create(size_t size)
 {
-	struct arena *arena = (struct arena *)calloc(size + sizeof(*arena), 1);
+	arena *arena = (struct arena *)calloc(size + sizeof(*arena), 1);
 	arena->data = (char *)(arena + 1);
 	arena->size = size;
 	return arena;
 }
 
 static void *
-alloc(struct arena *arena, size_t count, size_t size)
+alloc(arena *arena, size_t count, size_t size)
 {
 	ASSERT(arena->pos + size * count < arena->size);
 	arena->pos = (arena->pos + 7) & -8;
@@ -32,7 +32,7 @@ alloc(struct arena *arena, size_t count, size_t size)
 }
 
 static void *
-zalloc(struct arena *arena, size_t count, size_t size)
+zalloc(arena *arena, size_t count, size_t size)
 {
 	char *byte = (char *)alloc(arena, count, size);
 	for (size_t i = 0; i < count * size; i++) {
@@ -42,17 +42,17 @@ zalloc(struct arena *arena, size_t count, size_t size)
 	return byte;
 }
 
-static struct arena_temp
-arena_temp_begin(struct arena *arena)
+static arena_temp
+arena_temp_begin(arena *arena)
 {
-	struct arena_temp temp;
+	arena_temp temp;
 	temp.arena = arena;
 	temp.pos = arena->pos;
 	return temp;
 }
 
 static void
-arena_temp_end(struct arena_temp temp)
+arena_temp_end(arena_temp temp)
 {
 	temp.arena->pos = temp.pos;
 }
