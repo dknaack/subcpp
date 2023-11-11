@@ -1,55 +1,57 @@
-struct ast_expr_bin {
-	enum token_kind op;
-	struct ast_node *lhs;
-	struct ast_node *rhs;
-};
+typedef struct ast_node ast_node;
 
-struct ast_expr_unary {
-	enum token_kind op;
-	struct ast_node *operand;
-};
+typedef struct ast_expr_bin {
+	token_kind op;
+	ast_node *lhs;
+	ast_node *rhs;
+} ast_expr_bin;
 
-struct ast_expr_call {
-	struct ast_node *called;
-	struct ast_node *params;
-};
+typedef struct ast_expr_unary {
+	token_kind op;
+	ast_node *operand;
+} ast_expr_unary;
 
-struct ast_decl {
-	struct string name;
-	struct ast_node *expr;
-	struct ast_node *type;
-};
+typedef struct ast_expr_call {
+	ast_node *called;
+	ast_node *params;
+} ast_expr_call;
 
-struct ast_stmt_if {
-	struct ast_node *cond;
-	struct ast_node *then;
-	struct ast_node *otherwise;
-};
+typedef struct ast_decl {
+	string name;
+	ast_node *expr;
+	ast_node *type;
+} ast_decl;
 
-struct ast_stmt_while {
-	struct ast_node *cond;
-	struct ast_node *body;
-};
+typedef struct ast_stmt_if {
+	ast_node *cond;
+	ast_node *then;
+	ast_node *otherwise;
+} ast_stmt_if;
 
-struct ast_stmt_for {
-	struct ast_node *init;
-	struct ast_node *cond;
-	struct ast_node *post;
-	struct ast_node *body;
-};
+typedef struct ast_stmt_while {
+	ast_node *cond;
+	ast_node *body;
+} ast_stmt_while;
 
-struct ast_type_pointer {
-	struct ast_node *target;
-};
+typedef struct ast_stmt_for {
+	ast_node *init;
+	ast_node *cond;
+	ast_node *post;
+	ast_node *body;
+} ast_stmt_for;
 
-struct ast_function {
-	struct string name;
-	struct ast_node *params;
-	struct ast_node *body;
-	struct ast_node *return_type;
-};
+typedef struct ast_type_pointer {
+	ast_node *target;
+} ast_type_pointer;
 
-enum ast_node_kind {
+typedef struct ast_function {
+	string name;
+	ast_node *params;
+	ast_node *body;
+	ast_node *return_type;
+} ast_function;
+
+typedef enum ast_node_kind {
 	AST_INVALID,
 	AST_DECL,
 	AST_FUNCTION,
@@ -76,32 +78,32 @@ enum ast_node_kind {
 	AST_TYPE_INT,
 	AST_TYPE_POINTER,
 	AST_TYPE_VOID,
-};
+} ast_node_kind;
 
 struct ast_node {
-	enum ast_node_kind kind;
-	struct ast_node *next;
-	struct location loc;
+	ast_node_kind kind;
+	ast_node *next;
+	location loc;
 	struct type *type;
 
 	union {
-		struct ast_stmt_for for_stmt;
-		struct ast_stmt_if if_stmt;
-		struct ast_stmt_while while_stmt;
-		struct ast_expr_bin bin_expr;
-		struct ast_expr_call call_expr;
-		struct ast_expr_unary unary_expr;
-		struct ast_type_pointer pointer_type;
-		struct ast_function function;
-		struct ast_decl decl;
-		struct ast_node *children;
-		struct string ident;
+		ast_stmt_for for_stmt;
+		ast_stmt_if if_stmt;
+		ast_stmt_while while_stmt;
+		ast_expr_bin bin_expr;
+		ast_expr_call call_expr;
+		ast_expr_unary unary_expr;
+		ast_type_pointer pointer_type;
+		ast_function function;
+		ast_decl decl;
+		ast_node *children;
+		string ident;
 		intmax_t ival;
 	} u;
 };
 
 static char *
-get_ast_name(enum ast_node_kind kind)
+get_ast_name(ast_node_kind kind)
 {
 	switch (kind) {
 	case AST_INVALID:       return "INVALID";
