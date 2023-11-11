@@ -8,10 +8,10 @@
 #define MIN(a, b) ((a) < (b)? (a) : (b))
 #define S(x) {(x), sizeof(x) - 1}
 
-struct string {
+typedef struct string {
 	char *at;
 	size_t length;
-};
+} string;
 
 #include "memory.h"
 #include "tokenizer.h"
