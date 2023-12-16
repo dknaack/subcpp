@@ -222,7 +222,7 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	arena *arena = arena_create(1000 * 1000);
+	arena *arena = new_arena(1000 * 1000);
 	symbol_table symbols = {0};
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	ast_node *root = parse(&tokenizer, arena);

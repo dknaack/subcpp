@@ -13,7 +13,7 @@ typedef struct {
 } arena_temp;
 
 static arena *
-arena_create(usize size)
+new_arena(usize size)
 {
 	arena *a = (arena *)calloc(size + sizeof(arena), 1);
 	a->data = (char *)(a + 1);
