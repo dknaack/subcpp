@@ -117,8 +117,7 @@ make_func(u32 index)
 }
 
 static void
-push_instr(machine_program *program,
-    u32 opcode, u32 operand_count)
+push_instr(machine_program *program, u32 opcode, u32 operand_count)
 {
 	machine_instr instr = {0};
 	instr.opcode = opcode;

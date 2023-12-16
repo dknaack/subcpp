@@ -5,8 +5,7 @@ x86_select0(machine_program *out, x86_opcode opcode)
 }
 
 static void
-x86_select1(machine_program *out, x86_opcode opcode,
-    machine_operand dst)
+x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 {
 	machine_operand op0, op1;
 	switch (opcode) {
@@ -521,8 +520,7 @@ x86_is_setcc(x86_opcode opcode)
 }
 
 static void
-x86_generate(stream *out, machine_program program,
-    allocation_info *info)
+x86_generate(stream *out, machine_program program, allocation_info *info)
 {
 	stream_print(out,
 	    "global main\n"

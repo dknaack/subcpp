@@ -64,8 +64,7 @@ hash(string str)
 }
 
 static u32
-emit2_sized(ir_generator *state, ir_opcode opcode, u32 size,
-	u32 op0, u32 op1)
+emit2_sized(ir_generator *state, ir_opcode opcode, u32 size, u32 op0, u32 op1)
 {
 	ASSERT(state->program.instr_count <= state->max_instr_count);
 	ir_instr *instr = &state->program.instrs[state->program.instr_count++];

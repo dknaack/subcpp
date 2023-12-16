@@ -1,6 +1,5 @@
 static void
-add_variable(symbol_table *table, string name,
-	type *type, arena *arena)
+add_variable(symbol_table *table, string name, type *type, arena *arena)
 {
 	symbol *variable = table->free_symbols;
 	if (variable) {
