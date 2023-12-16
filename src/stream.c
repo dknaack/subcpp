@@ -2,14 +2,14 @@
 
 typedef struct {
 	char *buffer;
-	size_t size;
-	size_t used;
+	usize size;
+	usize used;
 	int error;
 	int fd;
 } stream;
 
 static stream
-stream_open(char *filename, size_t size, arena *arena)
+stream_open(char *filename, usize size, arena *arena)
 {
 	stream stream = {0};
 	if (filename) {
@@ -41,7 +41,7 @@ stream_close(stream *stream)
 }
 
 static void
-stream_write(stream *stream, uint8_t byte)
+stream_write(stream *stream, u8 byte)
 {
 	if (stream->used == stream->size) {
 		stream_flush(stream);
@@ -69,7 +69,7 @@ stream_print(stream *stream, char *str)
 }
 
 static void
-stream_printu(stream *stream, uint32_t value)
+stream_printu(stream *stream, u32 value)
 {
 	char number[64] = {0};
 	char *end = number + sizeof(number);
@@ -84,14 +84,14 @@ stream_printu(stream *stream, uint32_t value)
 }
 
 static void
-stream_print_hex(stream *stream, uint32_t value)
+stream_print_hex(stream *stream, u32 value)
 {
 	char hex_number[64] = {0};
 	char *end = hex_number + sizeof(hex_number);
 	char *at = end;
 	*--at = '\0';
 	do {
-		uint8_t hex_digit = value % 16;
+		u8 hex_digit = value % 16;
 		*--at = (hex_digit >= 10 ? 'a' - 10 : '0') + hex_digit;
 		value /= 16;
 	} while (value > 0);
@@ -100,5 +100,3 @@ stream_print_hex(stream *stream, uint32_t value)
 
 	stream_print(stream, at);
 }
-
-

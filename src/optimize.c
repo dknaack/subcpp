@@ -1,21 +1,21 @@
-static uint32_t
-add(uint32_t a, uint32_t b)
+static u32
+add(u32 a, u32 b)
 {
-	uint32_t result = a + b;
+	u32 result = a + b;
 	return result;
 }
 
-static uint32_t
-sub(uint32_t a, uint32_t b)
+static u32
+sub(u32 a, u32 b)
 {
-	uint32_t result = a - b;
+	u32 result = a - b;
 	return result;
 }
 
-static uint32_t
-multiply(uint32_t a, uint32_t b)
+static u32
+multiply(u32 a, u32 b)
 {
-	uint32_t result = a * b;
+	u32 result = a * b;
 	return result;
 }
 
@@ -24,10 +24,10 @@ optimize(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
 
-	bool *addr_used = ZALLOC(arena, program.instr_count, bool);
-	for (uint32_t i = 0; i < program.instr_count; i++) {
-		uint32_t op0 = instrs[i].op0;
-		uint32_t op1 = instrs[i].op1;
+	b32 *addr_used = ZALLOC(arena, program.instr_count, b32);
+	for (u32 i = 0; i < program.instr_count; i++) {
+		u32 op0 = instrs[i].op0;
+		u32 op1 = instrs[i].op1;
 
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 		if (info.op0 == IR_OPERAND_REG_SRC && instrs[op0].opcode == IR_ALLOC) {
@@ -39,23 +39,23 @@ optimize(ir_program program, arena *arena)
 		}
 	}
 
-	for (uint32_t i = 0; i < program.instr_count; i++) {
+	for (u32 i = 0; i < program.instr_count; i++) {
 		if (instrs[i].opcode == IR_LOAD) {
-			uint32_t op0 = instrs[i].op0;
+			u32 op0 = instrs[i].op0;
 			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
 				instrs[i].opcode = IR_MOV;
 				instrs[i].op0 = i;
 				instrs[i].op1 = op0;
 			}
 		} else if (instrs[i].opcode == IR_STORE) {
-			uint32_t op0 = instrs[i].op0;
+			u32 op0 = instrs[i].op0;
 			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
 				instrs[i].opcode = IR_MOV;
 			}
 		}
 	}
 
-	for (uint32_t i = 0; i < program.instr_count; i++) {
+	for (u32 i = 0; i < program.instr_count; i++) {
 		if (instrs[i].opcode == IR_ALLOC) {
 			if (!addr_used[i]) {
 				instrs[i].opcode = IR_NOP;
@@ -63,9 +63,9 @@ optimize(ir_program program, arena *arena)
 		}
 	}
 
-	for (uint32_t i = 0; i < program.instr_count; i++) {
-		uint32_t op0 = instrs[i].op0;
-		uint32_t op1 = instrs[i].op1;
+	for (u32 i = 0; i < program.instr_count; i++) {
+		u32 op0 = instrs[i].op0;
+		u32 op1 = instrs[i].op1;
 
 		switch (instrs[i].opcode) {
 		case IR_ADD:
@@ -143,9 +143,9 @@ optimize(ir_program program, arena *arena)
 		}
 	}
 
-	for (uint32_t i = 0; i < program.instr_count; i++) {
-		uint32_t op0 = instrs[i].op0;
-		uint32_t op1 = instrs[i].op1;
+	for (u32 i = 0; i < program.instr_count; i++) {
+		u32 op0 = instrs[i].op0;
+		u32 op1 = instrs[i].op1;
 		(void)op0;
 		(void)op1;
 

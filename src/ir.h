@@ -40,55 +40,55 @@ typedef struct {
 
 typedef struct {
 	ir_opcode opcode:24;
-	uint32_t size:8;
-	uint32_t op0;
-	uint32_t op1;
+	u32 size:8;
+	u32 op0;
+	u32 op1;
 } ir_instr;
 
 typedef struct {
-	uint32_t start;
-	uint32_t size;
-	uint32_t next[2];
+	u32 start;
+	u32 size;
+	u32 next[2];
 } ir_block;
 
 typedef struct {
 	string name;
-	uint32_t parameter_count;
-	uint32_t instr_index;
-	uint32_t block_index;
-	uint32_t block_count;
+	u32 parameter_count;
+	u32 instr_index;
+	u32 block_index;
+	u32 block_count;
 } ir_function;
 
 typedef struct {
 	ir_instr *instrs;
 	ir_block *blocks;
 	ir_function *functions;
-	uint32_t *toplevel_instr_indices;
+	u32 *toplevel_instr_indices;
 
-	uint32_t block_count;
-	uint32_t register_count;
-	uint32_t function_count;
-	uint32_t toplevel_count;
-	uint32_t instr_count;
-	uint32_t label_count;
+	u32 block_count;
+	u32 register_count;
+	u32 function_count;
+	u32 toplevel_count;
+	u32 instr_count;
+	u32 label_count;
 } ir_program;
 
 typedef struct variable variable;
 struct variable {
 	variable *next;
 	string name;
-	uint32_t vreg;
+	u32 vreg;
 };
 
 typedef struct {
 	ir_program program;
 
-	uint32_t *label_addresses;
-	uint32_t max_instr_count;
+	u32 *label_addresses;
+	u32 max_instr_count;
 
 	variable *variable_table;
-	uint32_t variable_table_size;
+	u32 variable_table_size;
 
-	uint32_t continue_label;
-	uint32_t break_label;
+	u32 continue_label;
+	u32 break_label;
 } ir_generator;

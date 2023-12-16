@@ -43,17 +43,17 @@ ir_generator_init(arena *arena)
 	return state;
 }
 
-static uint32_t
+static u32
 new_label(ir_generator *state)
 {
-	uint32_t result = state->program.label_count++;
+	u32 result = state->program.label_count++;
 	return result;
 }
 
-static uint32_t
+static u32
 hash(string str)
 {
-	uint32_t h = 0x811c9dc5;
+	u32 h = 0x811c9dc5;
 
 	while (str.length-- > 0) {
 		h *= 0x01000193;
@@ -63,9 +63,9 @@ hash(string str)
 	return h;
 }
 
-static uint32_t
-emit2_sized(ir_generator *state, ir_opcode opcode, uint32_t size,
-	uint32_t op0, uint32_t op1)
+static u32
+emit2_sized(ir_generator *state, ir_opcode opcode, u32 size,
+	u32 op0, u32 op1)
 {
 	ASSERT(state->program.instr_count <= state->max_instr_count);
 	ir_instr *instr = &state->program.instrs[state->program.instr_count++];
@@ -77,41 +77,41 @@ emit2_sized(ir_generator *state, ir_opcode opcode, uint32_t size,
 	return state->program.instr_count - 1;
 }
 
-static uint32_t
-emit2(ir_generator *state, ir_opcode opcode, uint32_t op0, uint32_t op1)
+static u32
+emit2(ir_generator *state, ir_opcode opcode, u32 op0, u32 op1)
 {
-	uint32_t result = emit2_sized(state, opcode, 0, op0, op1);
+	u32 result = emit2_sized(state, opcode, 0, op0, op1);
 	return result;
 }
 
-static uint32_t
-emit1_sized(ir_generator *state, ir_opcode opcode, uint32_t size, uint32_t op0)
+static u32
+emit1_sized(ir_generator *state, ir_opcode opcode, u32 size, u32 op0)
 {
-	uint32_t result = emit2_sized(state, opcode, size, op0, 0);
+	u32 result = emit2_sized(state, opcode, size, op0, 0);
 	return result;
 }
 
-static uint32_t
-emit1(ir_generator *state, ir_opcode opcode, uint32_t op0)
+static u32
+emit1(ir_generator *state, ir_opcode opcode, u32 op0)
 {
-	uint32_t result = emit2(state, opcode, op0, 0);
+	u32 result = emit2(state, opcode, op0, 0);
 	return result;
 }
 
-static uint32_t
+static u32
 emit0(ir_generator *state, ir_opcode opcode)
 {
-	uint32_t result = emit2(state, opcode, 0, 0);
+	u32 result = emit2(state, opcode, 0, 0);
 	return result;
 }
 
-static uint32_t
+static u32
 new_register(ir_generator *state, string ident)
 {
 	variable *variable_table = state->variable_table;
-	uint32_t h = hash(ident);
-	for (uint32_t j = 0; j < state->variable_table_size; j++) {
-		uint32_t i = (h + j) & (state->variable_table_size - 1);
+	u32 h = hash(ident);
+	for (u32 j = 0; j < state->variable_table_size; j++) {
+		u32 i = (h + j) & (state->variable_table_size - 1);
 		if (i == 0) {
 			continue;
 		}
@@ -127,10 +127,10 @@ new_register(ir_generator *state, string ident)
 	return 0;
 }
 
-static uint32_t
+static u32
 get_function(ir_generator *state, string ident)
 {
-	for (uint32_t i = 0; i < state->program.function_count; i++) {
+	for (u32 i = 0; i < state->program.function_count; i++) {
 		ir_function *func = &state->program.functions[i];
 		if (string_equals(func->name, ident)) {
 			return i;
@@ -141,13 +141,13 @@ get_function(ir_generator *state, string ident)
 	return state->program.function_count;
 }
 
-static uint32_t
+static u32
 get_register(ir_generator *state, string ident)
 {
 	variable *variable_table = state->variable_table;
-	uint32_t h = hash(ident);
-	for (uint32_t j = 0; j < state->variable_table_size; j++) {
-		uint32_t i = (h + j) & (state->variable_table_size - 1);
+	u32 h = hash(ident);
+	for (u32 j = 0; j < state->variable_table_size; j++) {
+		u32 i = (h + j) & (state->variable_table_size - 1);
 		if (i == 0) {
 			continue;
 		}
@@ -161,10 +161,10 @@ get_register(ir_generator *state, string ident)
 	return 0;
 }
 
-static uint32_t
+static u32
 generate_lvalue(ir_generator *state, ast_node *node)
 {
-	uint32_t result = 0;
+	u32 result = 0;
 
 	switch (node->kind) {
 	case AST_EXPR_IDENT:
@@ -174,7 +174,7 @@ generate_lvalue(ir_generator *state, ast_node *node)
 	case AST_EXPR_BINARY:
 		{
 			ir_opcode opcode = IR_NOP;
-			uint32_t operator = node->u.bin_expr.op;
+			u32 operator = node->u.bin_expr.op;
 			switch (operator) {
 			case TOKEN_ADD: opcode = IR_ADD; break;
 			case TOKEN_SUB: opcode = IR_SUB; break;
@@ -184,9 +184,9 @@ generate_lvalue(ir_generator *state, ast_node *node)
 
 			ast_node *lhs = node->u.bin_expr.lhs;
 			ast_node *rhs = node->u.bin_expr.rhs;
-			uint32_t size = type_sizeof(node->type);
-			uint32_t lhs_reg = generate_lvalue(state, lhs);
-			uint32_t rhs_reg = generate_lvalue(state, rhs);
+			u32 size = type_sizeof(node->type);
+			u32 lhs_reg = generate_lvalue(state, lhs);
+			u32 rhs_reg = generate_lvalue(state, rhs);
 			result = emit2_sized(state, opcode, size, lhs_reg, rhs_reg);
 		} break;
 	case AST_EXPR_INT:
@@ -200,13 +200,13 @@ generate_lvalue(ir_generator *state, ast_node *node)
 	return result;
 }
 
-static uint32_t
+static u32
 generate(ir_generator *state, ast_node *node)
 {
-	uint32_t endif_label, else_label, cond_label, function_label;
-	uint32_t label, param_register[128];
-	uint32_t param_count, result = 0;
-	size_t result_size;
+	u32 endif_label, else_label, cond_label, function_label;
+	u32 label, param_register[128];
+	u32 param_count, result = 0;
+	usize result_size;
 	ast_node *called, *param;
 	ir_function *ir_function;
 	type *return_type;
@@ -218,7 +218,7 @@ generate(ir_generator *state, ast_node *node)
 		break;
 	case AST_EXPR_BINARY:
 		{
-			uint32_t operator = node->u.bin_expr.op;
+			u32 operator = node->u.bin_expr.op;
 			switch (operator) {
 			case TOKEN_ADD:    opcode = IR_ADD;   break;
 			case TOKEN_SUB:    opcode = IR_SUB;   break;
@@ -237,7 +237,7 @@ generate(ir_generator *state, ast_node *node)
 			}
 
 			ast_node *lhs = node->u.bin_expr.lhs;
-			uint32_t lhs_reg = 0;
+			u32 lhs_reg = 0;
 			if (opcode == IR_STORE) {
 				lhs_reg = generate_lvalue(state, lhs);
 			} else {
@@ -245,9 +245,9 @@ generate(ir_generator *state, ast_node *node)
 			}
 
 			ast_node *rhs = node->u.bin_expr.rhs;
-			uint32_t rhs_reg = generate(state, rhs);
+			u32 rhs_reg = generate(state, rhs);
 
-			uint32_t size = type_sizeof(node->type);
+			u32 size = type_sizeof(node->type);
 			result = emit2_sized(state, opcode, size, lhs_reg, rhs_reg);
 		} break;
 	case AST_EXPR_CALL:
@@ -263,8 +263,8 @@ generate(ir_generator *state, ast_node *node)
 			}
 
 			param = node->u.call_expr.params;
-			for (uint32_t i = 0; i < param_count; i++) {
-				uint32_t param_size = type_sizeof(param->type);
+			for (u32 i = 0; i < param_count; i++) {
+				u32 param_size = type_sizeof(param->type);
 				emit1_sized(state, IR_PARAM, param_size, param_register[i]);
 				param = param->next;
 			}
@@ -276,8 +276,8 @@ generate(ir_generator *state, ast_node *node)
 		break;
 	case AST_EXPR_IDENT:
 		{
-			uint32_t size = type_sizeof(node->type);
-			uint32_t addr = get_register(state, node->u.ident);
+			u32 size = type_sizeof(node->type);
+			u32 addr = get_register(state, node->u.ident);
 			result = emit1_sized(state, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
@@ -315,7 +315,7 @@ generate(ir_generator *state, ast_node *node)
 	case AST_DECL:
 		result = new_register(state, node->u.decl.name);
 		if (node->u.decl.expr) {
-			uint32_t expr = generate(state, node->u.decl.expr);
+			u32 expr = generate(state, node->u.decl.expr);
 			emit2(state, IR_STORE, result, expr);
 		}
 
@@ -406,13 +406,13 @@ generate(ir_generator *state, ast_node *node)
 	return result;
 }
 
-static bool
-is_block_start(ir_program *program, uint32_t i)
+static b32
+is_block_start(ir_program *program, u32 i)
 {
-	uint32_t curr = program->toplevel_instr_indices[i];
-	bool result = (i == 0 || program->instrs[curr].opcode == IR_LABEL);
+	u32 curr = program->toplevel_instr_indices[i];
+	b32 result = (i == 0 || program->instrs[curr].opcode == IR_LABEL);
 	if (!result) {
-		uint32_t prev = program->toplevel_instr_indices[i-1];
+		u32 prev = program->toplevel_instr_indices[i-1];
 		result = (program->instrs[prev].opcode == IR_JMP
 		    || program->instrs[prev].opcode == IR_JIZ
 		    || program->instrs[prev].opcode == IR_RET);
@@ -424,8 +424,8 @@ is_block_start(ir_program *program, uint32_t i)
 static void
 construct_cfg(ir_program *program, arena *arena)
 {
-	uint32_t block_count = 0;
-	for (uint32_t i = 0; i < program->toplevel_count; i++) {
+	u32 block_count = 0;
+	for (u32 i = 0; i < program->toplevel_count; i++) {
 		if (is_block_start(program, i)) {
 			block_count++;
 		}
@@ -437,14 +437,14 @@ construct_cfg(ir_program *program, arena *arena)
 	arena_temp temp = arena_temp_begin(arena);
 
 	/* replace labels with block indices */
-	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
-	uint32_t block_index = 0;
-	for (uint32_t j = 0; j < program->toplevel_count; j++) {
+	u32 *block_indices = ALLOC(arena, program->label_count, u32);
+	u32 block_index = 0;
+	for (u32 j = 0; j < program->toplevel_count; j++) {
 		if (is_block_start(program, j)) {
-			uint32_t i = program->toplevel_instr_indices[j];
-			uint32_t opcode = program->instrs[i].opcode;
+			u32 i = program->toplevel_instr_indices[j];
+			u32 opcode = program->instrs[i].opcode;
 			if (opcode == IR_LABEL) {
-				uint32_t label = program->instrs[i].op0;
+				u32 label = program->instrs[i].op0;
 				block_indices[label] = i;
 				program->instrs[i].op0 = block_index;
 			}
@@ -453,24 +453,24 @@ construct_cfg(ir_program *program, arena *arena)
 		}
 	}
 
-	for (uint32_t j = 0; j < program->toplevel_count; j++) {
-		uint32_t i = program->toplevel_instr_indices[j];
+	for (u32 j = 0; j < program->toplevel_count; j++) {
+		u32 i = program->toplevel_instr_indices[j];
 		ir_instr *instr = &program->instrs[i];
 		ir_opcode opcode = instr->opcode;
 		if (opcode == IR_JMP) {
-			uint32_t block = block_indices[instr->op0];
+			u32 block = block_indices[instr->op0];
 			ASSERT(block > 0);
 			instr->op0 = block;
 		} else if (opcode == IR_JIZ) {
-			uint32_t block = block_indices[instr->op1];
+			u32 block = block_indices[instr->op1];
 			ASSERT(block > 0);
 			instr->op1 = block;
 		}
 	}
 
-	for (uint32_t i = 0; i < program->function_count; i++) {
-		uint32_t label = program->functions[i].block_index;
-		uint32_t block_index = block_indices[label];
+	for (u32 i = 0; i < program->function_count; i++) {
+		u32 label = program->functions[i].block_index;
+		u32 block_index = block_indices[label];
 		block_index = program->instrs[block_index].op0;
 		program->functions[i].block_index = block_index;
 		ASSERT(block_index < program->block_count);
@@ -487,7 +487,7 @@ construct_cfg(ir_program *program, arena *arena)
 
 	/* calculate size of each block */
 	ir_block *blocks = program->blocks;
-	for (uint32_t i = 0; i < program->block_count; i++) {
+	for (u32 i = 0; i < program->block_count; i++) {
 		if (i + 1 < program->block_count) {
 			blocks[i].size = blocks[i+1].start - blocks[i].start;
 		} else {
@@ -499,8 +499,8 @@ construct_cfg(ir_program *program, arena *arena)
 
 	/* determine the next block */
 	ir_instr *instrs = program->instrs;
-	for (uint32_t i = 0; i < program->block_count; i++) {
-		uint32_t block_end = blocks[i].start + blocks[i].size - 1;
+	for (u32 i = 0; i < program->block_count; i++) {
+		u32 block_end = blocks[i].start + blocks[i].size - 1;
 		switch (instrs[block_end].opcode) {
 		case IR_JMP:
 			blocks[i].next[0] = instrs[block_end].op0;
@@ -576,13 +576,13 @@ get_opcode_info(ir_opcode opcode)
 	return info;
 }
 
-static uint32_t *
+static u32 *
 get_usage_count(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
-	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
+	u32 *usage_count = ZALLOC(arena, program.register_count, u32);
 
-	for (uint32_t i = 0; i < program.register_count; i++) {
+	for (u32 i = 0; i < program.register_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_LABEL) {
 			usage_count[instrs[i].op0]++;
@@ -600,20 +600,20 @@ static void
 mark_toplevel_instructions(ir_program *program, arena *arena)
 {
 	arena_temp temp = arena_temp_begin(arena);
-	uint32_t *toplevel_instrs = ALLOC(arena, program->instr_count, uint32_t);
-	uint32_t *usage_count = get_usage_count(*program, arena);
+	u32 *toplevel_instrs = ALLOC(arena, program->instr_count, u32);
+	u32 *usage_count = get_usage_count(*program, arena);
 	ir_instr *instrs = program->instrs;
-	uint32_t toplevel_count = 0;
-	for (uint32_t i = 0; i < program->instr_count; i++) {
+	u32 toplevel_count = 0;
+	for (u32 i = 0; i < program->instr_count; i++) {
 		ir_opcode opcode = instrs[i].opcode;
-		bool is_toplevel_instr = (usage_count[i] == 0 || opcode == IR_LABEL);
+		b32 is_toplevel_instr = (usage_count[i] == 0 || opcode == IR_LABEL);
 		if (is_toplevel_instr) {
 			toplevel_instrs[toplevel_count++] = i;
 		}
 	}
 
 	arena_temp_end(temp);
-	program->toplevel_instr_indices = ALLOC(arena, toplevel_count, uint32_t);
+	program->toplevel_instr_indices = ALLOC(arena, toplevel_count, u32);
 	program->toplevel_count = toplevel_count;
 }
 
@@ -622,7 +622,7 @@ ir_generate(ast_node *root, arena *arena)
 {
 	ir_generator generator = ir_generator_init(arena);
 
-	uint32_t function_count = 0;
+	u32 function_count = 0;
 	for (ast_node *node = root->u.children; node; node = node->next) {
 		function_count += (node->kind == AST_FUNCTION);
 	}

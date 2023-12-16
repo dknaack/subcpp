@@ -49,7 +49,7 @@ typedef enum {
 	X86_PRINT
 } x86_opcode;
 
-static uint32_t x86_temp_regs[] = {
+static u32 x86_temp_regs[] = {
 	X86_RAX,
 	X86_RCX,
 	X86_RDX,
@@ -61,7 +61,7 @@ static uint32_t x86_temp_regs[] = {
 	X86_R11,
 };
 
-static uint32_t x86_preserved_regs[] = {
+static u32 x86_preserved_regs[] = {
 	X86_RBX,
 	X86_RBP,
 	X86_R12,
@@ -127,7 +127,7 @@ x86_get_byte_register_name(x86_register reg)
 }
 
 static char *
-x86_get_register_name(x86_register reg, uint32_t size)
+x86_get_register_name(x86_register reg, u32 size)
 {
 	switch (size) {
 	case 1:

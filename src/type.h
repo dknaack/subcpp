@@ -1,6 +1,6 @@
 typedef struct type type;
 typedef struct {
-	uint32_t value;
+	u32 value;
 } type_id;
 
 typedef enum {
@@ -69,7 +69,7 @@ type_create(type_kind kind, arena *arena)
 	return t;
 }
 
-static size_t
+static usize
 type_sizeof(type *type)
 {
 	switch (type->kind) {

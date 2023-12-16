@@ -74,7 +74,7 @@ x86_select2(machine_program *out, x86_opcode opcode,
 	}
 }
 
-static bool
+static b32
 x86_is_comparison_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
@@ -120,11 +120,11 @@ x86_get_jcc_opcode(ir_opcode ir_opcode)
 }
 
 static void x86_select_instr(machine_program *out,
-    ir_instr *instr, uint32_t instr_index, machine_operand dst);
+    ir_instr *instr, u32 instr_index, machine_operand dst);
 
 static machine_operand
 x86_select_immediate(machine_program *out,
-	ir_instr *instr, uint32_t instr_index)
+	ir_instr *instr, u32 instr_index)
 {
 	machine_operand result;
 	if (instr[instr_index].opcode == IR_CONST) {
@@ -138,7 +138,7 @@ x86_select_immediate(machine_program *out,
 }
 
 static void
-x86_alloc(machine_program *out, uint32_t id, uint32_t size)
+x86_alloc(machine_program *out, u32 id, u32 size)
 {
 	(void)out;
 	(void)id;
@@ -147,12 +147,12 @@ x86_alloc(machine_program *out, uint32_t id, uint32_t size)
 
 static void
 x86_select_instr(machine_program *out, ir_instr *instr,
-    uint32_t instr_index, machine_operand dst)
+    u32 instr_index, machine_operand dst)
 {
 	dst.size = MIN(dst.size, instr[instr_index].size);
 
-	uint32_t op0 = instr[instr_index].op0;
-	uint32_t op1 = instr[instr_index].op1;
+	u32 op0 = instr[instr_index].op0;
+	u32 op1 = instr[instr_index].op1;
 	ir_opcode opcode = instr[instr_index].opcode;
 	switch (opcode) {
 	case IR_CONST:
@@ -289,10 +289,10 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_CALL:
 		{
-			for (uint32_t i = 1; i <= op1; i++) {
+			for (u32 i = 1; i <= op1; i++) {
 				ASSERT(instr[instr_index - i].opcode == IR_PARAM);
 				machine_operand src = make_vreg(instr[instr_index - i].op0);
-				uint32_t parameter_index = i - 1;
+				u32 parameter_index = i - 1;
 				switch (parameter_index) {
 				case 0:
 					{
@@ -359,13 +359,13 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.temp_mregs = x86_temp_regs;
 	out.temp_mreg_count = LENGTH(x86_temp_regs);
 
-	for (uint32_t f = 0; f < program.function_count; f++) {
+	for (u32 f = 0; f < program.function_count; f++) {
 		ir_function ir_function = program.functions[f];
 		out.functions[f].name = ir_function.name;
 		out.functions[f].block_index = ir_function.block_index;
 		out.functions[f].instr_index = out.size;
 
-		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
+		for (u32 i = 0; i < ir_function.parameter_count; i++) {
 			ir_instr instr = program.instrs[ir_function.instr_index+i];
 			ASSERT(instr.opcode == IR_ALLOC);
 			machine_operand dst = make_vreg(ir_function.instr_index+i);
@@ -392,13 +392,13 @@ x86_select_instructions(ir_program program, arena *arena)
 			}
 		}
 
-		uint32_t first_block = ir_function.block_index;
-		uint32_t last_block = first_block + ir_function.block_count;
-		for (uint32_t b = first_block; b < last_block; b++) {
+		u32 first_block = ir_function.block_index;
+		u32 last_block = first_block + ir_function.block_count;
+		for (u32 b = first_block; b < last_block; b++) {
 			ir_block block = program.blocks[b];
 			out.blocks[b].instr_index = out.size;
-			for (uint32_t i = block.start; i < block.start + block.size; i++) {
-				uint32_t instr_index = program.toplevel_instr_indices[i];
+			for (u32 i = block.start; i < block.start + block.size; i++) {
+				u32 instr_index = program.toplevel_instr_indices[i];
 				ir_instr instr = program.instrs[instr_index];
 				machine_operand dst = make_vreg(instr_index);
 				if (instr.opcode == IR_MOV) {
@@ -419,8 +419,8 @@ x86_select_instructions(ir_program program, arena *arena)
 		code += get_instr_size(*(machine_instr *)code);
 	}
 
-	out.instr_offsets = ALLOC(arena, out.instr_count, uint32_t);
-	uint32_t instr_index = 0;
+	out.instr_offsets = ALLOC(arena, out.instr_count, u32);
+	u32 instr_index = 0;
 	code = start;
 	while (code < end) {
 		out.instr_offsets[instr_index++] = code - start;
@@ -429,8 +429,8 @@ x86_select_instructions(ir_program program, arena *arena)
 
 	/* Convert instruction offset to instruction index */
 	instr_index = 0;
-	for (uint32_t i = 0; i < out.block_count; i++) {
-		uint32_t offset = out.blocks[i].instr_index;
+	for (u32 i = 0; i < out.block_count; i++) {
+		u32 offset = out.blocks[i].instr_index;
 		while (out.instr_offsets[instr_index] < offset) {
 			instr_index++;
 		}
@@ -439,8 +439,8 @@ x86_select_instructions(ir_program program, arena *arena)
 	}
 
 	instr_index = 0;
-	for (uint32_t i = 0; i < out.function_count; i++) {
-		uint32_t offset = out.functions[i].instr_index;
+	for (u32 i = 0; i < out.function_count; i++) {
+		u32 offset = out.functions[i].instr_index;
 		while (out.instr_offsets[instr_index] < offset) {
 			instr_index++;
 		}
@@ -505,7 +505,7 @@ x86_emit_operand(stream *out, machine_operand operand,
 	}
 }
 
-static bool
+static b32
 x86_is_setcc(x86_opcode opcode)
 {
 	switch (opcode) {
@@ -531,9 +531,9 @@ x86_generate(stream *out, machine_program program,
 	    "fmt: db \"%d\", 0x0A, 0\n\n"
 	    "section .text\n");
 
-	for (uint32_t function_index = 0; function_index < program.function_count; function_index++) {
-		uint32_t first_instr = program.functions[function_index].instr_index;
-		uint32_t last_instr = program.instr_count;
+	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
+		u32 first_instr = program.functions[function_index].instr_index;
+		u32 last_instr = program.instr_count;
 		if (function_index + 1 < program.function_count) {
 			last_instr = program.functions[function_index+1].instr_index;
 		}
@@ -541,8 +541,8 @@ x86_generate(stream *out, machine_program program,
 		stream_prints(out, program.functions[function_index].name);
 		stream_print(out, ":\n");
 
-		for (uint32_t j = 0; j < LENGTH(x86_preserved_regs); j++) {
-			uint32_t mreg = x86_preserved_regs[j];
+		for (u32 j = 0; j < LENGTH(x86_preserved_regs); j++) {
+			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
 				x86_emit_operand(out, make_mreg(mreg), program.functions);
@@ -550,18 +550,18 @@ x86_generate(stream *out, machine_program program,
 			}
 		}
 
-		uint32_t stack_size = info[function_index].spill_count * 8;
+		u32 stack_size = info[function_index].spill_count * 8;
 		if (stack_size > 0) {
 			stream_print(out, "\tsub rsp, ");
 			stream_printu(out, stack_size);
 			stream_print(out, "\n");
 		}
 
-		for (uint32_t i = first_instr; i < last_instr; i++) {
+		for (u32 i = first_instr; i < last_instr; i++) {
 			machine_instr *instr = get_instr(program, i);
 			machine_operand *operands = (machine_operand *)(instr + 1);
 			x86_opcode opcode = (x86_opcode)instr->opcode;
-			uint32_t operand_count = instr->operand_count;
+			u32 operand_count = instr->operand_count;
 
 			if (opcode == X86_PRINT) {
 				stream_print(out,
@@ -585,9 +585,9 @@ x86_generate(stream *out, machine_program program,
 				}
 
 				if (opcode == X86_RET) {
-					uint32_t j = LENGTH(x86_preserved_regs);
+					u32 j = LENGTH(x86_preserved_regs);
 					while (j-- > 0) {
-						uint32_t mreg = x86_preserved_regs[j];
+						u32 mreg = x86_preserved_regs[j];
 						if (info[function_index].used[mreg]) {
 							stream_print(out, "\tpop ");
 							x86_emit_operand(out, make_mreg(mreg), program.functions);

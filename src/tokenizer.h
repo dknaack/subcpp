@@ -43,13 +43,13 @@ typedef struct token {
 
 typedef struct location {
 	char *file;
-	uint32_t line;
-	uint32_t column;
+	u32 line;
+	u32 column;
 } location;
 
 typedef struct tokenizer {
 	location loc;
 	struct string source;
-	size_t pos;
-	bool error;
+	usize pos;
+	b32 error;
 } tokenizer;

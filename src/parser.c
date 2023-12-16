@@ -39,7 +39,7 @@ syntax_error(tokenizer *tokenizer, char *fmt, ...)
 	va_end(ap);
 }
 
-static bool
+static b32
 accept(tokenizer *tokenizer, token_kind expected_token)
 {
 	token token = peek_token(tokenizer);
@@ -191,7 +191,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 				return NULL;
 			}
 
-			bool is_right_associative = (precedence < 0);
+			b32 is_right_associative = (precedence < 0);
 			if (is_right_associative) {
 				precedence = -precedence;
 			}
@@ -231,7 +231,7 @@ typedef enum {
 } parse_decl_flags;
 
 static ast_node *
-parse_decl(tokenizer *tokenizer, uint32_t flags, arena *arena)
+parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 {
 	ast_node *decl;
 	ast_node **ptr = &decl;

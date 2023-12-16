@@ -9,7 +9,7 @@
 static void
 print_program(ir_program program)
 {
-	for (uint32_t i = 0; i < program.instr_count; i++) {
+	for (u32 i = 0; i < program.instr_count; i++) {
 		printf("%2d| ", i);
 		ir_instr instr = program.instrs[i];
 
@@ -21,9 +21,9 @@ print_program(ir_program program)
 		case 8: c = "q"; break;
 		}
 
-		uint32_t dst = i;
-		uint32_t op0 = instr.op0;
-		uint32_t op1 = instr.op1;
+		u32 dst = i;
+		u32 op0 = instr.op0;
+		u32 op1 = instr.op1;
 		switch (instr.opcode) {
 		case IR_NOP:   printf("\tNOP\n"); break;
 		case IR_CONST: printf("\tMOV\tr%d%s, %d\n", dst, c, op0); break;

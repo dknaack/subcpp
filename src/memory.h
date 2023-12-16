@@ -3,17 +3,17 @@
 
 typedef struct arena {
 	char *data;
-	size_t size;
-	size_t pos;
+	usize size;
+	usize pos;
 } arena;
 
 typedef struct arena_temp {
 	struct arena *arena;
-	size_t pos;
+	usize pos;
 } arena_temp;
 
 static arena *
-arena_create(size_t size)
+arena_create(usize size)
 {
 	arena *arena = (struct arena *)calloc(size + sizeof(*arena), 1);
 	arena->data = (char *)(arena + 1);
@@ -22,7 +22,7 @@ arena_create(size_t size)
 }
 
 static void *
-alloc(arena *arena, size_t count, size_t size)
+alloc(arena *arena, usize count, usize size)
 {
 	ASSERT(arena->pos + size * count < arena->size);
 	arena->pos = (arena->pos + 7) & -8;
@@ -32,10 +32,10 @@ alloc(arena *arena, size_t count, size_t size)
 }
 
 static void *
-zalloc(arena *arena, size_t count, size_t size)
+zalloc(arena *arena, usize count, usize size)
 {
 	char *byte = (char *)alloc(arena, count, size);
-	for (size_t i = 0; i < count * size; i++) {
+	for (usize i = 0; i < count * size; i++) {
 		byte[i] = 0;
 	}
 

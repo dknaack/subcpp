@@ -53,7 +53,7 @@ pop_scope(symbol_table *table)
 	}
 }
 
-static bool
+static b32
 type_equals(type *lhs, type *rhs)
 {
 	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
@@ -81,7 +81,7 @@ type_equals(type *lhs, type *rhs)
 			rhs = rhs->next;
 		}
 
-		bool result = (lhs == NULL && rhs == NULL);
+		b32 result = (lhs == NULL && rhs == NULL);
 		return result;
 	default:
 		return true;

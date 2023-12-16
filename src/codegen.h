@@ -1,6 +1,6 @@
 typedef struct {
-	uint32_t opcode:24;
-	uint32_t operand_count:8;
+	u32 opcode:24;
+	u32 operand_count:8;
 } machine_instr;
 
 typedef enum {
@@ -23,45 +23,45 @@ typedef struct {
 	uint8_t kind;
 	uint8_t size;
 	uint16_t flags;
-	uint32_t value;
+	u32 value;
 } machine_operand;
 
 typedef struct {
-	uint32_t instr_index;
+	u32 instr_index;
 } machine_block;
 
 typedef struct {
 	string name;
-	uint32_t block_index;
-	uint32_t instr_index;
+	u32 block_index;
+	u32 instr_index;
 } machine_function;
 
 typedef struct {
 	void *code;
-	uint32_t *instr_offsets;
+	u32 *instr_offsets;
 	machine_block *blocks;
 	machine_function *functions;
-	uint32_t *temp_mregs;
+	u32 *temp_mregs;
 
-	uint32_t size;
-	uint32_t max_size;
-	uint32_t mreg_count;
-	uint32_t vreg_count;
-	uint32_t instr_count;
-	uint32_t block_count;
-	uint32_t function_count;
-	uint32_t temp_mreg_count;
+	u32 size;
+	u32 max_size;
+	u32 mreg_count;
+	u32 vreg_count;
+	u32 instr_count;
+	u32 block_count;
+	u32 function_count;
+	u32 temp_mreg_count;
 } machine_program;
 
-static bool
+static b32
 machine_operand_equals(machine_operand a, machine_operand b)
 {
-	bool result = (a.kind == b.kind && a.value == b.value);
+	b32 result = (a.kind == b.kind && a.value == b.value);
 	return result;
 }
 
 static machine_operand
-make_mreg(uint32_t mreg)
+make_mreg(u32 mreg)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_MREG;
@@ -70,7 +70,7 @@ make_mreg(uint32_t mreg)
 }
 
 static machine_operand
-make_vreg(uint32_t vreg)
+make_vreg(u32 vreg)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_VREG;
@@ -80,7 +80,7 @@ make_vreg(uint32_t vreg)
 }
 
 static machine_operand
-make_spill(uint32_t index)
+make_spill(u32 index)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_SPILL;
@@ -90,7 +90,7 @@ make_spill(uint32_t index)
 }
 
 static machine_operand
-make_immediate(uint32_t value)
+make_immediate(u32 value)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_IMMEDIATE;
@@ -99,7 +99,7 @@ make_immediate(uint32_t value)
 }
 
 static machine_operand
-make_label(uint32_t value)
+make_label(u32 value)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_LABEL;
@@ -108,7 +108,7 @@ make_label(uint32_t value)
 }
 
 static machine_operand
-make_func(uint32_t index)
+make_func(u32 index)
 {
 	machine_operand operand = {0};
 	operand.kind = MOP_FUNC;
@@ -118,7 +118,7 @@ make_func(uint32_t index)
 
 static void
 push_instr(machine_program *program,
-    uint32_t opcode, uint32_t operand_count)
+    u32 opcode, u32 operand_count)
 {
 	machine_instr instr = {0};
 	instr.opcode = opcode;
@@ -136,18 +136,18 @@ push_operand(machine_program *program, machine_operand operand)
 	program->size += sizeof(operand);
 }
 
-static uint32_t
+static u32
 get_instr_size(machine_instr instr)
 {
-	uint32_t size = sizeof(instr);
+	u32 size = sizeof(instr);
 	size += instr.operand_count * sizeof(machine_operand);
 	return size;
 }
 
 static machine_instr *
-get_instr(machine_program program, uint32_t instr_index)
+get_instr(machine_program program, u32 instr_index)
 {
-	uint32_t offset = program.instr_offsets[instr_index];
+	u32 offset = program.instr_offsets[instr_index];
 	char *ptr = (char *)program.code;
 	machine_instr *instr = (machine_instr *)(ptr + offset);
 	return instr;

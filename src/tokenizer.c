@@ -84,17 +84,17 @@ advance(tokenizer *tokenizer)
 	return c;
 }
 
-static bool
+static b32
 is_alpha(char c)
 {
-	bool result = ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
+	b32 result = ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
 	return result;
 }
 
-static bool
+static b32
 is_digit(char c)
 {
-	bool result = ('0' <= c && c <= '9');
+	b32 result = ('0' <= c && c <= '9');
 	return result;
 }
 
@@ -173,7 +173,7 @@ get_raw_token(tokenizer *tokenizer)
 	return token;
 }
 
-static bool
+static b32
 string_equals(string a, string b)
 {
 	if (a.length != b.length) {
@@ -213,7 +213,7 @@ get_token(tokenizer *tokenizer)
 	do {
 		token = get_raw_token(tokenizer);
 		if (token.kind == TOKEN_IDENT) {
-			for (size_t i = 0; i < LENGTH(keywords); i++) {
+			for (usize i = 0; i < LENGTH(keywords); i++) {
 				if (string_equals(token.value, keywords[i].str)) {
 					token.kind = keywords[i].token;
 					break;
