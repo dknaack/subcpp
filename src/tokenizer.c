@@ -98,8 +98,8 @@ is_digit(char c)
 	return result;
 }
 
-static enum token_kind
-eat1(tokenizer *tokenizer, enum token_kind default_kind, char c1, enum token_kind kind1)
+static token_kind
+eat1(tokenizer *tokenizer, token_kind default_kind, char c1, token_kind kind1)
 {
 	char c = advance(tokenizer);
 	if (c == c1) {

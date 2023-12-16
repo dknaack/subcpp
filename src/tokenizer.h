@@ -1,4 +1,4 @@
-typedef enum token_kind {
+typedef enum {
 	TOKEN_INVALID,
 	TOKEN_EOF,
 	TOKEN_COMMA,
@@ -36,20 +36,20 @@ typedef enum token_kind {
 	TOKEN_COUNT
 } token_kind;
 
-typedef struct token {
+typedef struct {
 	token_kind kind;
-	struct string value;
+	string value;
 } token;
 
-typedef struct location {
+typedef struct {
 	char *file;
 	u32 line;
 	u32 column;
 } location;
 
-typedef struct tokenizer {
+typedef struct {
 	location loc;
-	struct string source;
+	string source;
 	usize pos;
 	b32 error;
 } tokenizer;

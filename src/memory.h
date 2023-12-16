@@ -1,24 +1,24 @@
 #define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
 #define ZALLOC(arena, count, type) ((type *)zalloc(arena, count, sizeof(type)))
 
-typedef struct arena {
+typedef struct {
 	char *data;
 	usize size;
 	usize pos;
 } arena;
 
-typedef struct arena_temp {
-	struct arena *arena;
+typedef struct {
+	arena *arena;
 	usize pos;
 } arena_temp;
 
 static arena *
 arena_create(usize size)
 {
-	arena *arena = (struct arena *)calloc(size + sizeof(*arena), 1);
-	arena->data = (char *)(arena + 1);
-	arena->size = size;
-	return arena;
+	arena *a = (arena *)calloc(size + sizeof(arena), 1);
+	a->data = (char *)(a + 1);
+	a->size = size;
+	return a;
 }
 
 static void *
