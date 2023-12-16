@@ -1,17 +1,17 @@
 #include <fcntl.h>
 
-struct stream {
+typedef struct {
 	char *buffer;
 	size_t size;
 	size_t used;
 	int error;
 	int fd;
-};
+} stream;
 
-static struct stream
-stream_open(char *filename, size_t size, struct arena *arena)
+static stream
+stream_open(char *filename, size_t size, arena *arena)
 {
-	struct stream stream = {0};
+	stream stream = {0};
 	if (filename) {
 		stream.fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0666);
 	} else {
@@ -24,7 +24,7 @@ stream_open(char *filename, size_t size, struct arena *arena)
 }
 
 static void
-stream_flush(struct stream *stream)
+stream_flush(stream *stream)
 {
 	stream->error |= (stream->fd < 0);
 	if (!stream->error && stream->used > 0) {
@@ -34,14 +34,14 @@ stream_flush(struct stream *stream)
 }
 
 static void
-stream_close(struct stream *stream)
+stream_close(stream *stream)
 {
 	stream_flush(stream);
 	stream->fd = -1;
 }
 
 static void
-stream_write(struct stream *stream, uint8_t byte)
+stream_write(stream *stream, uint8_t byte)
 {
 	if (stream->used == stream->size) {
 		stream_flush(stream);
@@ -53,7 +53,7 @@ stream_write(struct stream *stream, uint8_t byte)
 }
 
 static void
-stream_prints(struct stream *stream, struct string str)
+stream_prints(stream *stream, string str)
 {
 	while (str.length-- > 0) {
 		stream_write(stream, *str.at++);
@@ -61,7 +61,7 @@ stream_prints(struct stream *stream, struct string str)
 }
 
 static void
-stream_print(struct stream *stream, char *str)
+stream_print(stream *stream, char *str)
 {
 	while (*str) {
 		stream_write(stream, *str++);
@@ -69,7 +69,7 @@ stream_print(struct stream *stream, char *str)
 }
 
 static void
-stream_printu(struct stream *stream, uint32_t value)
+stream_printu(stream *stream, uint32_t value)
 {
 	char number[64] = {0};
 	char *end = number + sizeof(number);
@@ -84,7 +84,7 @@ stream_printu(struct stream *stream, uint32_t value)
 }
 
 static void
-stream_print_hex(struct stream *stream, uint32_t value)
+stream_print_hex(stream *stream, uint32_t value)
 {
 	char hex_number[64] = {0};
 	char *end = hex_number + sizeof(hex_number);

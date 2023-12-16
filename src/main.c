@@ -7,11 +7,11 @@
 #include "main.h"
 
 static void
-print_program(struct ir_program program)
+print_program(ir_program program)
 {
 	for (uint32_t i = 0; i < program.instr_count; i++) {
 		printf("%2d| ", i);
-		struct ir_instr instr = program.instrs[i];
+		ir_instr instr = program.instrs[i];
 
 		char *c = "";
 		switch (instr.size) {
@@ -64,7 +64,7 @@ print_program(struct ir_program program)
 #include "x86.c"
 
 static void
-print_node(struct ast_node *node, int indent)
+print_node(ast_node *node, int indent)
 {
 	for (int i = 0; i < indent; i++) {
 		printf("    ");
@@ -222,21 +222,21 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	struct arena *arena = arena_create(1000 * 1000);
-	struct symbol_table symbols = {0};
-	struct tokenizer tokenizer = tokenize(argv[1], arena);
-	struct ast_node *root = parse(&tokenizer, arena);
+	arena *arena = arena_create(1000 * 1000);
+	symbol_table symbols = {0};
+	tokenizer tokenizer = tokenize(argv[1], arena);
+	ast_node *root = parse(&tokenizer, arena);
 	check_node(root, &symbols, arena);
 	if (tokenizer.error) {
 		free(arena);
 		return 1;
 	}
 
-	struct ir_program ir_program = ir_generate(root, arena);
+	ir_program ir_program = ir_generate(root, arena);
 	optimize(ir_program, arena);
-	struct machine_program machine_program = x86_select_instructions(ir_program, arena);
-	struct allocation_info *info = allocate_registers(machine_program, arena);
-	struct stream out = stream_open("/tmp/out.s", 1024, arena);
+	machine_program machine_program = x86_select_instructions(ir_program, arena);
+	allocation_info *info = allocate_registers(machine_program, arena);
+	stream out = stream_open("/tmp/out.s", 1024, arena);
 	x86_generate(&out, machine_program, info);
 	stream_close(&out);
 	run_assembler("/tmp/out.s", "/tmp/out.o");

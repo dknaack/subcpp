@@ -1,51 +1,53 @@
-struct type_id {
+typedef struct type type;
+typedef struct {
 	uint32_t value;
-};
+} type_id;
 
-enum type_kind {
+typedef enum {
 	TYPE_UNKNOWN,
 	TYPE_CHAR,
 	TYPE_FUNCTION,
 	TYPE_INT,
 	TYPE_POINTER,
 	TYPE_VOID,
-};
+} type_kind;
 
-struct type_function {
-	struct type *return_type;
-	struct type *param_types;
-};
+typedef struct {
+	type *return_type;
+	type *param_types;
+} type_function;
 
-struct type_pointer {
-	struct type *target;
-};
+typedef struct {
+	type *target;
+} type_pointer;
 
 struct type {
-	enum type_kind kind;
-	struct type *next;
+	type_kind kind;
+	type *next;
 
 	union {
-		struct type_function function;
-		struct type_pointer pointer;
+		type_function function;
+		type_pointer pointer;
 	} u;
 };
 
+typedef struct symbol symbol;
 struct symbol {
-	struct symbol *next;
-	struct string name;
-	struct type *type;
+	symbol *next;
+	string name;
+	type *type;
 };
 
-struct symbol_table {
-	struct symbol *symbols;
-	struct symbol *free_symbols;
-};
+typedef struct {
+	symbol *symbols;
+	symbol *free_symbols;
+} symbol_table;
 
-static struct string scope_marker = S("(scope)");
-static struct type type_void = {TYPE_VOID};
+static string scope_marker = S("(scope)");
+static type type_void = {TYPE_VOID};
 
 static char *
-type_get_name(enum type_kind type)
+type_get_name(type_kind type)
 {
 	switch (type) {
 	case TYPE_VOID:     return "void";
@@ -59,16 +61,16 @@ type_get_name(enum type_kind type)
 	return "(invalid)";
 }
 
-static struct type *
-type_create(enum type_kind kind, struct arena *arena)
+static type *
+type_create(type_kind kind, arena *arena)
 {
-	struct type *type = ZALLOC(arena, 1, struct type);
-	type->kind = kind;
-	return type;
+	type *t = ZALLOC(arena, 1, type);
+	t->kind = kind;
+	return t;
 }
 
 static size_t
-type_sizeof(struct type *type)
+type_sizeof(type *type)
 {
 	switch (type->kind) {
 	case TYPE_CHAR:

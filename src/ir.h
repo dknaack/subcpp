@@ -1,4 +1,4 @@
-enum ir_opcode {
+typedef enum {
 	IR_NOP,
 	IR_LABEL,
 	IR_CONST,
@@ -22,9 +22,9 @@ enum ir_opcode {
 	IR_PRINT,
 	IR_LOAD,
 	IR_STORE,
-};
+} ir_opcode;
 
-enum ir_operand_type {
+typedef enum {
 	IR_OPERAND_NONE,
 	IR_OPERAND_REG_SRC,
 	IR_OPERAND_REG_DST,
@@ -32,37 +32,37 @@ enum ir_operand_type {
 	IR_OPERAND_LABEL,
 	IR_OPERAND_FUNC,
 	IR_OPERAND_COUNT
-};
+} ir_operand_type;
 
-struct ir_opcode_info {
-	enum ir_operand_type op0, op1;
-};
+typedef struct {
+	ir_operand_type op0, op1;
+} ir_opcode_info;
 
-struct ir_instr {
-	enum ir_opcode opcode:24;
+typedef struct {
+	ir_opcode opcode:24;
 	uint32_t size:8;
 	uint32_t op0;
 	uint32_t op1;
-};
+} ir_instr;
 
-struct ir_block {
+typedef struct {
 	uint32_t start;
 	uint32_t size;
 	uint32_t next[2];
-};
+} ir_block;
 
-struct ir_function {
-	struct string name;
+typedef struct {
+	string name;
 	uint32_t parameter_count;
 	uint32_t instr_index;
 	uint32_t block_index;
 	uint32_t block_count;
-};
+} ir_function;
 
-struct ir_program {
-	struct ir_instr *instrs;
-	struct ir_block *blocks;
-	struct ir_function *functions;
+typedef struct {
+	ir_instr *instrs;
+	ir_block *blocks;
+	ir_function *functions;
 	uint32_t *toplevel_instr_indices;
 
 	uint32_t block_count;
@@ -71,23 +71,24 @@ struct ir_program {
 	uint32_t toplevel_count;
 	uint32_t instr_count;
 	uint32_t label_count;
-};
+} ir_program;
 
+typedef struct variable variable;
 struct variable {
-	struct variable *next;
-	struct string name;
+	variable *next;
+	string name;
 	uint32_t vreg;
 };
 
-struct ir_generator {
-	struct ir_program program;
+typedef struct {
+	ir_program program;
 
 	uint32_t *label_addresses;
 	uint32_t max_instr_count;
 
-	struct variable *variable_table;
+	variable *variable_table;
 	uint32_t variable_table_size;
 
 	uint32_t continue_label;
 	uint32_t break_label;
-};
+} ir_generator;

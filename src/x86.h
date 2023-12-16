@@ -1,4 +1,4 @@
-enum x86_register {
+typedef enum {
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -16,9 +16,9 @@ enum x86_register {
 	X86_RBP,
 	X86_REGISTER_COUNT,
 	X86_RSP,
-};
+} x86_register;
 
-enum x86_opcode {
+typedef enum {
 	X86_ADD,
 	X86_CALL,
 	X86_CMP,
@@ -43,9 +43,11 @@ enum x86_opcode {
 	X86_TEST,
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
+	X86_LOAD,
+	X86_STORE,
 	X86_LABEL,
 	X86_PRINT
-};
+} x86_opcode;
 
 static uint32_t x86_temp_regs[] = {
 	X86_RAX,
@@ -69,7 +71,7 @@ static uint32_t x86_preserved_regs[] = {
 };
 
 static char *
-x86_get_opcode_name(enum x86_opcode opcode)
+x86_get_opcode_name(x86_opcode opcode)
 {
 	switch (opcode) {
 	case X86_ADD:   return "add";
@@ -103,7 +105,7 @@ x86_get_opcode_name(enum x86_opcode opcode)
 }
 
 static char *
-x86_get_byte_register_name(enum x86_register reg)
+x86_get_byte_register_name(x86_register reg)
 {
 	switch (reg) {
 	case X86_R8:  return "r8b";
@@ -125,7 +127,7 @@ x86_get_byte_register_name(enum x86_register reg)
 }
 
 static char *
-x86_get_register_name(enum x86_register reg, uint32_t size)
+x86_get_register_name(x86_register reg, uint32_t size)
 {
 	switch (size) {
 	case 1:

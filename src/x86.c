@@ -1,14 +1,14 @@
 static void
-x86_select0(struct machine_program *out, enum x86_opcode opcode)
+x86_select0(machine_program *out, x86_opcode opcode)
 {
 	push_instr(out, opcode, 0);
 }
 
 static void
-x86_select1(struct machine_program *out, enum x86_opcode opcode,
-    struct machine_operand dst)
+x86_select1(machine_program *out, x86_opcode opcode,
+    machine_operand dst)
 {
-	struct machine_operand op0, op1;
+	machine_operand op0, op1;
 	switch (opcode) {
 	case X86_IDIV:
 		push_instr(out, opcode, 3);
@@ -40,8 +40,8 @@ x86_select1(struct machine_program *out, enum x86_opcode opcode,
 }
 
 static void
-x86_select2(struct machine_program *out, enum x86_opcode opcode,
-    struct machine_operand dst, struct machine_operand src)
+x86_select2(machine_program *out, x86_opcode opcode,
+    machine_operand dst, machine_operand src)
 {
 	switch (opcode) {
 	case X86_MOV:
@@ -75,7 +75,7 @@ x86_select2(struct machine_program *out, enum x86_opcode opcode,
 }
 
 static bool
-x86_is_comparison_opcode(enum ir_opcode ir_opcode)
+x86_is_comparison_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
 	case IR_EQL:
@@ -89,8 +89,8 @@ x86_is_comparison_opcode(enum ir_opcode ir_opcode)
 	}
 }
 
-static enum x86_opcode
-x86_get_setcc_opcode(enum ir_opcode ir_opcode)
+static x86_opcode
+x86_get_setcc_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
 	case IR_EQL: return X86_SETZ;
@@ -104,8 +104,8 @@ x86_get_setcc_opcode(enum ir_opcode ir_opcode)
 	}
 }
 
-static enum x86_opcode
-x86_get_jcc_opcode(enum ir_opcode ir_opcode)
+static x86_opcode
+x86_get_jcc_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
 	case IR_EQL: return X86_JZ;
@@ -119,14 +119,14 @@ x86_get_jcc_opcode(enum ir_opcode ir_opcode)
 	}
 }
 
-static void x86_select_instr(struct machine_program *out,
-    struct ir_instr *instr, uint32_t instr_index, struct machine_operand dst);
+static void x86_select_instr(machine_program *out,
+    ir_instr *instr, uint32_t instr_index, machine_operand dst);
 
-static struct machine_operand
-x86_select_immediate(struct machine_program *out,
-	struct ir_instr *instr, uint32_t instr_index)
+static machine_operand
+x86_select_immediate(machine_program *out,
+	ir_instr *instr, uint32_t instr_index)
 {
-	struct machine_operand result;
+	machine_operand result;
 	if (instr[instr_index].opcode == IR_CONST) {
 		result = make_immediate(instr[instr_index].op0);
 	} else {
@@ -138,7 +138,7 @@ x86_select_immediate(struct machine_program *out,
 }
 
 static void
-x86_alloc(struct machine_program *out, uint32_t id, uint32_t size)
+x86_alloc(machine_program *out, uint32_t id, uint32_t size)
 {
 	(void)out;
 	(void)id;
@@ -146,31 +146,44 @@ x86_alloc(struct machine_program *out, uint32_t id, uint32_t size)
 }
 
 static void
-x86_select_instr(struct machine_program *out, struct ir_instr *instr,
-    uint32_t instr_index, struct machine_operand dst)
+x86_select_instr(machine_program *out, ir_instr *instr,
+    uint32_t instr_index, machine_operand dst)
 {
 	dst.size = MIN(dst.size, instr[instr_index].size);
 
 	uint32_t op0 = instr[instr_index].op0;
 	uint32_t op1 = instr[instr_index].op1;
-	enum ir_opcode opcode = instr[instr_index].opcode;
+	ir_opcode opcode = instr[instr_index].opcode;
 	switch (opcode) {
 	case IR_CONST:
 		{
-			struct machine_operand src = make_immediate(op0);
+			machine_operand src = make_immediate(op0);
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
 	case IR_ALLOC:
 		{
-			struct machine_operand src = make_vreg(instr_index);
+			machine_operand src = make_spill(instr_index);
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
 	case IR_MOV:
 		x86_select_instr(out, instr, op1, dst);
 		break;
 	case IR_LOAD:
+    	{
+        	machine_operand src = dst;
+        	machine_operand dst = make_vreg(instr_index);
+        	x86_select_instr(out, instr, op0, dst);
+        	x86_select_instr(out, instr, op1, src);
+        	x86_select2(out, X86_LOAD, dst, src);
+    	} break;
 	case IR_STORE:
-		break;
+    	{
+        	machine_operand src = dst;
+        	machine_operand dst = make_vreg(instr_index);
+        	x86_select_instr(out, instr, op0, dst);
+        	x86_select_instr(out, instr, op1, src);
+        	x86_select2(out, X86_STORE, dst, src);
+    	} break;
 	case IR_ADD:
 		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, instr, op0, dst);
@@ -184,7 +197,7 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			op0 = instr[op0].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op0));
 		} else {
-			struct machine_operand src = make_vreg(op1);
+			machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
 			x86_select2(out, X86_ADD, dst, src);
@@ -199,7 +212,7 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_SUB, dst, make_immediate(op1));
 		} else {
-			struct machine_operand src = make_vreg(op1);
+			machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
 			x86_select2(out, X86_SUB, dst, src);
@@ -212,8 +225,8 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_ADD, dst, dst);
 		} else {
-			struct machine_operand rax = make_mreg(X86_RAX);
-			struct machine_operand src = make_vreg(op1);
+			machine_operand rax = make_mreg(X86_RAX);
+			machine_operand src = make_vreg(op1);
 			x86_select_instr(out, instr, op0, rax);
 			x86_select_instr(out, instr, op1, src);
 			x86_select1(out, X86_IMUL, src);
@@ -223,9 +236,9 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 	case IR_DIV:
 	case IR_MOD:
 		{
-			struct machine_operand rax = make_mreg(X86_RAX);
-			struct machine_operand rcx = make_mreg(X86_RCX);
-			struct machine_operand rdx = make_mreg(X86_RDX);
+			machine_operand rax = make_mreg(X86_RAX);
+			machine_operand rcx = make_mreg(X86_RCX);
+			machine_operand rdx = make_mreg(X86_RDX);
 
 			x86_select_instr(out, instr, op0, rax);
 			x86_select_instr(out, instr, op1, rcx);
@@ -249,18 +262,18 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 		break;
 	case IR_JIZ:
 		{
-			enum x86_opcode x86_opcode = X86_JZ;
+			x86_opcode x86_opcode = X86_JZ;
 			if (x86_is_comparison_opcode(instr[op0].opcode)) {
 				dst = make_vreg(instr[op0].op0);
 				x86_select_instr(out, instr, instr[op0].op0, dst);
-				struct machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
+				machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
 				x86_select2(out, X86_CMP, dst, src);
 				x86_opcode = x86_get_jcc_opcode(instr[op0].opcode);
 			} else if (instr[op0].opcode == IR_SUB) {
-				struct machine_operand src = {0};
+				machine_operand src = {0};
 				x86_select_instr(out, instr, op0, src);
 			} else {
-				struct machine_operand src = make_vreg(op0);
+				machine_operand src = make_vreg(op0);
 				x86_select_instr(out, instr, op0, src);
 				x86_select2(out, X86_TEST, src, src);
 			}
@@ -270,7 +283,7 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 		} break;
 	case IR_RET:
 		{
-			struct machine_operand rax = make_mreg(X86_RAX);
+			machine_operand rax = make_mreg(X86_RAX);
 			x86_select_instr(out, instr, op0, rax);
 			x86_select0(out, X86_RET);
 		} break;
@@ -278,27 +291,27 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 		{
 			for (uint32_t i = 1; i <= op1; i++) {
 				ASSERT(instr[instr_index - i].opcode == IR_PARAM);
-				struct machine_operand src = make_vreg(instr[instr_index - i].op0);
+				machine_operand src = make_vreg(instr[instr_index - i].op0);
 				uint32_t parameter_index = i - 1;
 				switch (parameter_index) {
 				case 0:
 					{
-						struct machine_operand rdi = make_mreg(X86_RDI);
+						machine_operand rdi = make_mreg(X86_RDI);
 						x86_select_instr(out, instr, src.value, rdi);
 					} break;
 				case 1:
 					{
-						struct machine_operand rsi = make_mreg(X86_RSI);
+						machine_operand rsi = make_mreg(X86_RSI);
 						x86_select_instr(out, instr, src.value, rsi);
 					} break;
 				case 2:
 					{
-						struct machine_operand rdx = make_mreg(X86_RDX);
+						machine_operand rdx = make_mreg(X86_RDX);
 						x86_select_instr(out, instr, src.value, rdx);
 					} break;
 				case 3:
 					{
-						struct machine_operand rcx = make_mreg(X86_RCX);
+						machine_operand rcx = make_mreg(X86_RCX);
 						x86_select_instr(out, instr, src.value, rcx);
 					} break;
 				default:
@@ -307,15 +320,15 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 				}
 			}
 
-			struct machine_operand rax = make_mreg(X86_RAX);
+			machine_operand rax = make_mreg(X86_RAX);
 			x86_select1(out, X86_CALL, make_func(op0));
 			x86_select2(out, X86_MOV, dst, rax);
 		} break;
 	case IR_PRINT:
 		{
-			struct machine_operand rsi = make_mreg(X86_RSI);
-			struct machine_operand rdi = make_mreg(X86_RDI);
-			struct machine_operand rax = make_mreg(X86_RAX);
+			machine_operand rsi = make_mreg(X86_RSI);
+			machine_operand rdi = make_mreg(X86_RDI);
+			machine_operand rax = make_mreg(X86_RAX);
 
 			x86_select_instr(out, instr, op0, rsi);
 			x86_select2(out, X86_MOV, rax, make_immediate(0));
@@ -330,13 +343,13 @@ x86_select_instr(struct machine_program *out, struct ir_instr *instr,
 	}
 }
 
-static struct machine_program
-x86_select_instructions(struct ir_program program, struct arena *arena)
+static machine_program
+x86_select_instructions(ir_program program, arena *arena)
 {
-	struct machine_program out = {0};
+	machine_program out = {0};
 	out.max_size = 1024 * 8;
-	out.blocks = ZALLOC(arena, program.block_count, struct machine_block);
-	out.functions = ZALLOC(arena, program.function_count, struct machine_function);
+	out.blocks = ZALLOC(arena, program.block_count, machine_block);
+	out.functions = ZALLOC(arena, program.function_count, machine_function);
 	out.function_count = program.function_count;
 	out.block_count = program.block_count;
 	out.code = alloc(arena, out.max_size, 1);
@@ -347,16 +360,16 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 	out.temp_mreg_count = LENGTH(x86_temp_regs);
 
 	for (uint32_t f = 0; f < program.function_count; f++) {
-		struct ir_function ir_function = program.functions[f];
+		ir_function ir_function = program.functions[f];
 		out.functions[f].name = ir_function.name;
 		out.functions[f].block_index = ir_function.block_index;
 		out.functions[f].instr_index = out.size;
 
 		for (uint32_t i = 0; i < ir_function.parameter_count; i++) {
-			struct ir_instr instr = program.instrs[ir_function.instr_index+i];
+			ir_instr instr = program.instrs[ir_function.instr_index+i];
 			ASSERT(instr.opcode == IR_ALLOC);
-			struct machine_operand dst = make_vreg(ir_function.instr_index+i);
-			struct machine_operand src;
+			machine_operand dst = make_vreg(ir_function.instr_index+i);
+			machine_operand src;
 			switch (i) {
 			case 0:
 				src = make_mreg(X86_RDI);
@@ -382,12 +395,12 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 		uint32_t first_block = ir_function.block_index;
 		uint32_t last_block = first_block + ir_function.block_count;
 		for (uint32_t b = first_block; b < last_block; b++) {
-			struct ir_block block = program.blocks[b];
+			ir_block block = program.blocks[b];
 			out.blocks[b].instr_index = out.size;
 			for (uint32_t i = block.start; i < block.start + block.size; i++) {
 				uint32_t instr_index = program.toplevel_instr_indices[i];
-				struct ir_instr instr = program.instrs[instr_index];
-				struct machine_operand dst = make_vreg(instr_index);
+				ir_instr instr = program.instrs[instr_index];
+				machine_operand dst = make_vreg(instr_index);
 				if (instr.opcode == IR_MOV) {
 					dst = make_vreg(instr.op0);
 				}
@@ -403,7 +416,7 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 	char *end = start + out.size;
 	while (code < end) {
 		out.instr_count++;
-		code += get_instr_size(*(struct machine_instr *)code);
+		code += get_instr_size(*(machine_instr *)code);
 	}
 
 	out.instr_offsets = ALLOC(arena, out.instr_count, uint32_t);
@@ -411,7 +424,7 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 	code = start;
 	while (code < end) {
 		out.instr_offsets[instr_index++] = code - start;
-		code += get_instr_size(*(struct machine_instr *)code);
+		code += get_instr_size(*(machine_instr *)code);
 	}
 
 	/* Convert instruction offset to instruction index */
@@ -440,10 +453,10 @@ x86_select_instructions(struct ir_program program, struct arena *arena)
 }
 
 static void
-x86_emit_operand(struct stream *out, struct machine_operand operand,
-    struct machine_function *functions)
+x86_emit_operand(stream *out, machine_operand operand,
+    machine_function *functions)
 {
-	enum x86_register reg;
+	x86_register reg;
 	switch (operand.kind) {
 	case MOP_SPILL:
 		switch (operand.size) {
@@ -473,7 +486,7 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 		stream_printu(out, operand.value);
 		break;
 	case MOP_MREG:
-		reg = (enum x86_register)operand.value;
+		reg = (x86_register)operand.value;
 		stream_print(out, x86_get_register_name(reg, operand.size));
 		break;
 	case MOP_IMMEDIATE:
@@ -493,7 +506,7 @@ x86_emit_operand(struct stream *out, struct machine_operand operand,
 }
 
 static bool
-x86_is_setcc(enum x86_opcode opcode)
+x86_is_setcc(x86_opcode opcode)
 {
 	switch (opcode) {
 	case X86_SETZ:
@@ -508,8 +521,8 @@ x86_is_setcc(enum x86_opcode opcode)
 }
 
 static void
-x86_generate(struct stream *out, struct machine_program program,
-    struct allocation_info *info)
+x86_generate(stream *out, machine_program program,
+    allocation_info *info)
 {
 	stream_print(out,
 	    "global main\n"
@@ -545,9 +558,9 @@ x86_generate(struct stream *out, struct machine_program program,
 		}
 
 		for (uint32_t i = first_instr; i < last_instr; i++) {
-			struct machine_instr *instr = get_instr(program, i);
-			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
-			enum x86_opcode opcode = (enum x86_opcode)instr->opcode;
+			machine_instr *instr = get_instr(program, i);
+			machine_operand *operands = (machine_operand *)(instr + 1);
+			x86_opcode opcode = (x86_opcode)instr->opcode;
 			uint32_t operand_count = instr->operand_count;
 
 			if (opcode == X86_PRINT) {

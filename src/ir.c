@@ -1,5 +1,5 @@
 static char *
-get_opcode_name(enum ir_opcode opcode)
+get_opcode_name(ir_opcode opcode)
 {
 	switch (opcode) {
 	case IR_NOP:   return "nop";
@@ -30,13 +30,13 @@ get_opcode_name(enum ir_opcode opcode)
 	return "(invalid)";
 }
 
-static struct ir_generator
-ir_generator_init(struct arena *arena)
+static ir_generator
+ir_generator_init(arena *arena)
 {
-	struct ir_generator state = {0};
-	state.program.instrs = ALLOC(arena, 1024, struct ir_instr);
+	ir_generator state = {0};
+	state.program.instrs = ALLOC(arena, 1024, ir_instr);
 	state.max_instr_count = 1024;
-	state.variable_table = ALLOC(arena, 1024, struct variable);
+	state.variable_table = ALLOC(arena, 1024, variable);
 	state.variable_table_size = 1024;
 	state.program.register_count++;
 	state.program.label_count++;
@@ -44,14 +44,14 @@ ir_generator_init(struct arena *arena)
 }
 
 static uint32_t
-new_label(struct ir_generator *state)
+new_label(ir_generator *state)
 {
 	uint32_t result = state->program.label_count++;
 	return result;
 }
 
 static uint32_t
-hash(struct string str)
+hash(string str)
 {
 	uint32_t h = 0x811c9dc5;
 
@@ -64,11 +64,11 @@ hash(struct string str)
 }
 
 static uint32_t
-emit2_sized(struct ir_generator *state, enum ir_opcode opcode, uint32_t size,
+emit2_sized(ir_generator *state, ir_opcode opcode, uint32_t size,
 	uint32_t op0, uint32_t op1)
 {
 	ASSERT(state->program.instr_count <= state->max_instr_count);
-	struct ir_instr *instr = &state->program.instrs[state->program.instr_count++];
+	ir_instr *instr = &state->program.instrs[state->program.instr_count++];
 	instr->opcode = opcode;
 	instr->size = size;
 	instr->op0 = op0;
@@ -78,37 +78,37 @@ emit2_sized(struct ir_generator *state, enum ir_opcode opcode, uint32_t size,
 }
 
 static uint32_t
-emit2(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0, uint32_t op1)
+emit2(ir_generator *state, ir_opcode opcode, uint32_t op0, uint32_t op1)
 {
 	uint32_t result = emit2_sized(state, opcode, 0, op0, op1);
 	return result;
 }
 
 static uint32_t
-emit1_sized(struct ir_generator *state, enum ir_opcode opcode, uint32_t size, uint32_t op0)
+emit1_sized(ir_generator *state, ir_opcode opcode, uint32_t size, uint32_t op0)
 {
 	uint32_t result = emit2_sized(state, opcode, size, op0, 0);
 	return result;
 }
 
 static uint32_t
-emit1(struct ir_generator *state, enum ir_opcode opcode, uint32_t op0)
+emit1(ir_generator *state, ir_opcode opcode, uint32_t op0)
 {
 	uint32_t result = emit2(state, opcode, op0, 0);
 	return result;
 }
 
 static uint32_t
-emit0(struct ir_generator *state, enum ir_opcode opcode)
+emit0(ir_generator *state, ir_opcode opcode)
 {
 	uint32_t result = emit2(state, opcode, 0, 0);
 	return result;
 }
 
 static uint32_t
-new_register(struct ir_generator *state, struct string ident)
+new_register(ir_generator *state, string ident)
 {
-	struct variable *variable_table = state->variable_table;
+	variable *variable_table = state->variable_table;
 	uint32_t h = hash(ident);
 	for (uint32_t j = 0; j < state->variable_table_size; j++) {
 		uint32_t i = (h + j) & (state->variable_table_size - 1);
@@ -128,10 +128,10 @@ new_register(struct ir_generator *state, struct string ident)
 }
 
 static uint32_t
-get_function(struct ir_generator *state, struct string ident)
+get_function(ir_generator *state, string ident)
 {
 	for (uint32_t i = 0; i < state->program.function_count; i++) {
-		struct ir_function *func = &state->program.functions[i];
+		ir_function *func = &state->program.functions[i];
 		if (string_equals(func->name, ident)) {
 			return i;
 		}
@@ -142,9 +142,9 @@ get_function(struct ir_generator *state, struct string ident)
 }
 
 static uint32_t
-get_register(struct ir_generator *state, struct string ident)
+get_register(ir_generator *state, string ident)
 {
-	struct variable *variable_table = state->variable_table;
+	variable *variable_table = state->variable_table;
 	uint32_t h = hash(ident);
 	for (uint32_t j = 0; j < state->variable_table_size; j++) {
 		uint32_t i = (h + j) & (state->variable_table_size - 1);
@@ -162,7 +162,7 @@ get_register(struct ir_generator *state, struct string ident)
 }
 
 static uint32_t
-generate_lvalue(struct ir_generator *state, struct ast_node *node)
+generate_lvalue(ir_generator *state, ast_node *node)
 {
 	uint32_t result = 0;
 
@@ -173,7 +173,7 @@ generate_lvalue(struct ir_generator *state, struct ast_node *node)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			enum ir_opcode opcode = IR_NOP;
+			ir_opcode opcode = IR_NOP;
 			uint32_t operator = node->u.bin_expr.op;
 			switch (operator) {
 			case TOKEN_ADD: opcode = IR_ADD; break;
@@ -182,8 +182,8 @@ generate_lvalue(struct ir_generator *state, struct ast_node *node)
 				ASSERT(!"Not an lvalue");
 			}
 
-			struct ast_node *lhs = node->u.bin_expr.lhs;
-			struct ast_node *rhs = node->u.bin_expr.rhs;
+			ast_node *lhs = node->u.bin_expr.lhs;
+			ast_node *rhs = node->u.bin_expr.rhs;
 			uint32_t size = type_sizeof(node->type);
 			uint32_t lhs_reg = generate_lvalue(state, lhs);
 			uint32_t rhs_reg = generate_lvalue(state, rhs);
@@ -201,16 +201,16 @@ generate_lvalue(struct ir_generator *state, struct ast_node *node)
 }
 
 static uint32_t
-generate(struct ir_generator *state, struct ast_node *node)
+generate(ir_generator *state, ast_node *node)
 {
 	uint32_t endif_label, else_label, cond_label, function_label;
 	uint32_t label, param_register[128];
 	uint32_t param_count, result = 0;
 	size_t result_size;
-	struct ast_node *called, *param;
-	struct ir_function *ir_function;
-	struct type *return_type;
-	enum ir_opcode opcode;
+	ast_node *called, *param;
+	ir_function *ir_function;
+	type *return_type;
+	ir_opcode opcode;
 
 	switch (node->kind) {
 	case AST_INVALID:
@@ -236,7 +236,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 				break;
 			}
 
-			struct ast_node *lhs = node->u.bin_expr.lhs;
+			ast_node *lhs = node->u.bin_expr.lhs;
 			uint32_t lhs_reg = 0;
 			if (opcode == IR_STORE) {
 				lhs_reg = generate_lvalue(state, lhs);
@@ -244,7 +244,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 				lhs_reg = generate(state, lhs);
 			}
 
-			struct ast_node *rhs = node->u.bin_expr.rhs;
+			ast_node *rhs = node->u.bin_expr.rhs;
 			uint32_t rhs_reg = generate(state, rhs);
 
 			uint32_t size = type_sizeof(node->type);
@@ -392,7 +392,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 
 		ir_function->parameter_count = param_count;
 
-		for (struct ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
+		for (ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
 			generate(state, stmt);
 		}
 		break;
@@ -407,7 +407,7 @@ generate(struct ir_generator *state, struct ast_node *node)
 }
 
 static bool
-is_block_start(struct ir_program *program, uint32_t i)
+is_block_start(ir_program *program, uint32_t i)
 {
 	uint32_t curr = program->toplevel_instr_indices[i];
 	bool result = (i == 0 || program->instrs[curr].opcode == IR_LABEL);
@@ -422,7 +422,7 @@ is_block_start(struct ir_program *program, uint32_t i)
 }
 
 static void
-construct_cfg(struct ir_program *program, struct arena *arena)
+construct_cfg(ir_program *program, arena *arena)
 {
 	uint32_t block_count = 0;
 	for (uint32_t i = 0; i < program->toplevel_count; i++) {
@@ -431,10 +431,10 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		}
 	}
 
-	program->blocks = ALLOC(arena, block_count, struct ir_block);
+	program->blocks = ALLOC(arena, block_count, ir_block);
 	program->block_count = block_count;
 
-	struct arena_temp temp = arena_temp_begin(arena);
+	arena_temp temp = arena_temp_begin(arena);
 
 	/* replace labels with block indices */
 	uint32_t *block_indices = ALLOC(arena, program->label_count, uint32_t);
@@ -455,8 +455,8 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 
 	for (uint32_t j = 0; j < program->toplevel_count; j++) {
 		uint32_t i = program->toplevel_instr_indices[j];
-		struct ir_instr *instr = &program->instrs[i];
-		enum ir_opcode opcode = instr->opcode;
+		ir_instr *instr = &program->instrs[i];
+		ir_opcode opcode = instr->opcode;
 		if (opcode == IR_JMP) {
 			uint32_t block = block_indices[instr->op0];
 			ASSERT(block > 0);
@@ -475,18 +475,18 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 		program->functions[i].block_index = block_index;
 		ASSERT(block_index < program->block_count);
 		if (i > 0) {
-			struct ir_function *prev_function = &program->functions[i - 1];
+			ir_function *prev_function = &program->functions[i - 1];
 			prev_function->block_count = block_index - prev_function->block_index;
 		}
 	}
 
-	struct ir_function *last_function = &program->functions[program->function_count - 1];
+	ir_function *last_function = &program->functions[program->function_count - 1];
 	last_function->block_count = program->block_count - last_function->block_index;
 
 	arena_temp_end(temp);
 
 	/* calculate size of each block */
-	struct ir_block *blocks = program->blocks;
+	ir_block *blocks = program->blocks;
 	for (uint32_t i = 0; i < program->block_count; i++) {
 		if (i + 1 < program->block_count) {
 			blocks[i].size = blocks[i+1].start - blocks[i].start;
@@ -498,7 +498,7 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	}
 
 	/* determine the next block */
-	struct ir_instr *instrs = program->instrs;
+	ir_instr *instrs = program->instrs;
 	for (uint32_t i = 0; i < program->block_count; i++) {
 		uint32_t block_end = blocks[i].start + blocks[i].size - 1;
 		switch (instrs[block_end].opcode) {
@@ -522,10 +522,10 @@ construct_cfg(struct ir_program *program, struct arena *arena)
 	}
 }
 
-static struct ir_opcode_info
-get_opcode_info(enum ir_opcode opcode)
+static ir_opcode_info
+get_opcode_info(ir_opcode opcode)
 {
-	struct ir_opcode_info info = {0};
+	ir_opcode_info info = {0};
 	switch (opcode) {
 	case IR_JMP:
 		info.op0 = IR_OPERAND_LABEL;
@@ -577,13 +577,13 @@ get_opcode_info(enum ir_opcode opcode)
 }
 
 static uint32_t *
-get_usage_count(struct ir_program program, struct arena *arena)
+get_usage_count(ir_program program, arena *arena)
 {
-	struct ir_instr *instrs = program.instrs;
+	ir_instr *instrs = program.instrs;
 	uint32_t *usage_count = ZALLOC(arena, program.register_count, uint32_t);
 
 	for (uint32_t i = 0; i < program.register_count; i++) {
-		struct ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_LABEL) {
 			usage_count[instrs[i].op0]++;
 		}
@@ -597,15 +597,15 @@ get_usage_count(struct ir_program program, struct arena *arena)
 }
 
 static void
-mark_toplevel_instructions(struct ir_program *program, struct arena *arena)
+mark_toplevel_instructions(ir_program *program, arena *arena)
 {
-	struct arena_temp temp = arena_temp_begin(arena);
+	arena_temp temp = arena_temp_begin(arena);
 	uint32_t *toplevel_instrs = ALLOC(arena, program->instr_count, uint32_t);
 	uint32_t *usage_count = get_usage_count(*program, arena);
-	struct ir_instr *instrs = program->instrs;
+	ir_instr *instrs = program->instrs;
 	uint32_t toplevel_count = 0;
 	for (uint32_t i = 0; i < program->instr_count; i++) {
-		enum ir_opcode opcode = instrs[i].opcode;
+		ir_opcode opcode = instrs[i].opcode;
 		bool is_toplevel_instr = (usage_count[i] == 0 || opcode == IR_LABEL);
 		if (is_toplevel_instr) {
 			toplevel_instrs[toplevel_count++] = i;
@@ -617,17 +617,17 @@ mark_toplevel_instructions(struct ir_program *program, struct arena *arena)
 	program->toplevel_count = toplevel_count;
 }
 
-static struct ir_program
-ir_generate(struct ast_node *root, struct arena *arena)
+static ir_program
+ir_generate(ast_node *root, arena *arena)
 {
-	struct ir_generator generator = ir_generator_init(arena);
+	ir_generator generator = ir_generator_init(arena);
 
 	uint32_t function_count = 0;
-	for (struct ast_node *node = root->u.children; node; node = node->next) {
+	for (ast_node *node = root->u.children; node; node = node->next) {
 		function_count += (node->kind == AST_FUNCTION);
 	}
 
-	generator.program.functions = ALLOC(arena, function_count, struct ir_function);
+	generator.program.functions = ALLOC(arena, function_count, ir_function);
 	generate(&generator, root);
 	mark_toplevel_instructions(&generator.program, arena);
 	construct_cfg(&generator.program, arena);

@@ -1,21 +1,21 @@
 #include <string.h>
 
-struct live_interval {
+typedef struct {
 	uint32_t start;
 	uint32_t end;
-};
+} live_interval;
 
-struct bit_matrix {
+typedef struct {
 	bool *bits;
 	uint32_t width;
 	uint32_t height;
-};
+} bit_matrix;
 
 // NOTE: width is the number of bits
-static struct bit_matrix
-bit_matrix_init(uint32_t width, uint32_t height, struct arena *arena)
+static bit_matrix
+bit_matrix_init(uint32_t width, uint32_t height, arena *arena)
 {
-	struct bit_matrix matrix = {0};
+	bit_matrix matrix = {0};
 	matrix.bits = ZALLOC(arena, width * height, bool);
 	matrix.width = width;
 	matrix.height = height;
@@ -23,7 +23,7 @@ bit_matrix_init(uint32_t width, uint32_t height, struct arena *arena)
 }
 
 static void
-set_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
+set_bit(bit_matrix matrix, uint32_t y, uint32_t x)
 {
 	ASSERT(x < matrix.width);
 	ASSERT(y < matrix.height);
@@ -32,7 +32,7 @@ set_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
 }
 
 static void
-clear_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
+clear_bit(bit_matrix matrix, uint32_t y, uint32_t x)
 {
 	ASSERT(x < matrix.width);
 	ASSERT(y < matrix.height);
@@ -41,7 +41,7 @@ clear_bit(struct bit_matrix matrix, uint32_t y, uint32_t x)
 }
 
 static void
-clear_row(struct bit_matrix matrix, uint32_t y)
+clear_row(bit_matrix matrix, uint32_t y)
 {
 	ASSERT(y < matrix.height);
 	for (uint32_t x = 0; x < matrix.width; x++) {
@@ -50,7 +50,7 @@ clear_row(struct bit_matrix matrix, uint32_t y)
 }
 
 static void
-union_rows(struct bit_matrix matrix, uint32_t dst_y, uint32_t src_y)
+union_rows(bit_matrix matrix, uint32_t dst_y, uint32_t src_y)
 {
 	ASSERT(dst_y < matrix.height);
 	ASSERT(src_y < matrix.height);
@@ -61,7 +61,7 @@ union_rows(struct bit_matrix matrix, uint32_t dst_y, uint32_t src_y)
 }
 
 static void
-print_row(struct bit_matrix matrix, uint32_t y)
+print_row(bit_matrix matrix, uint32_t y)
 {
 	printf("{");
 	bool first = true;
@@ -86,7 +86,7 @@ print_row(struct bit_matrix matrix, uint32_t y)
 }
 
 static void
-print_matrix(struct bit_matrix matrix)
+print_matrix(bit_matrix matrix)
 {
 	for (uint32_t y = 0; y < matrix.height; y++) {
 		printf("live[%d] = ", y);
@@ -94,21 +94,21 @@ print_matrix(struct bit_matrix matrix)
 	}
 }
 
-static struct bit_matrix
-get_live_matrix(struct machine_program program, uint32_t first_instr,
-    uint32_t last_instr, uint32_t reg_count, struct arena *arena)
+static bit_matrix
+get_live_matrix(machine_program program, uint32_t first_instr,
+    uint32_t last_instr, uint32_t reg_count, arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a boolean matrix.
 	uint32_t instr_count = last_instr - first_instr;
-	struct bit_matrix live_matrix = bit_matrix_init(reg_count, instr_count, arena);
-	struct arena_temp temp = arena_temp_begin(arena);
-	struct bit_matrix prev_live_matrix = bit_matrix_init(reg_count, instr_count, arena);
+	bit_matrix live_matrix = bit_matrix_init(reg_count, instr_count, arena);
+	arena_temp temp = arena_temp_begin(arena);
+	bit_matrix prev_live_matrix = bit_matrix_init(reg_count, instr_count, arena);
 
 	bool has_matrix_changed = false;
 	do {
 		uint32_t i = instr_count;
 		while (i-- > 0) {
-			struct machine_instr *instr = get_instr(program, first_instr + i);
+			machine_instr *instr = get_instr(program, first_instr + i);
 
 			clear_row(live_matrix, i);
 			/* TODO: successor of jump instructions */
@@ -116,7 +116,7 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 				union_rows(live_matrix, i, i + 1);
 			}
 
-			struct machine_operand *operands = (struct machine_operand *)(instr + 1);
+			machine_operand *operands = (machine_operand *)(instr + 1);
 			for (uint32_t j = 0; j < instr->operand_count; j++) {
 				if (operands[j].kind != MOP_LABEL) {
 					continue;
@@ -125,7 +125,7 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 				uint32_t block_index = operands[j].value;
 				ASSERT(block_index < program.block_count);
 
-				struct machine_block block = program.blocks[block_index];
+				machine_block block = program.blocks[block_index];
 				uint32_t instr_index = block.instr_index - first_instr;
 				union_rows(live_matrix, i, instr_index);
 			}
@@ -182,7 +182,7 @@ get_live_matrix(struct machine_program program, uint32_t first_instr,
 }
 
 static uint32_t
-get_interval_start(struct bit_matrix live_matrix, uint32_t reg)
+get_interval_start(bit_matrix live_matrix, uint32_t reg)
 {
 	for (uint32_t i = 0; i < live_matrix.height; i++) {
 		if (live_matrix.bits[i * live_matrix.width + reg]) {
@@ -195,7 +195,7 @@ get_interval_start(struct bit_matrix live_matrix, uint32_t reg)
 }
 
 static uint32_t
-get_interval_end(struct bit_matrix live_matrix, uint32_t reg)
+get_interval_end(bit_matrix live_matrix, uint32_t reg)
 {
 	for (uint32_t i = live_matrix.height; i-- > 0;) {
 		if (live_matrix.bits[i * live_matrix.width + reg]) {
@@ -208,8 +208,8 @@ get_interval_end(struct bit_matrix live_matrix, uint32_t reg)
 
 // TODO: replace with counting-sort?
 static uint32_t *
-sort_intervals_by_start(struct live_interval *intervals,
-    uint32_t interval_count, struct arena *arena)
+sort_intervals_by_start(live_interval *intervals,
+    uint32_t interval_count, arena *arena)
 {
 	uint32_t *index = ALLOC(arena, interval_count, uint32_t);
 	for (uint32_t i = 0; i < interval_count; i++) {
@@ -229,32 +229,32 @@ sort_intervals_by_start(struct live_interval *intervals,
 	return index;
 }
 
-struct allocation_info {
+typedef struct {
 	bool *used;
 	uint32_t spill_count;
-};
+} allocation_info;
 
-static struct allocation_info
-allocate_function_registers(struct machine_program program,
-    uint32_t function_index, struct arena *arena)
+static allocation_info
+allocate_function_registers(machine_program program,
+    uint32_t function_index, arena *arena)
 {
-	struct allocation_info info = {0};
+	allocation_info info = {0};
 	uint32_t mreg_count = program.mreg_count;
 	uint32_t reg_count = program.mreg_count + program.vreg_count;
 	info.used = ZALLOC(arena, program.mreg_count, bool);
 
-	struct arena_temp temp = arena_temp_begin(arena);
+	arena_temp temp = arena_temp_begin(arena);
 
-	struct machine_function function = program.functions[function_index];
+	machine_function function = program.functions[function_index];
 	uint32_t first_instr = function.instr_index;
 	uint32_t last_instr = program.instr_count;
 	if (function_index + 1 < program.function_count) {
-		struct machine_function next_function = program.functions[function_index+1];
+		machine_function next_function = program.functions[function_index+1];
 		last_instr = next_function.instr_index;
 	}
 
-	struct bit_matrix live_matrix = get_live_matrix(program, first_instr, last_instr, reg_count, arena);
-	struct live_interval *intervals = ALLOC(arena, reg_count, struct live_interval);
+	bit_matrix live_matrix = get_live_matrix(program, first_instr, last_instr, reg_count, arena);
+	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (uint32_t i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
@@ -267,7 +267,7 @@ allocate_function_registers(struct machine_program program,
 		register_pool[i] = i;
 	}
 
-	struct machine_operand *vreg = ALLOC(arena, reg_count, struct machine_operand);
+	machine_operand *vreg = ALLOC(arena, reg_count, machine_operand);
 
 	bool *force_mreg_for = ZALLOC(arena, reg_count, bool);
 	/* TODO: Mark registers where the force flag is set */
@@ -310,7 +310,7 @@ allocate_function_registers(struct machine_program program,
 
 		bool is_mreg = (current_register >= program.vreg_count);
 		if (is_mreg) {
-			struct machine_operand mreg = make_mreg(reg_count - 1 - current_register);
+			machine_operand mreg = make_mreg(reg_count - 1 - current_register);
 			bool should_reallocate = false;
 			for (uint32_t j = active_start; j < active_end; j++) {
 				uint32_t previous_register = sorted_by_start[j];
@@ -376,10 +376,10 @@ allocate_function_registers(struct machine_program program,
 	}
 
 	for (uint32_t i = first_instr; i < last_instr; i++) {
-		struct machine_instr *instr = get_instr(program, i);
+		machine_instr *instr = get_instr(program, i);
 		uint32_t operand_count = instr->operand_count;
 
-		struct machine_operand *operands = (struct machine_operand *)(instr + 1);
+		machine_operand *operands = (machine_operand *)(instr + 1);
 		for (uint32_t i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				uint32_t reg = operands[i].value;
@@ -394,11 +394,10 @@ allocate_function_registers(struct machine_program program,
 	return info;
 }
 
-static struct allocation_info *
-allocate_registers(struct machine_program program, struct arena *arena)
+static allocation_info *
+allocate_registers(machine_program program, arena *arena)
 {
-	struct allocation_info *info = ALLOC(arena, program.function_count,
-	    struct allocation_info);
+	allocation_info *info = ALLOC(arena, program.function_count, allocation_info);
 	for (uint32_t i = 0; i < program.function_count; i++) {
 		info[i] = allocate_function_registers(program, i, arena);
 	}

@@ -1,57 +1,57 @@
 typedef struct ast_node ast_node;
 
-typedef struct ast_expr_bin {
+typedef struct {
 	token_kind op;
 	ast_node *lhs;
 	ast_node *rhs;
 } ast_expr_bin;
 
-typedef struct ast_expr_unary {
+typedef struct {
 	token_kind op;
 	ast_node *operand;
 } ast_expr_unary;
 
-typedef struct ast_expr_call {
+typedef struct {
 	ast_node *called;
 	ast_node *params;
 } ast_expr_call;
 
-typedef struct ast_decl {
+typedef struct {
 	string name;
 	ast_node *expr;
 	ast_node *type;
 } ast_decl;
 
-typedef struct ast_stmt_if {
+typedef struct {
 	ast_node *cond;
 	ast_node *then;
 	ast_node *otherwise;
 } ast_stmt_if;
 
-typedef struct ast_stmt_while {
+typedef struct {
 	ast_node *cond;
 	ast_node *body;
 } ast_stmt_while;
 
-typedef struct ast_stmt_for {
+typedef struct {
 	ast_node *init;
 	ast_node *cond;
 	ast_node *post;
 	ast_node *body;
 } ast_stmt_for;
 
-typedef struct ast_type_pointer {
+typedef struct {
 	ast_node *target;
 } ast_type_pointer;
 
-typedef struct ast_function {
+typedef struct {
 	string name;
 	ast_node *params;
 	ast_node *body;
 	ast_node *return_type;
 } ast_function;
 
-typedef enum ast_node_kind {
+typedef enum {
 	AST_INVALID,
 	AST_DECL,
 	AST_FUNCTION,

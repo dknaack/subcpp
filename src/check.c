@@ -1,27 +1,27 @@
 static void
-add_variable(struct symbol_table *table, struct string name,
-	struct type *type, struct arena *arena)
+add_variable(symbol_table *table, string name,
+	type *type, arena *arena)
 {
-	struct symbol *symbol = table->free_symbols;
-	if (symbol) {
-		table->free_symbols = symbol->next;
+	symbol *variable = table->free_symbols;
+	if (variable) {
+		table->free_symbols = variable->next;
 	} else {
-		symbol = ALLOC(arena, 1, struct symbol);
+		variable = ALLOC(arena, 1, symbol);
 	}
 
 	ASSERT(name.at == scope_marker.at || type->kind != TYPE_VOID);
-	symbol->name = name;
-	symbol->type = type;
-	symbol->next = table->symbols;
-	table->symbols = symbol;
+	variable->name = name;
+	variable->type = type;
+	variable->next = table->symbols;
+	table->symbols = variable;
 }
 
-static struct type *
-get_variable(struct symbol_table *table, struct string name)
+static type *
+get_variable(symbol_table *table, string name)
 {
-	struct type *type = &type_void;
+	type *type = &type_void;
 
-	for (struct symbol *symbol = table->symbols; symbol; symbol = symbol->next) {
+	for (symbol *symbol = table->symbols; symbol; symbol = symbol->next) {
 		if (string_equals(symbol->name, name)) {
 			type = symbol->type;
 			break;
@@ -32,15 +32,15 @@ get_variable(struct symbol_table *table, struct string name)
 }
 
 static void
-push_scope(struct symbol_table *table, struct arena *arena)
+push_scope(symbol_table *table, arena *arena)
 {
 	add_variable(table, scope_marker, &type_void, arena);
 }
 
 static void
-pop_scope(struct symbol_table *table)
+pop_scope(symbol_table *table)
 {
-	struct symbol *symbol;
+	symbol *symbol;
 
 	for (symbol = table->symbols; symbol; symbol = table->symbols) {
 		table->symbols = symbol->next;
@@ -54,7 +54,7 @@ pop_scope(struct symbol_table *table)
 }
 
 static bool
-type_equals(struct type *lhs, struct type *rhs)
+type_equals(type *lhs, type *rhs)
 {
 	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
 		return false;
@@ -88,16 +88,16 @@ type_equals(struct type *lhs, struct type *rhs)
 	}
 }
 
-static struct type *
-check_node(struct ast_node *node, struct symbol_table *symbols, struct arena *arena)
+static type *
+check_node(ast_node *node, symbol_table *symbols, arena *arena)
 {
-	struct type *lhs, *rhs, *type, *operand_type, **param_type;
-	struct ast_node *param;
+	type *lhs, *rhs, *type, *operand_type, **param_type;
+	ast_node *param;
 	if (!node) {
 		return &type_void;
 	}
 
-	struct ast_node *orig_node = node;
+	ast_node *orig_node = node;
 	type = &type_void;
 	switch (node->kind) {
 	case AST_INVALID:
