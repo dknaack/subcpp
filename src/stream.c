@@ -19,7 +19,7 @@ stream_open(char *filename, usize size, arena *arena)
 	}
 
 	stream.size = size;
-	stream.buffer = ZALLOC(arena, size, char);
+	stream.buffer = ALLOC(arena, size, char);
 	return stream;
 }
 

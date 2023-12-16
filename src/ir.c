@@ -580,7 +580,7 @@ static u32 *
 get_usage_count(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
-	u32 *usage_count = ZALLOC(arena, program.register_count, u32);
+	u32 *usage_count = ALLOC(arena, program.register_count, u32);
 
 	for (u32 i = 0; i < program.register_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);

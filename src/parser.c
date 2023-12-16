@@ -64,7 +64,7 @@ expect(tokenizer *tokenizer, token_kind expected_token)
 static ast_node *
 new_ast_node(ast_node_kind kind, location loc, arena *arena)
 {
-	ast_node *node = ZALLOC(arena, 1, ast_node);
+	ast_node *node = ALLOC(arena, 1, ast_node);
 	node->kind = kind;
 	node->loc = loc;
 	return node;

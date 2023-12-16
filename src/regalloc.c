@@ -16,7 +16,7 @@ static bit_matrix
 bit_matrix_init(u32 width, u32 height, arena *arena)
 {
 	bit_matrix matrix = {0};
-	matrix.bits = ZALLOC(arena, width * height, b32);
+	matrix.bits = ALLOC(arena, width * height, b32);
 	matrix.width = width;
 	matrix.height = height;
 	return matrix;
@@ -241,7 +241,7 @@ allocate_function_registers(machine_program program,
 	allocation_info info = {0};
 	u32 mreg_count = program.mreg_count;
 	u32 reg_count = program.mreg_count + program.vreg_count;
-	info.used = ZALLOC(arena, program.mreg_count, b32);
+	info.used = ALLOC(arena, program.mreg_count, b32);
 
 	arena_temp temp = arena_temp_begin(arena);
 
@@ -269,7 +269,7 @@ allocate_function_registers(machine_program program,
 
 	machine_operand *vreg = ALLOC(arena, reg_count, machine_operand);
 
-	b32 *force_mreg_for = ZALLOC(arena, reg_count, b32);
+	b32 *force_mreg_for = ALLOC(arena, reg_count, b32);
 	/* TODO: Mark registers where the force flag is set */
 
 	/* NOTE: the register pool is only valid after active_count. In the

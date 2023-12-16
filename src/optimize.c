@@ -24,7 +24,7 @@ optimize(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
 
-	b32 *addr_used = ZALLOC(arena, program.instr_count, b32);
+	b32 *addr_used = ALLOC(arena, program.instr_count, b32);
 	for (u32 i = 0; i < program.instr_count; i++) {
 		u32 op0 = instrs[i].op0;
 		u32 op1 = instrs[i].op1;

@@ -348,8 +348,8 @@ x86_select_instructions(ir_program program, arena *arena)
 {
 	machine_program out = {0};
 	out.max_size = 1024 * 8;
-	out.blocks = ZALLOC(arena, program.block_count, machine_block);
-	out.functions = ZALLOC(arena, program.function_count, machine_function);
+	out.blocks = ALLOC(arena, program.block_count, machine_block);
+	out.functions = ALLOC(arena, program.function_count, machine_function);
 	out.function_count = program.function_count;
 	out.block_count = program.block_count;
 	out.code = alloc(arena, out.max_size, 1);

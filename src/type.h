@@ -64,7 +64,7 @@ type_get_name(type_kind type)
 static type *
 type_create(type_kind kind, arena *arena)
 {
-	type *t = ZALLOC(arena, 1, type);
+	type *t = ALLOC(arena, 1, type);
 	t->kind = kind;
 	return t;
 }

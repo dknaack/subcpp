@@ -1,5 +1,5 @@
+#define ALLOC_NOZERO(arena, count, type) ((type *)alloc_nozero(arena, count, sizeof(type)))
 #define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
-#define ZALLOC(arena, count, type) ((type *)zalloc(arena, count, sizeof(type)))
 
 typedef struct {
 	char *data;
@@ -22,7 +22,7 @@ new_arena(usize size)
 }
 
 static void *
-alloc(arena *arena, usize count, usize size)
+alloc_nozero(arena *arena, usize count, usize size)
 {
 	ASSERT(arena->pos + size * count < arena->size);
 	arena->pos = (arena->pos + 7) & -8;
@@ -32,9 +32,9 @@ alloc(arena *arena, usize count, usize size)
 }
 
 static void *
-zalloc(arena *arena, usize count, usize size)
+alloc(arena *arena, usize count, usize size)
 {
-	char *byte = (char *)alloc(arena, count, size);
+	char *byte = (char *)alloc_nozero(arena, count, size);
 	for (usize i = 0; i < count * size; i++) {
 		byte[i] = 0;
 	}
