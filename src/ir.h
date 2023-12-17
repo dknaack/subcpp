@@ -91,4 +91,4 @@ typedef struct {
 
 	u32 continue_label;
 	u32 break_label;
-} ir_generator;
+} ir_context;
