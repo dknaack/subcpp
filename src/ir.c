@@ -1,35 +1,3 @@
-static char *
-get_opcode_name(ir_opcode opcode)
-{
-	switch (opcode) {
-	case IR_NOP:   return "nop";
-	case IR_LABEL: return "label";
-	case IR_CONST: return "const";
-	case IR_MOV:   return "mov";
-	case IR_ADD:   return "add";
-	case IR_SUB:   return "sub";
-	case IR_MUL:   return "mul";
-	case IR_DIV:   return "div";
-	case IR_MOD:   return "mod";
-	case IR_EQL:   return "eql";
-	case IR_LT:    return "lt";
-	case IR_GT:    return "gt";
-	case IR_LEQ:   return "leq";
-	case IR_GEQ:   return "geq";
-	case IR_JMP:   return "jmp";
-	case IR_JIZ:   return "jiz";
-	case IR_RET:   return "ret";
-	case IR_CALL:  return "call";
-	case IR_PARAM: return "param";
-	case IR_ALLOC: return "alloc";
-	case IR_PRINT: return "print";
-	case IR_LOAD:  return "load";
-	case IR_STORE: return "store";
-	}
-
-	return "(invalid)";
-}
-
 static ir_context
 ir_context_init(arena *arena)
 {
