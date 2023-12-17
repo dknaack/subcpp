@@ -406,15 +406,14 @@ generate(ir_context *ctx, ast_node *node)
 }
 
 static b32
-is_block_start(ir_program *program, u32 i)
+is_block_start(ir_instr *instrs, u32 i)
 {
-	u32 curr = program->toplevel_instr_indices[i];
-	b32 result = (i == 0 || program->instrs[curr].opcode == IR_LABEL);
+	b32 result = (i == 0 || instrs[i].opcode == IR_LABEL);
 	if (!result) {
-		u32 prev = program->toplevel_instr_indices[i-1];
-		result = (program->instrs[prev].opcode == IR_JMP
-		    || program->instrs[prev].opcode == IR_JIZ
-		    || program->instrs[prev].opcode == IR_RET);
+		u32 prev = i - 1;
+		result = (instrs[prev].opcode == IR_JMP
+		    || instrs[prev].opcode == IR_JIZ
+		    || instrs[prev].opcode == IR_RET);
 	}
 
 	return result;
@@ -424,8 +423,8 @@ static void
 construct_cfg(ir_program *program, arena *arena)
 {
 	u32 block_count = 0;
-	for (u32 i = 0; i < program->toplevel_count; i++) {
-		if (is_block_start(program, i)) {
+	for (u32 i = 0; i < program->instr_count; i++) {
+		if (is_block_start(program->instrs, i)) {
 			block_count++;
 		}
 	}
@@ -434,48 +433,52 @@ construct_cfg(ir_program *program, arena *arena)
 	program->block_count = block_count;
 
 	arena_temp temp = arena_temp_begin(arena);
+	ir_instr *instrs = program->instrs;
+	u32 instr_count = program->instr_count;
 
 	/* replace labels with block indices */
 	u32 *block_indices = ALLOC(arena, program->label_count, u32);
 	u32 block_index = 0;
-	for (u32 j = 0; j < program->toplevel_count; j++) {
-		if (is_block_start(program, j)) {
-			u32 i = program->toplevel_instr_indices[j];
-			u32 opcode = program->instrs[i].opcode;
+	for (u32 i = 0; i < instr_count; i++) {
+		if (is_block_start(program->instrs, i)) {
+			u32 opcode = instrs[i].opcode;
 			if (opcode == IR_LABEL) {
 				u32 label = program->instrs[i].op0;
 				block_indices[label] = i;
-				program->instrs[i].op0 = block_index;
+				instrs[i].op0 = block_index;
 			}
 
-			program->blocks[block_index++].start = j;
+			program->blocks[block_index++].start = i;
 		}
 	}
 
-	for (u32 j = 0; j < program->toplevel_count; j++) {
-		u32 i = program->toplevel_instr_indices[j];
+	for (u32 i = 0; i < program->instr_count; i++) {
 		ir_instr *instr = &program->instrs[i];
 		ir_opcode opcode = instr->opcode;
 		if (opcode == IR_JMP) {
 			u32 block = block_indices[instr->op0];
-			ASSERT(block > 0);
 			instr->op0 = block;
+			ASSERT(block > 0);
 		} else if (opcode == IR_JIZ) {
 			u32 block = block_indices[instr->op1];
-			ASSERT(block > 0);
 			instr->op1 = block;
+			ASSERT(block > 0);
 		}
 	}
 
 	for (u32 i = 0; i < program->function_count; i++) {
-		u32 label = program->functions[i].block_index;
+		ir_function *curr = &program->functions[i];
+		u32 label = curr->block_index;
 		u32 block_index = block_indices[label];
-		block_index = program->instrs[block_index].op0;
-		program->functions[i].block_index = block_index;
+		block_index = instrs[block_index].op0;
+		curr->block_index = block_index;
 		ASSERT(block_index < program->block_count);
-		if (i > 0) {
-			ir_function *prev_function = &program->functions[i - 1];
-			prev_function->block_count = block_index - prev_function->block_index;
+
+		b32 is_first_function = (i == 0);
+		if (!is_first_function) {
+			ir_function *prev = &program->functions[i - 1];
+			prev->block_count = block_index - prev->block_index;
+			ASSERT(prev->block_count > 0);
 		}
 	}
 
@@ -487,17 +490,17 @@ construct_cfg(ir_program *program, arena *arena)
 	/* calculate size of each block */
 	ir_block *blocks = program->blocks;
 	for (u32 i = 0; i < program->block_count; i++) {
-		if (i + 1 < program->block_count) {
-			blocks[i].size = blocks[i+1].start - blocks[i].start;
+		b32 is_last_block = (i + 1 >= program->block_count);
+		if (is_last_block) {
+			blocks[i].size = program->instr_count - blocks[i].start;
 		} else {
-			blocks[i].size = program->toplevel_count - blocks[i].start;
+			blocks[i].size = blocks[i+1].start - blocks[i].start;
 		}
 
 		ASSERT(blocks[i].size > 0);
 	}
 
 	/* determine the next block */
-	ir_instr *instrs = program->instrs;
 	for (u32 i = 0; i < program->block_count; i++) {
 		u32 block_end = blocks[i].start + blocks[i].size - 1;
 		switch (instrs[block_end].opcode) {
@@ -595,27 +598,6 @@ get_usage_count(ir_program program, arena *arena)
 	return usage_count;
 }
 
-static void
-mark_toplevel_instructions(ir_program *program, arena *arena)
-{
-	arena_temp temp = arena_temp_begin(arena);
-	u32 *toplevel_instrs = ALLOC(arena, program->instr_count, u32);
-	u32 *usage_count = get_usage_count(*program, arena);
-	ir_instr *instrs = program->instrs;
-	u32 toplevel_count = 0;
-	for (u32 i = 0; i < program->instr_count; i++) {
-		ir_opcode opcode = instrs[i].opcode;
-		b32 is_toplevel_instr = (usage_count[i] == 0 || opcode == IR_LABEL);
-		if (is_toplevel_instr) {
-			toplevel_instrs[toplevel_count++] = i;
-		}
-	}
-
-	arena_temp_end(temp);
-	program->toplevel_instr_indices = ALLOC(arena, toplevel_count, u32);
-	program->toplevel_count = toplevel_count;
-}
-
 static ir_program
 ir_generate(ast_node *root, arena *arena)
 {
@@ -628,7 +610,6 @@ ir_generate(ast_node *root, arena *arena)
 
 	ctx.program.functions = ALLOC(arena, function_count, ir_function);
 	generate(&ctx, root);
-	mark_toplevel_instructions(&ctx.program, arena);
 	construct_cfg(&ctx.program, arena);
 	return ctx.program;
 }

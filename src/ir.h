@@ -63,12 +63,10 @@ typedef struct {
 	ir_instr *instrs;
 	ir_block *blocks;
 	ir_function *functions;
-	u32 *toplevel_instr_indices;
 
 	u32 block_count;
 	u32 register_count;
 	u32 function_count;
-	u32 toplevel_count;
 	u32 instr_count;
 	u32 label_count;
 } ir_program;

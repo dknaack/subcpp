@@ -366,7 +366,6 @@ x86_select_instructions(ir_program program, arena *arena)
 
 		for (u32 i = 0; i < ir_function.parameter_count; i++) {
 			ir_instr instr = program.instrs[ir_function.instr_index+i];
-			ASSERT(instr.opcode == IR_ALLOC);
 			machine_operand dst = make_vreg(ir_function.instr_index+i);
 			machine_operand src;
 			switch (i) {
@@ -397,14 +396,13 @@ x86_select_instructions(ir_program program, arena *arena)
 			ir_block block = program.blocks[b];
 			out.blocks[b].instr_index = out.size;
 			for (u32 i = block.start; i < block.start + block.size; i++) {
-				u32 instr_index = program.toplevel_instr_indices[i];
-				ir_instr instr = program.instrs[instr_index];
-				machine_operand dst = make_vreg(instr_index);
+				ir_instr instr = program.instrs[i];
+				machine_operand dst = make_vreg(i);
 				if (instr.opcode == IR_MOV) {
 					dst = make_vreg(instr.op0);
 				}
 
-				x86_select_instr(&out, program.instrs, instr_index, dst);
+				x86_select_instr(&out, program.instrs, i, dst);
 			}
 		}
 	}
