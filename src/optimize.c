@@ -26,10 +26,15 @@ optimize(ir_program program, arena *arena)
 
 	b32 *addr_used = ALLOC(arena, program.instr_count, b32);
 	for (u32 i = 0; i < program.instr_count; i++) {
+		u32 opcode = instrs[i].opcode;
 		u32 op0 = instrs[i].op0;
 		u32 op1 = instrs[i].op1;
 
-		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		if (opcode == IR_LOAD || opcode == IR_STORE) {
+			continue;
+		}
+
+		ir_opcode_info info = get_opcode_info(opcode);
 		if (info.op0 == IR_OPERAND_REG_SRC && instrs[op0].opcode == IR_ALLOC) {
 			addr_used[op0] |= true;
 		}
