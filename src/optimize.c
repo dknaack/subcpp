@@ -142,17 +142,4 @@ optimize(ir_program program, arena *arena)
 			break;
 		}
 	}
-
-	for (u32 i = 0; i < program.instr_count; i++) {
-		u32 op0 = instrs[i].op0;
-		u32 op1 = instrs[i].op1;
-		(void)op0;
-		(void)op1;
-
-		while (instrs[op1].opcode == IR_MOV
-			&& instrs[op1].op0 == op1) {
-			instrs[op1].opcode = IR_NOP;
-			instrs[i].op1 = instrs[op1].op1;
-		}
-	}
 }
