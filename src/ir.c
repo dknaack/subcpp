@@ -346,6 +346,8 @@ generate(ir_context *ctx, ast_node *node)
 		param = node->u.function.params;
 		param_count = 0;
 
+		// TODO: find some better mechanism to reset the variable table
+		memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
 		ir_function = &ctx->program.functions[ctx->program.function_count++];
 		ir_function->name = node->u.function.name;
 		ir_function->block_index = function_label;
