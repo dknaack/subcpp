@@ -153,7 +153,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->u.unary_expr.op = token.kind;
-		expr->u.unary_expr.operand = parse_expr(tokenizer, 0, arena);
+		expr->u.unary_expr.operand = parse_expr(tokenizer, 50, arena);
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
