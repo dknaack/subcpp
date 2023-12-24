@@ -85,7 +85,8 @@ new_register(ir_context *ctx, string ident)
 
 		if (!variable_table[i].name.at) {
 			variable_table[i].name = ident;
-			variable_table[i].vreg = emit0(ctx, IR_ALLOC);
+			variable_table[i].vreg = emit2(ctx, IR_ALLOC, 8, ctx->stack_size);
+			ctx->stack_size += 8;
 			return variable_table[i].vreg;
 		}
 	}
@@ -346,6 +347,7 @@ generate(ir_context *ctx, ast_node *node)
 		param = node->u.function.params;
 		param_count = 0;
 
+		ctx->stack_size = 0;
 		// TODO: find some better mechanism to reset the variable table
 		memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
 		ir_function = &ctx->program.functions[ctx->program.function_count++];
@@ -531,6 +533,9 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_LABEL;
 		break;
 	case IR_ALLOC:
+		info.op0 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_CONST;
+		break;
 	case IR_CONST:
 		info.op0 = IR_OPERAND_CONST;
 		break;

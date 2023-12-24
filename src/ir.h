@@ -57,6 +57,7 @@ typedef struct {
 	u32 instr_index;
 	u32 block_index;
 	u32 block_count;
+	u32 stack_size;
 } ir_function;
 
 typedef struct {
@@ -86,6 +87,7 @@ typedef struct {
 
 	variable *variable_table;
 	u32 variable_table_size;
+	u32 stack_size;
 
 	u32 continue_label;
 	u32 break_label;
