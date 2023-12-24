@@ -129,6 +129,8 @@ get_register(ir_context *ctx, string ident)
 	return 0;
 }
 
+static u32 generate(ir_context *ctx, ast_node *node);
+
 static u32
 generate_lvalue(ir_context *ctx, ast_node *node)
 {
@@ -156,6 +158,17 @@ generate_lvalue(ir_context *ctx, ast_node *node)
 			u32 lhs_reg = generate_lvalue(ctx, lhs);
 			u32 rhs_reg = generate_lvalue(ctx, rhs);
 			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+		} break;
+	case AST_EXPR_UNARY:
+		{
+			u32 operator = node->u.unary_expr.op;
+			switch (operator) {
+			case TOKEN_MUL:
+				result = generate(ctx, node->u.unary_expr.operand);
+				break;
+			default:
+				ASSERT(!"Not an lvalue");
+			}
 		} break;
 	case AST_EXPR_INT:
 		{
