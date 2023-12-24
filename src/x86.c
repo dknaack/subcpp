@@ -691,10 +691,11 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 				stream_print(out, "\t");
 				stream_print(out, x86_get_opcode_name(opcode));
-				while (operand_count-- > 0) {
+				for (u32 j = 0; j < operand_count; j++) {
 					stream_print(out, " ");
-					x86_emit_operand(out, *operands++, program.functions);
-					if (operand_count > 0) {
+					x86_emit_operand(out, operands[j], program.functions);
+					b32 is_last_operand = (j + 1 == operand_count);
+					if (!is_last_operand) {
 						stream_print(out, ",");
 					}
 				}
