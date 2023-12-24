@@ -32,6 +32,7 @@ typedef enum {
 	X86_JG,
 	X86_JLE,
 	X86_JGE,
+	X86_LEA,
 	X86_MOV,
 	X86_RET,
 	X86_SETZ,
@@ -87,6 +88,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_JG:    return "jg";
 	case X86_JLE:   return "jle";
 	case X86_JGE:   return "jge";
+	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
 	case X86_RET:   return "ret";
 	case X86_SETZ:  return "setz";
