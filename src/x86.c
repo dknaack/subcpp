@@ -70,7 +70,11 @@ x86_select2(machine_program *out, x86_opcode opcode,
 			push_operand(out, dst);
 		} else if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
-			dst.flags |= MOP_DEF;
+			if (dst.kind == MOP_VREG || dst.kind == MOP_MREG) {
+				dst.flags |= MOP_DEF;
+			} else {
+				dst.flags |= MOP_USE;
+			}
 			push_operand(out, dst);
 			src.flags |= MOP_USE;
 			push_operand(out, src);
