@@ -491,9 +491,11 @@ x86_select_instructions(ir_program program, arena *arena)
 
 static void
 x86_emit_operand(stream *out, machine_operand operand,
-    machine_function *functions)
+	machine_function *functions)
 {
 	x86_register reg;
+	// TODO: fix operand size in machine code
+	operand.size = 0;
 	switch (operand.kind) {
 	case MOP_SPILL:
 		switch (operand.size) {
