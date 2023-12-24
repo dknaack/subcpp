@@ -10,50 +10,12 @@ static void
 print_program(ir_program program)
 {
 	for (u32 i = 0; i < program.instr_count; i++) {
-		printf("%2d| ", i);
-		ir_instr instr = program.instrs[i];
-
-		char *c = "";
-		switch (instr.size) {
-		case 1: c = "b"; break;
-		case 2: c = "w"; break;
-		case 4: c = "d"; break;
-		case 8: c = "q"; break;
-		}
-
-		u32 dst = i;
-		u32 op0 = instr.op0;
-		u32 op1 = instr.op1;
-		switch (instr.opcode) {
-		case IR_NOP:   printf("\tNOP\n"); break;
-		case IR_CONST: printf("\tMOV\tr%d%s, %d\n", dst, c, op0); break;
-		case IR_MOV:   printf("\tMOV\tr%d%s, r%d\n", op0, c, op1); break;
-		case IR_LOAD:  printf("\tLOAD\tr%d%s, r%d\n", dst, c, op0); break;
-		case IR_STORE: printf("\tSTORE\tr%d, r%d%s\n", op0, op1, c); break;
-		case IR_ADD:   printf("\tADD\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_SUB:   printf("\tSUB\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_MUL:   printf("\tMUL\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_DIV:   printf("\tDIV\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_MOD:   printf("\tMOD\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
-		case IR_EQL:   printf("\tEQL\tr%d%s, r%d,= r%d\n", dst, c, op0, op1); break;
-		case IR_LEQ:   printf("\tLEQ\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
-		case IR_GEQ:   printf("\tGEQ\tr%d%s, r%d, r%d\n", dst, c, op0, op1); break;
-		case IR_LT:    printf("\tLT\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_GT:    printf("\tGT\tr%d%s, r%d, r%d\n",  dst, c, op0, op1); break;
-		case IR_JMP:   printf("\tGOTO\tL%d\n", op0); break;
-		case IR_JIZ:   printf("\tJIZ\tr%d, L%d\n", op0, op1); break;
-		case IR_RET:   printf("\tRET\tr%d\n", op0); break;
-		case IR_CALL:  printf("\tCALL\tr%d, L%d, %d\n", dst, op0, op1); break;
-		case IR_PRINT: printf("\tPRINT\tr%d\n", op0); break;
-		case IR_PARAM: printf("\tPARAM\tr%d\n", op0); break;
-		case IR_ALLOC: printf("\tALLOC\tr%d, 8\n", dst); break;
-		case IR_LABEL: printf("L%d:\n", op0); break;
-		}
 	}
 
 	fflush(stdout);
 }
 
+#include "debug.c"
 #include "tokenizer.c"
 #include "parser.c"
 #include "check.c"
