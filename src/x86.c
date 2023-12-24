@@ -401,6 +401,7 @@ x86_select_instructions(ir_program program, arena *arena)
 		out.functions[f].name = ir_function.name;
 		out.functions[f].block_index = ir_function.block_index;
 		out.functions[f].instr_index = out.size;
+		out.functions[f].stack_size = ir_function.stack_size;
 
 		for (u32 i = 0; i < ir_function.parameter_count; i++) {
 			ir_instr instr = program.instrs[ir_function.instr_index+i];
