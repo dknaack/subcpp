@@ -34,6 +34,7 @@ typedef struct {
 	string name;
 	u32 block_index;
 	u32 instr_index;
+	u32 stack_size;
 } machine_function;
 
 typedef struct {

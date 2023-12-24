@@ -40,7 +40,7 @@ x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 
 static void
 x86_select2(machine_program *out, x86_opcode opcode,
-    machine_operand dst, machine_operand src)
+	machine_operand dst, machine_operand src)
 {
 	switch (opcode) {
 	case X86_MOV:
@@ -113,13 +113,13 @@ x86_get_jcc_opcode(ir_opcode ir_opcode)
 	case IR_LEQ: return X86_JG;
 	case IR_GEQ: return X86_JL;
 	default:
-		ASSERT(!"Not a comparison operator");
-		return X86_SETZ;
+				 ASSERT(!"Not a comparison operator");
+				 return X86_SETZ;
 	}
 }
 
 static void x86_select_instr(machine_program *out,
-    ir_instr *instr, u32 instr_index, machine_operand dst);
+	ir_instr *instr, u32 instr_index, machine_operand dst);
 
 static machine_operand
 x86_select_immediate(machine_program *out,
@@ -146,7 +146,7 @@ x86_alloc(machine_program *out, u32 id, u32 size)
 
 static void
 x86_select_instr(machine_program *out, ir_instr *instr,
-    u32 instr_index, machine_operand dst)
+	u32 instr_index, machine_operand dst)
 {
 	dst.size = MIN(dst.size, instr[instr_index].size);
 
@@ -154,6 +154,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	u32 op1 = instr[instr_index].op1;
 	ir_opcode opcode = instr[instr_index].opcode;
 	switch (opcode) {
+	case IR_VAR:
+		{
+			machine_operand src = make_vreg(instr_index);
+			x86_select2(out, X86_MOV, dst, src);
+		} break;
 	case IR_CONST:
 		{
 			machine_operand src = make_immediate(op0);
@@ -161,28 +166,36 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_ALLOC:
 		{
-			machine_operand src = make_spill(instr_index);
-			x86_select2(out, X86_MOV, dst, src);
+			machine_operand src = make_spill(op1);
+			x86_select2(out, X86_LEA, dst, src);
+		} break;
+	case IR_COPY:
+		{
+			x86_select_instr(out, instr, op0, dst);
 		} break;
 	case IR_MOV:
-		x86_select_instr(out, instr, op1, dst);
-		break;
+		{
+			x86_select_instr(out, instr, op1, dst);
+		} break;
 	case IR_LOAD:
-    	{
-        	machine_operand src = dst;
-        	machine_operand dst = make_vreg(instr_index);
-        	x86_select_instr(out, instr, op0, dst);
-        	x86_select_instr(out, instr, op1, src);
-        	x86_select2(out, X86_LOAD, dst, src);
-    	} break;
+		{
+			machine_operand src = make_vreg(op0);
+			ASSERT(!machine_operand_equals(src, dst));
+			x86_select_instr(out, instr, op0, src);
+			x86_select2(out, X86_LOAD, dst, src);
+		} break;
 	case IR_STORE:
-    	{
-        	machine_operand src = dst;
-        	machine_operand dst = make_vreg(instr_index);
-        	x86_select_instr(out, instr, op0, dst);
-        	x86_select_instr(out, instr, op1, src);
-        	x86_select2(out, X86_STORE, dst, src);
-    	} break;
+		{
+			machine_operand src = make_vreg(op1);
+			ASSERT(!machine_operand_equals(src, dst));
+			x86_select_instr(out, instr, op1, src);
+			if (instr[op0].opcode != IR_ALLOC) {
+				x86_select2(out, X86_STORE, dst, src);
+			} else {
+				u32 offset = instr[op0].op1;
+				x86_select2(out, X86_MOV, make_spill(offset), src);
+			}
+		} break;
 	case IR_ADD:
 		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
 			x86_select_instr(out, instr, op0, dst);
