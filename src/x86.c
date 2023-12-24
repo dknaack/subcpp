@@ -544,6 +544,21 @@ x86_emit_operand(stream *out, machine_operand operand,
 	}
 }
 
+static void
+x86_emit_operand_indirect(stream *out, machine_operand operand,
+	machine_function *functions)
+{
+	switch (operand.kind) {
+	case MOP_MREG:
+		stream_print(out, "[");
+		x86_emit_operand(out, operand, functions);
+		stream_print(out, "]");
+		break;
+	default:
+		x86_emit_operand(out, operand, functions);
+	}
+}
+
 static b32
 x86_is_setcc(x86_opcode opcode)
 {
@@ -638,10 +653,21 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						stream_printu(out, stack_size);
 						stream_print(out, "\n");
 					}
-				}
-
-				if (opcode == X86_MOV && machine_operand_equals(operands[0], operands[1])) {
-					continue;
+				} else if (opcode == X86_MOV) {
+					if  (machine_operand_equals(operands[0], operands[1])) {
+						continue;
+					}
+				} else if (opcode == X86_STORE) {
+					stream_print(out, "mov [");
+					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, "], ");
+					x86_emit_operand(out, operands[1], program.functions);
+					operand_count -= 2;
+				} else if (opcode == X86_LOAD) {
+					stream_print(out, "mov ");
+					x86_emit_operand(out, operands[0], program.functions);
+					x86_emit_operand_indirect(out, operands[1], program.functions);
+					operand_count -= 2;
 				}
 
 				if (operands[0].kind == MOP_SPILL
