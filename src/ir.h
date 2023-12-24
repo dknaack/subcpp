@@ -2,6 +2,8 @@ typedef enum {
 	IR_NOP,
 	IR_LABEL,
 	IR_CONST,
+	IR_VAR,
+	IR_COPY,
 	IR_MOV,
 	IR_ADD,
 	IR_SUB,
@@ -99,7 +101,9 @@ get_opcode_name(ir_opcode opcode)
 	switch (opcode) {
 	case IR_NOP:   return "nop";
 	case IR_LABEL: return "label";
+	case IR_VAR:   return "var";
 	case IR_CONST: return "const";
+	case IR_COPY:  return "copy";
 	case IR_MOV:   return "mov";
 	case IR_ADD:   return "add";
 	case IR_SUB:   return "sub";

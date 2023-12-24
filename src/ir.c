@@ -521,6 +521,7 @@ get_opcode_info(ir_opcode opcode)
 	case IR_PARAM:
 	case IR_RET:
 	case IR_LOAD:
+	case IR_COPY:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:
