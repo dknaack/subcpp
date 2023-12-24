@@ -394,6 +394,8 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.temp_mregs = x86_temp_regs;
 	out.temp_mreg_count = LENGTH(x86_temp_regs);
 
+	b8 *is_toplevel = get_toplevel_instructions(program, arena);
+
 	for (u32 f = 0; f < program.function_count; f++) {
 		ir_function ir_function = program.functions[f];
 		out.functions[f].name = ir_function.name;
@@ -438,7 +440,9 @@ x86_select_instructions(ir_program program, arena *arena)
 					dst = make_vreg(instr.op0);
 				}
 
-				x86_select_instr(&out, program.instrs, i, dst);
+				if (is_toplevel[i]) {
+					x86_select_instr(&out, program.instrs, i, dst);
+				}
 			}
 		}
 	}

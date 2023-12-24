@@ -561,30 +561,34 @@ get_opcode_info(ir_opcode opcode)
 		info.op0 = IR_OPERAND_LABEL;
 		break;
 	case IR_NOP:
+	case IR_VAR:
 		break;
 	}
 
 	return info;
 }
 
-static u32 *
-get_usage_count(ir_program program, arena *arena)
+static b8 *
+get_toplevel_instructions(ir_program program, arena *arena)
 {
-	ir_instr *instrs = program.instrs;
-	u32 *usage_count = ALLOC(arena, program.register_count, u32);
+	b8 *is_toplevel = ALLOC(arena, program.instr_count, b8);
+	for (u32 i = 0; i < program.instr_count; i++) {
+		is_toplevel[i] = true;
+	}
 
-	for (u32 i = 0; i < program.register_count; i++) {
+	ir_instr *instrs = program.instrs;
+	for (u32 i = 0; i < program.instr_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
-		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_LABEL) {
-			usage_count[instrs[i].op0]++;
+		if (info.op0 == IR_OPERAND_REG_SRC) {
+			is_toplevel[instrs[i].op0] = false;
 		}
 
-		if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_LABEL) {
-			usage_count[instrs[i].op1]++;
+		if (info.op1 == IR_OPERAND_REG_SRC) {
+			is_toplevel[instrs[i].op1] = false;
 		}
 	}
 
-	return usage_count;
+	return is_toplevel;
 }
 
 static ir_program
