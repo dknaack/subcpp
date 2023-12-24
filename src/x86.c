@@ -404,7 +404,6 @@ x86_select_instructions(ir_program program, arena *arena)
 		out.functions[f].stack_size = ir_function.stack_size;
 
 		for (u32 i = 0; i < ir_function.parameter_count; i++) {
-			ir_instr instr = program.instrs[ir_function.instr_index+i];
 			machine_operand dst = make_vreg(ir_function.instr_index+i);
 			machine_operand src;
 			switch (i) {
