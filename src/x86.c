@@ -517,7 +517,7 @@ x86_emit_operand(stream *out, machine_operand operand,
 		}
 
 		stream_print(out, "[rsp+");
-		stream_printu(out, operand.value * 8 + 8);
+		stream_printu(out, operand.value);
 		stream_print(out, "]");
 		break;
 	case MOP_LABEL:
