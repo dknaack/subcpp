@@ -359,13 +359,13 @@ allocate_function_registers(machine_program program,
 			if (intervals[spill].end > intervals[current_register].end) {
 				ASSERT(!force_mreg_for[spill]);
 				vreg[current_register] = vreg[spill];
-				vreg[spill] = make_spill(info.spill_count++);
+				vreg[spill] = make_spill(8 * info.spill_count++);
 				sorted_by_start[spill_index] = sorted_by_start[active_start];
 				sorted_by_start[active_start] = spill;
 				active_start++;
 			} else {
 				ASSERT(!force_mreg_for[current_register]);
-				vreg[current_register] = make_spill(info.spill_count++);
+				vreg[current_register] = make_spill(8 * info.spill_count++);
 			}
 		} else {
 			u32 mreg = register_pool[active_count++];
