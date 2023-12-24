@@ -436,7 +436,7 @@ x86_select_instructions(ir_program program, arena *arena)
 			for (u32 i = block.start; i < block.start + block.size; i++) {
 				ir_instr instr = program.instrs[i];
 				machine_operand dst = make_vreg(i);
-				if (instr.opcode == IR_MOV) {
+				if (instr.opcode == IR_MOV || instr.opcode == IR_STORE) {
 					dst = make_vreg(instr.op0);
 				}
 
