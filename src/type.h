@@ -45,6 +45,8 @@ typedef struct {
 
 static string scope_marker = S("(scope)");
 static type type_void = {TYPE_VOID};
+static type type_char = {TYPE_CHAR};
+static type type_int = {TYPE_INT};
 
 static char *
 type_get_name(type_kind type)
