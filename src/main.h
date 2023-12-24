@@ -24,6 +24,7 @@ typedef double f64;
 typedef float  f32;
 
 typedef uint32_t b32;
+typedef uint8_t  b8;
 
 typedef struct string {
 	char *at;
