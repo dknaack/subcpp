@@ -578,11 +578,11 @@ static void
 x86_generate(stream *out, machine_program program, allocation_info *info)
 {
 	stream_print(out,
-	    "global main\n"
-	    "extern printf\n\n"
-	    "section .data\n"
-	    "fmt: db \"%d\", 0x0A, 0\n\n"
-	    "section .text\n");
+		"global main\n"
+		"extern printf\n\n"
+		"section .data\n"
+		"fmt: db \"%d\", 0x0A, 0\n\n"
+		"section .text\n");
 
 	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
 		u32 first_instr = program.functions[function_index].instr_index;
@@ -618,8 +618,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 			if (opcode == X86_PRINT) {
 				stream_print(out,
-				    "\tmov rdi, fmt\n"
-				    "\tcall printf wrt ..plt\n");
+					"\tmov rdi, fmt\n"
+					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
 				stream_print(out, "L");
 				x86_emit_operand(out, operands[0], program.functions);
@@ -671,7 +671,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				}
 
 				if (operands[0].kind == MOP_SPILL
-				    && operands[1].kind == MOP_SPILL) {
+					&& operands[1].kind == MOP_SPILL)
+				{
 					stream_print(out, "\tmov rax, ");
 					x86_emit_operand(out, operands[1], program.functions);
 					operands[1] = make_mreg(X86_RAX);
