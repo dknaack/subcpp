@@ -117,25 +117,6 @@ make_func(u32 index)
 	return operand;
 }
 
-static void
-push_instr(machine_program *program, u32 opcode, u32 operand_count)
-{
-	machine_instr instr = {0};
-	instr.opcode = opcode;
-	instr.operand_count = operand_count;
-	ASSERT(program->size + sizeof(instr) + operand_count
-	    * sizeof(machine_operand) <= program->max_size);
-	memcpy((char *)program->code + program->size, &instr, sizeof(instr));
-	program->size += sizeof(instr);
-}
-
-static void
-push_operand(machine_program *program, machine_operand operand)
-{
-	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
-	program->size += sizeof(operand);
-}
-
 static u32
 get_instr_size(machine_instr instr)
 {
