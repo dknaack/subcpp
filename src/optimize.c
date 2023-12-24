@@ -72,6 +72,53 @@ promote_stack_variables(ir_program program, arena *arena)
 }
 
 static void
+remove_unused_registers(ir_program program, arena *arena)
+{
+	ir_instr *instrs = program.instrs;
+	arena_temp temp = arena_temp_begin(arena);
+
+	// Remove unused registers
+	b32 *used = ALLOC(arena, program.instr_count, b32);
+	for (u32 j = 0; j < program.instr_count; j++) {
+		u32 i = program.instr_count - 1 - j;
+		ir_instr instr = program.instrs[i];
+		ir_opcode_info info = get_opcode_info(instr.opcode);
+
+		switch (instr.opcode) {
+		case IR_STORE:
+		case IR_PARAM:
+		case IR_CALL:
+		case IR_RET:
+		case IR_MOV:
+		case IR_PRINT:
+			used[i] = true;
+		default:
+			break;
+		}
+
+		if (!used[i]) {
+			continue;
+		}
+
+		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
+			used[instr.op0] = true;
+		}
+
+		if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
+			used[instr.op1] = true;
+		}
+	}
+
+	for (u32 i = 0; i < program.instr_count; i++) {
+		if (!used[i]) {
+			instrs[i].opcode = IR_NOP;
+		}
+	}
+
+	arena_temp_end(temp);
+}
+
+static void
 optimize(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
@@ -157,4 +204,6 @@ optimize(ir_program program, arena *arena)
 			break;
 		}
 	}
+
+	remove_unused_registers(program, arena);
 }
