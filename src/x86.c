@@ -594,16 +594,26 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		stream_prints(out, program.functions[function_index].name);
 		stream_print(out, ":\n");
 
+		u32 used_volatile_register_count = 0;
 		for (u32 j = 0; j < LENGTH(x86_preserved_regs); j++) {
 			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
 				x86_emit_operand(out, make_mreg(mreg), program.functions);
 				stream_print(out, "\n");
+				used_volatile_register_count++;
 			}
 		}
 
-		u32 stack_size = info[function_index].spill_count * 8;
+		u32 stack_size = program.functions[function_index].stack_size;
+		stack_size += 8 * info[function_index].spill_count;
+
+		u32 total_stack_size = (stack_size + 8 * used_volatile_register_count);
+		b32 stack_is_aligned = ((total_stack_size & 15) == 0);
+		if (!stack_is_aligned) {
+			stack_size += (total_stack_size & 15);
+		}
+
 		if (stack_size > 0) {
 			stream_print(out, "\tsub rsp, ");
 			stream_printu(out, stack_size);
