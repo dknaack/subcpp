@@ -520,10 +520,10 @@ get_opcode_info(ir_opcode opcode)
 	case IR_PRINT:
 	case IR_PARAM:
 	case IR_RET:
+	case IR_LOAD:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:
-	case IR_LOAD:
 	case IR_STORE:
 		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_REG_SRC;
