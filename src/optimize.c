@@ -125,6 +125,21 @@ optimize(ir_program program, arena *arena)
 
 	promote_stack_variables(program, arena);
 
+	// Remove register copies from the IR tree
+	for (u32 i = 0; i < program.instr_count; i++) {
+		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+
+		u32 op0 = instrs[i].op0;
+		if (info.op0 == IR_OPERAND_REG_SRC && instrs[op0].opcode == IR_COPY) {
+			instrs[i].op0 = instrs[op0].op0;
+		}
+
+		u32 op1 = instrs[i].op1;
+		if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_COPY) {
+			instrs[i].op1 = instrs[op1].op0;
+		}
+	}
+
 	for (u32 i = 0; i < program.instr_count; i++) {
 		u32 op0 = instrs[i].op0;
 		u32 op1 = instrs[i].op1;
