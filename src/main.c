@@ -194,7 +194,7 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	ir_program ir_program = ir_generate(root, arena);
+	ir_program ir_program = translate(root, arena);
 	optimize(ir_program, arena);
 	machine_program machine_program = x86_select_instructions(ir_program, arena);
 	allocation_info *info = allocate_registers(machine_program, arena);

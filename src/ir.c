@@ -129,10 +129,10 @@ get_register(ir_context *ctx, string ident)
 	return 0;
 }
 
-static u32 generate(ir_context *ctx, ast_node *node);
+static u32 translate_node(ir_context *ctx, ast_node *node);
 
 static u32
-generate_lvalue(ir_context *ctx, ast_node *node)
+translate_lvalue(ir_context *ctx, ast_node *node)
 {
 	u32 result = 0;
 
@@ -155,8 +155,8 @@ generate_lvalue(ir_context *ctx, ast_node *node)
 			ast_node *lhs = node->u.bin_expr.lhs;
 			ast_node *rhs = node->u.bin_expr.rhs;
 			u32 size = type_sizeof(node->type);
-			u32 lhs_reg = generate_lvalue(ctx, lhs);
-			u32 rhs_reg = generate_lvalue(ctx, rhs);
+			u32 lhs_reg = translate_lvalue(ctx, lhs);
+			u32 rhs_reg = translate_lvalue(ctx, rhs);
 			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
 		} break;
 	case AST_EXPR_UNARY:
@@ -164,7 +164,7 @@ generate_lvalue(ir_context *ctx, ast_node *node)
 			u32 operator = node->u.unary_expr.op;
 			switch (operator) {
 			case TOKEN_MUL:
-				result = generate(ctx, node->u.unary_expr.operand);
+				result = translate_node(ctx, node->u.unary_expr.operand);
 				break;
 			default:
 				ASSERT(!"Not an lvalue");
@@ -182,7 +182,7 @@ generate_lvalue(ir_context *ctx, ast_node *node)
 }
 
 static u32
-generate(ir_context *ctx, ast_node *node)
+translate_node(ir_context *ctx, ast_node *node)
 {
 	u32 endif_label, else_label, cond_label, function_label;
 	u32 label, param_register[128];
@@ -220,13 +220,13 @@ generate(ir_context *ctx, ast_node *node)
 			ast_node *lhs = node->u.bin_expr.lhs;
 			u32 lhs_reg = 0;
 			if (opcode == IR_STORE) {
-				lhs_reg = generate_lvalue(ctx, lhs);
+				lhs_reg = translate_lvalue(ctx, lhs);
 			} else {
-				lhs_reg = generate(ctx, lhs);
+				lhs_reg = translate_node(ctx, lhs);
 			}
 
 			ast_node *rhs = node->u.bin_expr.rhs;
-			u32 rhs_reg = generate(ctx, rhs);
+			u32 rhs_reg = translate_node(ctx, rhs);
 
 			u32 size = type_sizeof(node->type);
 			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
@@ -239,7 +239,7 @@ generate(ir_context *ctx, ast_node *node)
 			param_count = 0;
 			while (param) {
 				ASSERT(param_count < 128);
-				param_register[param_count++] = generate(ctx, param);
+				param_register[param_count++] = translate_node(ctx, param);
 				param = param->next;
 			}
 
@@ -269,11 +269,11 @@ generate(ir_context *ctx, ast_node *node)
 			switch (node->u.unary_expr.op) {
 			case TOKEN_AMPERSAND:
 				{
-					result = generate_lvalue(ctx, node->u.unary_expr.operand);
+					result = translate_lvalue(ctx, node->u.unary_expr.operand);
 				} break;
 			case TOKEN_MUL:
 				{
-					result = generate(ctx, node->u.unary_expr.operand);
+					result = translate_node(ctx, node->u.unary_expr.operand);
 					result = emit1(ctx, IR_LOAD, result);
 				} break;
 			default:
@@ -287,7 +287,7 @@ generate(ir_context *ctx, ast_node *node)
 	case AST_STMT_COMPOUND:
 	case AST_STMT_DECL:
 		for (node = node->u.children; node; node = node->next) {
-			generate(ctx, node);
+			translate_node(ctx, node);
 		}
 		break;
 	case AST_STMT_CONTINUE:
@@ -296,7 +296,7 @@ generate(ir_context *ctx, ast_node *node)
 	case AST_DECL:
 		result = new_register(ctx, node->u.decl.name);
 		if (node->u.decl.expr) {
-			u32 expr = generate(ctx, node->u.decl.expr);
+			u32 expr = translate_node(ctx, node->u.decl.expr);
 			emit2(ctx, IR_STORE, result, expr);
 		}
 
@@ -308,13 +308,13 @@ generate(ir_context *ctx, ast_node *node)
 		ctx->continue_label = new_label(ctx);
 		cond_label = new_label(ctx);
 
-		generate(ctx, node->u.for_stmt.init);
+		translate_node(ctx, node->u.for_stmt.init);
 		emit1(ctx, IR_LABEL, cond_label);
-		result = generate(ctx, node->u.for_stmt.cond);
+		result = translate_node(ctx, node->u.for_stmt.cond);
 		emit2(ctx, IR_JIZ, result, ctx->break_label);
-		generate(ctx, node->u.for_stmt.body);
+		translate_node(ctx, node->u.for_stmt.body);
 		emit1(ctx, IR_LABEL, ctx->continue_label);
-		generate(ctx, node->u.for_stmt.post);
+		translate_node(ctx, node->u.for_stmt.post);
 		emit1(ctx, IR_JMP, cond_label);
 		emit1(ctx, IR_LABEL, ctx->break_label);
 		break;
@@ -322,13 +322,13 @@ generate(ir_context *ctx, ast_node *node)
 		endif_label = new_label(ctx);
 		else_label = new_label(ctx);
 
-		result = generate(ctx, node->u.if_stmt.cond);
+		result = translate_node(ctx, node->u.if_stmt.cond);
 		emit2(ctx, IR_JIZ, result, else_label);
-		generate(ctx, node->u.if_stmt.then);
+		translate_node(ctx, node->u.if_stmt.then);
 		emit1(ctx, IR_JMP, endif_label);
 		emit1(ctx, IR_LABEL, else_label);
 		if (node->u.if_stmt.otherwise) {
-			generate(ctx, node->u.if_stmt.otherwise);
+			translate_node(ctx, node->u.if_stmt.otherwise);
 		}
 
 		emit1(ctx, IR_LABEL, endif_label);
@@ -338,20 +338,20 @@ generate(ir_context *ctx, ast_node *node)
 		ctx->continue_label = new_label(ctx);
 
 		emit1(ctx, IR_LABEL, ctx->continue_label);
-		result = generate(ctx, node->u.while_stmt.cond);
+		result = translate_node(ctx, node->u.while_stmt.cond);
 		emit2(ctx, IR_JIZ, result, ctx->break_label);
-		generate(ctx, node->u.while_stmt.body);
+		translate_node(ctx, node->u.while_stmt.body);
 		emit1(ctx, IR_JMP, ctx->continue_label);
 		emit1(ctx, IR_LABEL, ctx->break_label);
 		break;
 	case AST_STMT_RETURN:
 		if (node->u.children) {
-			result = generate(ctx, node->u.children);
+			result = translate_node(ctx, node->u.children);
 		}
 		emit1(ctx, IR_RET, result);
 		break;
 	case AST_STMT_PRINT:
-		result = generate(ctx, node->u.children);
+		result = translate_node(ctx, node->u.children);
 		emit1(ctx, IR_PRINT, result);
 		break;
 	case AST_FUNCTION:
@@ -377,7 +377,7 @@ generate(ir_context *ctx, ast_node *node)
 		ir_function->parameter_count = param_count;
 
 		for (ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
-			generate(ctx, stmt);
+			translate_node(ctx, stmt);
 		}
 		break;
 	case AST_TYPE_POINTER:
@@ -592,7 +592,7 @@ get_toplevel_instructions(ir_program program, arena *arena)
 }
 
 static ir_program
-ir_generate(ast_node *root, arena *arena)
+translate(ast_node *root, arena *arena)
 {
 	ir_context ctx = ir_context_init(arena);
 
@@ -602,7 +602,7 @@ ir_generate(ast_node *root, arena *arena)
 	}
 
 	ctx.program.functions = ALLOC(arena, function_count, ir_function);
-	generate(&ctx, root);
+	translate_node(&ctx, root);
 	construct_cfg(&ctx.program, arena);
 	return ctx.program;
 }
