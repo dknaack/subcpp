@@ -16,6 +16,8 @@ get_token_name(token_kind kind)
 	case TOKEN_SEMICOLON:   return "';'";
 	case TOKEN_LPAREN:      return "'('";
 	case TOKEN_RPAREN:      return "')'";
+	case TOKEN_LBRACKET:    return "'['";
+	case TOKEN_RBRACKET:    return "']'";
 	case TOKEN_LBRACE:      return "'{'";
 	case TOKEN_RBRACE:      return "'}'";
 	case TOKEN_LITERAL_INT: return "integer";
@@ -132,6 +134,8 @@ get_raw_token(tokenizer *tokenizer)
 	case '%': token.kind = TOKEN_MOD; break;
 	case '(': token.kind = TOKEN_LPAREN; break;
 	case ')': token.kind = TOKEN_RPAREN; break;
+	case '[': token.kind = TOKEN_LBRACKET; break;
+	case ']': token.kind = TOKEN_RBRACKET; break;
 	case '{': token.kind = TOKEN_LBRACE; break;
 	case '}': token.kind = TOKEN_RBRACE; break;
 	case ',': token.kind = TOKEN_COMMA; break;
