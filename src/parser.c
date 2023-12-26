@@ -271,9 +271,22 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	do {
 		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
 		(*ptr)->u.decl.name = parse_ident(tokenizer);
-		(*ptr)->u.decl.type = type;
+		(*ptr)->u.decl.type_specifier = type;
+
+		// Array declarator
+		if (accept(tokenizer, TOKEN_LBRACKET)) {
+			// TODO: Store the array size in the AST
+			accept(tokenizer, TOKEN_LITERAL_INT);
+			expect(tokenizer, TOKEN_RBRACKET);
+		}
+
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
-			(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
+			if (accept(tokenizer, TOKEN_LBRACE)) {
+				parse_assign_expr(tokenizer, arena);
+				expect(tokenizer, TOKEN_RBRACE);
+			} else {
+				(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
+			}
 		}
 		ptr = &(*ptr)->next;
 	} while (!tokenizer->error
