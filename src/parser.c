@@ -191,8 +191,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {
-				syntax_error(tokenizer, "Expected operator");
-				return NULL;
+				return expr;
 			}
 
 			b32 is_right_associative = (precedence < 0);
