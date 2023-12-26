@@ -94,6 +94,8 @@ get_binary_precedence(token_kind token)
 	case TOKEN_LEQ:
 	case TOKEN_GEQ:
 		return 40;
+	case TOKEN_LBRACKET:
+		return 50;
 	default:
 		return 0;
 	}
@@ -202,18 +204,27 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 				break;
 			}
 
-			get_token(tokenizer);
-
 			/* NOTE: Ensure that right associative expressions are
 			 * parsed correctly. */
 			precedence -= is_right_associative;
+
+			if (token.kind == TOKEN_LBRACKET) {
+				precedence = 0;
+			}
+
+			get_token(tokenizer);
 			ast_node *lhs = expr;
 			ast_node *rhs = parse_expr(tokenizer, precedence, arena);
+			ASSERT(rhs);
 
 			expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
 			expr->u.bin_expr.op = token.kind;
 			expr->u.bin_expr.lhs = lhs;
 			expr->u.bin_expr.rhs = rhs;
+
+			if (token.kind == TOKEN_LBRACKET) {
+				expect(tokenizer, TOKEN_RBRACKET);
+			}
 		}
 	}
 
