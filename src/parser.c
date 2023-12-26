@@ -70,6 +70,8 @@ new_ast_node(ast_node_kind kind, location loc, arena *arena)
 	return node;
 }
 
+#define MAX_PRECEDENCE 60
+
 /* NOTE: An operator with negative precedence is right associative. */
 static int
 get_binary_precedence(token_kind token)
@@ -153,7 +155,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->u.unary_expr.op = token.kind;
-		expr->u.unary_expr.operand = parse_expr(tokenizer, 50, arena);
+		expr->u.unary_expr.operand = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
