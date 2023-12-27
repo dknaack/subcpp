@@ -110,9 +110,20 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 		{
 			type *lhs = check_node(node->u.bin_expr.lhs, symbols, arena);
 			type *rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
-			if (!type_equals(lhs, rhs)) {
-				errorf(node->loc, "Incompatible types: %s, %s",
-					type_get_name(lhs->kind), type_get_name(rhs->kind));
+
+			u32 operator = node->u.bin_expr.op;
+			if (operator == TOKEN_ASSIGN) {
+				// TODO: type conversion
+			} else if (operator == TOKEN_LBRACKET) {
+				// TODO: ensure that one operand is a pointer and the other one
+				// is an integral type.
+				ASSERT(lhs->kind != TYPE_POINTER || rhs->kind == TYPE_POINTER);
+				ASSERT(lhs->kind == TYPE_POINTER || rhs->kind != TYPE_POINTER);
+			} else {
+				if (!type_equals(lhs, rhs)) {
+					errorf(node->loc, "Incompatible types: %s, %s",
+						type_get_name(lhs->kind), type_get_name(rhs->kind));
+				}
 			}
 
 			result = lhs;
