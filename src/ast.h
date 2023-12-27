@@ -17,9 +17,24 @@ typedef struct {
 } ast_expr_call;
 
 typedef struct {
-	string name;
-	ast_node *expr;
-	ast_node *type;
+	ast_node *declarator;
+	u32 qualifiers;
+} ast_decl_pointer;
+
+typedef struct {
+	ast_node *declarator;
+	ast_node *size;
+	u32 qualifiers;
+} ast_decl_array;
+
+typedef struct {
+	ast_node *declarator;
+	ast_node *initializer;
+} ast_decl_list;
+
+typedef struct {
+	ast_node *list;
+	ast_node *type_specifier;
 } ast_decl;
 
 typedef struct {
@@ -41,10 +56,6 @@ typedef struct {
 } ast_stmt_for;
 
 typedef struct {
-	ast_node *target;
-} ast_type_pointer;
-
-typedef struct {
 	string name;
 	ast_node *params;
 	ast_node *body;
@@ -53,9 +64,14 @@ typedef struct {
 
 typedef enum {
 	AST_INVALID,
-	AST_DECL,
 	AST_FUNCTION,
 	AST_ROOT,
+
+	AST_DECL,
+	AST_DECL_LIST,
+	AST_DECL_POINTER,
+	AST_DECL_ARRAY,
+	AST_DECL_IDENT,
 
 	AST_EXPR_BINARY,
 	AST_EXPR_CALL,
@@ -76,7 +92,6 @@ typedef enum {
 
 	AST_TYPE_CHAR,
 	AST_TYPE_INT,
-	AST_TYPE_POINTER,
 	AST_TYPE_VOID,
 } ast_node_kind;
 
@@ -93,9 +108,11 @@ struct ast_node {
 		ast_expr_bin bin_expr;
 		ast_expr_call call_expr;
 		ast_expr_unary unary_expr;
-		ast_type_pointer pointer_type;
 		ast_function function;
 		ast_decl decl;
+		ast_decl_list decl_list;
+		ast_decl_pointer decl_pointer;
+		ast_decl_array decl_array;
 		ast_node *children;
 		string ident;
 		intmax_t ival;
@@ -109,11 +126,14 @@ get_ast_name(ast_node_kind kind)
 	case AST_INVALID:       return "INVALID";
 	case AST_ROOT:          return "ROOT";
 	case AST_DECL:          return "DECL";
+	case AST_DECL_LIST:     return "DECL_LIST";
+	case AST_DECL_POINTER:  return "DECL_POINTER";
+	case AST_DECL_ARRAY:    return "DECL_ARRAY";
+	case AST_DECL_IDENT:    return "DECL_IDENT";
 	case AST_FUNCTION:      return "FUNCTION";
 	case AST_TYPE_VOID:     return "VOID";
 	case AST_TYPE_CHAR:     return "CHAR";
 	case AST_TYPE_INT:      return "INT";
-	case AST_TYPE_POINTER:  return "POINTER";
 	case AST_EXPR_BINARY:   return "BINARY";
 	case AST_EXPR_CALL:     return "CALL";
 	case AST_EXPR_IDENT:    return "IDENT";
