@@ -6,6 +6,8 @@ verrorf(location loc, char *fmt, va_list ap)
 	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line-1, loc.column);
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
+
+	ASSERT(false);
 }
 
 static void
@@ -243,51 +245,65 @@ typedef enum {
 } parse_decl_flags;
 
 static ast_node *
+parse_declarator(tokenizer *tokenizer, arena *arena)
+{
+	ast_node *result = NULL;
+
+	if (accept(tokenizer, TOKEN_LPAREN)) {
+		result = parse_declarator(tokenizer, arena);
+		expect(tokenizer, TOKEN_RPAREN);
+	} else if (accept(tokenizer, TOKEN_MUL)) {
+		result = new_ast_node(AST_DECL_POINTER, tokenizer->loc, arena);
+		result->u.decl_pointer.declarator = parse_declarator(tokenizer, arena);
+	} else {
+		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
+		result->u.ident = parse_ident(tokenizer);
+		if (accept(tokenizer, TOKEN_LBRACKET)) {
+			ast_node *declarator = result;
+			result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);
+			result->u.decl_array.declarator = declarator;
+			result->u.decl_array.size = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_RBRACKET);
+		}
+	}
+
+	return result;
+}
+
+static ast_node *
 parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 {
-	ast_node *decl;
-	ast_node **ptr = &decl;
+	ast_node *type_specifier = NULL;
 	token token = peek_token(tokenizer);
-	ast_node *type = NULL;
 	switch (token.kind) {
 	case TOKEN_INT:
-		type = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
+		type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
 	case TOKEN_CHAR:
-		type = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
+		type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
 	default:
 		return NULL;
 	}
 
-	if (accept(tokenizer, TOKEN_MUL)) {
-		ast_node *target = type;
-		type = new_ast_node(AST_TYPE_POINTER, tokenizer->loc, arena);
-		type->u.pointer_type.target = target;
-	}
-
+	ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
+	decl->u.decl.type_specifier = type_specifier;
+	ast_node **ptr = &decl->u.decl.list;
 	do {
-		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
-		(*ptr)->u.decl.name = parse_ident(tokenizer);
-		(*ptr)->u.decl.type_specifier = type;
-
-		// Array declarator
-		if (accept(tokenizer, TOKEN_LBRACKET)) {
-			// TODO: Store the array size in the AST
-			accept(tokenizer, TOKEN_LITERAL_INT);
-			expect(tokenizer, TOKEN_RBRACKET);
-		}
+		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+		(*ptr)->u.decl_list.declarator = parse_declarator(tokenizer, arena);
 
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
 			if (accept(tokenizer, TOKEN_LBRACE)) {
 				parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RBRACE);
 			} else {
-				(*ptr)->u.decl.expr = parse_assign_expr(tokenizer, arena);
+				(*ptr)->u.decl_list.initializer = parse_assign_expr(tokenizer, arena);
 			}
 		}
+
 		ptr = &(*ptr)->next;
 	} while (!tokenizer->error
 	    && !(flags & PARSE_SINGLE_DECL)
