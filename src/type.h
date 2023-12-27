@@ -5,6 +5,7 @@ typedef struct {
 
 typedef enum {
 	TYPE_UNKNOWN,
+	TYPE_ARRAY,
 	TYPE_CHAR,
 	TYPE_FUNCTION,
 	TYPE_INT,
@@ -21,6 +22,11 @@ typedef struct {
 	type *target;
 } type_pointer;
 
+typedef struct {
+	type *target;
+	u32 size;
+} type_array;
+
 struct type {
 	type_kind kind;
 	type *next;
@@ -28,6 +34,7 @@ struct type {
 	union {
 		type_function function;
 		type_pointer pointer;
+		type_array array;
 	} u;
 };
 
@@ -56,6 +63,7 @@ type_get_name(type_kind type)
 	case TYPE_INT:      return "int";
 	case TYPE_CHAR:     return "char";
 	case TYPE_FUNCTION: return "(function)";
+	case TYPE_ARRAY:    return "(array)";
 	case TYPE_POINTER:  return "(pointer)";
 	case TYPE_UNKNOWN:  return "(unknown)";
 	}
@@ -83,10 +91,14 @@ type_sizeof(type *type)
 		return 8;
 	case TYPE_VOID:
 	case TYPE_FUNCTION:
+	case TYPE_UNKNOWN:
 		ASSERT(!"Type does not have a size");
 		return 0;
-	default:
-		ASSERT(!"Invalid type");
+	case TYPE_ARRAY:
+		{
+			usize target_size = type_sizeof(type->u.array.target);
+			return type->u.array.size * target_size;
+		} break;
 	}
 
 	return 0;
