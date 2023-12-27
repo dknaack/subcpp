@@ -118,27 +118,19 @@ remove_unused_registers(ir_program program, arena *arena)
 	arena_temp_end(temp);
 }
 
+static b32
+is_register_operand(ir_operand_type operand)
+{
+	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
+	return result;
+}
+
 static void
 optimize(ir_program program, arena *arena)
 {
 	ir_instr *instrs = program.instrs;
 
 	promote_stack_variables(program, arena);
-
-	// Remove register copies from the IR tree
-	for (u32 i = 0; i < program.instr_count; i++) {
-		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
-
-		u32 op0 = instrs[i].op0;
-		if (info.op0 == IR_OPERAND_REG_SRC && instrs[op0].opcode == IR_COPY) {
-			instrs[i].op0 = instrs[op0].op0;
-		}
-
-		u32 op1 = instrs[i].op1;
-		if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_COPY) {
-			instrs[i].op1 = instrs[op1].op0;
-		}
-	}
 
 	for (u32 i = 0; i < program.instr_count; i++) {
 		u32 op0 = instrs[i].op0;
@@ -217,6 +209,21 @@ optimize(ir_program program, arena *arena)
 			break;
 		default:
 			break;
+		}
+	}
+
+	// Remove register copies from the IR tree
+	for (u32 i = 0; i < program.instr_count; i++) {
+		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+
+		u32 op0 = instrs[i].op0;
+		if (is_register_operand(info.op0) && instrs[op0].opcode == IR_COPY) {
+			instrs[i].op0 = instrs[op0].op0;
+		}
+
+		u32 op1 = instrs[i].op1;
+		if (is_register_operand(info.op1) && instrs[op1].opcode == IR_COPY) {
+			instrs[i].op1 = instrs[op1].op0;
 		}
 	}
 
