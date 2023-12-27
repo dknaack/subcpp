@@ -293,6 +293,7 @@ end:
 		{
 			result = type_create(TYPE_FUNCTION, arena);
 			result->u.function.return_type = type_create(TYPE_INT, arena);
+			push_scope(symbols, arena);
 			type **param_type = &result->u.function.param_types;
 			for (ast_node *param = node->u.function.params; param; param = param->next) {
 				*param_type = check_node(param, symbols, arena);
@@ -300,12 +301,6 @@ end:
 			}
 
 			add_variable(symbols, node->u.function.name, result, arena);
-			push_scope(symbols, arena);
-			param_type = &result->u.function.param_types;
-			for (ast_node *param = node->u.function.params; param; param = param->next) {
-				add_variable(symbols, param->u.decl.name, *param_type, arena);
-				param_type = &(*param_type)->next;
-			}
 
 			for (ast_node *child = node->u.function.body; child; child = child->next) {
 				check_node(child, symbols, arena);
