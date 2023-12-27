@@ -668,16 +668,19 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						continue;
 					}
 				} else if (opcode == X86_STORE) {
-					stream_print(out, "mov [");
+					stream_print(out, "\tmov [");
 					x86_emit_operand(out, operands[0], program.functions);
 					stream_print(out, "], ");
 					x86_emit_operand(out, operands[1], program.functions);
-					operand_count -= 2;
+					stream_print(out, "\n");
+					continue;
 				} else if (opcode == X86_LOAD) {
-					stream_print(out, "mov ");
+					stream_print(out, "\tmov ");
 					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, ", ");
 					x86_emit_operand_indirect(out, operands[1], program.functions);
-					operand_count -= 2;
+					stream_print(out, "\n");
+					continue;
 				}
 
 				if (operands[0].kind == MOP_SPILL
