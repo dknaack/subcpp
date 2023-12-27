@@ -155,9 +155,7 @@ optimize(ir_program program, arena *arena)
 				&& instrs[op1].op0 == 0)
 			{
 				instrs[op1].opcode = IR_NOP;
-				instrs[i].opcode = IR_MOV;
-				instrs[i].op1 = op0;
-				instrs[i].op0 = i;
+				instrs[i].opcode = IR_COPY;
 			}
 			break;
 		case IR_SUB:
@@ -172,9 +170,7 @@ optimize(ir_program program, arena *arena)
 				&& instrs[op1].op0 == 0)
 			{
 				instrs[op1].opcode = IR_NOP;
-				instrs[i].opcode = IR_MOV;
-				instrs[i].op1 = op0;
-				instrs[i].op0 = i;
+				instrs[i].opcode = IR_COPY;
 			}
 			break;
 		case IR_MUL:
