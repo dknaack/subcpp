@@ -181,18 +181,56 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_DECL:
 		{
-			type *decl_type = check_node(node->u.decl.type, symbols, arena);
-			if (node->u.decl.expr) {
-				type *expr_type = check_node(node->u.decl.expr, symbols, arena);
-				if (!type_equals(decl_type, expr_type)) {
-					errorf(node->loc, "Incompatible types: %s, %s",
-						type_get_name(decl_type->kind),
-						type_get_name(expr_type->kind));
+			result = &type_void;
+			type *type_specifier = check_node(node->u.decl.type_specifier, symbols, arena);
+			for (ast_node *child = node->u.decl.list; child; child = child->next) {
+				ast_node *declarator = child->u.decl_list.declarator;
+				type *decl_type = type_specifier;
+				string name = {0};
+				for (;;) {
+					switch (declarator->kind) {
+					case AST_DECL_IDENT:
+						{
+							name = declarator->u.ident;
+							declarator->type = decl_type;
+							goto end;
+						} break;
+					case AST_DECL_POINTER:
+						{
+							type *target = decl_type;
+							decl_type = type_create(TYPE_POINTER, arena);
+							decl_type->u.pointer.target = target;
+							// TODO: add qualifiers to the pointer
+							declarator = declarator->u.decl_pointer.declarator;
+						} break;
+					case AST_DECL_ARRAY:
+						{
+							type *target = decl_type;
+							decl_type = type_create(TYPE_ARRAY, arena);
+							decl_type->u.array.target = target;
+							// TODO: Evaluate the array size of the declarator
+							decl_type->u.array.size = 1;
+							declarator = declarator->u.decl_array.declarator;
+						} break;
+					default:
+						// TODO: report syntax error
+						ASSERT(!"Invalid node in declarator");
+						break;
+					}
 				}
-			}
 
-			add_variable(symbols, node->u.decl.name, decl_type, arena);
-			result = decl_type;
+end:
+				ASSERT(name.at);
+				add_variable(symbols, name, decl_type, arena);
+			}
+		} break;
+	case AST_DECL_LIST:
+	case AST_DECL_POINTER:
+	case AST_DECL_ARRAY:
+	case AST_DECL_IDENT:
+		{
+			// TODO: report syntax error when declarator is encountered here.
+			ASSERT(!"Should be handled in decl");
 		} break;
 	case AST_STMT_DECL:
 		{
@@ -263,12 +301,6 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 			}
 
 			pop_scope(symbols);
-		} break;
-	case AST_TYPE_POINTER:
-		{
-			type *target = check_node(node->u.pointer_type.target, symbols, arena);
-			result = type_create(TYPE_POINTER, arena);
-			result->u.pointer.target = target;
 		} break;
 	case AST_TYPE_VOID:
 		{
