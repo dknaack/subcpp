@@ -221,6 +221,10 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 							decl_type->u.array.target = target;
 							// TODO: Evaluate the array size of the declarator
 							decl_type->u.array.size = 1;
+							ast_node *size = declarator->u.decl_array.size;
+							if (size->kind == AST_EXPR_INT) {
+								decl_type->u.array.size = size->u.ival;
+							}
 							declarator = declarator->u.decl_array.declarator;
 						} break;
 					default:
