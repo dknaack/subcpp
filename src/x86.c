@@ -204,8 +204,22 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand src = make_vreg(op0);
 			ASSERT(!machine_operand_equals(src, dst));
-			x86_select_instr(out, instr, op0, src);
-			x86_select2(out, X86_LOAD, dst, src);
+			if (instr[op0].opcode == IR_ALLOC) {
+				u32 addr = instr[op0].op1;
+				src = make_spill(addr);
+				x86_select2(out, X86_MOV, dst, src);
+			} else if (instr[op0].opcode == IR_ADD
+				&& instr[instr[op0].op0].opcode == IR_ALLOC
+				&& instr[instr[op0].op1].opcode == IR_CONST)
+			{
+				u32 base = instr[instr[op0].op0].op1;
+				u32 offset = instr[instr[op0].op1].op0;
+				src = make_spill(base + offset);
+				x86_select2(out, X86_MOV, dst, src);
+			} else {
+				x86_select_instr(out, instr, op0, src);
+				x86_select2(out, X86_LOAD, dst, src);
+			}
 		} break;
 	case IR_STORE:
 		{
