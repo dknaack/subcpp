@@ -428,6 +428,8 @@ translate_node(ir_context *ctx, ast_node *node)
 		for (ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
 			translate_node(ctx, stmt);
 		}
+
+		ir_function->stack_size = ctx->stack_size;
 		break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
