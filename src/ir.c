@@ -85,8 +85,8 @@ new_register(ir_context *ctx, string ident, u32 size)
 
 		if (!variable_table[i].name.at) {
 			variable_table[i].name = ident;
-			variable_table[i].vreg = emit2(ctx, IR_ALLOC, 8, ctx->stack_size);
-			ctx->stack_size += 8;
+			variable_table[i].vreg = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
+			ctx->stack_size += size;
 			return variable_table[i].vreg;
 		}
 	}
@@ -148,15 +148,30 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			switch (operator) {
 			case TOKEN_ADD: opcode = IR_ADD; break;
 			case TOKEN_SUB: opcode = IR_SUB; break;
+			case TOKEN_LBRACKET:
+							opcode = IR_ADD; break;
 			default:
 				ASSERT(!"Not an lvalue");
 			}
 
 			ast_node *lhs = node->u.bin_expr.lhs;
 			ast_node *rhs = node->u.bin_expr.rhs;
-			u32 size = type_sizeof(node->type);
+
 			u32 lhs_reg = translate_lvalue(ctx, lhs);
+			if (operator == TOKEN_LBRACKET && lhs->type->kind != TYPE_ARRAY) {
+				type *target = rhs->type->u.pointer.target;
+				u32 size = emit1(ctx, IR_CONST, type_sizeof(target));
+				lhs_reg = emit2(ctx, IR_MUL, lhs_reg, size);
+			}
+
 			u32 rhs_reg = translate_lvalue(ctx, rhs);
+			if (operator == TOKEN_LBRACKET && rhs->type->kind != TYPE_ARRAY) {
+				type *target = lhs->type->u.pointer.target;
+				u32 size = emit1(ctx, IR_CONST, type_sizeof(target));
+				rhs_reg = emit2(ctx, IR_MUL, rhs_reg, size);
+			}
+
+			u32 size = type_sizeof(node->type);
 			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
 		} break;
 	case AST_EXPR_UNARY:
@@ -201,17 +216,18 @@ translate_node(ir_context *ctx, ast_node *node)
 		{
 			u32 operator = node->u.bin_expr.op;
 			switch (operator) {
-			case TOKEN_ADD:    opcode = IR_ADD;   break;
-			case TOKEN_SUB:    opcode = IR_SUB;   break;
-			case TOKEN_MUL:    opcode = IR_MUL;   break;
-			case TOKEN_DIV:    opcode = IR_DIV;   break;
-			case TOKEN_MOD:    opcode = IR_MOD;   break;
-			case TOKEN_ASSIGN: opcode = IR_STORE; break;
-			case TOKEN_EQUALS: opcode = IR_EQL;   break;
-			case TOKEN_LT:     opcode = IR_LT;    break;
-			case TOKEN_GT:     opcode = IR_GT;    break;
-			case TOKEN_LEQ:    opcode = IR_LEQ;   break;
-			case TOKEN_GEQ:    opcode = IR_GEQ;   break;
+			case TOKEN_ADD:      opcode = IR_ADD;   break;
+			case TOKEN_SUB:      opcode = IR_SUB;   break;
+			case TOKEN_MUL:      opcode = IR_MUL;   break;
+			case TOKEN_DIV:      opcode = IR_DIV;   break;
+			case TOKEN_MOD:      opcode = IR_MOD;   break;
+			case TOKEN_ASSIGN:   opcode = IR_STORE; break;
+			case TOKEN_EQUALS:   opcode = IR_EQL;   break;
+			case TOKEN_LT:       opcode = IR_LT;    break;
+			case TOKEN_GT:       opcode = IR_GT;    break;
+			case TOKEN_LEQ:      opcode = IR_LEQ;   break;
+			case TOKEN_GEQ:      opcode = IR_GEQ;   break;
+			case TOKEN_LBRACKET: opcode = IR_LOAD;  break;
 			default:
 				ASSERT(!"Invalid operator");
 				break;
@@ -219,7 +235,7 @@ translate_node(ir_context *ctx, ast_node *node)
 
 			ast_node *lhs = node->u.bin_expr.lhs;
 			u32 lhs_reg = 0;
-			if (opcode == IR_STORE) {
+			if (opcode == IR_STORE || opcode == IR_LOAD) {
 				lhs_reg = translate_lvalue(ctx, lhs);
 			} else {
 				lhs_reg = translate_node(ctx, lhs);
@@ -228,8 +244,23 @@ translate_node(ir_context *ctx, ast_node *node)
 			ast_node *rhs = node->u.bin_expr.rhs;
 			u32 rhs_reg = translate_node(ctx, rhs);
 
-			u32 size = type_sizeof(node->type);
-			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+			if (opcode == IR_LOAD) {
+				if (rhs->type->kind == TYPE_POINTER) {
+					type *target = rhs->type->u.pointer.target;
+					u32 size = emit1(ctx, IR_CONST, type_sizeof(target));
+					lhs_reg = emit2(ctx, IR_MUL, lhs_reg, size);
+				} else if (lhs->type->kind == TYPE_POINTER) {
+					type *target = lhs->type->u.pointer.target;
+					u32 size = emit1(ctx, IR_CONST, type_sizeof(target));
+					rhs_reg = emit2(ctx, IR_MUL, rhs_reg, size);
+				}
+
+				u32 addr = emit2(ctx, IR_ADD, lhs_reg, rhs_reg);
+				result = emit1(ctx, IR_LOAD, addr);
+			} else {
+				u32 size = type_sizeof(node->type);
+				result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+			}
 		} break;
 	case AST_EXPR_CALL:
 		called = node->u.call_expr.called;
