@@ -225,7 +225,12 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand src = make_vreg(op1);
 			ASSERT(!machine_operand_equals(src, dst));
-			x86_select_instr(out, instr, op1, src);
+			if (instr[op1].opcode != IR_CONST) {
+				x86_select_instr(out, instr, op1, src);
+			} else {
+				src = make_immediate(instr[op1].op0);
+			}
+
 			if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
 				&& instr[instr[op0].op1].opcode == IR_CONST)
