@@ -568,6 +568,13 @@ get_opcode_info(ir_opcode opcode)
 	return info;
 }
 
+static b32
+is_register_operand(ir_operand_type operand)
+{
+	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
+	return result;
+}
+
 static b8 *
 get_toplevel_instructions(ir_program program, arena *arena)
 {
@@ -579,11 +586,11 @@ get_toplevel_instructions(ir_program program, arena *arena)
 	ir_instr *instrs = program.instrs;
 	for (u32 i = 0; i < program.instr_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
-		if (info.op0 == IR_OPERAND_REG_SRC) {
+		if (is_register_operand(info.op0)) {
 			is_toplevel[instrs[i].op0] = false;
 		}
 
-		if (info.op1 == IR_OPERAND_REG_SRC) {
+		if (is_register_operand(info.op1)) {
 			is_toplevel[instrs[i].op1] = false;
 		}
 	}

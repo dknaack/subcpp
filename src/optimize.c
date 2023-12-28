@@ -118,13 +118,6 @@ remove_unused_registers(ir_program program, arena *arena)
 	arena_temp_end(temp);
 }
 
-static b32
-is_register_operand(ir_operand_type operand)
-{
-	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
-	return result;
-}
-
 static void
 optimize(ir_program program, arena *arena)
 {
