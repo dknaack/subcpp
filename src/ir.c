@@ -73,7 +73,7 @@ emit0(ir_context *ctx, ir_opcode opcode)
 }
 
 static u32
-new_register(ir_context *ctx, string ident)
+new_register(ir_context *ctx, string ident, u32 size)
 {
 	variable *variable_table = ctx->variable_table;
 	u32 h = hash(ident);
@@ -294,13 +294,31 @@ translate_node(ir_context *ctx, ast_node *node)
 		emit1(ctx, IR_JMP, ctx->continue_label);
 		break;
 	case AST_DECL:
-		result = new_register(ctx, node->u.decl.name);
-		if (node->u.decl.expr) {
-			u32 expr = translate_node(ctx, node->u.decl.expr);
-			emit2(ctx, IR_STORE, result, expr);
-		}
-
-		break;
+		{
+			for (ast_node *child = node->u.decl.list; child; child = child->next) {
+				translate_node(ctx, node->u.decl.list);
+			}
+		} break;
+	case AST_DECL_LIST:
+		{
+			result = translate_node(ctx, node->u.decl_list.declarator);
+			if (node->u.decl_list.initializer) {
+				u32 expr = translate_node(ctx, node->u.decl_list.initializer);
+				emit2(ctx, IR_STORE, result, expr);
+			}
+		} break;
+	case AST_DECL_POINTER:
+		{
+			result = translate_node(ctx, node->u.decl_pointer.declarator);
+		} break;
+	case AST_DECL_ARRAY:
+		{
+			result = translate_node(ctx, node->u.decl_array.declarator);
+		} break;
+	case AST_DECL_IDENT:
+		{
+			result = new_register(ctx, node->u.ident, type_sizeof(node->type));
+		} break;
 	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_FOR:
@@ -369,7 +387,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		ir_function->instr_index = ctx->program.instr_count;
 
 		while (param) {
-			new_register(ctx, param->u.decl.name);
+			translate_node(ctx, param);
 			param_count++;
 			param = param->next;
 		}
@@ -380,7 +398,6 @@ translate_node(ir_context *ctx, ast_node *node)
 			translate_node(ctx, stmt);
 		}
 		break;
-	case AST_TYPE_POINTER:
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:
