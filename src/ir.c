@@ -19,19 +19,6 @@ new_label(ir_context *ctx)
 }
 
 static u32
-hash(string str)
-{
-	u32 h = 0x811c9dc5;
-
-	while (str.length-- > 0) {
-		h *= 0x01000193;
-		h ^= *str.at++;
-	}
-
-	return h;
-}
-
-static u32
 emit2_sized(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0, u32 op1)
 {
 	ASSERT(ctx->program.instr_count <= ctx->max_instr_count);

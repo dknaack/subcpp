@@ -32,6 +32,7 @@ typedef struct string {
 } string;
 
 #include "memory.h"
+#include "util.h"
 #include "tokenizer.h"
 #include "ast.h"
 #include "type.h"
