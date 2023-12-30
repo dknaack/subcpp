@@ -3,6 +3,7 @@ typedef enum {
 	TOKEN_EOF,
 	TOKEN_COMMA,
 	TOKEN_AMPERSAND,
+	TOKEN_DOT,
 	TOKEN_ADD,
 	TOKEN_SUB,
 	TOKEN_MUL,
@@ -63,6 +64,7 @@ get_token_name(token_kind kind)
 	switch (kind) {
 	case TOKEN_EOF:         return "EOF";
 	case TOKEN_COMMA:       return "','";
+	case TOKEN_DOT:         return "'.'";
 	case TOKEN_ADD:         return "'+'";
 	case TOKEN_SUB:         return "'-'";
 	case TOKEN_MUL:         return "'*'";

@@ -66,6 +66,7 @@ get_raw_token(tokenizer *tokenizer)
 
 	char c = advance(tokenizer);
 	switch (c) {
+	case '.': token.kind = TOKEN_DOT; break;
 	case '+': token.kind = TOKEN_ADD; break;
 	case '-': token.kind = TOKEN_SUB; break;
 	case '*': token.kind = TOKEN_MUL; break;
