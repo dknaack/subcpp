@@ -712,43 +712,59 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					if  (machine_operand_equals(operands[0], operands[1])) {
 						continue;
 					}
+				}
+
+				if (opcode == X86_LOAD && operand_count == 3) {
+					stream_print(out, "\tmov ");
+					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, ", [");
+					x86_emit_operand(out, operands[1], program.functions);
+					stream_print(out, " + ");
+					x86_emit_operand(out, operands[1], program.functions);
+					stream_print(out, "]\n");
+				} else if (opcode == X86_STORE && operand_count == 3) {
+					stream_print(out, "\tmov qword[");
+					x86_emit_operand(out, operands[0], program.functions);
+					stream_print(out, " + ");
+					x86_emit_operand(out, operands[1], program.functions);
+					stream_print(out, "], ");
+					x86_emit_operand(out, operands[1], program.functions);
+					stream_print(out, "\n");
 				} else if (opcode == X86_STORE) {
-					stream_print(out, "\tmov [");
+					stream_print(out, "\tmov qword[");
 					x86_emit_operand(out, operands[0], program.functions);
 					stream_print(out, "], ");
 					x86_emit_operand(out, operands[1], program.functions);
 					stream_print(out, "\n");
-					continue;
 				} else if (opcode == X86_LOAD) {
 					stream_print(out, "\tmov ");
 					x86_emit_operand(out, operands[0], program.functions);
 					stream_print(out, ", ");
 					x86_emit_operand_indirect(out, operands[1], program.functions);
 					stream_print(out, "\n");
-					continue;
-				}
+				} else {
+					if (operands[0].kind == MOP_SPILL
+						&& operands[1].kind == MOP_SPILL)
+					{
+						stream_print(out, "\tmov rax, ");
+						x86_emit_operand(out, operands[1], program.functions);
+						operands[1] = make_mreg(X86_RAX);
+						stream_print(out, "\n");
+					}
 
-				if (operands[0].kind == MOP_SPILL
-					&& operands[1].kind == MOP_SPILL)
-				{
-					stream_print(out, "\tmov rax, ");
-					x86_emit_operand(out, operands[1], program.functions);
-					operands[1] = make_mreg(X86_RAX);
+					stream_print(out, "\t");
+					stream_print(out, x86_get_opcode_name(opcode));
+					for (u32 j = 0; j < operand_count; j++) {
+						stream_print(out, " ");
+						x86_emit_operand(out, operands[j], program.functions);
+						b32 is_last_operand = (j + 1 == operand_count);
+						if (!is_last_operand) {
+							stream_print(out, ",");
+						}
+					}
+
 					stream_print(out, "\n");
 				}
-
-				stream_print(out, "\t");
-				stream_print(out, x86_get_opcode_name(opcode));
-				for (u32 j = 0; j < operand_count; j++) {
-					stream_print(out, " ");
-					x86_emit_operand(out, operands[j], program.functions);
-					b32 is_last_operand = (j + 1 == operand_count);
-					if (!is_last_operand) {
-						stream_print(out, ",");
-					}
-				}
-
-				stream_print(out, "\n");
 			}
 		}
 	}
