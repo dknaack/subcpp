@@ -95,6 +95,25 @@ x86_select2(machine_program *out, x86_opcode opcode,
 	}
 }
 
+static void
+x86_select3(machine_program *out, x86_opcode opcode,
+	machine_operand dst, machine_operand base, machine_operand offset)
+{
+	if (opcode == X86_STORE) {
+		dst.flags |= MOP_USE;
+	} else {
+		dst.flags |= MOP_DEF;
+	}
+
+	base.flags |= MOP_USE;
+	offset.flags |= MOP_USE;
+
+	push_instr(out, opcode, 3);
+	push_operand(out, dst);
+	push_operand(out, base);
+	push_operand(out, offset);
+}
+
 static b32
 x86_is_comparison_opcode(ir_opcode ir_opcode)
 {
