@@ -45,6 +45,7 @@ print_ir_program(ir_program program)
 		printf("  block_count: %d\n", func->block_count);
 		printf("  block_index: %d\n", func->block_index);
 		printf("  instr_index: %d\n", func->instr_index);
+		printf("  stack_size: %d\n", func->stack_size);
 	}
 
 	for (u32 i = 0; i < program.instr_count; i++) {
