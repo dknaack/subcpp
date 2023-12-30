@@ -595,7 +595,7 @@ x86_emit_operand_indirect(stream *out, machine_operand operand,
 {
 	switch (operand.kind) {
 	case MOP_MREG:
-		stream_print(out, "[");
+		stream_print(out, "qword[");
 		x86_emit_operand(out, operand, functions);
 		stream_print(out, "]");
 		break;
