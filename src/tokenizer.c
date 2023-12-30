@@ -171,6 +171,7 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_INT,      S("int")      },
 		{ TOKEN_PRINT,    S("print")    },
 		{ TOKEN_RETURN,   S("return")   },
+		{ TOKEN_STRUCT,   S("struct")   },
 		{ TOKEN_VOID,     S("void")     },
 		{ TOKEN_WHILE,    S("while")    },
 	};
