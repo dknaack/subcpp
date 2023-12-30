@@ -68,6 +68,27 @@ promote_stack_variables(ir_program program, arena *arena)
 		}
 	}
 
+	// Reallocate all stack allocations and fix the stack size for each function
+	for (u32 i = 0; i < program.function_count; i++) {
+		ir_function *function = &program.functions[i];
+		u32 stack_size = 0;
+
+		u32 first_instr = function->instr_index;
+		u32 last_block_index = function->block_index + function->block_count - 1;
+		ir_block *last_block = &program.blocks[last_block_index];
+		u32 last_instr = last_block->start + last_block->size;
+
+		for (u32 j = first_instr; j < last_instr; j++) {
+			ir_instr *instr = &instrs[j];
+			if (instr->opcode == IR_ALLOC) {
+				instr->op1 = stack_size;
+				stack_size += instr->op0;
+			}
+		}
+
+		function->stack_size = stack_size;
+	}
+
 	arena_temp_end(temp);
 }
 
