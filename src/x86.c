@@ -256,11 +256,12 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
 				x86_select2(out, X86_MOV, make_spill(base + offset), src);
-			} else if (instr[op0].opcode != IR_ALLOC) {
-				x86_select2(out, X86_STORE, dst, src);
-			} else {
+			} else if (instr[op0].opcode == IR_ALLOC) {
 				u32 offset = instr[op0].op1;
 				x86_select2(out, X86_MOV, make_spill(offset), src);
+			} else {
+				x86_select_instr(out, instr, op0, dst);
+				x86_select2(out, X86_STORE, dst, src);
 			}
 		} break;
 	case IR_ADD:
