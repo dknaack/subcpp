@@ -26,34 +26,33 @@ x86_select0(machine_program *out, x86_opcode opcode)
 static void
 x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 {
-	machine_operand op0, op1;
+	push_instr(out, opcode, 3);
+	dst.flags |= MOP_USE;
+	push_operand(out, dst);
+
 	switch (opcode) {
 	case X86_IDIV:
-		push_instr(out, opcode, 3);
-		dst.flags |= MOP_USE;
-		push_operand(out, dst);
-		op0 = make_mreg(X86_RAX);
-		op0.flags |= MOP_DEF | MOP_USE;
-		push_operand(out, op0);
-		op1 = make_mreg(X86_RDX);
-		op1.flags |= MOP_DEF | MOP_USE;
-		push_operand(out, op1);
-		break;
+		{
+			machine_operand op0 = make_mreg(X86_RAX);
+			op0.flags |= MOP_DEF | MOP_USE;
+			push_operand(out, op0);
+
+			machine_operand op1 = make_mreg(X86_RDX);
+			op1.flags |= MOP_DEF | MOP_USE;
+			push_operand(out, op1);
+		} break;
 	case X86_IMUL:
-		push_instr(out, opcode, 3);
-		dst.flags |= MOP_USE;
-		push_operand(out, dst);
-		op0 = make_mreg(X86_RAX);
-		op0.flags |= MOP_DEF | MOP_USE;
-		push_operand(out, op0);
-		op1 = make_mreg(X86_RDX);
-		op1.flags |= MOP_DEF;
-		push_operand(out, op1);
-		break;
+		{
+			machine_operand op0 = make_mreg(X86_RAX);
+			op0.flags |= MOP_DEF | MOP_USE;
+			push_operand(out, op0);
+
+			machine_operand op1 = make_mreg(X86_RDX);
+			op1.flags |= MOP_DEF;
+			push_operand(out, op1);
+		} break;
 	default:
-		push_instr(out, opcode, 1);
-		dst.flags |= MOP_USE | MOP_DEF;
-		push_operand(out, dst);
+		break;
 	}
 }
 
