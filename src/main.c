@@ -6,15 +6,6 @@
 
 #include "main.h"
 
-static void
-print_program(ir_program program)
-{
-	for (u32 i = 0; i < program.instr_count; i++) {
-	}
-
-	fflush(stdout);
-}
-
 #include "debug.c"
 #include "tokenizer.c"
 #include "parser.c"
