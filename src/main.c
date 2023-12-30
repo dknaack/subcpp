@@ -54,12 +54,7 @@ print_node(ast_node *node, int indent)
 		printf("continue;\n");
 		break;
 	case AST_DECL:
-		printf("%.*s", (int)node->u.decl.name.length, node->u.decl.name.at);
-		if (node->u.decl.expr) {
-			printf(" = ");
-			print_node(node->u.decl.expr, 0);
-		}
-
+		// TODO: print declarations and declarators
 		break;
 	case AST_STMT_EMPTY:
 		printf(";\n");
