@@ -8,8 +8,8 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_NOP:   printf("\tnop\n"); break;
 	case IR_VAR: printf("\t%%%d = new vreg\n", dst); break;
 	case IR_CONST: printf("\t%%%d = %d\n", dst, op0); break;
-	case IR_COPY:  printf("\t%%%d = %%%d\n", dst, op0); break;
-	case IR_MOV:   printf("\t%%%d = %%%d\n", op0, op1); break;
+	case IR_COPY:  printf("\t%%%d = %%%d (copy)\n", dst, op0); break;
+	case IR_MOV:   printf("\t%%%d = %%%d (mov)\n", op0, op1); break;
 	case IR_LOAD:  printf("\t%%%d = load %%%d\n", dst, op0); break;
 	case IR_STORE: printf("\tstore %%%d, %%%d\n", op0, op1); break;
 	case IR_ADD:   printf("\t%%%d = %%%d + %%%d\n",  dst, op0, op1); break;
