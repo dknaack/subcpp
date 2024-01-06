@@ -120,9 +120,24 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 	case AST_EXPR_BINARY:
 		{
 			type *lhs = check_node(node->u.bin_expr.lhs, symbols, arena);
-			type *rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
+			type *rhs = NULL;
 
 			u32 operator = node->u.bin_expr.op;
+			if (operator == TOKEN_DOT) {
+				if (lhs->kind != TYPE_STRUCT) {
+					errorf(node->loc, "Left-hand side is not a struct");
+				}
+
+				if (node->u.bin_expr.rhs->kind != AST_EXPR_IDENT) {
+					errorf(node->loc, "Right-hand side is not an identifier");
+				}
+
+				symbol *s = upsert_symbol(&lhs->u.members, node->u.bin_expr.rhs->u.ident, NULL);
+				rhs = s->type;
+			} else {
+				rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
+			}
+
 			if (operator == TOKEN_ASSIGN) {
 				// TODO: type conversion
 			} else if (operator == TOKEN_LBRACKET) {
@@ -130,7 +145,7 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 				// is an integral type.
 				ASSERT(lhs->kind != TYPE_POINTER || rhs->kind == TYPE_POINTER);
 				ASSERT(lhs->kind == TYPE_POINTER || rhs->kind != TYPE_POINTER);
-			} else {
+			} else if (operator != TOKEN_DOT) {
 				if (!type_equals(lhs, rhs)) {
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->kind), type_get_name(rhs->kind));
