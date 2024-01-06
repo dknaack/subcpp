@@ -1,10 +1,10 @@
 int
 main(void)
 {
-	int a[2];
+	int a[20] = 5;
+	int i = 0;
 
-	a[0] = 1;
-	a[1] = 2;
-	print a[0];
+	a[i] = 42;
+	print a[i];
 	return 0;
 }
