@@ -1,55 +1,66 @@
+static symbol *
+upsert_symbol(symbol **p, string key, arena *perm)
+{
+	for (u64 h = hash(key); *p; h <<= 2) {
+		if (string_equals(key, (*p)->name)) {
+			return *p;
+		}
+
+		p = &(*p)->child[h >> 62];
+	}
+
+	if (!perm) {
+		return NULL;
+	}
+
+	*p = ALLOC(perm, 1, symbol);
+	(*p)->name = key;
+	return *p;
+}
+
 static void
 add_variable(symbol_table *table, string name, type *type, arena *arena)
 {
-	symbol *variable = table->free_symbols;
-	if (variable) {
-		table->free_symbols = variable->next;
-	} else {
-		variable = ALLOC(arena, 1, symbol);
-	}
+	// TODO: report error when symbol is already in scope
+	symbol *s = upsert_symbol(&table->head, name, arena);
+	if (!s->type) {
+		s->type = type;
+		if (table->tail) {
+			table->tail->next = s;
+		}
 
-	ASSERT(name.at == scope_marker.at || type->kind != TYPE_VOID);
-	variable->name = name;
-	variable->type = type;
-	variable->next = table->symbols;
-	table->symbols = variable;
+		table->tail = s;
+	}
 }
 
 static type *
 get_variable(symbol_table *table, string name)
 {
-	type *type = &type_void;
-
-	for (symbol *symbol = table->symbols; symbol; symbol = symbol->next) {
-		if (string_equals(symbol->name, name)) {
-			type = symbol->type;
-			break;
+	while (table) {
+		symbol *s = upsert_symbol(&table->head, name, NULL);
+		if (s) {
+			return s->type;
 		}
+
+		table = table->parent;
 	}
 
-	return type;
+	return &type_void;
 }
 
 static void
 push_scope(symbol_table *table, arena *arena)
 {
-	add_variable(table, scope_marker, &type_void, arena);
+	symbol_table *parent = ALLOC(arena, 1, symbol_table);
+	*parent = *table;
+	table->parent = parent;
+	table->head = table->tail = NULL;
 }
 
 static void
 pop_scope(symbol_table *table)
 {
-	symbol *symbol;
-
-	for (symbol = table->symbols; symbol; symbol = table->symbols) {
-		table->symbols = symbol->next;
-		symbol->next = table->free_symbols;
-		table->free_symbols = symbol;
-
-		if (symbol->name.at == scope_marker.at) {
-			break;
-		}
-	}
+	*table = *table->parent;
 }
 
 static b32
