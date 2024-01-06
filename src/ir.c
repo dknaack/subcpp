@@ -144,6 +144,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			case TOKEN_SUB: opcode = IR_SUB; break;
 			case TOKEN_LBRACKET:
 							opcode = IR_ADD; break;
+			case TOKEN_DOT: opcode = IR_ADD; break;
 			default:
 				ASSERT(!"Not an lvalue");
 			}
@@ -152,9 +153,16 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			ast_node *rhs = node->u.bin_expr.rhs;
 
 			u32 size = type_sizeof(node->type);
-			u32 lhs_reg = translate_node(ctx, lhs);
-			u32 rhs_reg = translate_node(ctx, rhs);
-			result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+			if (operator != TOKEN_DOT) {
+				u32 lhs_reg = translate_lvalue(ctx, lhs);
+				u32 rhs_reg = translate_lvalue(ctx, rhs);
+				result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+			} else {
+				u32 offset = type_offsetof(lhs->type, rhs->u.ident);
+				u32 offset_reg = emit1(ctx, IR_CONST, offset);
+				u32 base_reg = translate_lvalue(ctx, lhs);
+				result = emit2_sized(ctx, IR_ADD, size, base_reg, offset_reg);
+			}
 		} break;
 	case AST_EXPR_UNARY:
 		{
