@@ -286,6 +286,24 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
+	case TOKEN_STRUCT:
+		get_token(tokenizer);
+		accept(tokenizer, TOKEN_IDENT);
+
+		type_specifier = new_ast_node(AST_TYPE_STRUCT_ANON, tokenizer->loc, arena);
+		if (accept(tokenizer, TOKEN_LBRACE)) {
+			ast_node **ptr = & type_specifier->u.children;
+			// TODO: set correct flags for parsing struct members, i.e.
+			// declarations are allowed to have bitfields.
+			while (!accept(tokenizer, TOKEN_RBRACE)) {
+				*ptr = parse_decl(tokenizer, 0, arena);
+				ptr = &(*ptr)->next;
+
+				expect(tokenizer, TOKEN_SEMICOLON);
+			}
+
+		}
+		break;
 	default:
 		return NULL;
 	}
