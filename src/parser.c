@@ -72,7 +72,7 @@ new_ast_node(ast_node_kind kind, location loc, arena *arena)
 	return node;
 }
 
-#define MAX_PRECEDENCE 60
+#define MAX_PRECEDENCE 65
 
 /* NOTE: An operator with negative precedence is right associative. */
 static int
@@ -97,7 +97,9 @@ get_binary_precedence(token_kind token)
 	case TOKEN_GEQ:
 		return 40;
 	case TOKEN_LBRACKET:
+	case TOKEN_DOT:
 		return 50;
+		return 60;
 	default:
 		return 0;
 	}
