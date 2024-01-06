@@ -93,6 +93,9 @@ typedef enum {
 	AST_TYPE_CHAR,
 	AST_TYPE_INT,
 	AST_TYPE_VOID,
+	AST_TYPE_STRUCT,
+	AST_TYPE_STRUCT_DEF,
+	AST_TYPE_STRUCT_ANON,
 } ast_node_kind;
 
 struct ast_node {
@@ -123,32 +126,35 @@ static char *
 get_ast_name(ast_node_kind kind)
 {
 	switch (kind) {
-	case AST_INVALID:       return "INVALID";
-	case AST_ROOT:          return "ROOT";
-	case AST_DECL:          return "DECL";
-	case AST_DECL_LIST:     return "DECL_LIST";
-	case AST_DECL_POINTER:  return "DECL_POINTER";
-	case AST_DECL_ARRAY:    return "DECL_ARRAY";
-	case AST_DECL_IDENT:    return "DECL_IDENT";
-	case AST_FUNCTION:      return "FUNCTION";
-	case AST_TYPE_VOID:     return "VOID";
-	case AST_TYPE_CHAR:     return "CHAR";
-	case AST_TYPE_INT:      return "INT";
-	case AST_EXPR_BINARY:   return "BINARY";
-	case AST_EXPR_CALL:     return "CALL";
-	case AST_EXPR_IDENT:    return "IDENT";
-	case AST_EXPR_INT:      return "EXPR_INT";
-	case AST_EXPR_UNARY:    return "UNARY";
-	case AST_STMT_BREAK:    return "BREAK";
-	case AST_STMT_COMPOUND: return "COMPOUND";
-	case AST_STMT_CONTINUE: return "CONTINUE";
-	case AST_STMT_DECL:     return "DECL_STMT";
-	case AST_STMT_EMPTY:    return "EMPTY";
-	case AST_STMT_FOR:      return "FOR";
-	case AST_STMT_IF:       return "IF";
-	case AST_STMT_PRINT:    return "PRINT";
-	case AST_STMT_WHILE:    return "WHILE";
-	case AST_STMT_RETURN:   return "RETURN";
+	case AST_INVALID:          return "INVALID";
+	case AST_ROOT:             return "ROOT";
+	case AST_DECL:             return "DECL";
+	case AST_DECL_LIST:        return "DECL_LIST";
+	case AST_DECL_POINTER:     return "DECL_POINTER";
+	case AST_DECL_ARRAY:       return "DECL_ARRAY";
+	case AST_DECL_IDENT:       return "DECL_IDENT";
+	case AST_FUNCTION:         return "FUNCTION";
+	case AST_TYPE_VOID:        return "VOID";
+	case AST_TYPE_CHAR:        return "CHAR";
+	case AST_TYPE_INT:         return "INT";
+	case AST_TYPE_STRUCT_ANON: return "STRUCT_ANON";
+	case AST_TYPE_STRUCT_DEF:  return "STRUCT_DEF";
+	case AST_TYPE_STRUCT:      return "STRUCT";
+	case AST_EXPR_BINARY:      return "BINARY";
+	case AST_EXPR_CALL:        return "CALL";
+	case AST_EXPR_IDENT:       return "IDENT";
+	case AST_EXPR_INT:         return "EXPR_INT";
+	case AST_EXPR_UNARY:       return "UNARY";
+	case AST_STMT_BREAK:       return "BREAK";
+	case AST_STMT_COMPOUND:    return "COMPOUND";
+	case AST_STMT_CONTINUE:    return "CONTINUE";
+	case AST_STMT_DECL:        return "DECL_STMT";
+	case AST_STMT_EMPTY:       return "EMPTY";
+	case AST_STMT_FOR:         return "FOR";
+	case AST_STMT_IF:          return "IF";
+	case AST_STMT_PRINT:       return "PRINT";
+	case AST_STMT_WHILE:       return "WHILE";
+	case AST_STMT_RETURN:      return "RETURN";
 	}
 
 	return "(invalid)";
