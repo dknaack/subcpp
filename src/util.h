@@ -36,13 +36,13 @@ string_equals(string a, string b)
 	return true;
 }
 
-static u32
+static u64
 hash(string str)
 {
-	u32 h = 0x811c9dc5;
+	u64 h = 0xcbf29ce484222325ull;
 
 	while (str.length-- > 0) {
-		h *= 0x01000193;
+		h *= 0x00000100000001B3;
 		h ^= *str.at++;
 	}
 
