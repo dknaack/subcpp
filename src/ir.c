@@ -421,6 +421,9 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:
+	case AST_TYPE_STRUCT:
+	case AST_TYPE_STRUCT_ANON:
+	case AST_TYPE_STRUCT_DEF:
 		break;
 	}
 
