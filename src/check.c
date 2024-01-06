@@ -351,6 +351,22 @@ end:
 		{
 			result = &type_int;
 		} break;
+	case AST_TYPE_STRUCT:
+		{
+		} break;
+	case AST_TYPE_STRUCT_DEF:
+	case AST_TYPE_STRUCT_ANON:
+		{
+			result = type_create(TYPE_STRUCT, arena);
+
+			push_scope(symbols, arena);
+			for (ast_node *child = node->u.children; child; child = child->next) {
+				check_node(child, symbols, arena);
+			}
+
+			result->u.members = symbols->head;
+			pop_scope(symbols);
+		} break;
 	}
 
 	return node->type = result;
