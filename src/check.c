@@ -319,20 +319,19 @@ end:
 		{
 			node->type = type_create(TYPE_FUNCTION, arena);
 			node->type->u.function.return_type = type_create(TYPE_INT, arena);
+			ast_node *body = node->children;
+
 			push_scope(symbols, arena);
 			type **param_type = &node->type->u.function.param_types;
-			for (ast_node *param = node->u.function.params; param; param = param->next) {
+			for (ast_node *param = body->next; param != AST_NIL; param = param->next) {
 				check_type(param, symbols, arena);
 				*param_type = param->type;
 				param_type = &(*param_type)->next;
 			}
 
-			add_variable(symbols, node->u.function.name, node->type, arena);
+			add_variable(symbols, node->value.s, node->type, arena);
 
-			for (ast_node *child = node->u.function.body; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
-			}
-
+			check_type(body, symbols, arena);
 			pop_scope(symbols);
 		} break;
 	case AST_TYPE_VOID:

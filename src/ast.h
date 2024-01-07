@@ -109,10 +109,6 @@ struct ast_node {
 	type *type;
 
 	union {
-		ast_function function;
-	} u;
-
-	union {
 		intmax_t i;
 		string s;
 	} value;

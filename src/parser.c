@@ -507,11 +507,12 @@ parse_function(tokenizer *tokenizer, arena *arena)
 	}
 	expect(tokenizer, TOKEN_RPAREN);
 
-	node = new_ast_node(AST_FUNCTION, loc, arena);
-	node->u.function.body = parse_compound_stmt(tokenizer, arena);
-	node->u.function.name = name;
-	node->u.function.params = params;
+	ast_node *body = parse_compound_stmt(tokenizer, arena);
 
+	node = new_ast_node(AST_FUNCTION, loc, arena);
+	node->value.s = name;
+	node->children = body;
+	body->next = params;
 	return node;
 }
 

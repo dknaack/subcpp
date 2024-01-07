@@ -408,14 +408,14 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_FUNCTION:
 		function_label = new_label(ctx);
 		emit1(ctx, IR_LABEL, function_label);
-		param = node->u.function.params;
+		param = node->children->next;
 		param_count = 0;
 
 		ctx->stack_size = 0;
 		// TODO: find some better mechanism to reset the variable table
 		memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
 		ir_function = &ctx->program.functions[ctx->program.function_count++];
-		ir_function->name = node->u.function.name;
+		ir_function->name = node->value.s;
 		ir_function->block_index = function_label;
 		ir_function->instr_index = ctx->program.instr_count;
 
@@ -426,11 +426,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		}
 
 		ir_function->parameter_count = param_count;
-
-		for (ast_node *stmt = node->u.function.body; stmt != AST_NIL; stmt = stmt->next) {
-			translate_node(ctx, stmt);
-		}
-
+		translate_node(ctx, node->children);
 		ir_function->stack_size = ctx->stack_size;
 		break;
 	case AST_TYPE_VOID:
