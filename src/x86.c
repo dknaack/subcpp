@@ -26,13 +26,14 @@ x86_select0(machine_program *out, x86_opcode opcode)
 static void
 x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 {
-	push_instr(out, opcode, 3);
-	dst.flags |= MOP_USE;
-	push_operand(out, dst);
+	dst.flags |= MOP_DEF | MOP_USE;
 
 	switch (opcode) {
 	case X86_IDIV:
 		{
+			push_instr(out, opcode, 3);
+			push_operand(out, dst);
+
 			machine_operand op0 = make_mreg(X86_RAX);
 			op0.flags |= MOP_DEF | MOP_USE;
 			push_operand(out, op0);
@@ -43,6 +44,9 @@ x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 		} break;
 	case X86_IMUL:
 		{
+			push_instr(out, opcode, 3);
+			push_operand(out, dst);
+
 			machine_operand op0 = make_mreg(X86_RAX);
 			op0.flags |= MOP_DEF | MOP_USE;
 			push_operand(out, op0);
@@ -52,7 +56,10 @@ x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 			push_operand(out, op1);
 		} break;
 	default:
-		break;
+		{
+			push_instr(out, opcode, 1);
+			push_operand(out, dst);
+		} break;
 	}
 }
 
