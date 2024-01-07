@@ -1,4 +1,5 @@
 typedef struct ast_node ast_node;
+typedef struct type type;
 
 typedef struct {
 	token_kind op;
@@ -102,7 +103,7 @@ struct ast_node {
 	ast_node_kind kind;
 	ast_node *next;
 	location loc;
-	struct type *type;
+	type *type;
 
 	union {
 		ast_stmt_for for_stmt;
