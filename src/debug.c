@@ -43,11 +43,14 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_FOR:
 		printf("for (");
-		print_node(node->u.for_stmt.init, 0);
+		node = node->children;
+		print_node(node, 0);
 		printf("; ");
-		print_node(node->u.for_stmt.cond, 0);
+		node = node->next;
+		print_node(node, 0);
 		printf("; ");
-		print_node(node->u.for_stmt.post, 0);
+		node = node->next;
+		print_node(node, 0);
 		printf(")\n");
 		break;
 	case AST_STMT_COMPOUND:

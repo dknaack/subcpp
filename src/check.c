@@ -287,10 +287,9 @@ end:
 		break;
 	case AST_STMT_FOR:
 		{
-			check_type(node->u.for_stmt.init, symbols, arena);
-			check_type(node->u.for_stmt.cond, symbols, arena);
-			check_type(node->u.for_stmt.post, symbols, arena);
-			check_type(node->u.for_stmt.body, symbols, arena);
+			for (ast_node *child = node->children; child != &ast_nil; child = child->next) {
+				check_type(child, symbols, arena);
+			}
 		} break;
 	case AST_STMT_IF:
 		{

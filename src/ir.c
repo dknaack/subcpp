@@ -340,20 +340,28 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_FOR:
-		ctx->break_label = new_label(ctx);
-		ctx->continue_label = new_label(ctx);
-		cond_label = new_label(ctx);
+		{
+			ctx->break_label = new_label(ctx);
+			ctx->continue_label = new_label(ctx);
+			cond_label = new_label(ctx);
 
-		translate_node(ctx, node->u.for_stmt.init);
-		emit1(ctx, IR_LABEL, cond_label);
-		result = translate_node(ctx, node->u.for_stmt.cond);
-		emit2(ctx, IR_JIZ, result, ctx->break_label);
-		translate_node(ctx, node->u.for_stmt.body);
-		emit1(ctx, IR_LABEL, ctx->continue_label);
-		translate_node(ctx, node->u.for_stmt.post);
-		emit1(ctx, IR_JMP, cond_label);
-		emit1(ctx, IR_LABEL, ctx->break_label);
-		break;
+			ast_node *init = node->children;
+			translate_node(ctx, init);
+			emit1(ctx, IR_LABEL, cond_label);
+
+			ast_node *cond = init->next;
+			result = translate_node(ctx, cond);
+			emit2(ctx, IR_JIZ, result, ctx->break_label);
+
+			ast_node *post = cond->next;
+			ast_node *body = post->next;
+			translate_node(ctx, body);
+			emit1(ctx, IR_LABEL, ctx->continue_label);
+
+			translate_node(ctx, post);
+			emit1(ctx, IR_JMP, cond_label);
+			emit1(ctx, IR_LABEL, ctx->break_label);
+		} break;
 	case AST_STMT_IF:
 		endif_label = new_label(ctx);
 		else_label = new_label(ctx);

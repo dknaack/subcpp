@@ -369,32 +369,40 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_FOR:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_FOR, tokenizer->loc, arena);
-		expect(tokenizer, TOKEN_LPAREN);
+		{
+			ast_node *init, *post, *cond, *body;
+			init = post = cond = body = AST_NIL;
 
-		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			token = peek_token(tokenizer);
-			node->u.for_stmt.init = parse_decl(tokenizer, 0, arena);
-			if (!node->u.for_stmt.init) {
-				node->u.for_stmt.init = parse_assign_expr(tokenizer, arena);
+			get_token(tokenizer);
+			node = new_ast_node(AST_STMT_FOR, tokenizer->loc, arena);
+			expect(tokenizer, TOKEN_LPAREN);
+
+			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+				token = peek_token(tokenizer);
+				init = parse_decl(tokenizer, 0, arena);
+				if (init == AST_NIL) {
+					init = parse_assign_expr(tokenizer, arena);
+				}
+
+				expect(tokenizer, TOKEN_SEMICOLON);
 			}
 
-			expect(tokenizer, TOKEN_SEMICOLON);
-		}
+			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+				cond = parse_assign_expr(tokenizer, arena);
+				expect(tokenizer, TOKEN_SEMICOLON);
+			}
 
-		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			node->u.for_stmt.cond = parse_assign_expr(tokenizer, arena);
-			expect(tokenizer, TOKEN_SEMICOLON);
-		}
+			if (!accept(tokenizer, TOKEN_RPAREN)) {
+				post = parse_assign_expr(tokenizer, arena);
+				expect(tokenizer, TOKEN_RPAREN);
+			}
 
-		if (!accept(tokenizer, TOKEN_RPAREN)) {
-			node->u.for_stmt.post = parse_assign_expr(tokenizer, arena);
-			expect(tokenizer, TOKEN_RPAREN);
-		}
+			body = parse_stmt(tokenizer, arena);
 
-		node->u.for_stmt.body = parse_stmt(tokenizer, arena);
-		break;
+			init->next = cond;
+			cond->next = post;
+			post->next = body;
+		} break;
 	case TOKEN_IF:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_IF, tokenizer->loc, arena);
