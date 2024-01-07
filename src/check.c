@@ -282,7 +282,7 @@ end:
 				add_variable(symbols, name, decl_type, arena);
 			}
 		} break;
-	case AST_DECL_LIST:
+	case AST_DECL_INIT:
 	case AST_DECL_POINTER:
 	case AST_DECL_ARRAY:
 	case AST_DECL_IDENT:

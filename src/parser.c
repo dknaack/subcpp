@@ -324,7 +324,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			}
 		}
 
-		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+		*ptr = new_ast_node(AST_DECL_INIT, tokenizer->loc, arena);
 		(*ptr)->children = declarator;
 		ptr = &(*ptr)->next;
 	} while (!tokenizer->error

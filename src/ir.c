@@ -309,7 +309,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				translate_node(ctx, child);
 			}
 		} break;
-	case AST_DECL_LIST:
+	case AST_DECL_INIT:
 		{
 			result = translate_node(ctx, node->children);
 			if (node->children->next != AST_NIL) {

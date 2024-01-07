@@ -71,7 +71,7 @@ typedef enum {
 	AST_ROOT,
 
 	AST_DECL,          // {type_specifier, ...declarators}
-	AST_DECL_LIST,     // {declarator, initializer?}
+	AST_DECL_INIT,     // {declarator, initializer?}
 	AST_DECL_POINTER,  // {declarator}
 	AST_DECL_ARRAY,    // {declarator, size}
 	AST_DECL_IDENT,
@@ -122,7 +122,7 @@ get_ast_name(ast_node_kind kind)
 	case AST_INVALID:          return "INVALID";
 	case AST_ROOT:             return "ROOT";
 	case AST_DECL:             return "DECL";
-	case AST_DECL_LIST:        return "DECL_LIST";
+	case AST_DECL_INIT:        return "DECL_LIST";
 	case AST_DECL_POINTER:     return "DECL_POINTER";
 	case AST_DECL_ARRAY:       return "DECL_ARRAY";
 	case AST_DECL_IDENT:       return "DECL_IDENT";
