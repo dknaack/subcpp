@@ -280,6 +280,12 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 end:
 				ASSERT(name.at);
 				add_variable(symbols, name, decl_type, arena);
+				// TODO: This should be removed when function declarators are
+				// parsed correctly.
+				// NOTE: Required for function declarators
+				if (!node->type) {
+					node->type = decl_type;
+				}
 			}
 		} break;
 	case AST_DECL_INIT:
