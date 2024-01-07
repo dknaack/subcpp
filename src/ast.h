@@ -3,68 +3,6 @@
 typedef struct ast_node ast_node;
 typedef struct type type;
 
-typedef struct {
-	token_kind op;
-	ast_node *lhs;
-	ast_node *rhs;
-} ast_expr_bin;
-
-typedef struct {
-	token_kind op;
-	ast_node *operand;
-} ast_expr_unary;
-
-typedef struct {
-	ast_node *called;
-	ast_node *params;
-} ast_expr_call;
-
-typedef struct {
-	ast_node *declarator;
-	u32 qualifiers;
-} ast_decl_pointer;
-
-typedef struct {
-	ast_node *declarator;
-	ast_node *size;
-	u32 qualifiers;
-} ast_decl_array;
-
-typedef struct {
-	ast_node *declarator;
-	ast_node *initializer;
-} ast_decl_list;
-
-typedef struct {
-	ast_node *list;
-	ast_node *type_specifier;
-} ast_decl;
-
-typedef struct {
-	ast_node *cond;
-	ast_node *then;
-	ast_node *otherwise;
-} ast_stmt_if;
-
-typedef struct {
-	ast_node *cond;
-	ast_node *body;
-} ast_stmt_while;
-
-typedef struct {
-	ast_node *init;
-	ast_node *cond;
-	ast_node *post;
-	ast_node *body;
-} ast_stmt_for;
-
-typedef struct {
-	string name;
-	ast_node *params;
-	ast_node *body;
-	ast_node *return_type;
-} ast_function;
-
 typedef enum {
 	AST_INVALID,
 	AST_FUNCTION,      // {body, ...params}
