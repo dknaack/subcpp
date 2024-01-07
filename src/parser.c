@@ -374,7 +374,6 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 			init = post = cond = body = AST_NIL;
 
 			get_token(tokenizer);
-			node = new_ast_node(AST_STMT_FOR, tokenizer->loc, arena);
 			expect(tokenizer, TOKEN_LPAREN);
 
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
@@ -399,6 +398,8 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 
 			body = parse_stmt(tokenizer, arena);
 
+			node = new_ast_node(AST_STMT_FOR, tokenizer->loc, arena);
+			node->children = init;
 			init->next = cond;
 			cond->next = post;
 			post->next = body;
