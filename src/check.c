@@ -206,11 +206,9 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			}
 		} break;
 	case AST_STMT_BREAK:
-		node->type = &type_void;
 		break;
 	case AST_STMT_COMPOUND:
 		{
-			node->type = &type_void;
 			arena_temp temp = arena_temp_begin(arena);
 			push_scope(symbols, arena);
 			for (ast_node *child = node->u.children; child; child = child->next) {
@@ -222,9 +220,9 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_DECL:
 		{
-			node->type = &type_void;
 			ast_node *type_specifier = node->u.decl.type_specifier;
 			check_type(type_specifier, symbols, arena);
+
 			for (ast_node *child = node->u.decl.list; child; child = child->next) {
 				ast_node *declarator = child->u.decl_list.declarator;
 				type *decl_type = type_specifier->type;
