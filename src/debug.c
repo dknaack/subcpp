@@ -1,4 +1,95 @@
 static void
+print_node(ast_node *node, int indent)
+{
+	for (int i = 0; i < indent; i++) {
+		printf("    ");
+	}
+
+	switch (node->kind) {
+	case AST_EXPR_BINARY:
+		printf("(");
+		print_node(node->u.bin_expr.lhs, 0);
+		switch (node->u.bin_expr.op) {
+		case TOKEN_ADD:    printf(" + ");  break;
+		case TOKEN_SUB:    printf(" - ");  break;
+		case TOKEN_MUL:    printf(" * ");  break;
+		case TOKEN_DIV:    printf(" / ");  break;
+		case TOKEN_MOD:    printf(" %% "); break;
+		case TOKEN_ASSIGN: printf(" = ");  break;
+		default:
+			printf(" (invalid operation) ");
+		}
+
+		print_node(node->u.bin_expr.rhs, 0);
+		printf(")");
+		break;
+	case AST_EXPR_IDENT:
+		printf("%.*s", (int)node->u.ident.length, node->u.ident.at);
+		break;
+	case AST_EXPR_INT:
+		printf("%jd", node->u.ival);
+		break;
+	case AST_STMT_BREAK:
+		printf("break;\n");
+		break;
+	case AST_STMT_CONTINUE:
+		printf("continue;\n");
+		break;
+	case AST_DECL:
+		// TODO: print declarations and declarators
+		break;
+	case AST_STMT_EMPTY:
+		printf(";\n");
+		break;
+	case AST_STMT_FOR:
+		printf("for (");
+		print_node(node->u.for_stmt.init, 0);
+		printf("; ");
+		print_node(node->u.for_stmt.cond, 0);
+		printf("; ");
+		print_node(node->u.for_stmt.post, 0);
+		printf(")\n");
+		break;
+	case AST_STMT_COMPOUND:
+		printf("{\n");
+		for (node = node->u.children; node; node = node->next) {
+			print_node(node, indent + 1);
+		}
+		printf("}\n");
+		break;
+	case AST_STMT_IF:
+		printf("if (");
+		print_node(node->u.if_stmt.cond, 0);
+		printf(")\n");
+		print_node(node->u.if_stmt.then, indent);
+		if (node->u.if_stmt.otherwise) {
+			printf("else\n");
+			print_node(node->u.if_stmt.otherwise, indent);
+		}
+
+		break;
+	case AST_STMT_WHILE:
+		printf("while (");
+		print_node(node->u.while_stmt.cond, 0);
+		printf(")\n");
+		print_node(node->u.while_stmt.body, indent);
+		break;
+	case AST_STMT_RETURN:
+		printf("return ");
+		print_node(node->u.children, 0);
+		printf(";\n");
+		break;
+	case AST_STMT_PRINT:
+		printf("print ");
+		print_node(node->u.children, 0);
+		printf(";\n");
+		break;
+	default:
+		printf("(invalid)");
+	}
+}
+
+static void
 print_ir_instr(ir_instr instr, u32 i)
 {
 	u32 dst = i;
