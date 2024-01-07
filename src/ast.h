@@ -113,7 +113,7 @@ struct ast_node {
 	} value;
 };
 
-static ast_node ast_nil = {AST_INVALID, &ast_nil, &ast_nil};
+static const ast_node ast_nil = {AST_INVALID, AST_NIL, AST_NIL};
 
 static char *
 get_ast_name(ast_node_kind kind)

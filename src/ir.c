@@ -418,7 +418,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		ir_function->block_index = function_label;
 		ir_function->instr_index = ctx->program.instr_count;
 
-		while (param) {
+		while (param != AST_NIL) {
 			translate_node(ctx, param);
 			param_count++;
 			param = param->next;

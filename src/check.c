@@ -178,7 +178,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			u32 param_index = 0;
 			ast_node *param = called->next;
 			type *param_type = called->type->u.function.param_types;
-			while (param || param_type) {
+			while (param != AST_NIL || param_type != NULL) {
 				check_type(param, symbols, arena);
 				if (!type_equals(param_type, param->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
