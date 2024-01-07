@@ -133,18 +133,30 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 				symbol *s = upsert_symbol(&lhs->type->u.members, rhs->u.ident, NULL);
 				rhs->type = s->type;
+				node->type = s->type;
 			} else {
 				check_type(rhs, symbols, arena);
 			}
 
-			if (operator == TOKEN_ASSIGN) {
-				// TODO: type conversion
-			} else if (operator == TOKEN_LBRACKET) {
+			if (operator == TOKEN_LBRACKET) {
 				// TODO: ensure that one operand is a pointer and the other one
 				// is an integral type.
 				ASSERT(lhs->type->kind != TYPE_POINTER || rhs->type->kind == TYPE_POINTER);
 				ASSERT(lhs->type->kind == TYPE_POINTER || rhs->type->kind != TYPE_POINTER);
+
+				if (lhs->type->kind == TYPE_POINTER) {
+					node->type = lhs->type->u.pointer.target;
+				} else if (lhs->type->kind == TYPE_ARRAY) {
+					node->type = lhs->type->u.array.target;
+				} else if (rhs->type->kind == TYPE_POINTER) {
+					node->type = rhs->type->u.pointer.target;
+				} else if (rhs->type->kind == TYPE_ARRAY) {
+					node->type = rhs->type->u.array.target;
+				} else {
+					ASSERT(!"Invalid types");
+				}
 			} else if (operator != TOKEN_DOT) {
+				// TODO: type coercion
 				if (!type_equals(lhs->type, rhs->type)) {
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->type->kind),
