@@ -52,7 +52,7 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_COMPOUND:
 		printf("{\n");
-		for (node = node->children; node; node = node->next) {
+		for (node = node->children; node != AST_NIL; node = node->next) {
 			print_node(node, indent + 1);
 		}
 		printf("}\n");

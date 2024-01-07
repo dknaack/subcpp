@@ -297,7 +297,7 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_ROOT:
 	case AST_STMT_COMPOUND:
 	case AST_STMT_DECL:
-		for (node = node->children; node; node = node->next) {
+		for (node = node->children; node != AST_NIL; node = node->next) {
 			translate_node(ctx, node);
 		}
 		break;
@@ -306,7 +306,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		break;
 	case AST_DECL:
 		{
-			for (ast_node *child = node->u.decl.list; child; child = child->next) {
+			for (ast_node *child = node->u.decl.list; child != AST_NIL; child = child->next) {
 				translate_node(ctx, node->u.decl.list);
 			}
 		} break;
@@ -412,7 +412,7 @@ translate_node(ir_context *ctx, ast_node *node)
 
 		ir_function->parameter_count = param_count;
 
-		for (ast_node *stmt = node->u.function.body; stmt; stmt = stmt->next) {
+		for (ast_node *stmt = node->u.function.body; stmt != AST_NIL; stmt = stmt->next) {
 			translate_node(ctx, stmt);
 		}
 
@@ -644,7 +644,7 @@ translate(ast_node *root, arena *arena)
 	ir_context ctx = ir_context_init(arena);
 
 	u32 function_count = 0;
-	for (ast_node *node = root->children; node; node = node->next) {
+	for (ast_node *node = root->children; node != AST_NIL; node = node->next) {
 		function_count += (node->kind == AST_FUNCTION);
 	}
 

@@ -111,7 +111,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_ROOT:
 		{
-			for (ast_node *child = node->children; child; child = child->next) {
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 		} break;
@@ -211,7 +211,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		{
 			arena_temp temp = arena_temp_begin(arena);
 			push_scope(symbols, arena);
-			for (ast_node *child = node->children; child; child = child->next) {
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 
@@ -223,7 +223,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			ast_node *type_specifier = node->u.decl.type_specifier;
 			check_type(type_specifier, symbols, arena);
 
-			for (ast_node *child = node->u.decl.list; child; child = child->next) {
+			for (ast_node *child = node->u.decl.list; child != AST_NIL; child = child->next) {
 				ast_node *declarator = child->u.decl_list.declarator;
 				type *decl_type = type_specifier->type;
 				string name = {0};
@@ -278,7 +278,7 @@ end:
 		} break;
 	case AST_STMT_DECL:
 		{
-			for (ast_node *child = node->children; child; child = child->next) {
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 		} break;
@@ -325,7 +325,7 @@ end:
 
 			add_variable(symbols, node->u.function.name, node->type, arena);
 
-			for (ast_node *child = node->u.function.body; child; child = child->next) {
+			for (ast_node *child = node->u.function.body; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 
@@ -354,7 +354,7 @@ end:
 			node->type = type_create(TYPE_STRUCT, arena);
 
 			push_scope(symbols, arena);
-			for (ast_node *child = node->children; child; child = child->next) {
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 

@@ -1,3 +1,5 @@
+#define AST_NIL ((ast_node *)&ast_nil)
+
 typedef struct ast_node ast_node;
 typedef struct type type;
 
@@ -122,6 +124,8 @@ struct ast_node {
 		intmax_t ival;
 	} u;
 };
+
+static ast_node ast_nil = {AST_INVALID, &ast_nil, &ast_nil};
 
 static char *
 get_ast_name(ast_node_kind kind)
