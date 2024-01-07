@@ -166,7 +166,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
-		return NULL;
+		return AST_NIL;
 	}
 
 	for (;;) {
@@ -276,7 +276,7 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 static ast_node *
 parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 {
-	ast_node *type_specifier = NULL;
+	ast_node *type_specifier = AST_NIL;
 	token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_INT:
@@ -306,7 +306,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		}
 		break;
 	default:
-		return NULL;
+		return AST_NIL;
 	}
 
 	ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
