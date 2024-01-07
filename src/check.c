@@ -198,9 +198,9 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			ast_node *operand = node->u.unary_expr.operand;
+			ast_node *operand = node->children;
 			check_type(operand, symbols, arena);
-			switch (node->u.unary_expr.op) {
+			switch (node->value.i) {
 			case TOKEN_MUL:
 				if (operand->type->kind == TYPE_POINTER) {
 					node->type = operand->type->u.pointer.target;

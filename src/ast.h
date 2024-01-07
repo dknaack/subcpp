@@ -109,7 +109,6 @@ struct ast_node {
 	type *type;
 
 	union {
-		ast_expr_unary unary_expr;
 		ast_function function;
 		ast_decl decl;
 		ast_decl_list decl_list;

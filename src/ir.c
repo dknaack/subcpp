@@ -166,10 +166,10 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			u32 operator = node->u.unary_expr.op;
+			u32 operator = node->value.i;
 			switch (operator) {
 			case TOKEN_MUL:
-				result = translate_node(ctx, node->u.unary_expr.operand);
+				result = translate_node(ctx, node->children);
 				break;
 			default:
 				ASSERT(!"Not an lvalue");
@@ -277,14 +277,14 @@ translate_node(ir_context *ctx, ast_node *node)
 		break;
 	case AST_EXPR_UNARY:
 		{
-			switch (node->u.unary_expr.op) {
+			switch (node->value.i) {
 			case TOKEN_AMPERSAND:
 				{
-					result = translate_lvalue(ctx, node->u.unary_expr.operand);
+					result = translate_lvalue(ctx, node->children);
 				} break;
 			case TOKEN_MUL:
 				{
-					result = translate_node(ctx, node->u.unary_expr.operand);
+					result = translate_node(ctx, node->children);
 					result = emit1(ctx, IR_LOAD, result);
 				} break;
 			default:

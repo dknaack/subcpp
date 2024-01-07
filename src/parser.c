@@ -161,8 +161,8 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 	case TOKEN_AMPERSAND:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
-		expr->u.unary_expr.op = token.kind;
-		expr->u.unary_expr.operand = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
+		expr->value.i = token.kind;
+		expr->children = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
