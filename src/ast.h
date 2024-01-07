@@ -109,7 +109,6 @@ struct ast_node {
 	type *type;
 
 	union {
-		ast_stmt_while while_stmt;
 		ast_expr_bin bin_expr;
 		ast_expr_call call_expr;
 		ast_expr_unary unary_expr;

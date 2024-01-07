@@ -299,6 +299,7 @@ end:
 		break;
 	case AST_STMT_FOR:
 	case AST_STMT_IF:
+	case AST_STMT_WHILE:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
@@ -307,11 +308,6 @@ end:
 	case AST_STMT_PRINT:
 		{
 			check_type(node->children, symbols, arena);
-		} break;
-	case AST_STMT_WHILE:
-		{
-			check_type(node->u.while_stmt.cond, symbols, arena);
-			check_type(node->u.while_stmt.body, symbols, arena);
 		} break;
 	case AST_STMT_RETURN:
 		{

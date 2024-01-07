@@ -76,9 +76,11 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_WHILE:
 		printf("while (");
-		print_node(node->u.while_stmt.cond, 0);
+		node = node->children;
+		print_node(node, 0);
 		printf(")\n");
-		print_node(node->u.while_stmt.body, indent);
+		node = node->next;
+		print_node(node, indent);
 		break;
 	case AST_STMT_RETURN:
 		printf("return ");

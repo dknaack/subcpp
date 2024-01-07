@@ -420,13 +420,17 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		cond->next = then;
 		break;
 	case TOKEN_WHILE:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_WHILE, tokenizer->loc, arena);
-		expect(tokenizer, TOKEN_LPAREN);
-		node->u.while_stmt.cond = parse_assign_expr(tokenizer, arena);
-		expect(tokenizer, TOKEN_RPAREN);
-		node->u.while_stmt.body = parse_stmt(tokenizer, arena);
-		break;
+		{
+			get_token(tokenizer);
+			expect(tokenizer, TOKEN_LPAREN);
+			ast_node *cond = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_RPAREN);
+			ast_node *body = parse_stmt(tokenizer, arena);
+
+			node = new_ast_node(AST_STMT_WHILE, tokenizer->loc, arena);
+			node->children = cond;
+			cond->next = body;
+		} break;
 	case TOKEN_RETURN:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_RETURN, tokenizer->loc, arena);
