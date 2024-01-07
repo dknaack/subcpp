@@ -339,8 +339,8 @@ static ast_node *parse_stmt(tokenizer *tokenizer, arena *arena);
 static ast_node *
 parse_compound_stmt(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *head = AST_NIL;
-	ast_node **ptr = &head;
+	ast_node *result = new_ast_node(AST_STMT_COMPOUND, tokenizer->loc, arena);
+	ast_node **ptr = &result->children;
 
 	expect(tokenizer, TOKEN_LBRACE);
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
@@ -348,7 +348,7 @@ parse_compound_stmt(tokenizer *tokenizer, arena *arena)
 		ptr = &(*ptr)->next;
 	}
 
-	return head;
+	return result;
 }
 
 static ast_node *
