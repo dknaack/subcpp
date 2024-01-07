@@ -168,7 +168,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			ast_node *called = node->u.call_expr.called;
+			ast_node *called = node->children;
 			check_type(called, symbols, arena);
 			if (called->type->kind != TYPE_FUNCTION) {
 				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
@@ -176,7 +176,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			}
 
 			u32 param_index = 0;
-			ast_node *param = node->u.call_expr.params;
+			ast_node *param = called->next;
 			type *param_type = called->type->u.function.param_types;
 			while (param || param_type) {
 				check_type(param, symbols, arena);

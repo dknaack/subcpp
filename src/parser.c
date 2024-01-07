@@ -191,8 +191,8 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 
 			ast_node *called = expr;
 			expr = new_ast_node(AST_EXPR_CALL, tokenizer->loc, arena);
-			expr->u.call_expr.called = called;
-			expr->u.call_expr.params = params;
+			expr->children = called;
+			called->next = params;
 		} else {
 			int precedence = get_binary_precedence(token.kind);
 			if (precedence == 0) {

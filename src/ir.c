@@ -243,10 +243,10 @@ translate_node(ir_context *ctx, ast_node *node)
 			}
 		} break;
 	case AST_EXPR_CALL:
-		called = node->u.call_expr.called;
+		called = node->children;
 		if (called->kind == AST_EXPR_IDENT) {
 			label = get_function(ctx, called->u.ident);
-			param = node->u.call_expr.params;
+			param = called->next;
 			param_count = 0;
 			while (param) {
 				ASSERT(param_count < 128);
@@ -254,7 +254,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				param = param->next;
 			}
 
-			param = node->u.call_expr.params;
+			param = called->next;
 			for (u32 i = 0; i < param_count; i++) {
 				u32 param_size = type_sizeof(param->type);
 				emit1_sized(ctx, IR_PARAM, param_size, param_register[i]);
