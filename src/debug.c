@@ -62,12 +62,15 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_IF:
 		printf("if (");
-		print_node(node->u.if_stmt.cond, 0);
+		node = node->children;
+		print_node(node, 0);
 		printf(")\n");
-		print_node(node->u.if_stmt.then, indent);
-		if (node->u.if_stmt.otherwise) {
+		node = node->next;
+		print_node(node, indent);
+		if (node->next != AST_NIL) {
 			printf("else\n");
-			print_node(node->u.if_stmt.otherwise, indent);
+			node = node->next;
+			print_node(node, indent);
 		}
 
 		break;

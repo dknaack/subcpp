@@ -406,14 +406,18 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		} break;
 	case TOKEN_IF:
 		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_IF, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_LPAREN);
-		node->u.if_stmt.cond = parse_assign_expr(tokenizer, arena);
+		ast_node *cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
-		node->u.if_stmt.then = parse_stmt(tokenizer, arena);
+		ast_node *then = parse_stmt(tokenizer, arena);
 		if (accept(tokenizer, TOKEN_ELSE)) {
-			node->u.if_stmt.otherwise = parse_stmt(tokenizer, arena);
+			ast_node *otherwise = parse_stmt(tokenizer, arena);
+			then->next = otherwise;
 		}
+
+		node = new_ast_node(AST_STMT_IF, tokenizer->loc, arena);
+		node->children = cond;
+		cond->next = then;
 		break;
 	case TOKEN_WHILE:
 		get_token(tokenizer);

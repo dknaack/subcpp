@@ -189,7 +189,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 static u32
 translate_node(ir_context *ctx, ast_node *node)
 {
-	u32 endif_label, else_label, cond_label, function_label;
+	u32 cond_label, function_label;
 	u32 label, param_register[128];
 	u32 param_count, result = 0;
 	usize result_size;
@@ -363,20 +363,26 @@ translate_node(ir_context *ctx, ast_node *node)
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_IF:
-		endif_label = new_label(ctx);
-		else_label = new_label(ctx);
+		{
+			u32 endif_label = new_label(ctx);
+			u32 else_label = new_label(ctx);
 
-		result = translate_node(ctx, node->u.if_stmt.cond);
-		emit2(ctx, IR_JIZ, result, else_label);
-		translate_node(ctx, node->u.if_stmt.then);
-		emit1(ctx, IR_JMP, endif_label);
-		emit1(ctx, IR_LABEL, else_label);
-		if (node->u.if_stmt.otherwise) {
-			translate_node(ctx, node->u.if_stmt.otherwise);
-		}
+			ast_node *cond = node->children;
+			result = translate_node(ctx, cond);
+			emit2(ctx, IR_JIZ, result, else_label);
 
-		emit1(ctx, IR_LABEL, endif_label);
-		break;
+			ast_node *if_branch = cond->next;
+			translate_node(ctx, if_branch);
+			emit1(ctx, IR_JMP, endif_label);
+
+			emit1(ctx, IR_LABEL, else_label);
+			ast_node *else_branch = if_branch->next;
+			if (else_branch != AST_NIL) {
+				translate_node(ctx, else_branch);
+			}
+
+			emit1(ctx, IR_LABEL, endif_label);
+		} break;
 	case AST_STMT_WHILE:
 		ctx->break_label = new_label(ctx);
 		ctx->continue_label = new_label(ctx);

@@ -298,16 +298,11 @@ end:
 	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_FOR:
-		{
-			for (ast_node *child = node->children; child != &ast_nil; child = child->next) {
-				check_type(child, symbols, arena);
-			}
-		} break;
 	case AST_STMT_IF:
 		{
-			check_type(node->u.if_stmt.cond, symbols, arena);
-			check_type(node->u.if_stmt.then, symbols, arena);
-			check_type(node->u.if_stmt.otherwise, symbols, arena);
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				check_type(child, symbols, arena);
+			}
 		} break;
 	case AST_STMT_PRINT:
 		{
