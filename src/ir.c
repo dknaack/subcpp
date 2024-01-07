@@ -319,12 +319,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			}
 		} break;
 	case AST_DECL_POINTER:
-		{
-			result = translate_node(ctx, node->u.decl_pointer.declarator);
-		} break;
 	case AST_DECL_ARRAY:
 		{
-			result = translate_node(ctx, node->u.decl_array.declarator);
+			result = translate_node(ctx, node->children);
 		} break;
 	case AST_DECL_IDENT:
 		{

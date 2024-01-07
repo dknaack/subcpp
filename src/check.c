@@ -250,29 +250,31 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					case AST_DECL_POINTER:
 						{
 							type *target = decl_type;
+							// TODO: add qualifiers to the pointer type
 							decl_type = type_create(TYPE_POINTER, arena);
 							decl_type->u.pointer.target = target;
-							// TODO: add qualifiers to the pointer
-							declarator = declarator->u.decl_pointer.declarator;
+
 						} break;
 					case AST_DECL_ARRAY:
 						{
 							type *target = decl_type;
 							decl_type = type_create(TYPE_ARRAY, arena);
 							decl_type->u.array.target = target;
+
 							// TODO: Evaluate the array size of the declarator
 							decl_type->u.array.size = 1;
-							ast_node *size = declarator->u.decl_array.size;
+							ast_node *size = declarator->children->next;
 							if (size->kind == AST_EXPR_INT) {
 								decl_type->u.array.size = size->value.i;
 							}
-							declarator = declarator->u.decl_array.declarator;
 						} break;
 					default:
 						// TODO: report syntax error
 						ASSERT(!"Invalid node in declarator");
 						break;
 					}
+
+					declarator = declarator->children;
 				}
 
 end:

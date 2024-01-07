@@ -112,8 +112,6 @@ struct ast_node {
 		ast_function function;
 		ast_decl decl;
 		ast_decl_list decl_list;
-		ast_decl_pointer decl_pointer;
-		ast_decl_array decl_array;
 	} u;
 
 	union {

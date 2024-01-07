@@ -257,15 +257,15 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 		expect(tokenizer, TOKEN_RPAREN);
 	} else if (accept(tokenizer, TOKEN_MUL)) {
 		result = new_ast_node(AST_DECL_POINTER, tokenizer->loc, arena);
-		result->u.decl_pointer.declarator = parse_declarator(tokenizer, arena);
+		result->children = parse_declarator(tokenizer, arena);
 	} else {
 		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
 		result->value.s = parse_ident(tokenizer);
 		if (accept(tokenizer, TOKEN_LBRACKET)) {
 			ast_node *declarator = result;
 			result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);
-			result->u.decl_array.declarator = declarator;
-			result->u.decl_array.size = parse_assign_expr(tokenizer, arena);
+			result->children = declarator;
+			declarator->next = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_RBRACKET);
 		}
 	}
