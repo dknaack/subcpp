@@ -138,7 +138,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 	case AST_EXPR_BINARY:
 		{
 			ir_opcode opcode = IR_NOP;
-			u32 operator = node->u.bin_expr.op;
+			u32 operator = node->value.i;
 			switch (operator) {
 			case TOKEN_ADD: opcode = IR_ADD; break;
 			case TOKEN_SUB: opcode = IR_SUB; break;
@@ -149,8 +149,8 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 				ASSERT(!"Not an lvalue");
 			}
 
-			ast_node *lhs = node->u.bin_expr.lhs;
-			ast_node *rhs = node->u.bin_expr.rhs;
+			ast_node *lhs = node->children;
+			ast_node *rhs = lhs->next;
 
 			u32 size = type_sizeof(node->type);
 			if (operator != TOKEN_DOT) {
@@ -203,7 +203,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		break;
 	case AST_EXPR_BINARY:
 		{
-			u32 operator = node->u.bin_expr.op;
+			u32 operator = node->value.i;
 			ir_opcode opcode = IR_NOP;
 			switch (operator) {
 			case TOKEN_ADD:      opcode = IR_ADD;   break;
@@ -223,7 +223,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				break;
 			}
 
-			ast_node *lhs = node->u.bin_expr.lhs;
+			ast_node *lhs = node->children;
 			u32 lhs_reg = 0;
 			if (opcode == IR_STORE) {
 				lhs_reg = translate_lvalue(ctx, lhs);
@@ -231,7 +231,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				lhs_reg = translate_node(ctx, lhs);
 			}
 
-			ast_node *rhs = node->u.bin_expr.rhs;
+			ast_node *rhs = lhs->next;
 			u32 rhs_reg = translate_node(ctx, rhs);
 
 			u32 size = type_sizeof(node->type);

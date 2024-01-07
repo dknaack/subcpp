@@ -109,7 +109,6 @@ struct ast_node {
 	type *type;
 
 	union {
-		ast_expr_bin bin_expr;
 		ast_expr_call call_expr;
 		ast_expr_unary unary_expr;
 		ast_function function;
@@ -120,6 +119,10 @@ struct ast_node {
 		string ident;
 		intmax_t ival;
 	} u;
+
+	union {
+		intmax_t i;
+	} value;
 };
 
 static ast_node ast_nil = {AST_INVALID, &ast_nil, &ast_nil};

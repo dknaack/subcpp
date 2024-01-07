@@ -117,17 +117,17 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			ast_node *lhs = node->u.bin_expr.lhs;
-			ast_node *rhs = node->u.bin_expr.rhs;
+			ast_node *lhs = node->children;
+			ast_node *rhs = lhs->next;
 			check_type(lhs, symbols, arena);
 
-			u32 operator = node->u.bin_expr.op;
+			u32 operator = node->value.i;
 			if (operator == TOKEN_DOT) {
 				if (lhs->type->kind != TYPE_STRUCT) {
 					errorf(node->loc, "Left-hand side is not a struct");
 				}
 
-				if (node->u.bin_expr.rhs->kind != AST_EXPR_IDENT) {
+				if (rhs->kind != AST_EXPR_IDENT) {
 					errorf(node->loc, "Right-hand side is not an identifier");
 				}
 

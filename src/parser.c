@@ -222,9 +222,9 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 			ASSERT(rhs);
 
 			expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
-			expr->u.bin_expr.op = token.kind;
-			expr->u.bin_expr.lhs = lhs;
-			expr->u.bin_expr.rhs = rhs;
+			expr->value.i = token.kind;
+			expr->children = lhs;
+			lhs->next = rhs;
 
 			if (token.kind == TOKEN_LBRACKET) {
 				expect(tokenizer, TOKEN_RBRACKET);

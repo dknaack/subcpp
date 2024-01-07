@@ -1,6 +1,7 @@
 static void
 print_node(ast_node *node, int indent)
 {
+	u32 operator = 0;
 	for (int i = 0; i < indent; i++) {
 		printf("    ");
 	}
@@ -8,8 +9,10 @@ print_node(ast_node *node, int indent)
 	switch (node->kind) {
 	case AST_EXPR_BINARY:
 		printf("(");
-		print_node(node->u.bin_expr.lhs, 0);
-		switch (node->u.bin_expr.op) {
+		operator = node->value.i;
+		node = node->children;
+		print_node(node, 0);
+		switch (operator) {
 		case TOKEN_ADD:    printf(" + ");  break;
 		case TOKEN_SUB:    printf(" - ");  break;
 		case TOKEN_MUL:    printf(" * ");  break;
@@ -20,7 +23,8 @@ print_node(ast_node *node, int indent)
 			printf(" (invalid operation) ");
 		}
 
-		print_node(node->u.bin_expr.rhs, 0);
+		node = node->next;
+		print_node(node, 0);
 		printf(")");
 		break;
 	case AST_EXPR_IDENT:
