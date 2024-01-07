@@ -112,6 +112,9 @@ remove_unused_registers(ir_program program, arena *arena)
 		case IR_RET:
 		case IR_MOV:
 		case IR_PRINT:
+		case IR_JIZ:
+		case IR_JMP:
+		case IR_LABEL: // TODO: Removal of unused labels
 			used[i] = true;
 		default:
 			break;
