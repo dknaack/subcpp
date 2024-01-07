@@ -312,9 +312,9 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_DECL_LIST:
 		{
-			result = translate_node(ctx, node->u.decl_list.declarator);
-			if (node->u.decl_list.initializer) {
-				u32 expr = translate_node(ctx, node->u.decl_list.initializer);
+			result = translate_node(ctx, node->children);
+			if (node->children->next != AST_NIL) {
+				u32 expr = translate_node(ctx, node->children->next);
 				emit2(ctx, IR_STORE, result, expr);
 			}
 		} break;

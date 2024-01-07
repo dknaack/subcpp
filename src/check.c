@@ -236,7 +236,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			check_type(type_specifier, symbols, arena);
 
 			for (ast_node *child = node->u.decl.list; child != AST_NIL; child = child->next) {
-				ast_node *declarator = child->u.decl_list.declarator;
+				ast_node *declarator = child->children;
 				type *decl_type = type_specifier->type;
 				string name = {0};
 				for (;;) {

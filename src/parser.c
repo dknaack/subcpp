@@ -313,18 +313,19 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	decl->u.decl.type_specifier = type_specifier;
 	ast_node **ptr = &decl->u.decl.list;
 	do {
-		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-		(*ptr)->u.decl_list.declarator = parse_declarator(tokenizer, arena);
+		ast_node *declarator = parse_declarator(tokenizer, arena);
 
 		if (accept(tokenizer, TOKEN_ASSIGN)) {
 			if (accept(tokenizer, TOKEN_LBRACE)) {
 				parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RBRACE);
 			} else {
-				(*ptr)->u.decl_list.initializer = parse_assign_expr(tokenizer, arena);
+				declarator->next = parse_assign_expr(tokenizer, arena);
 			}
 		}
 
+		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+		(*ptr)->children = declarator;
 		ptr = &(*ptr)->next;
 	} while (!tokenizer->error
 	    && !(flags & PARSE_SINGLE_DECL)
