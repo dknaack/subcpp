@@ -115,7 +115,6 @@ struct ast_node {
 		ast_decl_pointer decl_pointer;
 		ast_decl_array decl_array;
 		string ident;
-		intmax_t ival;
 	} u;
 
 	union {

@@ -150,7 +150,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
-		expr->u.ival = parse_int(token.value);
+		expr->value.i = parse_int(token.value);
 		break;
 	case TOKEN_LPAREN:
 		get_token(tokenizer);

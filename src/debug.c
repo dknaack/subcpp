@@ -31,7 +31,7 @@ print_node(ast_node *node, int indent)
 		printf("%.*s", (int)node->u.ident.length, node->u.ident.at);
 		break;
 	case AST_EXPR_INT:
-		printf("%jd", node->u.ival);
+		printf("%jd", node->value.i);
 		break;
 	case AST_STMT_BREAK:
 		printf("break;\n");

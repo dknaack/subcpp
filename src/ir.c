@@ -177,7 +177,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = emit1_sized(ctx, IR_CONST, 4, node->u.ival);
+			result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
 		} break;
 	default:
 		ASSERT(!"Not an lvalue");
@@ -273,7 +273,7 @@ translate_node(ir_context *ctx, ast_node *node)
 			result = emit1_sized(ctx, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
-		result = emit1_sized(ctx, IR_CONST, 4, node->u.ival);
+		result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
 		break;
 	case AST_EXPR_UNARY:
 		{

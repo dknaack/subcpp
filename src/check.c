@@ -264,7 +264,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 							decl_type->u.array.size = 1;
 							ast_node *size = declarator->u.decl_array.size;
 							if (size->kind == AST_EXPR_INT) {
-								decl_type->u.array.size = size->u.ival;
+								decl_type->u.array.size = size->value.i;
 							}
 							declarator = declarator->u.decl_array.declarator;
 						} break;
