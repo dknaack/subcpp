@@ -174,7 +174,7 @@ main(int argc, char *argv[])
 	symbol_table symbols = {0};
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	ast_node *root = parse(&tokenizer, arena);
-	check_node(root, &symbols, arena);
+	check_type(root, &symbols, arena);
 	if (tokenizer.error) {
 		free(arena);
 		return 1;

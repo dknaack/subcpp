@@ -98,12 +98,11 @@ type_equals(type *lhs, type *rhs)
 	}
 }
 
-static type *
-check_node(ast_node *node, symbol_table *symbols, arena *arena)
+static void
+check_type(ast_node *node, symbol_table *symbols, arena *arena)
 {
-	type *result = &type_void;
 	if (!node) {
-		return result;
+		return;
 	}
 
 	switch (node->kind) {
@@ -112,19 +111,19 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_ROOT:
 		{
-			result = &type_void;
 			for (ast_node *child = node->u.children; child; child = child->next) {
-				check_node(child, symbols, arena);
+				check_type(child, symbols, arena);
 			}
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			type *lhs = check_node(node->u.bin_expr.lhs, symbols, arena);
-			type *rhs = NULL;
+			ast_node *lhs = node->u.bin_expr.lhs;
+			ast_node *rhs = node->u.bin_expr.rhs;
+			check_type(lhs, symbols, arena);
 
 			u32 operator = node->u.bin_expr.op;
 			if (operator == TOKEN_DOT) {
-				if (lhs->kind != TYPE_STRUCT) {
+				if (lhs->type->kind != TYPE_STRUCT) {
 					errorf(node->loc, "Left-hand side is not a struct");
 				}
 
@@ -132,10 +131,10 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 					errorf(node->loc, "Right-hand side is not an identifier");
 				}
 
-				symbol *s = upsert_symbol(&lhs->u.members, node->u.bin_expr.rhs->u.ident, NULL);
-				rhs = s->type;
+				symbol *s = upsert_symbol(&lhs->type->u.members, rhs->u.ident, NULL);
+				rhs->type = s->type;
 			} else {
-				rhs = check_node(node->u.bin_expr.rhs, symbols, arena);
+				check_type(rhs, symbols, arena);
 			}
 
 			if (operator == TOKEN_ASSIGN) {
@@ -143,60 +142,63 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 			} else if (operator == TOKEN_LBRACKET) {
 				// TODO: ensure that one operand is a pointer and the other one
 				// is an integral type.
-				ASSERT(lhs->kind != TYPE_POINTER || rhs->kind == TYPE_POINTER);
-				ASSERT(lhs->kind == TYPE_POINTER || rhs->kind != TYPE_POINTER);
+				ASSERT(lhs->type->kind != TYPE_POINTER || rhs->type->kind == TYPE_POINTER);
+				ASSERT(lhs->type->kind == TYPE_POINTER || rhs->type->kind != TYPE_POINTER);
 			} else if (operator != TOKEN_DOT) {
-				if (!type_equals(lhs, rhs)) {
+				if (!type_equals(lhs->type, rhs->type)) {
 					errorf(node->loc, "Incompatible types: %s, %s",
-						type_get_name(lhs->kind), type_get_name(rhs->kind));
+						type_get_name(lhs->type->kind),
+						type_get_name(rhs->type->kind));
 				}
-			}
 
-			result = lhs;
+				node->type = lhs->type;
+			}
 		} break;
 	case AST_EXPR_CALL:
 		{
-			type *called = check_node(node->u.call_expr.called, symbols, arena);
-			if (called->kind != TYPE_FUNCTION) {
-				errorf(node->loc, "Not a function: %s", type_get_name(called->kind));
+			ast_node *called = node->u.call_expr.called;
+			check_type(called, symbols, arena);
+			if (called->type->kind != TYPE_FUNCTION) {
+				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
 				break;
 			}
 
-			type *function_param_type = called->u.function.param_types;
 			u32 param_index = 0;
-			for (ast_node *param = node->u.call_expr.params; param; param = param->next) {
-				type *expr_param_type = check_node(param, symbols, arena);
-				if (!type_equals(function_param_type, expr_param_type)) {
+			ast_node *param = node->u.call_expr.params;
+			type *param_type = called->type->u.function.param_types;
+			while (param || param_type) {
+				check_type(param, symbols, arena);
+				if (!type_equals(param_type, param->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
-						param_index + 1,
-						type_get_name(function_param_type->kind),
-						type_get_name(expr_param_type->kind));
+						param_index + 1, type_get_name(param_type->kind),
+						type_get_name(param->type->kind));
 				}
 
-				function_param_type = function_param_type->next;
+				param_type = param_type->next;
 				param_index++;
 			}
 
-			result = called->u.function.return_type;
+			node->type = called->type->u.function.return_type;
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			result = get_variable(symbols, node->u.ident);
+			node->type = get_variable(symbols, node->u.ident);
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			type *operand_type = check_node(node->u.unary_expr.operand, symbols, arena);
+			ast_node *operand = node->u.unary_expr.operand;
+			check_type(operand, symbols, arena);
 			switch (node->u.unary_expr.op) {
 			case TOKEN_MUL:
-				if (operand_type->kind == TYPE_POINTER) {
-					result = operand_type->u.pointer.target;
+				if (operand->type->kind == TYPE_POINTER) {
+					node->type = operand->type->u.pointer.target;
 				} else {
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
 			case TOKEN_AMPERSAND:
-				result = type_create(TYPE_POINTER, arena);
-				result->u.pointer.target = operand_type;
+				node->type = type_create(TYPE_POINTER, arena);
+				node->type->u.pointer.target = operand->type;
 				break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -204,25 +206,28 @@ check_node(ast_node *node, symbol_table *symbols, arena *arena)
 			}
 		} break;
 	case AST_STMT_BREAK:
-		result = &type_void;
+		node->type = &type_void;
 		break;
 	case AST_STMT_COMPOUND:
 		{
-			result = &type_void;
+			node->type = &type_void;
+			arena_temp temp = arena_temp_begin(arena);
 			push_scope(symbols, arena);
 			for (ast_node *child = node->u.children; child; child = child->next) {
-				check_node(child, symbols, arena);
+				check_type(child, symbols, arena);
 			}
 
 			pop_scope(symbols);
+			arena_temp_end(temp);
 		} break;
 	case AST_DECL:
 		{
-			result = &type_void;
-			type *type_specifier = check_node(node->u.decl.type_specifier, symbols, arena);
+			node->type = &type_void;
+			ast_node *type_specifier = node->u.decl.type_specifier;
+			check_type(type_specifier, symbols, arena);
 			for (ast_node *child = node->u.decl.list; child; child = child->next) {
 				ast_node *declarator = child->u.decl_list.declarator;
-				type *decl_type = type_specifier;
+				type *decl_type = type_specifier->type;
 				string name = {0};
 				for (;;) {
 					switch (declarator->kind) {
@@ -275,99 +280,88 @@ end:
 		} break;
 	case AST_STMT_DECL:
 		{
-			result = &type_void;
 			for (ast_node *child = node->u.children; child; child = child->next) {
-				check_node(child, symbols, arena);
+				check_type(child, symbols, arena);
 			}
 		} break;
 	case AST_STMT_CONTINUE:
-		{
-			result = &type_void;
-		} break;
 	case AST_STMT_EMPTY:
-		{
-			result = &type_void;
-		} break;
+		break;
 	case AST_STMT_FOR:
 		{
-			result = &type_void;
-			check_node(node->u.for_stmt.init, symbols, arena);
-			check_node(node->u.for_stmt.cond, symbols, arena);
-			check_node(node->u.for_stmt.post, symbols, arena);
-			check_node(node->u.for_stmt.body, symbols, arena);
+			check_type(node->u.for_stmt.init, symbols, arena);
+			check_type(node->u.for_stmt.cond, symbols, arena);
+			check_type(node->u.for_stmt.post, symbols, arena);
+			check_type(node->u.for_stmt.body, symbols, arena);
 		} break;
 	case AST_STMT_IF:
 		{
-			result = &type_void;
-			check_node(node->u.if_stmt.cond, symbols, arena);
-			check_node(node->u.if_stmt.then, symbols, arena);
-			check_node(node->u.if_stmt.otherwise, symbols, arena);
+			check_type(node->u.if_stmt.cond, symbols, arena);
+			check_type(node->u.if_stmt.then, symbols, arena);
+			check_type(node->u.if_stmt.otherwise, symbols, arena);
 		} break;
 	case AST_STMT_PRINT:
 		{
-			result = &type_void;
-			check_node(node->u.children, symbols, arena);
+			check_type(node->u.children, symbols, arena);
 		} break;
 	case AST_STMT_WHILE:
 		{
-			result = &type_void;
-			check_node(node->u.while_stmt.cond, symbols, arena);
-			check_node(node->u.while_stmt.body, symbols, arena);
+			check_type(node->u.while_stmt.cond, symbols, arena);
+			check_type(node->u.while_stmt.body, symbols, arena);
 		} break;
 	case AST_STMT_RETURN:
 		{
-			result = &type_void;
-			check_node(node->u.children, symbols, arena);
+			check_type(node->u.children, symbols, arena);
 		} break;
 	case AST_FUNCTION:
 		{
-			result = type_create(TYPE_FUNCTION, arena);
-			result->u.function.return_type = type_create(TYPE_INT, arena);
+			node->type = type_create(TYPE_FUNCTION, arena);
+			node->type->u.function.return_type = type_create(TYPE_INT, arena);
 			push_scope(symbols, arena);
-			type **param_type = &result->u.function.param_types;
+			type **param_type = &node->type->u.function.param_types;
 			for (ast_node *param = node->u.function.params; param; param = param->next) {
-				*param_type = check_node(param, symbols, arena);
+				check_type(param, symbols, arena);
+				*param_type = param->type;
 				param_type = &(*param_type)->next;
 			}
 
-			add_variable(symbols, node->u.function.name, result, arena);
+			add_variable(symbols, node->u.function.name, node->type, arena);
 
 			for (ast_node *child = node->u.function.body; child; child = child->next) {
-				check_node(child, symbols, arena);
+				check_type(child, symbols, arena);
 			}
 
 			pop_scope(symbols);
 		} break;
 	case AST_TYPE_VOID:
 		{
-			result = &type_void;
+			node->type = &type_void;
 		} break;
 	case AST_TYPE_CHAR:
 		{
-			result = &type_char;
+			node->type = &type_char;
 		} break;
 	case AST_TYPE_INT:
 	case AST_EXPR_INT:
 		{
-			result = &type_int;
+			node->type = &type_int;
 		} break;
 	case AST_TYPE_STRUCT:
 		{
+			// TODO
 		} break;
 	case AST_TYPE_STRUCT_DEF:
 	case AST_TYPE_STRUCT_ANON:
 		{
-			result = type_create(TYPE_STRUCT, arena);
+			node->type = type_create(TYPE_STRUCT, arena);
 
 			push_scope(symbols, arena);
 			for (ast_node *child = node->u.children; child; child = child->next) {
-				check_node(child, symbols, arena);
+				check_type(child, symbols, arena);
 			}
 
-			result->u.members = symbols->head;
+			node->type->u.members = symbols->head;
 			pop_scope(symbols);
 		} break;
 	}
-
-	return node->type = result;
 }
