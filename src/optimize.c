@@ -37,11 +37,11 @@ promote_stack_variables(ir_program program, arena *arena)
 		if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
 			&& instrs[op0].opcode == IR_ALLOC)
 		{
-			addr_used[op0] |= true;
+			addr_used[op0] = true;
 		}
 
 		if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_ALLOC) {
-			addr_used[op1] |= true;
+			addr_used[op1] = true;
 		}
 	}
 
