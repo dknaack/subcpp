@@ -296,7 +296,6 @@ translate_node(ir_context *ctx, ast_node *node)
 		break;
 	case AST_ROOT:
 	case AST_STMT_COMPOUND:
-	case AST_STMT_DECL:
 		for (node = node->children; node != AST_NIL; node = node->next) {
 			translate_node(ctx, node);
 		}

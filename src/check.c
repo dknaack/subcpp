@@ -290,12 +290,6 @@ end:
 			// TODO: report syntax error when declarator is encountered here.
 			ASSERT(!"Should be handled in decl");
 		} break;
-	case AST_STMT_DECL:
-		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
-			}
-		} break;
 	case AST_STMT_CONTINUE:
 	case AST_STMT_EMPTY:
 		break;

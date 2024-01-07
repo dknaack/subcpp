@@ -85,7 +85,6 @@ typedef enum {
 	AST_STMT_BREAK,
 	AST_STMT_COMPOUND, // {...statements}
 	AST_STMT_CONTINUE,
-	AST_STMT_DECL,     // TODO: remove this
 	AST_STMT_EMPTY,
 	AST_STMT_FOR,      // {init, cond, post, body}
 	AST_STMT_IF,       // {cond, if_branch, else_branch?}
@@ -142,7 +141,6 @@ get_ast_name(ast_node_kind kind)
 	case AST_STMT_BREAK:       return "BREAK";
 	case AST_STMT_COMPOUND:    return "COMPOUND";
 	case AST_STMT_CONTINUE:    return "CONTINUE";
-	case AST_STMT_DECL:        return "DECL_STMT";
 	case AST_STMT_EMPTY:       return "EMPTY";
 	case AST_STMT_FOR:         return "FOR";
 	case AST_STMT_IF:          return "IF";

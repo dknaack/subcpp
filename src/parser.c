@@ -355,7 +355,6 @@ static ast_node *
 parse_stmt(tokenizer *tokenizer, arena *arena)
 {
 	ast_node *node = NULL;
-	ast_node *decl = NULL;
 
 	token token = peek_token(tokenizer);
 	switch (token.kind) {
@@ -455,11 +454,8 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node->children = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
-		decl = parse_decl(tokenizer, 0, arena);
-		if (decl) {
-			node = new_ast_node(AST_STMT_DECL, tokenizer->loc, arena);
-			node->children = decl;
-		} else {
+		node = parse_decl(tokenizer, 0, arena);
+		if (node == AST_NIL) {
 			node = parse_assign_expr(tokenizer, arena);
 		}
 		expect(tokenizer, TOKEN_SEMICOLON);
