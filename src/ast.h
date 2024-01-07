@@ -67,31 +67,31 @@ typedef struct {
 
 typedef enum {
 	AST_INVALID,
-	AST_FUNCTION,
+	AST_FUNCTION,      // {body, ...params}
 	AST_ROOT,
 
-	AST_DECL,
-	AST_DECL_LIST,
-	AST_DECL_POINTER,
-	AST_DECL_ARRAY,
+	AST_DECL,          // {type_specifier, ...declarators}
+	AST_DECL_LIST,     // {declarator, initializer?}
+	AST_DECL_POINTER,  // {declarator}
+	AST_DECL_ARRAY,    // {declarator, size}
 	AST_DECL_IDENT,
 
-	AST_EXPR_BINARY,
-	AST_EXPR_CALL,
+	AST_EXPR_BINARY,   // {lhs, rhs}
+	AST_EXPR_CALL,     // {called, ...params}
 	AST_EXPR_IDENT,
 	AST_EXPR_INT,
-	AST_EXPR_UNARY,
+	AST_EXPR_UNARY,    //  {operand}
 
 	AST_STMT_BREAK,
-	AST_STMT_COMPOUND,
+	AST_STMT_COMPOUND, // {...statements}
 	AST_STMT_CONTINUE,
-	AST_STMT_DECL,
+	AST_STMT_DECL,     // TODO: remove this
 	AST_STMT_EMPTY,
-	AST_STMT_FOR,
-	AST_STMT_IF,
-	AST_STMT_PRINT,
-	AST_STMT_RETURN,
-	AST_STMT_WHILE,
+	AST_STMT_FOR,      // {init, cond, post, body}
+	AST_STMT_IF,       // {cond, if_branch, else_branch?}
+	AST_STMT_PRINT,    // {expr}
+	AST_STMT_RETURN,   // {expr?}
+	AST_STMT_WHILE,    // {cond, body}
 
 	AST_TYPE_CHAR,
 	AST_TYPE_INT,
