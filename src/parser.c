@@ -179,7 +179,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 
 		if (token.kind == TOKEN_LPAREN) {
 			get_token(tokenizer);
-			ast_node *params = NULL;
+			ast_node *params = AST_NIL;
 			ast_node **ptr = &params;
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				do {
@@ -250,7 +250,7 @@ typedef enum {
 static ast_node *
 parse_declarator(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *result = NULL;
+	ast_node *result = AST_NIL;
 
 	if (accept(tokenizer, TOKEN_LPAREN)) {
 		result = parse_declarator(tokenizer, arena);
@@ -339,7 +339,7 @@ static ast_node *parse_stmt(tokenizer *tokenizer, arena *arena);
 static ast_node *
 parse_compound_stmt(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *head = NULL;
+	ast_node *head = AST_NIL;
 	ast_node **ptr = &head;
 
 	expect(tokenizer, TOKEN_LBRACE);
@@ -354,7 +354,7 @@ parse_compound_stmt(tokenizer *tokenizer, arena *arena)
 static ast_node *
 parse_stmt(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *node = NULL;
+	ast_node *node = AST_NIL;
 
 	token token = peek_token(tokenizer);
 	switch (token.kind) {
@@ -477,7 +477,7 @@ static ast_node *
 parse_function(tokenizer *tokenizer, arena *arena)
 {
 	ast_node *node;
-	ast_node *params = NULL;
+	ast_node *params = AST_NIL;
 	ast_node **ptr = &params;
 	string name;
 	location loc = tokenizer->loc;
