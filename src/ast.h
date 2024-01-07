@@ -110,7 +110,6 @@ struct ast_node {
 
 	union {
 		ast_function function;
-		ast_decl decl;
 	} u;
 
 	union {

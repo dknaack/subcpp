@@ -310,8 +310,8 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	}
 
 	ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
-	decl->u.decl.type_specifier = type_specifier;
-	ast_node **ptr = &decl->u.decl.list;
+	decl->children = type_specifier;
+	ast_node **ptr = &decl->children->next;
 	do {
 		ast_node *declarator = parse_declarator(tokenizer, arena);
 

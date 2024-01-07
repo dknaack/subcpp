@@ -306,8 +306,8 @@ translate_node(ir_context *ctx, ast_node *node)
 		break;
 	case AST_DECL:
 		{
-			for (ast_node *child = node->u.decl.list; child != AST_NIL; child = child->next) {
-				translate_node(ctx, node->u.decl.list);
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				translate_node(ctx, child);
 			}
 		} break;
 	case AST_DECL_LIST:

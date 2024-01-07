@@ -232,10 +232,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_DECL:
 		{
-			ast_node *type_specifier = node->u.decl.type_specifier;
+			ast_node *type_specifier = node->children;
 			check_type(type_specifier, symbols, arena);
 
-			for (ast_node *child = node->u.decl.list; child != AST_NIL; child = child->next) {
+			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
 				ast_node *declarator = child->children;
 				type *decl_type = type_specifier->type;
 				string name = {0};
