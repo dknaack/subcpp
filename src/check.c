@@ -111,7 +111,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_ROOT:
 		{
-			for (ast_node *child = node->u.children; child; child = child->next) {
+			for (ast_node *child = node->children; child; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 		} break;
@@ -211,7 +211,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		{
 			arena_temp temp = arena_temp_begin(arena);
 			push_scope(symbols, arena);
-			for (ast_node *child = node->u.children; child; child = child->next) {
+			for (ast_node *child = node->children; child; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 
@@ -278,7 +278,7 @@ end:
 		} break;
 	case AST_STMT_DECL:
 		{
-			for (ast_node *child = node->u.children; child; child = child->next) {
+			for (ast_node *child = node->children; child; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 		} break;
@@ -300,7 +300,7 @@ end:
 		} break;
 	case AST_STMT_PRINT:
 		{
-			check_type(node->u.children, symbols, arena);
+			check_type(node->children, symbols, arena);
 		} break;
 	case AST_STMT_WHILE:
 		{
@@ -309,7 +309,7 @@ end:
 		} break;
 	case AST_STMT_RETURN:
 		{
-			check_type(node->u.children, symbols, arena);
+			check_type(node->children, symbols, arena);
 		} break;
 	case AST_FUNCTION:
 		{
@@ -354,7 +354,7 @@ end:
 			node->type = type_create(TYPE_STRUCT, arena);
 
 			push_scope(symbols, arena);
-			for (ast_node *child = node->u.children; child; child = child->next) {
+			for (ast_node *child = node->children; child; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 

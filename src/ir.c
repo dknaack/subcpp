@@ -297,7 +297,7 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_ROOT:
 	case AST_STMT_COMPOUND:
 	case AST_STMT_DECL:
-		for (node = node->u.children; node; node = node->next) {
+		for (node = node->children; node; node = node->next) {
 			translate_node(ctx, node);
 		}
 		break;
@@ -381,13 +381,13 @@ translate_node(ir_context *ctx, ast_node *node)
 		emit1(ctx, IR_LABEL, ctx->break_label);
 		break;
 	case AST_STMT_RETURN:
-		if (node->u.children) {
-			result = translate_node(ctx, node->u.children);
+		if (node->children) {
+			result = translate_node(ctx, node->children);
 		}
 		emit1(ctx, IR_RET, result);
 		break;
 	case AST_STMT_PRINT:
-		result = translate_node(ctx, node->u.children);
+		result = translate_node(ctx, node->children);
 		emit1(ctx, IR_PRINT, result);
 		break;
 	case AST_FUNCTION:
@@ -644,7 +644,7 @@ translate(ast_node *root, arena *arena)
 	ir_context ctx = ir_context_init(arena);
 
 	u32 function_count = 0;
-	for (ast_node *node = root->u.children; node; node = node->next) {
+	for (ast_node *node = root->children; node; node = node->next) {
 		function_count += (node->kind == AST_FUNCTION);
 	}
 

@@ -292,7 +292,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 
 		type_specifier = new_ast_node(AST_TYPE_STRUCT_ANON, tokenizer->loc, arena);
 		if (accept(tokenizer, TOKEN_LBRACE)) {
-			ast_node **ptr = & type_specifier->u.children;
+			ast_node **ptr = & type_specifier->children;
 			// TODO: set correct flags for parsing struct members, i.e.
 			// declarations are allowed to have bitfields.
 			while (!accept(tokenizer, TOKEN_RBRACE)) {
@@ -417,14 +417,14 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_RETURN, tokenizer->loc, arena);
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			node->u.children = parse_assign_expr(tokenizer, arena);
+			node->children = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 		break;
 	case TOKEN_PRINT:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_PRINT, tokenizer->loc, arena);
-		node->u.children = parse_assign_expr(tokenizer, arena);
+		node->children = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_SEMICOLON:
@@ -433,13 +433,13 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		break;
 	case TOKEN_LBRACE:
 		node = new_ast_node(AST_STMT_COMPOUND, tokenizer->loc, arena);
-		node->u.children = parse_compound_stmt(tokenizer, arena);
+		node->children = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
 		decl = parse_decl(tokenizer, 0, arena);
 		if (decl) {
 			node = new_ast_node(AST_STMT_DECL, tokenizer->loc, arena);
-			node->u.children = decl;
+			node->children = decl;
 		} else {
 			node = parse_assign_expr(tokenizer, arena);
 		}
@@ -500,7 +500,7 @@ static ast_node *
 parse(tokenizer *tokenizer, arena *arena)
 {
 	ast_node *root = new_ast_node(AST_ROOT, tokenizer->loc, arena);
-	ast_node **ptr = &root->u.children;
+	ast_node **ptr = &root->children;
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF)) {
 		*ptr = parse_function(tokenizer, arena);
 		ptr = &(*ptr)->next;

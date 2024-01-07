@@ -102,6 +102,7 @@ typedef enum {
 struct ast_node {
 	ast_node_kind kind;
 	ast_node *next;
+	ast_node *children;
 	location loc;
 	type *type;
 
@@ -117,7 +118,6 @@ struct ast_node {
 		ast_decl_list decl_list;
 		ast_decl_pointer decl_pointer;
 		ast_decl_array decl_array;
-		ast_node *children;
 		string ident;
 		intmax_t ival;
 	} u;

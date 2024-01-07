@@ -52,7 +52,7 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_COMPOUND:
 		printf("{\n");
-		for (node = node->u.children; node; node = node->next) {
+		for (node = node->children; node; node = node->next) {
 			print_node(node, indent + 1);
 		}
 		printf("}\n");
@@ -76,12 +76,12 @@ print_node(ast_node *node, int indent)
 		break;
 	case AST_STMT_RETURN:
 		printf("return ");
-		print_node(node->u.children, 0);
+		print_node(node->children, 0);
 		printf(";\n");
 		break;
 	case AST_STMT_PRINT:
 		printf("print ");
-		print_node(node->u.children, 0);
+		print_node(node->children, 0);
 		printf(";\n");
 		break;
 	default:
