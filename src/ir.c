@@ -248,7 +248,7 @@ translate_node(ir_context *ctx, ast_node *node)
 			label = get_function(ctx, called->value.s);
 			param = called->next;
 			param_count = 0;
-			while (param) {
+			while (param != AST_NIL) {
 				ASSERT(param_count < 128);
 				param_register[param_count++] = translate_node(ctx, param);
 				param = param->next;
