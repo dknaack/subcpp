@@ -133,7 +133,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 	switch (node->kind) {
 	case AST_EXPR_IDENT:
 		{
-			result = get_register(ctx, node->u.ident);
+			result = get_register(ctx, node->value.s);
 		} break;
 	case AST_EXPR_BINARY:
 		{
@@ -158,7 +158,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 				u32 rhs_reg = translate_lvalue(ctx, rhs);
 				result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
 			} else {
-				u32 offset = type_offsetof(lhs->type, rhs->u.ident);
+				u32 offset = type_offsetof(lhs->type, rhs->value.s);
 				u32 offset_reg = emit1(ctx, IR_CONST, offset);
 				u32 base_reg = translate_lvalue(ctx, lhs);
 				result = emit2_sized(ctx, IR_ADD, size, base_reg, offset_reg);
@@ -245,7 +245,7 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_EXPR_CALL:
 		called = node->children;
 		if (called->kind == AST_EXPR_IDENT) {
-			label = get_function(ctx, called->u.ident);
+			label = get_function(ctx, called->value.s);
 			param = called->next;
 			param_count = 0;
 			while (param) {
@@ -269,7 +269,7 @@ translate_node(ir_context *ctx, ast_node *node)
 	case AST_EXPR_IDENT:
 		{
 			u32 size = type_sizeof(node->type);
-			u32 addr = get_register(ctx, node->u.ident);
+			u32 addr = get_register(ctx, node->value.s);
 			result = emit1_sized(ctx, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
@@ -330,11 +330,11 @@ translate_node(ir_context *ctx, ast_node *node)
 		{
 			usize size = type_sizeof(node->type);
 			if (node->type->kind == TYPE_ARRAY) {
-				result = new_register(ctx, node->u.ident, 8);
+				result = new_register(ctx, node->value.s, 8);
 				u32 addr = emit_alloca(ctx, size);
 				emit2(ctx, IR_STORE, result, addr);
 			} else {
-				result = new_register(ctx, node->u.ident, size);
+				result = new_register(ctx, node->value.s, size);
 			}
 		} break;
 	case AST_STMT_EMPTY:

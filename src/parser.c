@@ -145,7 +145,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 	case TOKEN_IDENT:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_IDENT, tokenizer->loc, arena);
-		expr->u.ident = token.value;
+		expr->value.s = token.value;
 		break;
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
@@ -260,7 +260,7 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 		result->u.decl_pointer.declarator = parse_declarator(tokenizer, arena);
 	} else {
 		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
-		result->u.ident = parse_ident(tokenizer);
+		result->value.s = parse_ident(tokenizer);
 		if (accept(tokenizer, TOKEN_LBRACKET)) {
 			ast_node *declarator = result;
 			result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);

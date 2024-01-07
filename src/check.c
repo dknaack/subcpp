@@ -131,7 +131,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					errorf(node->loc, "Right-hand side is not an identifier");
 				}
 
-				symbol *s = upsert_symbol(&lhs->type->u.members, rhs->u.ident, NULL);
+				symbol *s = upsert_symbol(&lhs->type->u.members, rhs->value.s, NULL);
 				rhs->type = s->type;
 				node->type = s->type;
 			} else {
@@ -194,7 +194,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			node->type = get_variable(symbols, node->u.ident);
+			node->type = get_variable(symbols, node->value.s);
 		} break;
 	case AST_EXPR_UNARY:
 		{
@@ -243,7 +243,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					switch (declarator->kind) {
 					case AST_DECL_IDENT:
 						{
-							name = declarator->u.ident;
+							name = declarator->value.s;
 							declarator->type = decl_type;
 							goto end;
 						} break;
