@@ -221,14 +221,12 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_STMT_COMPOUND:
 		{
-			arena_temp temp = arena_temp_begin(arena);
 			push_scope(symbols, arena);
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, symbols, arena);
 			}
 
 			pop_scope(symbols);
-			arena_temp_end(temp);
 		} break;
 	case AST_DECL:
 		{
