@@ -1,7 +1,4 @@
 typedef struct type type;
-typedef struct {
-	u32 value;
-} type_id;
 
 typedef enum {
 	TYPE_UNKNOWN,
