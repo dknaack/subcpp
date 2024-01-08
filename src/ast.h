@@ -36,7 +36,6 @@ typedef enum {
 	AST_TYPE_VOID,
 	AST_TYPE_STRUCT,
 	AST_TYPE_STRUCT_DEF,
-	AST_TYPE_STRUCT_ANON,
 } ast_node_kind;
 
 struct ast_node {

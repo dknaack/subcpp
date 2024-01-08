@@ -309,8 +309,15 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		get_token(tokenizer);
 		accept(tokenizer, TOKEN_IDENT);
 
-		type_specifier = new_ast_node(AST_TYPE_STRUCT_ANON, tokenizer->loc, arena);
+		type_specifier = new_ast_node(AST_TYPE_STRUCT, tokenizer->loc, arena);
+		token = peek_token(tokenizer);
+		if (token.kind == TOKEN_IDENT) {
+			type_specifier->value.s = token.value;
+		}
+
 		if (accept(tokenizer, TOKEN_LBRACE)) {
+			type_specifier->kind = AST_TYPE_STRUCT_DEF;
+
 			ast_node **ptr = & type_specifier->children;
 			// TODO: set correct flags for parsing struct members, i.e.
 			// declarations are allowed to have bitfields.

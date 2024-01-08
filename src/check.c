@@ -367,8 +367,9 @@ end:
 			// TODO
 		} break;
 	case AST_TYPE_STRUCT_DEF:
-	case AST_TYPE_STRUCT_ANON:
 		{
+			// TODO: add the struct tag to the symbols and ensure that the
+			// struct is only defined once.
 			node->type = type_create(TYPE_STRUCT, arena);
 
 			push_scope(symbols, arena);
