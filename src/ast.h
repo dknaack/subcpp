@@ -12,6 +12,7 @@ typedef enum {
 	AST_DECL_INIT,     // {declarator, initializer?}
 	AST_DECL_POINTER,  // {declarator}
 	AST_DECL_ARRAY,    // {declarator, size}
+	AST_DECL_FUNC,     // {declarator, ...parameters}
 	AST_DECL_IDENT,
 
 	AST_EXPR_BINARY,   // {lhs, rhs}

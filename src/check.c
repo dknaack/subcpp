@@ -266,6 +266,22 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 								decl_type->u.array.size = size->value.i;
 							}
 						} break;
+					case AST_DECL_FUNC:
+						{
+							type *target = decl_type;
+							decl_type = type_create(TYPE_FUNCTION, arena);
+							decl_type->u.function.return_type = target;
+
+							type **param_type = &decl_type->u.function.param_types;
+							ast_node *param = declarator->children->next;
+							while (param != AST_NIL) {
+								check_type(param, symbols, arena);
+								*param_type = param->type;
+
+								param_type = &(*param_type)->next;
+								param = param->next;
+							}
+						} break;
 					default:
 						// TODO: report syntax error
 						ASSERT(!"Invalid node in declarator");
@@ -290,6 +306,7 @@ end:
 	case AST_DECL_POINTER:
 	case AST_DECL_ARRAY:
 	case AST_DECL_IDENT:
+	case AST_DECL_FUNC:
 		{
 			// TODO: report syntax error when declarator is encountered here.
 			ASSERT(!"Should be handled in decl");

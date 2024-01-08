@@ -247,6 +247,8 @@ typedef enum {
 	PARSE_SINGLE_DECL = (1 << 0),
 } parse_decl_flags;
 
+static ast_node *parse_decl(tokenizer *tokenizer, u32 flags, arena *arena);
+
 static ast_node *
 parse_declarator(tokenizer *tokenizer, arena *arena)
 {
@@ -261,12 +263,28 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 	} else {
 		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
 		result->value.s = parse_ident(tokenizer);
-		if (accept(tokenizer, TOKEN_LBRACKET)) {
-			ast_node *declarator = result;
-			result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);
-			result->children = declarator;
-			declarator->next = parse_assign_expr(tokenizer, arena);
-			expect(tokenizer, TOKEN_RBRACKET);
+	}
+
+	if (accept(tokenizer, TOKEN_LBRACKET)) {
+		ast_node *declarator = result;
+		result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);
+		result->children = declarator;
+		declarator->next = parse_assign_expr(tokenizer, arena);
+		expect(tokenizer, TOKEN_RBRACKET);
+	} else if (accept(tokenizer, TOKEN_LPAREN)) {
+		ast_node *declarator = result;
+		result = new_ast_node(AST_DECL_FUNC, tokenizer->loc, arena);
+		result->children = declarator;
+
+		// TODO: correctly parse functions without any arguments
+		if (accept(tokenizer, TOKEN_VOID)) {
+			expect(tokenizer, TOKEN_RPAREN);
+		} else {
+			ast_node **ptr = &declarator->next;
+			while (!accept(tokenizer, TOKEN_RPAREN)) {
+				*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+				ptr = &(*ptr)->next;
+			}
 		}
 	}
 

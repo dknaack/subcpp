@@ -319,6 +319,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_DECL_POINTER:
 	case AST_DECL_ARRAY:
+	case AST_DECL_FUNC:
 		{
 			result = translate_node(ctx, node->children);
 		} break;
