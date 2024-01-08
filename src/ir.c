@@ -261,7 +261,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				param = param->next;
 			}
 
-			return_type = called->type->u.function.return_type;
+			return_type = called->type->children;
 			result_size = type_sizeof(return_type);
 			result = emit2_sized(ctx, IR_CALL, result_size, label, param_count);
 		}

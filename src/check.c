@@ -76,12 +76,8 @@ type_equals(type *lhs, type *rhs)
 
 	switch (lhs->kind) {
 	case TYPE_FUNCTION:
-		if (!type_equals(lhs, rhs)) {
-			return false;
-		}
-
-		lhs = lhs->u.function.param_types;
-		rhs = rhs->u.function.param_types;
+		lhs = lhs->children;
+		rhs = rhs->children;
 		while (lhs && rhs) {
 			if (!type_equals(lhs, rhs)) {
 				return false;
@@ -96,6 +92,14 @@ type_equals(type *lhs, type *rhs)
 	default:
 		return true;
 	}
+}
+
+static b32
+is_pointer(type *type)
+{
+	b32 result = type->kind == TYPE_POINTER
+		|| type->kind == TYPE_ARRAY;
+	return result;
 }
 
 static void
@@ -131,7 +135,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					errorf(node->loc, "Right-hand side is not an identifier");
 				}
 
-				symbol *s = upsert_symbol(&lhs->type->u.members, rhs->value.s, NULL);
+				symbol *s = upsert_symbol(&lhs->type->members, rhs->value.s, NULL);
 				rhs->type = s->type;
 				node->type = s->type;
 			} else {
@@ -139,19 +143,12 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			}
 
 			if (operator == TOKEN_LBRACKET) {
-				// TODO: ensure that one operand is a pointer and the other one
+				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
-				ASSERT(lhs->type->kind != TYPE_POINTER || rhs->type->kind == TYPE_POINTER);
-				ASSERT(lhs->type->kind == TYPE_POINTER || rhs->type->kind != TYPE_POINTER);
-
-				if (lhs->type->kind == TYPE_POINTER) {
-					node->type = lhs->type->u.pointer.target;
-				} else if (lhs->type->kind == TYPE_ARRAY) {
-					node->type = lhs->type->u.array.target;
-				} else if (rhs->type->kind == TYPE_POINTER) {
-					node->type = rhs->type->u.pointer.target;
-				} else if (rhs->type->kind == TYPE_ARRAY) {
-					node->type = rhs->type->u.array.target;
+				if (is_pointer(lhs->type)) {
+					node->type = lhs->type->children;
+				} else if (is_pointer(rhs->type)) {
+					node->type = rhs->type->children;
 				} else {
 					ASSERT(!"Invalid types");
 				}
@@ -177,7 +174,8 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 			u32 param_index = 0;
 			ast_node *param = called->next;
-			type *param_type = called->type->u.function.param_types;
+			type *return_type = called->type->children;
+			type *param_type = return_type->next;
 			while (param != AST_NIL || param_type != NULL) {
 				check_type(param, symbols, arena);
 				if (!type_equals(param_type, param->type)) {
@@ -190,7 +188,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				param_index++;
 			}
 
-			node->type = called->type->u.function.return_type;
+			node->type = return_type;
 		} break;
 	case AST_EXPR_IDENT:
 		{
@@ -203,14 +201,14 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			switch (node->value.i) {
 			case TOKEN_MUL:
 				if (operand->type->kind == TYPE_POINTER) {
-					node->type = operand->type->u.pointer.target;
+					node->type = operand->type->children;
 				} else {
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
 			case TOKEN_AMPERSAND:
 				node->type = type_create(TYPE_POINTER, arena);
-				node->type->u.pointer.target = operand->type;
+				node->type->children = operand->type;
 				break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -250,29 +248,29 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 							type *target = decl_type;
 							// TODO: add qualifiers to the pointer type
 							decl_type = type_create(TYPE_POINTER, arena);
-							decl_type->u.pointer.target = target;
+							decl_type->children = target;
 
 						} break;
 					case AST_DECL_ARRAY:
 						{
 							type *target = decl_type;
 							decl_type = type_create(TYPE_ARRAY, arena);
-							decl_type->u.array.target = target;
+							decl_type->children = target;
 
 							// TODO: Evaluate the array size of the declarator
-							decl_type->u.array.size = 1;
+							decl_type->size = 1;
 							ast_node *size = declarator->children->next;
 							if (size->kind == AST_EXPR_INT) {
-								decl_type->u.array.size = size->value.i;
+								decl_type->size = size->value.i;
 							}
 						} break;
 					case AST_DECL_FUNC:
 						{
 							type *target = decl_type;
 							decl_type = type_create(TYPE_FUNCTION, arena);
-							decl_type->u.function.return_type = target;
+							decl_type->children = target;
 
-							type **param_type = &decl_type->u.function.param_types;
+							type **param_type = &target->next;
 							ast_node *param = declarator->children->next;
 							while (param != AST_NIL) {
 								check_type(param, symbols, arena);
@@ -333,11 +331,11 @@ end:
 	case AST_FUNCTION:
 		{
 			node->type = type_create(TYPE_FUNCTION, arena);
-			node->type->u.function.return_type = type_create(TYPE_INT, arena);
+			node->type->children = type_create(TYPE_INT, arena);
 			ast_node *body = node->children;
 
 			push_scope(symbols, arena);
-			type **param_type = &node->type->u.function.param_types;
+			type **param_type = &node->type->children->next;
 			for (ast_node *param = body->next; param != AST_NIL; param = param->next) {
 				check_type(param, symbols, arena);
 				*param_type = param->type;
@@ -377,7 +375,7 @@ end:
 				check_type(child, symbols, arena);
 			}
 
-			node->type->u.members = symbols->head;
+			node->type->members = symbols->head;
 			pop_scope(symbols);
 		} break;
 	}

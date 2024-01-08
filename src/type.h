@@ -1,30 +1,5 @@
 typedef struct type type;
 
-typedef enum {
-	TYPE_UNKNOWN,
-	TYPE_ARRAY,
-	TYPE_CHAR,
-	TYPE_FUNCTION,
-	TYPE_INT,
-	TYPE_POINTER,
-	TYPE_STRUCT,
-	TYPE_VOID,
-} type_kind;
-
-typedef struct {
-	type *return_type;
-	type *param_types;
-} type_function;
-
-typedef struct {
-	type *target;
-} type_pointer;
-
-typedef struct {
-	type *target;
-	u32 size;
-} type_array;
-
 typedef struct symbol symbol;
 struct symbol {
 	string name;
@@ -40,16 +15,23 @@ struct symbol_table {
 	symbol *tail;
 };
 
+typedef enum {
+	TYPE_UNKNOWN,
+	TYPE_ARRAY,
+	TYPE_CHAR,
+	TYPE_FUNCTION,
+	TYPE_INT,
+	TYPE_POINTER,
+	TYPE_STRUCT,
+	TYPE_VOID,
+} type_kind;
+
 struct type {
 	type_kind kind;
 	type *next;
-
-	union {
-		type_function function;
-		type_pointer pointer;
-		type_array array;
-		symbol *members;
-	} u;
+	type *children;
+	symbol *members;
+	i64 size;
 };
 
 static type type_void = {TYPE_VOID};
@@ -98,13 +80,13 @@ type_sizeof(type *type)
 		return 0;
 	case TYPE_ARRAY:
 		{
-			usize target_size = type_sizeof(type->u.array.target);
-			return type->u.array.size * target_size;
+			usize target_size = type_sizeof(type->children);
+			return type->size * target_size;
 		} break;
 	case TYPE_STRUCT:
 		{
 			usize size = 0;
-			for (symbol *s = type->u.members; s; s = s->next) {
+			for (symbol *s = type->members; s; s = s->next) {
 				size += type_sizeof(s->type);
 			}
 			return size;
@@ -121,7 +103,7 @@ type_offsetof(type *type, string member)
 
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
-		for (symbol *s = type->u.members; s; s = s->next) {
+		for (symbol *s = type->members; s; s = s->next) {
 			if (string_equals(member, s->name)) {
 				break;
 			}
