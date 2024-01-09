@@ -1,6 +1,7 @@
 typedef enum {
 	TOKEN_INVALID,
 	TOKEN_EOF,
+	TOKEN_NEWLINE,
 	TOKEN_WHITESPACE,
 
 	// symbols
@@ -91,6 +92,7 @@ get_token_name(token_kind kind)
 	case TOKEN_HASH_HASH:   return "'##'";
 	case TOKEN_EQUAL:       return "'='";
 	case TOKEN_IDENT:       return "identifier";
+	case TOKEN_NEWLINE:     return "newline";
 	case TOKEN_WHITESPACE:  return "whitespace";
 	case TOKEN_SEMICOLON:   return "';'";
 	case TOKEN_LPAREN:      return "'('";

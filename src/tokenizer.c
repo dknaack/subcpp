@@ -90,7 +90,13 @@ get_raw_token(tokenizer *tokenizer)
 	case '#':
 		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
 		break;
-	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
+	case '\n':
+		token.kind = TOKEN_NEWLINE;
+		break;
+	case '\r':
+		token.kind = eat1(tokenizer, TOKEN_NEWLINE, '\n', TOKEN_NEWLINE);
+		break;
+	case ' ': case '\t': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
 		break;
 	case '0': case '1': case '2': case '3': case '4':
@@ -149,7 +155,8 @@ get_token(tokenizer *tokenizer)
 				}
 			}
 		}
-	} while (token.kind == TOKEN_WHITESPACE);
+	} while (token.kind == TOKEN_WHITESPACE
+		|| token.kind == TOKEN_NEWLINE);
 
 	tmp = token;
 	token = tokenizer->lookahead[0];
