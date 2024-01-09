@@ -277,8 +277,11 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 		result->children = declarator;
 
 		// TODO: correctly parse functions without any arguments
-		if (accept(tokenizer, TOKEN_VOID)) {
-			expect(tokenizer, TOKEN_RPAREN);
+		if (tokenizer->lookahead[0].kind == TOKEN_VOID
+			&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
+		{
+			get_token(tokenizer);
+			get_token(tokenizer);
 		} else {
 			ast_node **ptr = &declarator->next;
 			while (!accept(tokenizer, TOKEN_RPAREN)) {
@@ -303,6 +306,10 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		break;
 	case TOKEN_CHAR:
 		type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
+		get_token(tokenizer);
+		break;
+	case TOKEN_VOID:
+		type_specifier = new_ast_node(AST_TYPE_VOID, tokenizer->loc, arena);
 		get_token(tokenizer);
 		break;
 	case TOKEN_STRUCT:
@@ -515,16 +522,17 @@ parse_function(tokenizer *tokenizer, arena *arena)
 
 	name = token.value;
 	expect(tokenizer, TOKEN_LPAREN);
-	token = peek_token(tokenizer);
-	if (token.kind == TOKEN_INT || token.kind == TOKEN_CHAR) {
+	if (tokenizer->lookahead[0].kind == TOKEN_VOID
+		&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
+	{
+		get_token(tokenizer);
+	} else {
 		do {
 			*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 			if (*ptr) {
 				ptr = &(*ptr)->next;
 			}
 		} while (accept(tokenizer, TOKEN_COMMA));
-	} else if (token.kind == TOKEN_VOID) {
-		get_token(tokenizer);
 	}
 	expect(tokenizer, TOKEN_RPAREN);
 
