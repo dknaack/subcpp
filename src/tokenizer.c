@@ -29,6 +29,13 @@ is_digit(char c)
 	return result;
 }
 
+static b32
+is_whitespace(char c)
+{
+	b32 result = (c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\f' || c == '\v');
+	return result;
+}
+
 static token_kind
 eat1(tokenizer *tokenizer, token_kind default_kind, char c1, token_kind kind1)
 {
@@ -98,6 +105,11 @@ get_raw_token(tokenizer *tokenizer)
 				c = advance(tokenizer);
 			} while (is_alpha(c) || is_digit(c) || c == '_');
 			tokenizer->pos--;
+		} else if (is_whitespace(c)) {
+			token.kind = TOKEN_WHITESPACE;
+			do {
+				c = advance(tokenizer);
+			} while (is_whitespace(c));
 		}
 
 		break;
