@@ -124,6 +124,22 @@ get_raw_token(tokenizer *tokenizer)
 }
 
 static token
+peek_raw_token(tokenizer *t)
+{
+	tokenizer tmp = *t;
+	token token = get_raw_token(&tmp);
+	return token;
+}
+
+static void
+eat_whitespace(tokenizer *tokenizer)
+{
+	while (peek_raw_token(tokenizer).kind == TOKEN_WHITESPACE) {
+		get_raw_token(tokenizer);
+	}
+}
+
+static token
 get_token(tokenizer *tokenizer)
 {
 	token tmp, token = {TOKEN_INVALID};
@@ -145,9 +161,20 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_WHILE,    S("while")    },
 	};
 
+	b32 at_line_start = (tokenizer->pos == 0);
 	do {
 		token = get_raw_token(tokenizer);
-		if (token.kind == TOKEN_IDENT) {
+		if (at_line_start && token.kind == TOKEN_HASH) {
+			token = get_raw_token(tokenizer);
+			while (token.kind != TOKEN_NEWLINE) {
+				token = get_raw_token(tokenizer);
+			}
+		}
+
+		if (token.kind == TOKEN_NEWLINE) {
+			at_line_start = true;
+			eat_whitespace(tokenizer);
+		} else if (token.kind == TOKEN_IDENT) {
 			for (usize i = 0; i < LENGTH(keywords); i++) {
 				if (string_equals(token.value, keywords[i].str)) {
 					token.kind = keywords[i].token;
