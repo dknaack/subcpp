@@ -87,6 +87,9 @@ get_raw_token(tokenizer *tokenizer)
 	case '>':
 		token.kind = eat1(tokenizer, TOKEN_GT, '=', TOKEN_GEQ);
 		break;
+	case '#':
+		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
+		break;
 	case ' ': case '\t': case '\n': case '\r': case '\v': case '\f':
 		token.kind = TOKEN_WHITESPACE;
 		break;

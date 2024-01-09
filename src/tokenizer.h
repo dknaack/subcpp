@@ -11,6 +11,8 @@ typedef enum {
 	TOKEN_EQUAL_EQUAL,
 	TOKEN_GEQ,
 	TOKEN_GT,
+	TOKEN_HASH,
+	TOKEN_HASH_HASH,
 	TOKEN_IDENT,
 	TOKEN_LBRACE,
 	TOKEN_LBRACKET,
@@ -85,6 +87,8 @@ get_token_name(token_kind kind)
 	case TOKEN_GT:          return "'>'";
 	case TOKEN_LEQ:         return "'<='";
 	case TOKEN_GEQ:         return "'>='";
+	case TOKEN_HASH:        return "'#'";
+	case TOKEN_HASH_HASH:   return "'##'";
 	case TOKEN_EQUAL:       return "'='";
 	case TOKEN_IDENT:       return "identifier";
 	case TOKEN_WHITESPACE:  return "whitespace";
