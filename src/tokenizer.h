@@ -52,6 +52,7 @@ typedef struct {
 } location;
 
 typedef struct {
+	token lookahead[2];
 	location loc;
 	string source;
 	usize pos;

@@ -1,13 +1,3 @@
-static tokenizer
-tokenize(char *filename, arena *arena)
-{
-	tokenizer tokenizer = {0};
-	tokenizer.loc.file = filename;
-	tokenizer.loc.line = 1;
-	tokenizer.source = read_file(filename, arena);
-	return tokenizer;
-}
-
 static char
 advance(tokenizer *tokenizer)
 {
@@ -120,7 +110,7 @@ get_raw_token(tokenizer *tokenizer)
 static token
 get_token(tokenizer *tokenizer)
 {
-	token token = {TOKEN_INVALID};
+	token tmp, token = {TOKEN_INVALID};
 	struct {
 		token_kind token;
 		string str;
@@ -151,13 +141,28 @@ get_token(tokenizer *tokenizer)
 		}
 	} while (token.kind == TOKEN_WHITESPACE);
 
+	tmp = token;
+	token = tokenizer->lookahead[0];
+	tokenizer->lookahead[0] = tokenizer->lookahead[1];
+	tokenizer->lookahead[1] = tmp;
 	return token;
 }
 
 static token
 peek_token(tokenizer *t)
 {
-	tokenizer tmp = *t;
-	token token = get_token(&tmp);
-	return token;
+	token result = t->lookahead[0];
+	return result;
+}
+
+static tokenizer
+tokenize(char *filename, arena *arena)
+{
+	tokenizer tokenizer = {0};
+	tokenizer.loc.file = filename;
+	tokenizer.loc.line = 1;
+	tokenizer.source = read_file(filename, arena);
+	get_token(&tokenizer);
+	get_token(&tokenizer);
+	return tokenizer;
 }
