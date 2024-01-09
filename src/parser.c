@@ -82,16 +82,16 @@ get_binary_precedence(token_kind token)
 	switch (token) {
 	case TOKEN_COMMA:
 		return -5;
-	case TOKEN_ASSIGN:
+	case TOKEN_EQUAL:
 		return -10;
-	case TOKEN_ADD:
-	case TOKEN_SUB:
+	case TOKEN_PLUS:
+	case TOKEN_MINUS:
 		return 20;
-	case TOKEN_MUL:
-	case TOKEN_DIV:
-	case TOKEN_MOD:
+	case TOKEN_STAR:
+	case TOKEN_SLASH:
+	case TOKEN_PERCENT:
 		return 30;
-	case TOKEN_EQUALS:
+	case TOKEN_EQUAL_EQUAL:
 	case TOKEN_LT:
 	case TOKEN_GT:
 	case TOKEN_LEQ:
@@ -157,7 +157,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		expr = parse_expr(tokenizer, 0, arena);
 		expect(tokenizer, TOKEN_RPAREN);
 		break;
-	case TOKEN_MUL:
+	case TOKEN_STAR:
 	case TOKEN_AMPERSAND:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
@@ -238,7 +238,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 static ast_node *
 parse_assign_expr(tokenizer *tokenizer, arena *arena)
 {
-	int precedence = get_binary_precedence(TOKEN_ASSIGN);
+	int precedence = get_binary_precedence(TOKEN_EQUAL);
 	ast_node *expr = parse_expr(tokenizer, -precedence - 5, arena);
 	return expr;
 }
@@ -257,7 +257,7 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 	if (accept(tokenizer, TOKEN_LPAREN)) {
 		result = parse_declarator(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
-	} else if (accept(tokenizer, TOKEN_MUL)) {
+	} else if (accept(tokenizer, TOKEN_STAR)) {
 		result = new_ast_node(AST_DECL_POINTER, tokenizer->loc, arena);
 		result->children = parse_declarator(tokenizer, arena);
 	} else {
@@ -340,7 +340,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	do {
 		ast_node *declarator = parse_declarator(tokenizer, arena);
 
-		if (accept(tokenizer, TOKEN_ASSIGN)) {
+		if (accept(tokenizer, TOKEN_EQUAL)) {
 			if (accept(tokenizer, TOKEN_LBRACE)) {
 				parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RBRACE);

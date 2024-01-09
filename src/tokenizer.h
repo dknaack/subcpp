@@ -4,17 +4,17 @@ typedef enum {
 	TOKEN_COMMA,
 	TOKEN_AMPERSAND,
 	TOKEN_DOT,
-	TOKEN_ADD,
-	TOKEN_SUB,
-	TOKEN_MUL,
-	TOKEN_DIV,
-	TOKEN_MOD,
-	TOKEN_EQUALS,
+	TOKEN_PLUS,
+	TOKEN_MINUS,
+	TOKEN_STAR,
+	TOKEN_SLASH,
+	TOKEN_PERCENT,
+	TOKEN_EQUAL_EQUAL,
 	TOKEN_LT,
 	TOKEN_GT,
 	TOKEN_LEQ,
 	TOKEN_GEQ,
-	TOKEN_ASSIGN,
+	TOKEN_EQUAL,
 	TOKEN_IDENT,
 	TOKEN_WHITESPACE,
 	TOKEN_SEMICOLON,
@@ -65,13 +65,13 @@ get_token_name(token_kind kind)
 	case TOKEN_EOF:         return "EOF";
 	case TOKEN_COMMA:       return "','";
 	case TOKEN_DOT:         return "'.'";
-	case TOKEN_ADD:         return "'+'";
-	case TOKEN_SUB:         return "'-'";
-	case TOKEN_MUL:         return "'*'";
-	case TOKEN_DIV:         return "'/'";
-	case TOKEN_MOD:         return "'%'";
-	case TOKEN_EQUALS:      return "'=='";
-	case TOKEN_ASSIGN:      return "'='";
+	case TOKEN_PLUS:        return "'+'";
+	case TOKEN_MINUS:       return "'-'";
+	case TOKEN_STAR:        return "'*'";
+	case TOKEN_SLASH:       return "'/'";
+	case TOKEN_PERCENT:     return "'%'";
+	case TOKEN_EQUAL_EQUAL: return "'=='";
+	case TOKEN_EQUAL:       return "'='";
 	case TOKEN_IDENT:       return "identifier";
 	case TOKEN_WHITESPACE:  return "whitespace";
 	case TOKEN_SEMICOLON:   return "';'";

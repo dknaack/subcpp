@@ -67,11 +67,11 @@ get_raw_token(tokenizer *tokenizer)
 	char c = advance(tokenizer);
 	switch (c) {
 	case '.': token.kind = TOKEN_DOT; break;
-	case '+': token.kind = TOKEN_ADD; break;
-	case '-': token.kind = TOKEN_SUB; break;
-	case '*': token.kind = TOKEN_MUL; break;
-	case '/': token.kind = TOKEN_DIV; break;
-	case '%': token.kind = TOKEN_MOD; break;
+	case '+': token.kind = TOKEN_PLUS; break;
+	case '-': token.kind = TOKEN_MINUS; break;
+	case '*': token.kind = TOKEN_STAR; break;
+	case '/': token.kind = TOKEN_SLASH; break;
+	case '%': token.kind = TOKEN_PERCENT; break;
 	case '(': token.kind = TOKEN_LPAREN; break;
 	case ')': token.kind = TOKEN_RPAREN; break;
 	case '[': token.kind = TOKEN_LBRACKET; break;
@@ -82,7 +82,7 @@ get_raw_token(tokenizer *tokenizer)
 	case ';': token.kind = TOKEN_SEMICOLON; break;
 	case '&': token.kind = TOKEN_AMPERSAND; break;
 	case '=':
-		token.kind = eat1(tokenizer, TOKEN_ASSIGN, '=', TOKEN_EQUALS);
+		token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
 		break;
 	case '<':
 		token.kind = eat1(tokenizer, TOKEN_LT, '=', TOKEN_LEQ);

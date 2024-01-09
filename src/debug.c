@@ -13,12 +13,12 @@ print_node(ast_node *node, int indent)
 		node = node->children;
 		print_node(node, 0);
 		switch (operator) {
-		case TOKEN_ADD:    printf(" + ");  break;
-		case TOKEN_SUB:    printf(" - ");  break;
-		case TOKEN_MUL:    printf(" * ");  break;
-		case TOKEN_DIV:    printf(" / ");  break;
-		case TOKEN_MOD:    printf(" %% "); break;
-		case TOKEN_ASSIGN: printf(" = ");  break;
+		case TOKEN_PLUS:    printf(" + ");  break;
+		case TOKEN_MINUS:   printf(" - ");  break;
+		case TOKEN_STAR:    printf(" * ");  break;
+		case TOKEN_SLASH:   printf(" / ");  break;
+		case TOKEN_PERCENT: printf(" %% "); break;
+		case TOKEN_EQUAL:   printf(" = ");  break;
 		default:
 			printf(" (invalid operation) ");
 		}

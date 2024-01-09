@@ -199,7 +199,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			ast_node *operand = node->children;
 			check_type(operand, symbols, arena);
 			switch (node->value.i) {
-			case TOKEN_MUL:
+			case TOKEN_STAR:
 				if (operand->type->kind == TYPE_POINTER) {
 					node->type = operand->type->children;
 				} else {

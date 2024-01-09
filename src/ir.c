@@ -140,11 +140,10 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			ir_opcode opcode = IR_NOP;
 			u32 operator = node->value.i;
 			switch (operator) {
-			case TOKEN_ADD: opcode = IR_ADD; break;
-			case TOKEN_SUB: opcode = IR_SUB; break;
-			case TOKEN_LBRACKET:
-							opcode = IR_ADD; break;
-			case TOKEN_DOT: opcode = IR_ADD; break;
+			case TOKEN_PLUS:     opcode = IR_ADD; break;
+			case TOKEN_MINUS:    opcode = IR_SUB; break;
+			case TOKEN_LBRACKET: opcode = IR_ADD; break;
+			case TOKEN_DOT:      opcode = IR_ADD; break;
 			default:
 				ASSERT(!"Not an lvalue");
 			}
@@ -168,7 +167,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 		{
 			u32 operator = node->value.i;
 			switch (operator) {
-			case TOKEN_MUL:
+			case TOKEN_STAR:
 				result = translate_node(ctx, node->children);
 				break;
 			default:
@@ -206,18 +205,18 @@ translate_node(ir_context *ctx, ast_node *node)
 			u32 operator = node->value.i;
 			ir_opcode opcode = IR_NOP;
 			switch (operator) {
-			case TOKEN_ADD:      opcode = IR_ADD;   break;
-			case TOKEN_SUB:      opcode = IR_SUB;   break;
-			case TOKEN_MUL:      opcode = IR_MUL;   break;
-			case TOKEN_DIV:      opcode = IR_DIV;   break;
-			case TOKEN_MOD:      opcode = IR_MOD;   break;
-			case TOKEN_ASSIGN:   opcode = IR_STORE; break;
-			case TOKEN_EQUALS:   opcode = IR_EQL;   break;
-			case TOKEN_LT:       opcode = IR_LT;    break;
-			case TOKEN_GT:       opcode = IR_GT;    break;
-			case TOKEN_LEQ:      opcode = IR_LEQ;   break;
-			case TOKEN_GEQ:      opcode = IR_GEQ;   break;
-			case TOKEN_LBRACKET: opcode = IR_ADD;  break;
+			case TOKEN_PLUS:        opcode = IR_ADD;   break;
+			case TOKEN_MINUS:       opcode = IR_SUB;   break;
+			case TOKEN_STAR:        opcode = IR_MUL;   break;
+			case TOKEN_SLASH:       opcode = IR_DIV;   break;
+			case TOKEN_PERCENT:     opcode = IR_MOD;   break;
+			case TOKEN_EQUAL:       opcode = IR_STORE; break;
+			case TOKEN_EQUAL_EQUAL: opcode = IR_EQL;   break;
+			case TOKEN_LT:          opcode = IR_LT;    break;
+			case TOKEN_GT:          opcode = IR_GT;    break;
+			case TOKEN_LEQ:         opcode = IR_LEQ;   break;
+			case TOKEN_GEQ:         opcode = IR_GEQ;   break;
+			case TOKEN_LBRACKET:    opcode = IR_ADD;   break;
 			default:
 				ASSERT(!"Invalid operator");
 				break;
@@ -282,7 +281,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				{
 					result = translate_lvalue(ctx, node->children);
 				} break;
-			case TOKEN_MUL:
+			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, node->children);
 					result = emit1(ctx, IR_LOAD, result);
