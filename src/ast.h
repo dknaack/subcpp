@@ -6,7 +6,7 @@ typedef struct type type;
 typedef enum {
 	AST_INVALID,
 	AST_FUNCTION,      // {body, ...params}
-	AST_ROOT,
+	AST_ROOT,          // {...(declaration|function)}
 
 	AST_DECL,          // {type_specifier, ...declarators}
 	AST_DECL_INIT,     // {declarator, initializer?}
@@ -35,7 +35,7 @@ typedef enum {
 	AST_TYPE_INT,
 	AST_TYPE_VOID,
 	AST_TYPE_STRUCT,
-	AST_TYPE_STRUCT_DEF,
+	AST_TYPE_STRUCT_DEF, // {...declarations}
 } ast_node_kind;
 
 struct ast_node {
