@@ -166,6 +166,39 @@ get_token(tokenizer *tokenizer)
 		token = get_raw_token(tokenizer);
 		if (at_line_start && token.kind == TOKEN_HASH) {
 			token = get_raw_token(tokenizer);
+			if (token.kind == TOKEN_IDENT) {
+				if (string_equals(token.value, S("include"))) {
+					eat_whitespace(tokenizer);
+
+					string filename = {0};
+					if (tokenizer->source.at[tokenizer->pos] == '<') {
+						char c;
+						usize start = tokenizer->pos + 1;
+						do {
+							c = advance(tokenizer);
+						} while (c != '\n' && c != '>');
+						usize end = tokenizer->pos - 1;
+
+						filename.at = tokenizer->source.at + start;
+						filename.length = end - start;
+						printf("%.*s\n", (int)filename.length, filename.at);
+					} else if (tokenizer->source.at[tokenizer->pos] == '"') {
+						char c;
+						usize start = tokenizer->pos + 1;
+						do {
+							c = advance(tokenizer);
+						} while (c != '\n' && c != '"');
+						usize end = tokenizer->pos - 1;
+
+						filename.at = tokenizer->source.at + start;
+						filename.length = end - start;
+						printf("%.*s\n", (int)filename.length, filename.at);
+					} else {
+						ASSERT(!"Macro filenames have not been implement yet");
+					}
+				}
+			}
+
 			while (token.kind != TOKEN_NEWLINE) {
 				token = get_raw_token(tokenizer);
 			}
