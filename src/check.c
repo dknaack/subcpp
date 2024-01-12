@@ -1,8 +1,8 @@
 static symbol *
-upsert_symbol(symbol **p, string key, arena *perm)
+upsert_symbol(symbol **p, str key, arena *perm)
 {
 	for (u64 h = hash(key); *p; h <<= 2) {
-		if (string_equals(key, (*p)->name)) {
+		if (str_equals(key, (*p)->name)) {
 			return *p;
 		}
 
@@ -19,7 +19,7 @@ upsert_symbol(symbol **p, string key, arena *perm)
 }
 
 static void
-add_variable(symbol_table *table, string name, type *type, arena *arena)
+add_variable(symbol_table *table, str name, type *type, arena *arena)
 {
 	// TODO: report error when symbol is already in scope
 	symbol *s = upsert_symbol(&table->head, name, arena);
@@ -34,7 +34,7 @@ add_variable(symbol_table *table, string name, type *type, arena *arena)
 }
 
 static type *
-get_variable(symbol_table *table, string name)
+get_variable(symbol_table *table, str name)
 {
 	while (table) {
 		symbol *s = upsert_symbol(&table->head, name, NULL);
@@ -234,7 +234,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
 				ast_node *declarator = child->children;
 				type *decl_type = type_specifier->type;
-				string name = {0};
+				str name = {0};
 				for (;;) {
 					switch (declarator->kind) {
 					case AST_DECL_IDENT:

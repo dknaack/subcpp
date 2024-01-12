@@ -68,7 +68,7 @@ emit_alloca(ir_context *ctx, u32 size)
 }
 
 static u32
-new_register(ir_context *ctx, string ident, u32 size)
+new_register(ir_context *ctx, str ident, u32 size)
 {
 	variable *variable_table = ctx->variable_table;
 	u32 h = hash(ident);
@@ -90,11 +90,11 @@ new_register(ir_context *ctx, string ident, u32 size)
 }
 
 static u32
-get_function(ir_context *ctx, string ident)
+get_function(ir_context *ctx, str ident)
 {
 	for (u32 i = 0; i < ctx->program.function_count; i++) {
 		ir_function *func = &ctx->program.functions[i];
-		if (string_equals(func->name, ident)) {
+		if (str_equals(func->name, ident)) {
 			return i;
 		}
 	}
@@ -104,7 +104,7 @@ get_function(ir_context *ctx, string ident)
 }
 
 static u32
-get_register(ir_context *ctx, string ident)
+get_register(ir_context *ctx, str ident)
 {
 	variable *variable_table = ctx->variable_table;
 	u32 h = hash(ident);
@@ -114,7 +114,7 @@ get_register(ir_context *ctx, string ident)
 			continue;
 		}
 
-		if (string_equals(variable_table[i].name, ident)) {
+		if (str_equals(variable_table[i].name, ident)) {
 			return variable_table[i].vreg;
 		}
 	}

@@ -47,7 +47,7 @@ struct ast_node {
 
 	union {
 		intmax_t i;
-		string s;
+		str s;
 	} value;
 };
 

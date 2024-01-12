@@ -54,7 +54,7 @@ typedef struct {
 } ir_block;
 
 typedef struct {
-	string name;
+	str name;
 	u32 parameter_count;
 	u32 instr_index;
 	u32 block_index;
@@ -77,7 +77,7 @@ typedef struct {
 typedef struct variable variable;
 struct variable {
 	variable *next;
-	string name;
+	str name;
 	u32 vreg;
 };
 

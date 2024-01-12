@@ -107,7 +107,7 @@ get_binary_precedence(token_kind token)
 }
 
 static intmax_t
-parse_int(string str)
+parse_int(str str)
 {
 	intmax_t ival = 0;
 
@@ -119,10 +119,10 @@ parse_int(string str)
 	return ival;
 }
 
-static string
+static str
 parse_ident(tokenizer *tokenizer)
 {
-	static string empty = {"", 0};
+	static str empty = {"", 0};
 	token token = get_token(tokenizer);
 	if (token.kind != TOKEN_IDENT) {
 		syntax_error(tokenizer, "Expected identifier, but found %s",
@@ -511,7 +511,7 @@ parse_function(tokenizer *tokenizer, arena *arena)
 	ast_node *node;
 	ast_node *params = AST_NIL;
 	ast_node **ptr = &params;
-	string name;
+	str name;
 	location loc = tokenizer->loc;
 
 	expect(tokenizer, TOKEN_INT);

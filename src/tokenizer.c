@@ -145,7 +145,7 @@ get_token(tokenizer *tokenizer)
 	token tmp, token = {TOKEN_INVALID};
 	struct {
 		token_kind token;
-		string str;
+		str str;
 	} keywords[] = {
 		{ TOKEN_BREAK,    S("break")    },
 		{ TOKEN_CHAR,     S("char")     },
@@ -167,10 +167,10 @@ get_token(tokenizer *tokenizer)
 		if (at_line_start && token.kind == TOKEN_HASH) {
 			token = get_raw_token(tokenizer);
 			if (token.kind == TOKEN_IDENT) {
-				if (string_equals(token.value, S("include"))) {
+				if (str_equals(token.value, S("include"))) {
 					eat_whitespace(tokenizer);
 
-					string filename = {0};
+					str filename = {0};
 					if (tokenizer->source.at[tokenizer->pos] == '<') {
 						char c;
 						usize start = tokenizer->pos + 1;
@@ -209,7 +209,7 @@ get_token(tokenizer *tokenizer)
 			eat_whitespace(tokenizer);
 		} else if (token.kind == TOKEN_IDENT) {
 			for (usize i = 0; i < LENGTH(keywords); i++) {
-				if (string_equals(token.value, keywords[i].str)) {
+				if (str_equals(token.value, keywords[i].str)) {
 					token.kind = keywords[i].token;
 					break;
 				}

@@ -53,7 +53,7 @@ stream_write(stream *stream, u8 byte)
 }
 
 static void
-stream_prints(stream *stream, string str)
+stream_prints(stream *stream, str str)
 {
 	while (str.length-- > 0) {
 		stream_write(stream, *str.at++);

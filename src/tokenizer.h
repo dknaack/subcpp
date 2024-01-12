@@ -52,7 +52,7 @@ typedef enum {
 
 typedef struct {
 	token_kind kind;
-	string value;
+	str value;
 } token;
 
 typedef struct {
@@ -64,7 +64,7 @@ typedef struct {
 typedef struct {
 	token lookahead[2];
 	location loc;
-	string source;
+	str source;
 	usize pos;
 	b32 error;
 } tokenizer;

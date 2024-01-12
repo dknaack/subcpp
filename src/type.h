@@ -2,7 +2,7 @@ typedef struct type type;
 
 typedef struct symbol symbol;
 struct symbol {
-	string name;
+	str name;
 	type *type;
 	symbol *child[4];
 	symbol *next;
@@ -97,14 +97,14 @@ type_sizeof(type *type)
 }
 
 static usize
-type_offsetof(type *type, string member)
+type_offsetof(type *type, str member)
 {
 	usize offset = 0;
 
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
 		for (symbol *s = type->members; s; s = s->next) {
-			if (string_equals(member, s->name)) {
+			if (str_equals(member, s->name)) {
 				break;
 			}
 

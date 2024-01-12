@@ -1,7 +1,7 @@
-static string
+static str
 read_file(char *filename, arena *arena)
 {
-	string result = {0};
+	str result = {0};
 	FILE *file = fopen(filename, "rb");
 	if (file) {
 		fseek(file, 0, SEEK_END);
@@ -21,7 +21,7 @@ read_file(char *filename, arena *arena)
 }
 
 static b32
-string_equals(string a, string b)
+str_equals(str a, str b)
 {
 	if (a.length != b.length) {
 		return false;
@@ -37,7 +37,7 @@ string_equals(string a, string b)
 }
 
 static u64
-hash(string str)
+hash(str str)
 {
 	u64 h = 0xcbf29ce484222325ull;
 
