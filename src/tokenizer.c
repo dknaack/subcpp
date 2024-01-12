@@ -173,22 +173,22 @@ get_token(tokenizer *tokenizer)
 					str filename = {0};
 					if (tokenizer->source.at[tokenizer->pos] == '<') {
 						char c;
-						usize start = tokenizer->pos + 1;
+						isize start = tokenizer->pos + 1;
 						do {
 							c = advance(tokenizer);
 						} while (c != '\n' && c != '>');
-						usize end = tokenizer->pos - 1;
+						isize end = tokenizer->pos - 1;
 
 						filename.at = tokenizer->source.at + start;
 						filename.length = end - start;
 						printf("%.*s\n", (int)filename.length, filename.at);
 					} else if (tokenizer->source.at[tokenizer->pos] == '"') {
 						char c;
-						usize start = tokenizer->pos + 1;
+						isize start = tokenizer->pos + 1;
 						do {
 							c = advance(tokenizer);
 						} while (c != '\n' && c != '"');
-						usize end = tokenizer->pos - 1;
+						isize end = tokenizer->pos - 1;
 
 						filename.at = tokenizer->source.at + start;
 						filename.length = end - start;

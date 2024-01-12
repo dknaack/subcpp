@@ -65,7 +65,7 @@ typedef struct {
 	token lookahead[2];
 	location loc;
 	str source;
-	usize pos;
+	isize pos;
 	b32 error;
 } tokenizer;
 

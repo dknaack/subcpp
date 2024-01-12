@@ -28,7 +28,7 @@ typedef uint8_t  b8;
 
 typedef struct str {
 	char *at;
-	usize length;
+	isize length;
 } str;
 
 #include "memory.h"
