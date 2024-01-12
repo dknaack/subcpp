@@ -516,8 +516,10 @@ construct_cfg(ir_program *program, arena *arena)
 		}
 	}
 
-	ir_function *last_function = &program->functions[program->function_count - 1];
-	last_function->block_count = program->block_count - last_function->block_index;
+	if (program->function_count > 0) {
+		ir_function *last_function = &program->functions[program->function_count - 1];
+		last_function->block_count = program->block_count - last_function->block_index;
+	}
 
 	arena_temp_end(temp);
 
