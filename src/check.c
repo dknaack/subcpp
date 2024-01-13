@@ -233,16 +233,15 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			check_type(type_specifier, symbols, arena);
 
 			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
-				ast_node *declarator = child->children;
+				ast_node *declarator = child;
 				type *decl_type = type_specifier->type;
 				str name = {0};
-				for (;;) {
+				while (declarator != AST_NIL) {
 					switch (declarator->kind) {
 					case AST_DECL_IDENT:
 						{
 							name = declarator->value.s;
 							declarator->type = decl_type;
-							goto end;
 						} break;
 					case AST_DECL_POINTER:
 						{
@@ -281,6 +280,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 								param = param->next;
 							}
 						} break;
+					case AST_DECL_INIT:
+						{
+							// TODO: check type of expression
+						} break;
 					default:
 						// TODO: report syntax error
 						ASSERT(!"Invalid node in declarator");
@@ -290,7 +293,6 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					declarator = declarator->children;
 				}
 
-end:
 				ASSERT(name.at);
 				add_variable(symbols, name, decl_type, arena);
 				// TODO: This should be removed when function declarators are
