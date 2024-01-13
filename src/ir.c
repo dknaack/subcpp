@@ -188,18 +188,13 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 static u32
 translate_node(ir_context *ctx, ast_node *node)
 {
-	u32 cond_label, function_label;
-	u32 label, param_register[128];
-	u32 param_count, result = 0;
-	usize result_size;
-	ast_node *called, *param;
-	ir_function *ir_function;
-	type *return_type;
+	u32 result = 0;
 
 	switch (node->kind) {
 	case AST_INVALID:
-		ASSERT(!"Invalid node");
-		break;
+		{
+			ASSERT(!"Invalid node");
+		} break;
 	case AST_EXPR_BINARY:
 		{
 			u32 operator = node->value.i;
@@ -242,29 +237,31 @@ translate_node(ir_context *ctx, ast_node *node)
 			}
 		} break;
 	case AST_EXPR_CALL:
-		called = node->children;
-		if (called->kind == AST_EXPR_IDENT) {
-			label = get_function(ctx, called->value.s);
-			param = called->next;
-			param_count = 0;
-			while (param != AST_NIL) {
-				ASSERT(param_count < 128);
-				param_register[param_count++] = translate_node(ctx, param);
-				param = param->next;
-			}
+		{
+			ast_node *called = node->children;
+			if (called->kind == AST_EXPR_IDENT) {
+				u32 label = get_function(ctx, called->value.s);
+				ast_node *param = called->next;
+				i32 param_count = 0;
+				u32 param_register[128] = {0};
+				while (param != AST_NIL) {
+					ASSERT(param_count < 128);
+					param_register[param_count++] = translate_node(ctx, param);
+					param = param->next;
+				}
 
-			param = called->next;
-			for (u32 i = 0; i < param_count; i++) {
-				u32 param_size = type_sizeof(param->type);
-				emit1_sized(ctx, IR_PARAM, param_size, param_register[i]);
-				param = param->next;
-			}
+				param = called->next;
+				for (i32 i = 0; i < param_count; i++) {
+					u32 param_size = type_sizeof(param->type);
+					emit1_sized(ctx, IR_PARAM, param_size, param_register[i]);
+					param = param->next;
+				}
 
-			return_type = called->type->children;
-			result_size = type_sizeof(return_type);
-			result = emit2_sized(ctx, IR_CALL, result_size, label, param_count);
-		}
-		break;
+				type *return_type = called->type->children;
+				u32 result_size = type_sizeof(return_type);
+				result = emit2_sized(ctx, IR_CALL, result_size, label, param_count);
+			}
+		} break;
 	case AST_EXPR_IDENT:
 		{
 			u32 size = type_sizeof(node->type);
@@ -272,8 +269,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			result = emit1_sized(ctx, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
-		result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
-		break;
+		{
+			result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
+		} break;
 	case AST_EXPR_UNARY:
 		{
 			switch (node->value.i) {
@@ -291,17 +289,20 @@ translate_node(ir_context *ctx, ast_node *node)
 			}
 		} break;
 	case AST_STMT_BREAK:
-		emit1(ctx, IR_JMP, ctx->break_label);
-		break;
+		{
+			emit1(ctx, IR_JMP, ctx->break_label);
+		} break;
 	case AST_ROOT:
 	case AST_STMT_COMPOUND:
-		for (node = node->children; node != AST_NIL; node = node->next) {
-			translate_node(ctx, node);
-		}
-		break;
+		{
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				translate_node(ctx, child);
+			}
+		} break;
 	case AST_STMT_CONTINUE:
-		emit1(ctx, IR_JMP, ctx->continue_label);
-		break;
+		{
+			emit1(ctx, IR_JMP, ctx->continue_label);
+		} break;
 	case AST_DECL:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
@@ -323,8 +324,6 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_DECL_FUNC:
 		{
-			result = 0;
-
 			if (node->children->kind != AST_DECL_IDENT) {
 				result = translate_node(ctx, node->children);
 			}
@@ -346,7 +345,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		{
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
-			cond_label = new_label(ctx);
+			u32 cond_label = new_label(ctx);
 
 			ast_node *init = node->children;
 			translate_node(ctx, init);
@@ -402,15 +401,17 @@ translate_node(ir_context *ctx, ast_node *node)
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_RETURN:
-		if (node->children) {
-			result = translate_node(ctx, node->children);
-		}
-		emit1(ctx, IR_RET, result);
-		break;
+		{
+			if (node->children) {
+				result = translate_node(ctx, node->children);
+			}
+			emit1(ctx, IR_RET, result);
+		} break;
 	case AST_STMT_PRINT:
-		result = translate_node(ctx, node->children);
-		emit1(ctx, IR_PRINT, result);
-		break;
+		{
+			result = translate_node(ctx, node->children);
+			emit1(ctx, IR_PRINT, result);
+		} break;
 	case AST_FUNCTION:
 		{
 			ast_node *decl = node->children;
@@ -418,13 +419,13 @@ translate_node(ir_context *ctx, ast_node *node)
 			ast_node *declarator = decl->children->next;
 			ast_node *param = declarator->children->next;
 
-			function_label = new_label(ctx);
+			u32 function_label = new_label(ctx);
 			emit1(ctx, IR_LABEL, function_label);
 
 			ctx->stack_size = 0;
 			// TODO: find some better mechanism to reset the variable table
 			memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
-			ir_function = &ctx->program.functions[ctx->program.function_count++];
+			ir_function *ir_function = &ctx->program.functions[ctx->program.function_count++];
 			ir_function->name = node->value.s;
 			ir_function->block_index = function_label;
 			ir_function->instr_index = ctx->program.instr_count;
