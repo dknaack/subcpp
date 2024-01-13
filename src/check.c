@@ -185,6 +185,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				}
 
 				param_type = param_type->next;
+				param = param->next;
 				param_index++;
 			}
 
