@@ -412,29 +412,34 @@ translate_node(ir_context *ctx, ast_node *node)
 		emit1(ctx, IR_PRINT, result);
 		break;
 	case AST_FUNCTION:
-		function_label = new_label(ctx);
-		emit1(ctx, IR_LABEL, function_label);
-		param = node->children->next;
-		param_count = 0;
+		{
+			ast_node *decl = node->children;
+			ast_node *body = decl->next;
+			ast_node *declarator = decl->children->next;
+			ast_node *param = declarator->children->next;
 
-		ctx->stack_size = 0;
-		// TODO: find some better mechanism to reset the variable table
-		memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
-		ir_function = &ctx->program.functions[ctx->program.function_count++];
-		ir_function->name = node->value.s;
-		ir_function->block_index = function_label;
-		ir_function->instr_index = ctx->program.instr_count;
+			function_label = new_label(ctx);
+			emit1(ctx, IR_LABEL, function_label);
 
-		while (param != AST_NIL) {
-			translate_node(ctx, param);
-			param_count++;
-			param = param->next;
-		}
+			ctx->stack_size = 0;
+			// TODO: find some better mechanism to reset the variable table
+			memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
+			ir_function = &ctx->program.functions[ctx->program.function_count++];
+			ir_function->name = node->value.s;
+			ir_function->block_index = function_label;
+			ir_function->instr_index = ctx->program.instr_count;
 
-		ir_function->parameter_count = param_count;
-		translate_node(ctx, node->children);
-		ir_function->stack_size = ctx->stack_size;
-		break;
+			i32 param_count = 0;
+			while (param != AST_NIL) {
+				translate_node(ctx, param);
+				param = param->next;
+				param_count++;
+			}
+
+			ir_function->parameter_count = param_count;
+			translate_node(ctx, body);
+			ir_function->stack_size = ctx->stack_size;
+		} break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:

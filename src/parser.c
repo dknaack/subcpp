@@ -245,6 +245,8 @@ parse_assign_expr(tokenizer *tokenizer, arena *arena)
 
 typedef enum {
 	PARSE_SINGLE_DECL = (1 << 0),
+
+	PARSE_DECL_EXTERNAL = 0,
 } parse_decl_flags;
 
 static ast_node *parse_decl(tokenizer *tokenizer, u32 flags, arena *arena);
@@ -508,44 +510,48 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 	return node;
 }
 
-static ast_node *
-parse_function(tokenizer *tokenizer, arena *arena)
+static b32
+is_function_decl(ast_node *declarator)
 {
-	ast_node *node;
-	ast_node *params = AST_NIL;
-	ast_node **ptr = &params;
-	str name;
-	location loc = tokenizer->loc;
-
-	expect(tokenizer, TOKEN_INT);
-	token token = get_token(tokenizer);
-	if (token.kind != TOKEN_IDENT) {
-		syntax_error(tokenizer, "Expected identifier");
-	}
-
-	name = token.value;
-	expect(tokenizer, TOKEN_LPAREN);
-	if (tokenizer->lookahead[0].kind == TOKEN_VOID
-		&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
-	{
-		get_token(tokenizer);
-	} else {
-		do {
-			*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
-			if (*ptr) {
-				ptr = &(*ptr)->next;
+	b32 only_one_declarator = (declarator->next == AST_NIL);
+	b32 no_initializer = (declarator->kind != AST_DECL_INIT);
+	if (only_one_declarator && no_initializer) {
+		while (declarator != AST_NIL) {
+			if (declarator->kind == AST_DECL_FUNC
+				&& declarator->children->kind == AST_DECL_IDENT)
+			{
+				return true;
 			}
-		} while (accept(tokenizer, TOKEN_COMMA));
+
+			declarator = declarator->children;
+		}
 	}
-	expect(tokenizer, TOKEN_RPAREN);
 
-	ast_node *body = parse_compound_stmt(tokenizer, arena);
+	return false;
+}
 
-	node = new_ast_node(AST_FUNCTION, loc, arena);
-	node->value.s = name;
-	node->children = body;
-	body->next = params;
-	return node;
+static ast_node *
+parse_external_decl(tokenizer *tokenizer, arena *arena)
+{
+	ast_node *decl = parse_decl(tokenizer, PARSE_DECL_EXTERNAL, arena);
+
+	ast_node *declarator = decl->children->next;
+	if (is_function_decl(declarator)) {
+		token token = peek_token(tokenizer);
+		if (token.kind == TOKEN_LBRACE) {
+			ast_node *body = parse_compound_stmt(tokenizer, arena);
+			ast_node *node = new_ast_node(AST_FUNCTION, tokenizer->loc, arena);
+			node->children = decl;
+			decl->next = body;
+			decl = node;
+		} else {
+			expect(tokenizer, TOKEN_SEMICOLON);
+		}
+	} else {
+		expect(tokenizer, TOKEN_SEMICOLON);
+	}
+
+	return decl;
 }
 
 static ast_node *
@@ -554,7 +560,7 @@ parse(tokenizer *tokenizer, arena *arena)
 	ast_node *root = new_ast_node(AST_ROOT, tokenizer->loc, arena);
 	ast_node **ptr = &root->children;
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF)) {
-		*ptr = parse_function(tokenizer, arena);
+		*ptr = parse_external_decl(tokenizer, arena);
 		ptr = &(*ptr)->next;
 	}
 

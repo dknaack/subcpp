@@ -66,6 +66,7 @@ pop_scope(symbol_table *table)
 static b32
 type_equals(type *lhs, type *rhs)
 {
+	symbol *l, *r;
 	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
 		return false;
 	}
@@ -76,18 +77,18 @@ type_equals(type *lhs, type *rhs)
 
 	switch (lhs->kind) {
 	case TYPE_FUNCTION:
-		lhs = lhs->children;
-		rhs = rhs->children;
-		while (lhs && rhs) {
-			if (!type_equals(lhs, rhs)) {
+		l = lhs->members;
+		r = rhs->members;
+		while (l && r) {
+			if (!type_equals(l->type, r->type)) {
 				return false;
 			}
 
-			lhs = lhs->next;
-			rhs = rhs->next;
+			l = l->next;
+			r = r->next;
 		}
 
-		b32 result = (lhs == NULL && rhs == NULL);
+		b32 result = (!l && !r);
 		return result;
 	default:
 		return true;
@@ -175,16 +176,16 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			u32 param_index = 0;
 			ast_node *param = called->next;
 			type *return_type = called->type->children;
-			type *param_type = return_type->next;
-			while (param != AST_NIL || param_type != NULL) {
+			symbol *param_sym = called->type->members;
+			while (param != AST_NIL || param_sym != NULL) {
 				check_type(param, symbols, arena);
-				if (!type_equals(param_type, param->type)) {
+				if (!type_equals(param_sym->type, param->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
-						param_index + 1, type_get_name(param_type->kind),
+						param_index + 1, type_get_name(param_sym->type->kind),
 						type_get_name(param->type->kind));
 				}
 
-				param_type = param_type->next;
+				param_sym = param_sym->next;
 				param = param->next;
 				param_index++;
 			}
@@ -249,7 +250,6 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 							// TODO: add qualifiers to the pointer type
 							decl_type = type_create(TYPE_POINTER, arena);
 							decl_type->children = target;
-
 						} break;
 					case AST_DECL_ARRAY:
 						{
@@ -270,15 +270,15 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 							decl_type = type_create(TYPE_FUNCTION, arena);
 							decl_type->children = target;
 
-							type **param_type = &target->next;
+							push_scope(symbols, arena);
 							ast_node *param = declarator->children->next;
 							while (param != AST_NIL) {
 								check_type(param, symbols, arena);
-								*param_type = param->type;
-
-								param_type = &(*param_type)->next;
 								param = param->next;
 							}
+
+							decl_type->members = symbols->head;
+							pop_scope(symbols);
 						} break;
 					case AST_DECL_INIT:
 						{
@@ -333,19 +333,17 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_FUNCTION:
 		{
-			node->type = type_create(TYPE_FUNCTION, arena);
-			node->type->children = type_create(TYPE_INT, arena);
-			ast_node *body = node->children;
-
+			ast_node *decl = node->children;
+			ast_node *body = decl->next;
+			check_type(decl, symbols, arena);
+			node->type = symbols->tail->type;
+			node->value.s = symbols->tail->name;
 			push_scope(symbols, arena);
-			type **param_type = &node->type->children->next;
-			for (ast_node *param = body->next; param != AST_NIL; param = param->next) {
-				check_type(param, symbols, arena);
-				*param_type = param->type;
-				param_type = &(*param_type)->next;
-			}
 
-			add_variable(symbols->parent, node->value.s, node->type, arena);
+			type *func_type = decl->type;
+			for (symbol *param = func_type->members; param; param = param->next) {
+				add_variable(symbols, param->name, param->type, arena);
+			}
 
 			check_type(body, symbols, arena);
 			pop_scope(symbols);
