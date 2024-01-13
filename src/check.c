@@ -343,7 +343,7 @@ end:
 				param_type = &(*param_type)->next;
 			}
 
-			add_variable(symbols, node->value.s, node->type, arena);
+			add_variable(symbols->parent, node->value.s, node->type, arena);
 
 			check_type(body, symbols, arena);
 			pop_scope(symbols);
