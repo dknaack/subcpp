@@ -61,7 +61,19 @@ typedef struct {
 	u32 column;
 } location;
 
+typedef struct file file;
+struct file {
+	file *prev;
+	char *name;
+	str contents;
+	isize pos;
+	location loc;
+};
+
 typedef struct {
+	arena *arena;
+	file *files;
+	char *filename;
 	token lookahead[2];
 	location loc;
 	str source;

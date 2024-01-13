@@ -139,6 +139,110 @@ eat_whitespace(tokenizer *tokenizer)
 	}
 }
 
+static b32
+is_relative_path(str path)
+{
+	b32 result = path.length <= 0 || path.at[0] != '/';
+	return result;
+}
+
+static str
+dirname(str path)
+{
+	str dir = path;
+	while (dir.length > 0 && dir.at[dir.length - 1] != '/') {
+		dir.length--;
+	}
+
+	return dir;
+}
+
+static str
+concat_paths(str a, str b, arena *perm)
+{
+	str result;
+	result.at = ALLOC(perm, a.length + b.length + 2, char);
+	result.length = a.length + b.length + 1;
+
+	str_copy(substr(result, 0, a.length), a);
+	result.at[a.length] = '/';
+	str_copy(substr(result, a.length + 1, -1), b);
+	return result;
+}
+
+static void
+push_file(tokenizer *t, str path, b32 system_header)
+{
+	if (path.length == 0) {
+		// TODO: report error: Invalid header path
+		t->error = 1;
+		return;
+	}
+
+	file *f = ALLOC(t->arena, 1, file);
+	f->contents = t->source;
+	f->pos = t->pos;
+	f->prev = t->files;
+	f->name = t->filename;
+	f->loc = t->loc;
+	t->files = f;
+
+	static str system_include_dirs[] = {
+		S("/usr/local/include"),
+		S("/usr/include")
+	};
+
+	str filename = {0};
+	str contents = {0};
+	b32 found_header = false;
+	if (!system_header) {
+		if (is_relative_path(path)) {
+			str dir = dirname(str_from(t->filename));
+			filename = concat_paths(dir, path, t->arena);
+			contents = read_file(filename.at, t->arena);
+			if (errno == 0) {
+				found_header = true;
+			}
+		}
+
+		// TODO: Search for directories passed with -I option
+	}
+
+	if (!found_header) {
+		for (u32 i = 0; i < LENGTH(system_include_dirs); i++) {
+			str dir = system_include_dirs[i];
+			filename = concat_paths(dir, path, t->arena);
+			contents = read_file(filename.at, t->arena);
+			if (errno == 0) {
+				found_header = true;
+				break;
+			}
+		}
+	}
+
+	if (found_header) {
+		t->filename = filename.at;
+		t->source = contents;
+		t->pos = 0;
+	}
+}
+
+static b32
+pop_file(tokenizer *t)
+{
+	file *f = t->files;
+	b32 result = f != NULL;
+	if (result) {
+		t->source = f->contents;
+		t->pos = f->pos;
+		t->loc = f->loc;
+		t->filename = f->name;
+		t->files = f->prev;
+	}
+
+	return result;
+}
+
 static token
 get_token(tokenizer *tokenizer)
 {
@@ -171,9 +275,13 @@ get_token(tokenizer *tokenizer)
 					eat_whitespace(tokenizer);
 
 					str filename = {0};
+					b32 is_system_header = false;
 					if (tokenizer->source.at[tokenizer->pos] == '<') {
+						is_system_header = true;
+						advance(tokenizer);
+
 						char c;
-						isize start = tokenizer->pos + 1;
+						isize start = tokenizer->pos;
 						do {
 							c = advance(tokenizer);
 						} while (c != '\n' && c != '>');
@@ -183,8 +291,10 @@ get_token(tokenizer *tokenizer)
 						filename.length = end - start;
 						printf("%.*s\n", (int)filename.length, filename.at);
 					} else if (tokenizer->source.at[tokenizer->pos] == '"') {
+						advance(tokenizer);
+
 						char c;
-						isize start = tokenizer->pos + 1;
+						isize start = tokenizer->pos;
 						do {
 							c = advance(tokenizer);
 						} while (c != '\n' && c != '"');
@@ -196,15 +306,21 @@ get_token(tokenizer *tokenizer)
 					} else {
 						ASSERT(!"Macro filenames have not been implement yet");
 					}
-				}
-			}
 
-			while (token.kind != TOKEN_NEWLINE) {
-				token = get_raw_token(tokenizer);
+					while (token.kind != TOKEN_NEWLINE) {
+						token = get_raw_token(tokenizer);
+					}
+
+					push_file(tokenizer, filename, is_system_header);
+				}
 			}
 		}
 
-		if (token.kind == TOKEN_NEWLINE) {
+		if (token.kind == TOKEN_EOF) {
+			if (pop_file(tokenizer)) {
+				token.kind = TOKEN_WHITESPACE;
+			}
+		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
 			eat_whitespace(tokenizer);
 		} else if (token.kind == TOKEN_IDENT) {
@@ -236,6 +352,8 @@ static tokenizer
 tokenize(char *filename, arena *arena)
 {
 	tokenizer tokenizer = {0};
+	tokenizer.arena = arena;
+	tokenizer.filename = filename;
 	tokenizer.loc.file = filename;
 	tokenizer.loc.line = 1;
 	tokenizer.source = read_file(filename, arena);

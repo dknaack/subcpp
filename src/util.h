@@ -20,6 +20,19 @@ read_file(char *filename, arena *arena)
 	return result;
 }
 
+static str
+str_from(char *cstr)
+{
+	str result;
+	result.at = cstr;
+	result.length = 0;
+	while (result.at[result.length]) {
+		result.length++;
+	}
+
+	return result;
+}
+
 static b32
 str_equals(str a, str b)
 {
@@ -34,6 +47,38 @@ str_equals(str a, str b)
 	}
 
 	return true;
+}
+
+static char *
+str_cstr(str s, arena *perm)
+{
+	char *c = ALLOC(perm, 1 + s.length, char);
+
+	for (isize i = 0; i < s.length; i++) {
+		c[i] = s.at[i];
+	}
+
+	return c;
+}
+
+static str
+substr(str s, isize start, isize end)
+{
+	str result;
+	result.at = s.at + start;
+	result.length = end < 0 ? s.length - start : end - start;
+
+	ASSERT(end < 0 || start <= end);
+	ASSERT(start <= s.length && end <= s.length);
+	return result;
+}
+
+static void
+str_copy(str dst, str src)
+{
+	for (isize i = 0; i < MIN(dst.length, src.length); i++) {
+		dst.at[i] = src.at[i];
+	}
 }
 
 static u64
