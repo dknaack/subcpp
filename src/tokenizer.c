@@ -309,6 +309,12 @@ get_token(tokenizer *tokenizer)
 
 					while (token.kind != TOKEN_NEWLINE) {
 						token = get_raw_token(tokenizer);
+						if (token.kind == TOKEN_BACKSLASH) {
+							token = peek_raw_token(tokenizer);
+							if (token.kind == TOKEN_NEWLINE) {
+								get_raw_token(tokenizer);
+							}
+						}
 					}
 
 					push_file(tokenizer, filename, is_system_header);
@@ -316,7 +322,14 @@ get_token(tokenizer *tokenizer)
 			}
 		}
 
-		if (token.kind == TOKEN_EOF) {
+		if (token.kind == TOKEN_BACKSLASH) {
+			token = peek_raw_token(tokenizer);
+			if (token.kind == TOKEN_NEWLINE) {
+				get_raw_token(tokenizer);
+			} else {
+				token.kind = TOKEN_INVALID;
+			}
+		} else if (token.kind == TOKEN_EOF) {
 			if (pop_file(tokenizer)) {
 				token.kind = TOKEN_WHITESPACE;
 			}
