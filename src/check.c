@@ -45,7 +45,7 @@ get_variable(symbol_table *table, str name)
 		table = table->parent;
 	}
 
-	return &type_void;
+	return TYPE_NIL;
 }
 
 static void
@@ -195,6 +195,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 	case AST_EXPR_IDENT:
 		{
 			node->type = get_variable(symbols, node->value.s);
+			if (node->type == TYPE_NIL) {
+				errorf(node->loc, "Variable '%.*s' was never defined",
+					(int)node->value.s.length, node->value.s.at);
+			}
 		} break;
 	case AST_EXPR_UNARY:
 		{

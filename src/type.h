@@ -1,3 +1,5 @@
+#define TYPE_NIL (&type_nil)
+
 typedef struct type type;
 
 typedef struct symbol symbol;
@@ -34,6 +36,7 @@ struct type {
 	i64 size;
 };
 
+static type type_nil = {0, &type_nil, &type_nil};
 static type type_void = {TYPE_VOID};
 static type type_char = {TYPE_CHAR};
 static type type_int = {TYPE_INT};
