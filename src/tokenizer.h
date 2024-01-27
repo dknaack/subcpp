@@ -6,6 +6,7 @@ typedef enum {
 
 	// symbols
 	TOKEN_AMPERSAND,
+	TOKEN_BACKSLASH,
 	TOKEN_COMMA,
 	TOKEN_DOT,
 	TOKEN_EQUAL,
@@ -89,6 +90,7 @@ get_token_name(token_kind kind)
 	case TOKEN_EOF:         return "eof";
 	case TOKEN_COMMA:       return "','";
 	case TOKEN_AMPERSAND:   return "'&'";
+	case TOKEN_BACKSLASH:   return "'\\'";
 	case TOKEN_DOT:         return "'.'";
 	case TOKEN_PLUS:        return "'+'";
 	case TOKEN_MINUS:       return "'-'";
