@@ -12,6 +12,8 @@ advance(tokenizer *tokenizer)
 		}
 	}
 
+	tokenizer->at[0] = tokenizer->at[1];
+	tokenizer->at[1] = c;
 	return c;
 }
 
@@ -37,14 +39,13 @@ is_whitespace(char c)
 }
 
 static token_kind
-eat1(tokenizer *tokenizer, token_kind default_kind, char c1, token_kind kind1)
+eat1(tokenizer *tokenizer, token_kind a, char c, token_kind b)
 {
-	char c = advance(tokenizer);
-	if (c == c1) {
-		return kind1;
+	if (tokenizer->at[1] == c) {
+		advance(tokenizer);
+		return a;
 	} else {
-		tokenizer->pos--;
-		return default_kind;
+		return b;
 	}
 }
 
@@ -79,9 +80,11 @@ get_raw_token(tokenizer *tokenizer)
 	case ';': token.kind = TOKEN_SEMICOLON; break;
 	case '&': token.kind = TOKEN_AMPERSAND; break;
 	case '\\': token.kind = TOKEN_BACKSLASH; break;
+	case '\n': token.kind = TOKEN_NEWLINE; break;
 	case '=':
-		token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
-		break;
+		{
+			token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
+		} break;
 	case '<':
 		token.kind = eat1(tokenizer, TOKEN_LT, '=', TOKEN_LEQ);
 		break;
@@ -91,33 +94,35 @@ get_raw_token(tokenizer *tokenizer)
 	case '#':
 		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
 		break;
-	case '\n':
-		token.kind = TOKEN_NEWLINE;
-		break;
 	case '\r':
-		token.kind = eat1(tokenizer, TOKEN_NEWLINE, '\n', TOKEN_NEWLINE);
-		break;
+		{
+			token.kind = eat1(tokenizer, TOKEN_NEWLINE, '\n', TOKEN_NEWLINE);
+		} break;
 	case ' ': case '\t': case '\v': case '\f':
-		token.kind = TOKEN_WHITESPACE;
-		break;
+		{
+			token.kind = TOKEN_WHITESPACE;
+			while (is_whitespace(tokenizer->at[0])) {
+				advance(tokenizer);
+			}
+		} break;
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-		token.kind = TOKEN_LITERAL_INT;
-		do {
-			c = advance(tokenizer);
-		} while (is_digit(c));
-		tokenizer->pos--;
-		break;
+		{
+			token.kind = TOKEN_LITERAL_INT;
+			while (is_digit(tokenizer->at[0])) {
+				advance(tokenizer);
+			}
+		} break;
 	default:
-		if (is_alpha(c) || c == '_') {
-			token.kind = TOKEN_IDENT;
-			do {
-				c = advance(tokenizer);
-			} while (is_alpha(c) || is_digit(c) || c == '_');
-			tokenizer->pos--;
-		}
-
-		break;
+		{
+			if (is_alpha(c) || c == '_') {
+				token.kind = TOKEN_IDENT;
+				do {
+					c = advance(tokenizer);
+				} while (is_alpha(c) || is_digit(c) || c == '_');
+				tokenizer->pos--;
+			}
+		} break;
 	}
 
 	token.value.length = tokenizer->source.at + tokenizer->pos - token.value.at;

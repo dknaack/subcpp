@@ -80,6 +80,7 @@ typedef struct {
 	str source;
 	isize pos;
 	b32 error;
+	char at[2];
 } tokenizer;
 
 static char *
