@@ -155,6 +155,11 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 	case TOKEN_LPAREN:
 		get_token(tokenizer);
 		expr = parse_expr(tokenizer, 0, arena);
+		if (expr == AST_NIL) {
+			syntax_error(tokenizer, "Expected expression");
+			return expr;
+		}
+
 		expect(tokenizer, TOKEN_RPAREN);
 		break;
 	case TOKEN_STAR:
