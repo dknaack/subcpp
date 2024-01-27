@@ -84,18 +84,20 @@ main(int argc, char *argv[])
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	ast_node *root = parse(&tokenizer, arena);
 	check_type(root, &symbols, arena);
-	if (tokenizer.error) {
+	if (symbols.error) {
 		free(arena);
 		return 1;
 	}
 
 	ir_program ir_program = translate(root, arena);
 	optimize(ir_program, arena);
+
 	machine_program machine_program = x86_select_instructions(ir_program, arena);
 	allocation_info *info = allocate_registers(machine_program, arena);
 	stream out = stream_open("/tmp/out.s", 1024, arena);
 	x86_generate(&out, machine_program, info);
 	stream_close(&out);
+
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", "./a.out");
 

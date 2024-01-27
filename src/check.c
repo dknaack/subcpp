@@ -60,7 +60,9 @@ push_scope(symbol_table *table, arena *arena)
 static void
 pop_scope(symbol_table *table)
 {
+	b32 error = table->error;
 	*table = *table->parent;
+	table->error |= error;
 }
 
 static b32
@@ -112,7 +114,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 	switch (node->kind) {
 	case AST_INVALID:
-		ASSERT(!"Invalid node");
+		symbols->error = true;
 		break;
 	case AST_ROOT:
 		{
@@ -130,10 +132,12 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			if (operator == TOKEN_DOT) {
 				if (lhs->type->kind != TYPE_STRUCT) {
 					errorf(node->loc, "Left-hand side is not a struct");
+					symbols->error = true;
 				}
 
 				if (rhs->kind != AST_EXPR_IDENT) {
 					errorf(node->loc, "Right-hand side is not an identifier");
+					symbols->error = true;
 				}
 
 				symbol *s = upsert_symbol(&lhs->type->members, rhs->value.s, NULL);
@@ -156,6 +160,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 				// TODO: type coercion
 				if (!type_equals(lhs->type, rhs->type)) {
+					symbols->error = true;
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->type->kind),
 						type_get_name(rhs->type->kind));
@@ -169,6 +174,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			ast_node *called = node->children;
 			check_type(called, symbols, arena);
 			if (called->type->kind != TYPE_FUNCTION) {
+				symbols->error = true;
 				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
 				break;
 			}
@@ -183,6 +189,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
 						param_index + 1, type_get_name(param_sym->type->kind),
 						type_get_name(param->type->kind));
+					symbols->error = true;
 				}
 
 				param_sym = param_sym->next;
@@ -196,6 +203,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		{
 			node->type = get_variable(symbols, node->value.s);
 			if (node->type == TYPE_NIL) {
+				symbols->error = true;
 				errorf(node->loc, "Variable '%.*s' was never defined",
 					(int)node->value.s.length, node->value.s.at);
 			}
@@ -209,6 +217,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				if (operand->type->kind == TYPE_POINTER) {
 					node->type = operand->type->children;
 				} else {
+					symbols->error = true;
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
