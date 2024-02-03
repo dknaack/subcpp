@@ -73,8 +73,6 @@ get_raw_token(tokenizer *tokenizer)
 	char c = advance(tokenizer);
 	switch (c) {
 	case '.':  token.kind = TOKEN_DOT;       break;
-	case '+':  token.kind = TOKEN_PLUS;      break;
-	case '-':  token.kind = TOKEN_MINUS;     break;
 	case '*':  token.kind = TOKEN_STAR;      break;
 	case '/':  token.kind = TOKEN_SLASH;     break;
 	case '%':  token.kind = TOKEN_PERCENT;   break;
@@ -90,6 +88,22 @@ get_raw_token(tokenizer *tokenizer)
 	case '\\': token.kind = TOKEN_BACKSLASH; break;
 	case '\n': token.kind = TOKEN_NEWLINE;   break;
 	case '\0': token.kind = TOKEN_EOF;       break;
+	case '+':
+		{
+			if (tokenizer->at[1] == '+') {
+				token.kind = TOKEN_PLUS_PLUS;
+			} else {
+				token.kind = TOKEN_PLUS;
+			}
+		} break;
+	case '-':
+		{
+			if (tokenizer->at[1] == '-') {
+				token.kind = TOKEN_MINUS_MINUS;
+			} else {
+				token.kind = TOKEN_MINUS;
+			}
+		} break;
 	case '=':
 		{
 			token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
