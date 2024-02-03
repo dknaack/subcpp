@@ -197,7 +197,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			u32 operator = node->value.i;
+			token_kind operator = node->value.op;
 			ir_opcode opcode = IR_NOP;
 			switch (operator) {
 			case TOKEN_PLUS:          opcode = IR_ADD;   break;
@@ -246,6 +246,8 @@ translate_node(ir_context *ctx, ast_node *node)
 				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
 				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
 				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
+				default:
+					ASSERT(!"Invalid operator");
 				}
 
 				u32 rhs_reg = translate_node(ctx, rhs);
@@ -419,8 +421,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			emit1(ctx, IR_LABEL, cond_label);
 
 			ast_node *cond = init->next;
-			result = translate_node(ctx, cond);
-			emit2(ctx, IR_JIZ, result, ctx->break_label);
+			u32 cond_reg = translate_node(ctx, cond);
+			u32 cond_size = type_sizeof(cond->type);
+			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, ctx->break_label);
 
 			ast_node *post = cond->next;
 			ast_node *body = post->next;
@@ -437,8 +440,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			u32 else_label = new_label(ctx);
 
 			ast_node *cond = node->children;
-			result = translate_node(ctx, cond);
-			emit2(ctx, IR_JIZ, result, else_label);
+			u32 cond_reg = translate_node(ctx, cond);
+			u32 cond_size = type_sizeof(cond->type);
+			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, else_label);
 
 			ast_node *if_branch = cond->next;
 			translate_node(ctx, if_branch);
@@ -459,8 +463,9 @@ translate_node(ir_context *ctx, ast_node *node)
 
 			emit1(ctx, IR_LABEL, ctx->continue_label);
 			ast_node *cond = node->children;
-			result = translate_node(ctx, cond);
-			emit2(ctx, IR_JIZ, result, ctx->break_label);
+			u32 cond_reg = translate_node(ctx, cond);
+			u32 cond_size = type_sizeof(cond->type);
+			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, ctx->break_label);
 
 			ast_node *body = cond->next;
 			translate_node(ctx, body);
@@ -469,15 +474,20 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_STMT_RETURN:
 		{
+			u32 size = 0;
+			u32 value = 0;
 			if (node->children) {
-				result = translate_node(ctx, node->children);
+				size = type_sizeof(node->children->type);
+				value = translate_node(ctx, node->children);
 			}
-			emit1(ctx, IR_RET, result);
+
+			emit1_size(ctx, IR_RET, size, value);
 		} break;
 	case AST_STMT_PRINT:
 		{
-			result = translate_node(ctx, node->children);
-			emit1(ctx, IR_PRINT, result);
+			u32 size = type_sizeof(node->children->type);
+			u32 value = translate_node(ctx, node->children);
+			emit1_size(ctx, IR_PRINT, size, value);
 		} break;
 	case AST_FUNCTION:
 		{
