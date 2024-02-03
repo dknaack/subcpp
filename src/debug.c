@@ -165,6 +165,8 @@ print_x86_program(machine_program program)
 {
 	char *code = program.code;
 	for (uint32_t i = 0; i < program.instr_count; i++) {
+		printf("%2d|", i);
+
 		u32 offset = program.instr_offsets[i];
 		machine_instr *instr = (machine_instr *)(code + offset);
 		if (instr->opcode != X86_LABEL) {
