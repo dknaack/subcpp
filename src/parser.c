@@ -76,34 +76,52 @@ new_ast_node(ast_node_kind kind, location loc, arena *arena)
 
 #define MAX_PRECEDENCE 65
 
+typedef enum {
+	PREC_NONE,
+	PREC_COMMA,
+	PREC_ASSIGN,
+	PREC_TERNARY,
+	PREC_LOR,
+	PREC_LAND,
+	PREC_BOR,
+	PREC_XOR,
+	PREC_BAND,
+	PREC_EQUAL,
+	PREC_COMPARE,
+	PREC_SHIFT,
+	PREC_TERM,
+	PREC_FACTOR,
+	PREC_PRIMARY,
+} precedence;
+
 /* NOTE: An operator with negative precedence is right associative. */
-static int
+static precedence
 get_precedence(token_kind token)
 {
 	switch (token) {
 	case TOKEN_COMMA:
-		return -5;
+		return PREC_COMMA;
 	case TOKEN_EQUAL:
-		return -10;
+		return PREC_ASSIGN;
 	case TOKEN_PLUS:
 	case TOKEN_MINUS:
-		return 20;
+		return PREC_TERM;
 	case TOKEN_STAR:
 	case TOKEN_SLASH:
 	case TOKEN_PERCENT:
-		return 30;
+		return PREC_FACTOR;
 	case TOKEN_EQUAL_EQUAL:
+		return PREC_EQUAL;
 	case TOKEN_LT:
 	case TOKEN_GT:
 	case TOKEN_LEQ:
 	case TOKEN_GEQ:
-		return 40;
+		return PREC_COMPARE;
 	case TOKEN_LBRACKET:
 	case TOKEN_DOT:
-		return 50;
-		return 60;
+		return PREC_PRIMARY;
 	default:
-		return 0;
+		return PREC_NONE;
 	}
 }
 
