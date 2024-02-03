@@ -252,7 +252,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				}
 
 				u32 rhs_reg = translate_node(ctx, rhs);
-				if (opcode != IR_STORE) {
+				if (operator != TOKEN_EQUAL) {
 					u32 value = emit1_size(ctx, IR_LOAD, size, lhs_reg);
 					result = emit2_size(ctx, opcode, size, value, rhs_reg);
 					emit2(ctx, IR_STORE, lhs_reg, result);
@@ -741,9 +741,12 @@ get_toplevel_instructions(ir_program program, arena *arena)
 }
 
 static ir_program
-translate(ast_node *root, arena *arena)
+translate(ast_node *root, symbol_table *symbols, arena *arena)
 {
 	ir_context ctx = ir_context_init(arena);
+	if (root->kind == AST_INVALID || symbols->error) {
+		return ctx.program;
+	}
 
 	u32 function_count = 0;
 	for (ast_node *node = root->children; node != AST_NIL; node = node->next) {
