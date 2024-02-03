@@ -1,20 +1,28 @@
 static char
 advance(tokenizer *tokenizer)
 {
-	char c = '\0';
-
-	if (tokenizer->pos < tokenizer->source.length) {
-		c = tokenizer->source.at[tokenizer->pos++];
-		tokenizer->loc.column++;
-		if (c == '\n') {
-			tokenizer->loc.line++;
-			tokenizer->loc.column = 0;
-		}
+	if (tokenizer->pos + 2 < tokenizer->source.length) {
+		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
+		tokenizer->at[1] = tokenizer->source.at[tokenizer->pos + 1];
+	} else if (tokenizer->pos + 1 < tokenizer->source.length) {
+		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
+		tokenizer->at[1] = '\0';
+	} else {
+		tokenizer->at[0] = '\0';
+		tokenizer->at[1] = '\0';
 	}
 
-	tokenizer->at[0] = tokenizer->at[1];
-	tokenizer->at[1] = c;
-	return c;
+	if (tokenizer->pos < tokenizer->source.length) {
+		tokenizer->pos++;
+	}
+
+	tokenizer->loc.column++;
+	if (tokenizer->at[0] == '\n') {
+		tokenizer->loc.line++;
+		tokenizer->loc.column = 0;
+	}
+
+	return tokenizer->at[0];
 }
 
 static b32
