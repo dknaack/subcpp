@@ -19,7 +19,8 @@ typedef enum {
 	AST_EXPR_CALL,     // {called, ...params}
 	AST_EXPR_IDENT,
 	AST_EXPR_INT,
-	AST_EXPR_UNARY,    //  {operand}
+	AST_EXPR_UNARY,    // {operand}
+	AST_EXPR_POSTFIX,  // {operand}
 
 	AST_STMT_BREAK,
 	AST_STMT_COMPOUND, // {...statements}
@@ -46,6 +47,7 @@ struct ast_node {
 	type *type;
 
 	union {
+		token_kind op;
 		intmax_t i;
 		str s;
 	} value;

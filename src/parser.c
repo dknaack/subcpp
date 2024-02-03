@@ -260,7 +260,12 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 
 			get_token(tokenizer);
 			ast_node *lhs = expr;
-			if (!is_postfix_operator(token.kind)) {
+			if (is_postfix_operator(token.kind)) {
+				ast_node *operand = expr;
+				expr = new_ast_node(AST_EXPR_POSTFIX, tokenizer->loc, arena);
+				expr->value.op = operator;
+				expr->children = operand;
+			} else {
 				if (token.kind == TOKEN_LBRACKET) {
 					prec = PREC_NONE;
 				}
@@ -269,14 +274,15 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 				ast_node *rhs = parse_expr(tokenizer, prec, arena);
 				ASSERT(rhs != AST_NIL);
 				lhs->next = rhs;
-			}
 
-			expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
-			expr->value.i = token.kind;
-			expr->children = lhs;
 
-			if (token.kind == TOKEN_LBRACKET) {
-				expect(tokenizer, TOKEN_RBRACKET);
+				expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
+				expr->value.i = token.kind;
+				expr->children = lhs;
+
+				if (token.kind == TOKEN_LBRACKET) {
+					expect(tokenizer, TOKEN_RBRACKET);
+				}
 			}
 		}
 	}
