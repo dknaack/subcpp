@@ -277,7 +277,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				u32 param_register[128] = {0};
 				while (param != AST_NIL) {
 					ASSERT(param_count < 128);
-					param_register[param_count++] = translate_node(ctx, param);
+					param_register[param_count++ & 127] = translate_node(ctx, param);
 					param = param->next;
 				}
 
