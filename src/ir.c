@@ -246,6 +246,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
 				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
 				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
+				case TOKEN_EQUAL:         opcode = IR_NOP; break;
 				default:
 					ASSERT(!"Invalid operator");
 				}
