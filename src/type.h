@@ -15,6 +15,7 @@ struct symbol_table {
 	symbol_table *parent;
 	symbol *head;
 	symbol *tail;
+	b32 error;
 };
 
 typedef enum {
