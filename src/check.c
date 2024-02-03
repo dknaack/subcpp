@@ -153,7 +153,11 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				} else if (is_pointer(rhs->type)) {
 					node->type = rhs->type->children;
 				} else {
-					ASSERT(!"Invalid types");
+					node->type = TYPE_NIL;
+					symbols->error = true;
+					errorf(node->loc, "Incompatible types: %s, %s",
+						type_get_name(lhs->type->kind),
+						type_get_name(rhs->type->kind));
 				}
 			} else {
 				check_type(rhs, symbols, arena);
@@ -217,6 +221,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				if (operand->type->kind == TYPE_POINTER) {
 					node->type = operand->type->children;
 				} else {
+					node->type = TYPE_NIL;
 					symbols->error = true;
 					errorf(node->loc, "Expected pointer type");
 				}
