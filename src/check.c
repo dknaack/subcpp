@@ -212,6 +212,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					(int)node->value.s.length, node->value.s.at);
 			}
 		} break;
+	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
 		{
 			ast_node *operand = node->children;
