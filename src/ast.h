@@ -5,11 +5,11 @@ typedef struct type type;
 
 typedef enum {
 	AST_INVALID,
-	AST_FUNCTION,      // {body, ...params}
+	AST_FUNCTION,      // {declaration, body}
 	AST_ROOT,          // {...(declaration|function)}
 
 	AST_DECL,          // {type_specifier, ...declarators}
-	AST_DECL_INIT,     // {declarator, initializer?}
+	AST_DECL_INIT,     // {declarator, initializer}
 	AST_DECL_POINTER,  // {declarator}
 	AST_DECL_ARRAY,    // {declarator, size}
 	AST_DECL_FUNC,     // {declarator, ...parameters}
