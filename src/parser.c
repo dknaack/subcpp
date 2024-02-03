@@ -117,6 +117,8 @@ get_precedence(token_kind token)
 		return PREC_COMPARE;
 	case TOKEN_LBRACKET:
 	case TOKEN_DOT:
+	case TOKEN_PLUS_PLUS:
+	case TOKEN_MINUS_MINUS:
 		return PREC_PRIMARY;
 	default:
 		return PREC_NONE;
