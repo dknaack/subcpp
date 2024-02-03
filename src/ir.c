@@ -62,8 +62,8 @@ emit0(ir_context *ctx, ir_opcode opcode)
 static u32
 emit_alloca(ir_context *ctx, u32 size)
 {
-	u32 result = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
+	u32 result = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
 	return result;
 }
 
@@ -255,9 +255,9 @@ translate_node(ir_context *ctx, ast_node *node)
 				if (operator != TOKEN_EQUAL) {
 					u32 value = emit1_size(ctx, IR_LOAD, size, lhs_reg);
 					result = emit2_size(ctx, opcode, size, value, rhs_reg);
-					emit2(ctx, IR_STORE, lhs_reg, result);
+					emit2_size(ctx, IR_STORE, size, lhs_reg, result);
 				} else {
-					emit2(ctx, IR_STORE, lhs_reg, rhs_reg);
+					emit2_size(ctx, IR_STORE, size, lhs_reg, rhs_reg);
 				}
 			} else if (operator == TOKEN_LBRACKET) {
 				u32 rhs_reg = translate_node(ctx, rhs);
@@ -316,7 +316,8 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, node->children);
-					result = emit1(ctx, IR_LOAD, result);
+					u32 size = type_sizeof(node->type);
+					result = emit1_size(ctx, IR_LOAD, size, result);
 				} break;
 			case TOKEN_PLUS_PLUS:
 			case TOKEN_MINUS_MINUS:

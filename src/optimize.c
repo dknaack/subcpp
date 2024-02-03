@@ -81,8 +81,8 @@ promote_stack_variables(ir_program program, arena *arena)
 		for (u32 j = first_instr; j < last_instr; j++) {
 			ir_instr *instr = &instrs[j];
 			if (instr->opcode == IR_ALLOC) {
-				instr->op1 = stack_size;
 				stack_size += instr->op0;
+				instr->op1 = stack_size;
 			}
 		}
 

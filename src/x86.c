@@ -196,8 +196,7 @@ static void
 x86_select_instr(machine_program *out, ir_instr *instr,
 	u32 instr_index, machine_operand dst)
 {
-	dst.size = MIN(dst.size, instr[instr_index].size);
-
+	u32 size = instr[instr_index].size;
 	u32 op0 = instr[instr_index].op0;
 	u32 op1 = instr[instr_index].op1;
 	ir_opcode opcode = instr[instr_index].opcode;
@@ -232,6 +231,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			if (instr[op0].opcode == IR_ALLOC) {
 				u32 addr = instr[op0].op1;
 				src = make_spill(addr);
+				src.size = size;
 				x86_select2(out, X86_MOV, dst, src);
 			} else if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
@@ -240,9 +240,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
 				src = make_spill(base + offset);
+				src.size = size;
 				x86_select2(out, X86_MOV, dst, src);
 			} else {
 				x86_select_instr(out, instr, op0, src);
+				src.size = dst.size = size;
 				x86_select2(out, X86_LOAD, dst, src);
 			}
 		} break;
@@ -262,10 +264,14 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
-				x86_select2(out, X86_MOV, make_spill(base + offset), src);
+				machine_operand addr = make_spill(base + offset);
+				addr.size = size;
+				x86_select2(out, X86_MOV, addr, src);
 			} else if (instr[op0].opcode == IR_ALLOC) {
 				u32 offset = instr[op0].op1;
-				x86_select2(out, X86_MOV, make_spill(offset), src);
+				machine_operand addr = make_spill(offset);
+				addr.size = size;
+				x86_select2(out, X86_MOV, addr, src);
 			} else {
 				x86_select_instr(out, instr, op0, dst);
 				x86_select2(out, X86_STORE, dst, src);
@@ -547,8 +553,7 @@ x86_emit_operand(stream *out, machine_operand operand,
 	machine_function *functions)
 {
 	x86_register reg;
-	// TODO: fix operand size in machine code
-	operand.size = 0;
+
 	switch (operand.kind) {
 	case MOP_SPILL:
 		switch (operand.size) {
@@ -603,7 +608,25 @@ x86_emit_operand_indirect(stream *out, machine_operand operand,
 {
 	switch (operand.kind) {
 	case MOP_MREG:
-		stream_print(out, "qword[");
+		switch (operand.size) {
+		case 1:
+			stream_print(out, "byte");
+			break;
+		case 2:
+			stream_print(out, "word");
+			break;
+		case 4:
+			stream_print(out, "dword");
+			break;
+		case 8:
+			stream_print(out, "qword");
+			break;
+		default:
+			ASSERT(!"Invalid size");
+		}
+
+		stream_print(out, "[");
+		operand.size = 8;
 		x86_emit_operand(out, operand, functions);
 		stream_print(out, "]");
 		break;
@@ -731,7 +754,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					x86_emit_operand(out, operands[1], program.functions);
 					stream_print(out, "]\n");
 				} else if (opcode == X86_STORE && operand_count == 3) {
-					stream_print(out, "\tmov qword[");
+					stream_print(out, "\tmov [");
 					x86_emit_operand(out, operands[0], program.functions);
 					stream_print(out, " + ");
 					x86_emit_operand(out, operands[1], program.functions);
@@ -739,9 +762,9 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					x86_emit_operand(out, operands[1], program.functions);
 					stream_print(out, "\n");
 				} else if (opcode == X86_STORE) {
-					stream_print(out, "\tmov qword[");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, "], ");
+					stream_print(out, "\tmov ");
+					x86_emit_operand_indirect(out, operands[0], program.functions);
+					stream_print(out, ", ");
 					x86_emit_operand(out, operands[1], program.functions);
 					stream_print(out, "\n");
 				} else if (opcode == X86_LOAD) {
