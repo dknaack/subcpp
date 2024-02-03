@@ -92,6 +92,7 @@ get_raw_token(tokenizer *tokenizer)
 		{
 			if (tokenizer->at[1] == '+') {
 				token.kind = TOKEN_PLUS_PLUS;
+				advance(tokenizer);
 			} else {
 				token.kind = TOKEN_PLUS;
 			}
@@ -100,6 +101,7 @@ get_raw_token(tokenizer *tokenizer)
 		{
 			if (tokenizer->at[1] == '-') {
 				token.kind = TOKEN_MINUS_MINUS;
+				advance(tokenizer);
 			} else {
 				token.kind = TOKEN_MINUS;
 			}
