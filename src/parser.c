@@ -124,6 +124,17 @@ get_precedence(token_kind token)
 }
 
 static b32
+is_right_associative(token_kind token)
+{
+	switch (token) {
+	case TOKEN_EQUAL:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static b32
 is_postfix_operator(token_kind token)
 {
 	switch (token) {
@@ -165,7 +176,7 @@ parse_ident(tokenizer *tokenizer)
 static ast_node *parse_assign_expr(tokenizer *tokenizer, arena *arena);
 
 static ast_node *
-parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
+parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 {
 	ast_node *expr;
 
@@ -218,7 +229,8 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 			break;
 		}
 
-		if (token.kind == TOKEN_LPAREN) {
+		token_kind operator = token.kind;
+		if (operator == TOKEN_LPAREN) {
 			get_token(tokenizer);
 			ast_node *params = AST_NIL;
 			ast_node **ptr = &params;
@@ -237,34 +249,26 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 			expr->children = called;
 			called->next = params;
 		} else {
-			int precedence = get_precedence(token.kind);
-			if (precedence == 0) {
+			precedence prec = get_precedence(operator);
+			if (prec == PREC_NONE) {
 				return expr;
 			}
 
-			b32 is_right_associative = (precedence < 0);
-			if (is_right_associative) {
-				precedence = -precedence;
-			}
-
-			if (precedence <= prev_precedence) {
+			if (prec < prev_prec) {
 				break;
-			}
-
-			/* NOTE: Ensure that right associative expressions are
-			 * parsed correctly. */
-			precedence -= is_right_associative;
-
-			if (token.kind == TOKEN_LBRACKET) {
-				precedence = 0;
 			}
 
 			get_token(tokenizer);
 			ast_node *lhs = expr;
 			if (!is_postfix_operator(token.kind)) {
-				ast_node *rhs = parse_expr(tokenizer, precedence, arena);
+				if (token.kind == TOKEN_LBRACKET) {
+					prec = PREC_NONE;
+				}
+
+				prec -= is_right_associative(operator);
+				ast_node *rhs = parse_expr(tokenizer, prec, arena);
+				ASSERT(rhs != AST_NIL);
 				lhs->next = rhs;
-				ASSERT(rhs);
 			}
 
 			expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
@@ -283,7 +287,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 static ast_node *
 parse_assign_expr(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *expr = parse_expr(tokenizer, PREC_EQUAL, arena);
+	ast_node *expr = parse_expr(tokenizer, PREC_ASSIGN, arena);
 	return expr;
 }
 
