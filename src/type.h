@@ -70,6 +70,8 @@ type_create(type_kind kind, arena *arena)
 static usize
 type_sizeof(type *type)
 {
+	ASSERT(type != NULL);
+
 	switch (type->kind) {
 	case TYPE_CHAR:
 		return 1;
@@ -105,6 +107,7 @@ type_offsetof(type *type, str member)
 {
 	usize offset = 0;
 
+	ASSERT(type != NULL);
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
 		for (symbol *s = type->members; s; s = s->next) {

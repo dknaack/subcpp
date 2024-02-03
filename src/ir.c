@@ -264,6 +264,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_IDENT:
 		{
+			ASSERT(node->type != NULL);
 			u32 size = type_sizeof(node->type);
 			u32 addr = get_register(ctx, node->value.s);
 			result = emit1_sized(ctx, IR_LOAD, size, addr);
