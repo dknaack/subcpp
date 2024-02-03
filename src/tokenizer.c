@@ -73,9 +73,6 @@ get_raw_token(tokenizer *tokenizer)
 	char c = advance(tokenizer);
 	switch (c) {
 	case '.':  token.kind = TOKEN_DOT;       break;
-	case '*':  token.kind = TOKEN_STAR;      break;
-	case '/':  token.kind = TOKEN_SLASH;     break;
-	case '%':  token.kind = TOKEN_PERCENT;   break;
 	case '(':  token.kind = TOKEN_LPAREN;    break;
 	case ')':  token.kind = TOKEN_RPAREN;    break;
 	case '[':  token.kind = TOKEN_LBRACKET;  break;
@@ -110,6 +107,33 @@ get_raw_token(tokenizer *tokenizer)
 				advance(tokenizer);
 			} else {
 				token.kind = TOKEN_MINUS;
+			}
+		} break;
+	case '*':
+		{
+			if (tokenizer->at[1] == '=') {
+				token.kind = TOKEN_STAR_EQUAL;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_STAR;
+			}
+		} break;
+	case '/':
+		{
+			if (tokenizer->at[1] == '=') {
+				token.kind = TOKEN_SLASH_EQUAL;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_SLASH;
+			}
+		} break;
+	case '%':
+		{
+			if (tokenizer->at[1] == '=') {
+				token.kind = TOKEN_PERCENT_EQUAL;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_PERCENT;
 			}
 		} break;
 	case '=':

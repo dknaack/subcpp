@@ -200,20 +200,23 @@ translate_node(ir_context *ctx, ast_node *node)
 			u32 operator = node->value.i;
 			ir_opcode opcode = IR_NOP;
 			switch (operator) {
-			case TOKEN_PLUS:        opcode = IR_ADD;   break;
-			case TOKEN_MINUS:       opcode = IR_SUB;   break;
-			case TOKEN_STAR:        opcode = IR_MUL;   break;
-			case TOKEN_SLASH:       opcode = IR_DIV;   break;
-			case TOKEN_PERCENT:     opcode = IR_MOD;   break;
-			case TOKEN_PLUS_EQUAL:  opcode = IR_STORE; break;
-			case TOKEN_MINUS_EQUAL: opcode = IR_STORE; break;
-			case TOKEN_EQUAL:       opcode = IR_STORE; break;
-			case TOKEN_EQUAL_EQUAL: opcode = IR_EQL;   break;
-			case TOKEN_LT:          opcode = IR_LT;    break;
-			case TOKEN_GT:          opcode = IR_GT;    break;
-			case TOKEN_LEQ:         opcode = IR_LEQ;   break;
-			case TOKEN_GEQ:         opcode = IR_GEQ;   break;
-			case TOKEN_LBRACKET:    opcode = IR_ADD;   break;
+			case TOKEN_PLUS:          opcode = IR_ADD;   break;
+			case TOKEN_MINUS:         opcode = IR_SUB;   break;
+			case TOKEN_STAR:          opcode = IR_MUL;   break;
+			case TOKEN_SLASH:         opcode = IR_DIV;   break;
+			case TOKEN_PERCENT:       opcode = IR_MOD;   break;
+			case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
+			case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
+			case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
+			case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
+			case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
+			case TOKEN_EQUAL:         opcode = IR_STORE; break;
+			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
+			case TOKEN_LT:            opcode = IR_LT;    break;
+			case TOKEN_GT:            opcode = IR_GT;    break;
+			case TOKEN_LEQ:           opcode = IR_LEQ;   break;
+			case TOKEN_GEQ:           opcode = IR_GEQ;   break;
+			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
 			default:
 				ASSERT(!"Invalid operator");
 				break;
@@ -232,8 +235,11 @@ translate_node(ir_context *ctx, ast_node *node)
 			u32 size = type_sizeof(node->type);
 			if (opcode == IR_STORE) {
 				switch (operator) {
-				case TOKEN_PLUS_EQUAL:  opcode = IR_ADD; break;
-				case TOKEN_MINUS_EQUAL: opcode = IR_SUB; break;
+				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
+				case TOKEN_MINUS_EQUAL:   opcode = IR_SUB; break;
+				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
+				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
+				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
 				}
 
 				if (opcode != IR_STORE) {
