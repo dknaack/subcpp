@@ -275,7 +275,8 @@ translate_node(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			switch (node->value.i) {
+			u32 operator = node->value.op;
+			switch (operator) {
 			case TOKEN_AMPERSAND:
 				{
 					result = translate_lvalue(ctx, node->children);
@@ -285,8 +286,44 @@ translate_node(ir_context *ctx, ast_node *node)
 					result = translate_node(ctx, node->children);
 					result = emit1(ctx, IR_LOAD, result);
 				} break;
+			case TOKEN_PLUS_PLUS:
+			case TOKEN_MINUS_MINUS:
+				{
+					ir_opcode add_or_sub = IR_ADD;
+					if (operator == TOKEN_MINUS_MINUS) {
+						add_or_sub = IR_SUB;
+					}
+
+					u32 var = translate_lvalue(ctx, node->children);
+					u32 value = emit1(ctx, IR_LOAD, var);
+					u32 one = emit1(ctx, IR_CONST, 1);
+					result = emit2(ctx, add_or_sub, value, one);
+					emit2(ctx, IR_STORE, var, result);
+				} break;
 			default:
 				ASSERT(!"Invalid operator");
+			}
+		} break;
+	case AST_EXPR_POSTFIX:
+		{
+			u32 operator = node->value.op;
+			switch (operator) {
+			case TOKEN_PLUS_PLUS:
+			case TOKEN_MINUS_MINUS:
+				{
+					ir_opcode add_or_sub = IR_ADD;
+					if (operator == TOKEN_MINUS_MINUS) {
+						add_or_sub = IR_SUB;
+					}
+
+					u32 var = translate_lvalue(ctx, node->children);
+					result = emit1(ctx, IR_LOAD, var);
+					u32 one = emit1(ctx, IR_CONST, 1);
+					u32 value = emit2(ctx, add_or_sub, result, one);
+					emit2(ctx, IR_STORE, var, value);
+				} break;
+			default:
+				ASSERT(!"Invalid postfix operator");
 			}
 		} break;
 	case AST_STMT_BREAK:
