@@ -353,6 +353,8 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 				*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 				if (*ptr != AST_NIL) {
 					ptr = &(*ptr)->next;
+				} else {
+					tokenizer->error = true;
 				}
 			}
 		}
@@ -395,9 +397,13 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			ast_node **ptr = & type_specifier->children;
 			// TODO: set correct flags for parsing struct members, i.e.
 			// declarations are allowed to have bitfields.
-			while (!accept(tokenizer, TOKEN_RBRACE)) {
+			while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
 				*ptr = parse_decl(tokenizer, 0, arena);
-				ptr = &(*ptr)->next;
+				if (*ptr != AST_NIL) {
+					ptr = &(*ptr)->next;
+				} else {
+					tokenizer->error = true;
+				}
 
 				expect(tokenizer, TOKEN_SEMICOLON);
 			}
