@@ -74,8 +74,6 @@ new_ast_node(ast_node_kind kind, location loc, arena *arena)
 	return node;
 }
 
-#define MAX_PRECEDENCE 65
-
 typedef enum {
 	PREC_NONE,
 	PREC_COMMA,
@@ -198,15 +196,14 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->value.i = token.kind;
-		expr->children = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
+		expr->children = parse_expr(tokenizer, PREC_PRIMARY, arena);
 		break;
 	case TOKEN_PLUS_PLUS:
 	case TOKEN_MINUS_MINUS:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->value.i = token.kind;
-		// TODO: Fix precedence of sub-expression
-		expr->children = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
+		expr->children = parse_expr(tokenizer, PREC_PRIMARY, arena);
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
@@ -286,8 +283,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 static ast_node *
 parse_assign_expr(tokenizer *tokenizer, arena *arena)
 {
-	int precedence = get_precedence(TOKEN_EQUAL);
-	ast_node *expr = parse_expr(tokenizer, -precedence - 5, arena);
+	ast_node *expr = parse_expr(tokenizer, PREC_EQUAL, arena);
 	return expr;
 }
 
