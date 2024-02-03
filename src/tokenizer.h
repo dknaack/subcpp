@@ -23,9 +23,11 @@ typedef enum {
 	TOKEN_LT,
 	TOKEN_MINUS,
 	TOKEN_MINUS_MINUS,
+	TOKEN_MINUS_EQUAL,
 	TOKEN_PERCENT,
 	TOKEN_PLUS,
 	TOKEN_PLUS_PLUS,
+	TOKEN_PLUS_EQUAL,
 	TOKEN_RBRACE,
 	TOKEN_RBRACKET,
 	TOKEN_RPAREN,
@@ -97,8 +99,10 @@ get_token_name(token_kind kind)
 	case TOKEN_DOT:         return "'.'";
 	case TOKEN_PLUS:        return "'+'";
 	case TOKEN_PLUS_PLUS:   return "'++'";
+	case TOKEN_PLUS_EQUAL:  return "'+='";
 	case TOKEN_MINUS:       return "'-'";
 	case TOKEN_MINUS_MINUS: return "'--'";
+	case TOKEN_MINUS_EQUAL: return "'-='";
 	case TOKEN_STAR:        return "'*'";
 	case TOKEN_SLASH:       return "'/'";
 	case TOKEN_PERCENT:     return "'%'";
