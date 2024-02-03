@@ -700,6 +700,12 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				}
 
 				if (opcode == X86_RET) {
+					if (stack_size > 0) {
+						stream_print(out, "\tadd rsp, ");
+						stream_printu(out, stack_size);
+						stream_print(out, "\n");
+					}
+
 					u32 j = LENGTH(x86_preserved_regs);
 					while (j-- > 0) {
 						u32 mreg = x86_preserved_regs[j];
@@ -708,12 +714,6 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 							x86_emit_operand(out, make_mreg(mreg), program.functions);
 							stream_print(out, "\n");
 						}
-					}
-
-					if (stack_size > 0) {
-						stream_print(out, "\tadd rsp, ");
-						stream_printu(out, stack_size);
-						stream_print(out, "\n");
 					}
 				} else if (opcode == X86_MOV) {
 					if  (machine_operand_equals(operands[0], operands[1])) {
