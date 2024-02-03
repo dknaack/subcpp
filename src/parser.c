@@ -7,6 +7,8 @@ verrorf(location loc, char *fmt, va_list ap)
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
 	fflush(stderr);
+
+	ASSERT(false);
 }
 
 static void
@@ -285,7 +287,9 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 		result->children = declarator;
 
 		// TODO: correctly parse functions without any arguments
-		if (tokenizer->lookahead[0].kind == TOKEN_VOID
+		if (tokenizer->lookahead[0].kind == TOKEN_RPAREN) {
+			get_token(tokenizer);
+		} else if (tokenizer->lookahead[0].kind == TOKEN_VOID
 			&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
 		{
 			get_token(tokenizer);
