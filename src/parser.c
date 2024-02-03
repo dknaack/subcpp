@@ -433,16 +433,23 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 				}
 
 				expect(tokenizer, TOKEN_SEMICOLON);
+			} else {
+				init = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 			}
 
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 				cond = parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_SEMICOLON);
+			} else {
+				cond = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
+				cond->value.i = 1;
 			}
 
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				post = parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RPAREN);
+			} else {
+				post = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 			}
 
 			body = parse_stmt(tokenizer, arena);
