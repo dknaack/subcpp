@@ -315,6 +315,7 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_BREAK,    S("break")    },
 		{ TOKEN_CHAR,     S("char")     },
 		{ TOKEN_CONTINUE, S("continue") },
+		{ TOKEN_DO,       S("do")       },
 		{ TOKEN_ELSE,     S("else")     },
 		{ TOKEN_FOR,      S("for")      },
 		{ TOKEN_IF,       S("if")       },

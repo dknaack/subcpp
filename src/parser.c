@@ -476,6 +476,18 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node = new_ast_node(AST_STMT_CONTINUE, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
+	case TOKEN_DO:
+		{
+			get_token(tokenizer);
+			ast_node *body = parse_stmt(tokenizer, arena);
+			expect(tokenizer, TOKEN_WHILE);
+			ast_node *cond = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_SEMICOLON);
+
+			node = new_ast_node(AST_STMT_DO_WHILE, tokenizer->loc, arena);
+			node->children = cond;
+			cond->next = body;
+		} break;
 	case TOKEN_FOR:
 		{
 			ast_node *init, *post, *cond, *body;

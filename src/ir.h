@@ -17,6 +17,7 @@ typedef enum {
 	IR_GEQ,
 	IR_JMP,
 	IR_JIZ,
+	IR_JNZ,
 	IR_RET,
 	IR_CALL,
 	IR_PARAM,
@@ -117,6 +118,7 @@ get_opcode_name(ir_opcode opcode)
 	case IR_GEQ:   return "geq";
 	case IR_JMP:   return "jmp";
 	case IR_JIZ:   return "jiz";
+	case IR_JNZ:   return "jnz";
 	case IR_RET:   return "ret";
 	case IR_CALL:  return "call";
 	case IR_PARAM: return "param";

@@ -28,6 +28,7 @@ typedef enum {
 	X86_INC,
 	X86_JMP,
 	X86_JZ,
+	X86_JNZ,
 	X86_JL,
 	X86_JG,
 	X86_JLE,
@@ -84,6 +85,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_INC:   return "inc";
 	case X86_JMP:   return "jmp";
 	case X86_JZ:    return "jz";
+	case X86_JNZ:   return "jnz";
 	case X86_JL:    return "jl";
 	case X86_JG:    return "jg";
 	case X86_JLE:   return "jle";

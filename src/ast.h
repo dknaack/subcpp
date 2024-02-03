@@ -25,6 +25,7 @@ typedef enum {
 	AST_STMT_BREAK,
 	AST_STMT_COMPOUND, // {...statements}
 	AST_STMT_CONTINUE,
+	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,
 	AST_STMT_FOR,      // {init, cond, post, body}
 	AST_STMT_IF,       // {cond, if_branch, else_branch?}

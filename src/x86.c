@@ -348,8 +348,9 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
+	case IR_JNZ:
 		{
-			x86_opcode x86_opcode = X86_JZ;
+			x86_opcode x86_opcode = opcode == IR_JIZ ? X86_JZ : X86_JNZ;
 			if (x86_is_comparison_opcode(instr[op0].opcode)) {
 				dst = make_vreg(instr[op0].op0);
 				x86_select_instr(out, instr, instr[op0].op0, dst);

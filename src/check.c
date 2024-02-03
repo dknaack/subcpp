@@ -341,6 +341,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_STMT_FOR:
 	case AST_STMT_IF:
+	case AST_STMT_DO_WHILE:
 	case AST_STMT_WHILE:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {

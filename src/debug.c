@@ -127,6 +127,7 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GT:    printf("\t%%%d = %%%d > %%%d\n",  dst, op0, op1); break;
 	case IR_JMP:   printf("\tgoto L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz %%%d, L%d\n", op0, op1); break;
+	case IR_JNZ:   printf("\tjnz %%%d, L%d\n", op0, op1); break;
 	case IR_RET:   printf("\tret %%%d\n", op0); break;
 	case IR_CALL:  printf("\t%%%d = call L%d, %d\n", dst, op0, op1); break;
 	case IR_PRINT: printf("\tprint %%%d\n", op0); break;

@@ -373,6 +373,21 @@ translate_node(ir_context *ctx, ast_node *node)
 		{
 			emit1(ctx, IR_JMP, ctx->continue_label);
 		} break;
+	case AST_STMT_DO_WHILE:
+		{
+			ctx->break_label = new_label(ctx);
+			ctx->continue_label = new_label(ctx);
+			ast_node *cond = node->children;
+			ast_node *body = cond->next;
+
+			emit1(ctx, IR_LABEL, ctx->continue_label);
+			translate_node(ctx, body);
+
+			u32 cond_reg = translate_node(ctx, cond);
+			u32 cond_size = type_sizeof(cond->type);
+			emit2_size(ctx, IR_JNZ, cond_size, cond_reg, ctx->continue_label);
+			emit1(ctx, IR_LABEL, ctx->break_label);
+		} break;
 	case AST_DECL:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
@@ -538,6 +553,7 @@ is_block_start(ir_instr *instrs, u32 i)
 		u32 prev = i - 1;
 		result = (instrs[prev].opcode == IR_JMP
 		    || instrs[prev].opcode == IR_JIZ
+		    || instrs[prev].opcode == IR_JNZ
 		    || instrs[prev].opcode == IR_RET);
 	}
 
@@ -584,7 +600,7 @@ construct_cfg(ir_program *program, arena *arena)
 			u32 block = block_indices[instr->op0];
 			instr->op0 = block;
 			ASSERT(block > 0);
-		} else if (opcode == IR_JIZ) {
+		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
 			u32 block = block_indices[instr->op1];
 			instr->op1 = block;
 			ASSERT(block > 0);
@@ -636,6 +652,7 @@ construct_cfg(ir_program *program, arena *arena)
 			blocks[i].next[1] = instrs[block_end].op0;
 			break;
 		case IR_JIZ:
+		case IR_JNZ:
 			blocks[i].next[0] = i + 1;
 			blocks[i].next[1] = instrs[block_end].op1;
 			break;
@@ -685,6 +702,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_JIZ:
+	case IR_JNZ:
 		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_LABEL;
 		break;

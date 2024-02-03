@@ -45,6 +45,7 @@ typedef enum {
 	TOKEN_BREAK,
 	TOKEN_CHAR,
 	TOKEN_CONTINUE,
+	TOKEN_DO,
 	TOKEN_ELSE,
 	TOKEN_FOR,
 	TOKEN_IF,
@@ -133,6 +134,7 @@ get_token_name(token_kind kind)
 	case TOKEN_LITERAL_INT:   return "integer";
 	case TOKEN_BREAK:         return "'break'";
 	case TOKEN_CONTINUE:      return "'continue'";
+	case TOKEN_DO:            return "'do'";
 	case TOKEN_CHAR:          return "'char'";
 	case TOKEN_ELSE:          return "'else'";
 	case TOKEN_FOR:           return "'for'";
