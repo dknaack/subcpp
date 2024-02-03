@@ -100,6 +100,8 @@ get_precedence(token_kind token)
 	case TOKEN_COMMA:
 		return PREC_COMMA;
 	case TOKEN_EQUAL:
+	case TOKEN_PLUS_EQUAL:
+	case TOKEN_MINUS_EQUAL:
 		return PREC_ASSIGN;
 	case TOKEN_PLUS:
 	case TOKEN_MINUS:
