@@ -78,7 +78,7 @@ new_ast_node(ast_node_kind kind, location loc, arena *arena)
 
 /* NOTE: An operator with negative precedence is right associative. */
 static int
-get_binary_precedence(token_kind token)
+get_precedence(token_kind token)
 {
 	switch (token) {
 	case TOKEN_COMMA:
@@ -104,6 +104,18 @@ get_binary_precedence(token_kind token)
 		return 60;
 	default:
 		return 0;
+	}
+}
+
+static b32
+is_postfix_operator(token_kind token)
+{
+	switch (token) {
+	case TOKEN_PLUS_PLUS:
+	case TOKEN_MINUS_MINUS:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -170,6 +182,14 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 		expr->value.i = token.kind;
 		expr->children = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
 		break;
+	case TOKEN_PLUS_PLUS:
+	case TOKEN_MINUS_MINUS:
+		get_token(tokenizer);
+		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
+		expr->value.i = token.kind;
+		// TODO: Fix precedence of sub-expression
+		expr->children = parse_expr(tokenizer, MAX_PRECEDENCE, arena);
+		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
 		return AST_NIL;
@@ -202,7 +222,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 			expr->children = called;
 			called->next = params;
 		} else {
-			int precedence = get_binary_precedence(token.kind);
+			int precedence = get_precedence(token.kind);
 			if (precedence == 0) {
 				return expr;
 			}
@@ -226,13 +246,15 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 
 			get_token(tokenizer);
 			ast_node *lhs = expr;
-			ast_node *rhs = parse_expr(tokenizer, precedence, arena);
-			ASSERT(rhs);
+			if (!is_postfix_operator(token.kind)) {
+				ast_node *rhs = parse_expr(tokenizer, precedence, arena);
+				lhs->next = rhs;
+				ASSERT(rhs);
+			}
 
 			expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
 			expr->value.i = token.kind;
 			expr->children = lhs;
-			lhs->next = rhs;
 
 			if (token.kind == TOKEN_LBRACKET) {
 				expect(tokenizer, TOKEN_RBRACKET);
@@ -246,7 +268,7 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 static ast_node *
 parse_assign_expr(tokenizer *tokenizer, arena *arena)
 {
-	int precedence = get_binary_precedence(TOKEN_EQUAL);
+	int precedence = get_precedence(TOKEN_EQUAL);
 	ast_node *expr = parse_expr(tokenizer, -precedence - 5, arena);
 	return expr;
 }
