@@ -205,6 +205,8 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_STAR:        opcode = IR_MUL;   break;
 			case TOKEN_SLASH:       opcode = IR_DIV;   break;
 			case TOKEN_PERCENT:     opcode = IR_MOD;   break;
+			case TOKEN_PLUS_EQUAL:  opcode = IR_STORE; break;
+			case TOKEN_MINUS_EQUAL: opcode = IR_STORE; break;
 			case TOKEN_EQUAL:       opcode = IR_STORE; break;
 			case TOKEN_EQUAL_EQUAL: opcode = IR_EQL;   break;
 			case TOKEN_LT:          opcode = IR_LT;    break;
@@ -227,9 +229,21 @@ translate_node(ir_context *ctx, ast_node *node)
 
 			ast_node *rhs = lhs->next;
 			u32 rhs_reg = translate_node(ctx, rhs);
-
 			u32 size = type_sizeof(node->type);
-			if (operator == TOKEN_LBRACKET) {
+			if (opcode == IR_STORE) {
+				switch (operator) {
+				case TOKEN_PLUS_EQUAL:  opcode = IR_ADD; break;
+				case TOKEN_MINUS_EQUAL: opcode = IR_SUB; break;
+				}
+
+				if (opcode != IR_STORE) {
+					u32 value = emit1_sized(ctx, IR_LOAD, size, lhs_reg);
+					result = emit2_sized(ctx, opcode, size, value, rhs_reg);
+					emit2(ctx, IR_STORE, lhs_reg, result);
+				} else {
+					emit2(ctx, IR_STORE, lhs_reg, rhs_reg);
+				}
+			} else if (operator == TOKEN_LBRACKET) {
 				result = emit2_sized(ctx, IR_ADD, 8, lhs_reg, rhs_reg);
 				result = emit1_sized(ctx, IR_LOAD, size, result);
 			} else {
