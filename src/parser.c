@@ -6,8 +6,7 @@ verrorf(location loc, char *fmt, va_list ap)
 	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line-1, loc.column);
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
-
-	ASSERT(false);
+	fflush(stderr);
 }
 
 static void
@@ -189,8 +188,10 @@ parse_expr(tokenizer *tokenizer, int prev_precedence, arena *arena)
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				do {
 					*ptr = parse_assign_expr(tokenizer, arena);
-					ptr = &(*ptr)->next;
-				} while (accept(tokenizer, TOKEN_COMMA));
+					if (*ptr != AST_NIL) {
+						ptr = &(*ptr)->next;
+					}
+				} while (*ptr != AST_NIL && accept(tokenizer, TOKEN_COMMA));
 				expect(tokenizer, TOKEN_RPAREN);
 			}
 
@@ -291,9 +292,11 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 			get_token(tokenizer);
 		} else {
 			ast_node **ptr = &declarator->next;
-			while (!accept(tokenizer, TOKEN_RPAREN)) {
+			while (*ptr != AST_NIL && !accept(tokenizer, TOKEN_RPAREN)) {
 				*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
-				ptr = &(*ptr)->next;
+				if (*ptr != AST_NIL) {
+					ptr = &(*ptr)->next;
+				}
 			}
 		}
 	}
@@ -504,6 +507,7 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		break;
 	}
 
+#if 0
 	if (tokenizer->error) {
 		tokenizer->error = false;
 		while (!accept(tokenizer, TOKEN_SEMICOLON)
@@ -511,6 +515,7 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 			get_token(tokenizer);
 		}
 	}
+#endif
 
 	return node;
 }
@@ -564,9 +569,15 @@ parse(tokenizer *tokenizer, arena *arena)
 {
 	ast_node *root = new_ast_node(AST_ROOT, tokenizer->loc, arena);
 	ast_node **ptr = &root->children;
-	while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF)) {
+	do {
 		*ptr = parse_external_decl(tokenizer, arena);
-		ptr = &(*ptr)->next;
+		if (*ptr != AST_NIL) {
+			ptr = &(*ptr)->next;
+		}
+	} while (!tokenizer->error && *ptr != AST_NIL && !accept(tokenizer, TOKEN_EOF));
+
+	if (tokenizer->error) {
+		root->kind = AST_INVALID;
 	}
 
 	return root;
