@@ -74,7 +74,34 @@ run_linker(char *input, char *output)
 int
 main(int argc, char *argv[])
 {
-	if (argc < 2) {
+	char *output = "a.out";
+	char *input = NULL;
+
+	for (int i = 1; i < argc; i++) {
+		if (argv[i][0] == '-') {
+			switch (argv[i][1]) {
+			case 'o':
+				if (argv[i][2]) {
+					output = argv[i] + 2;
+				} else if (i + 1 < argc) {
+					output = argv[i + 1];
+					i++;
+				} else {
+					fprintf(stderr, "Expected argument\n");
+					return 1;
+				}
+
+				break;
+			}
+		} else if (!input) {
+			input = argv[i];
+		} else {
+			fprintf(stderr, "Invalid argument\n");
+			return 1;
+		}
+	}
+
+	if (!input) {
 		fprintf(stderr, "Usage: %s FILE\n", argv[0]);
 		return 1;
 	}
@@ -99,7 +126,7 @@ main(int argc, char *argv[])
 	stream_close(&out);
 
 	run_assembler("/tmp/out.s", "/tmp/out.o");
-	run_linker("/tmp/out.o", "./a.out");
+	run_linker("/tmp/out.o", output);
 
 	free(arena);
 	return 0;
