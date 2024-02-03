@@ -19,7 +19,7 @@ new_label(ir_context *ctx)
 }
 
 static u32
-emit2_sized(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0, u32 op1)
+emit2_size(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0, u32 op1)
 {
 	ASSERT(ctx->program.instr_count <= ctx->max_instr_count);
 	ir_instr *instr = &ctx->program.instrs[ctx->program.instr_count++];
@@ -34,14 +34,14 @@ emit2_sized(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0, u32 op1)
 static u32
 emit2(ir_context *ctx, ir_opcode opcode, u32 op0, u32 op1)
 {
-	u32 result = emit2_sized(ctx, opcode, 0, op0, op1);
+	u32 result = emit2_size(ctx, opcode, 0, op0, op1);
 	return result;
 }
 
 static u32
-emit1_sized(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0)
+emit1_size(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0)
 {
-	u32 result = emit2_sized(ctx, opcode, size, op0, 0);
+	u32 result = emit2_size(ctx, opcode, size, op0, 0);
 	return result;
 }
 
@@ -155,12 +155,12 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			if (operator != TOKEN_DOT) {
 				u32 lhs_reg = translate_lvalue(ctx, lhs);
 				u32 rhs_reg = translate_lvalue(ctx, rhs);
-				result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+				result = emit2_size(ctx, opcode, size, lhs_reg, rhs_reg);
 			} else {
 				u32 offset = type_offsetof(lhs->type, rhs->value.s);
 				u32 offset_reg = emit1(ctx, IR_CONST, offset);
 				u32 base_reg = translate_lvalue(ctx, lhs);
-				result = emit2_sized(ctx, IR_ADD, size, base_reg, offset_reg);
+				result = emit2_size(ctx, IR_ADD, size, base_reg, offset_reg);
 			}
 		} break;
 	case AST_EXPR_UNARY:
@@ -176,7 +176,7 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
+			result = emit1_size(ctx, IR_CONST, 4, node->value.i);
 		} break;
 	default:
 		ASSERT(!"Not an lvalue");
@@ -238,7 +238,7 @@ translate_node(ir_context *ctx, ast_node *node)
 				u32 offset_reg = emit1(ctx, IR_CONST, offset);
 				u32 base_reg = translate_lvalue(ctx, lhs);
 				u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
-				result = emit2_sized(ctx, IR_LOAD, size, addr, addr);
+				result = emit2_size(ctx, IR_LOAD, size, addr, addr);
 			} else if (opcode == IR_STORE) {
 				switch (operator) {
 				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
@@ -250,19 +250,19 @@ translate_node(ir_context *ctx, ast_node *node)
 
 				u32 rhs_reg = translate_node(ctx, rhs);
 				if (opcode != IR_STORE) {
-					u32 value = emit1_sized(ctx, IR_LOAD, size, lhs_reg);
-					result = emit2_sized(ctx, opcode, size, value, rhs_reg);
+					u32 value = emit1_size(ctx, IR_LOAD, size, lhs_reg);
+					result = emit2_size(ctx, opcode, size, value, rhs_reg);
 					emit2(ctx, IR_STORE, lhs_reg, result);
 				} else {
 					emit2(ctx, IR_STORE, lhs_reg, rhs_reg);
 				}
 			} else if (operator == TOKEN_LBRACKET) {
 				u32 rhs_reg = translate_node(ctx, rhs);
-				result = emit2_sized(ctx, IR_ADD, 8, lhs_reg, rhs_reg);
-				result = emit1_sized(ctx, IR_LOAD, size, result);
+				result = emit2_size(ctx, IR_ADD, 8, lhs_reg, rhs_reg);
+				result = emit1_size(ctx, IR_LOAD, size, result);
 			} else {
 				u32 rhs_reg = translate_node(ctx, rhs);
-				result = emit2_sized(ctx, opcode, size, lhs_reg, rhs_reg);
+				result = emit2_size(ctx, opcode, size, lhs_reg, rhs_reg);
 			}
 		} break;
 	case AST_EXPR_CALL:
@@ -282,13 +282,13 @@ translate_node(ir_context *ctx, ast_node *node)
 				param = called->next;
 				for (i32 i = 0; i < param_count; i++) {
 					u32 param_size = type_sizeof(param->type);
-					emit1_sized(ctx, IR_PARAM, param_size, param_register[i]);
+					emit1_size(ctx, IR_PARAM, param_size, param_register[i]);
 					param = param->next;
 				}
 
 				type *return_type = called->type->children;
 				u32 result_size = type_sizeof(return_type);
-				result = emit2_sized(ctx, IR_CALL, result_size, label, param_count);
+				result = emit2_size(ctx, IR_CALL, result_size, label, param_count);
 			}
 		} break;
 	case AST_EXPR_IDENT:
@@ -296,11 +296,11 @@ translate_node(ir_context *ctx, ast_node *node)
 			ASSERT(node->type != NULL);
 			u32 size = type_sizeof(node->type);
 			u32 addr = get_register(ctx, node->value.s);
-			result = emit1_sized(ctx, IR_LOAD, size, addr);
+			result = emit1_size(ctx, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = emit1_sized(ctx, IR_CONST, 4, node->value.i);
+			result = emit1_size(ctx, IR_CONST, 4, node->value.i);
 		} break;
 	case AST_EXPR_UNARY:
 		{
