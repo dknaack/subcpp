@@ -138,14 +138,14 @@ x86_get_register_name(x86_register reg, u32 size)
 	switch (size) {
 	case 1:
 		switch (reg) {
-		case X86_R8:  return "r8";
-		case X86_R9:  return "r9";
-		case X86_R10: return "r10";
-		case X86_R11: return "r11";
-		case X86_R12: return "r12";
-		case X86_R13: return "r13";
-		case X86_R14: return "r14";
-		case X86_R15: return "r15";
+		case X86_R8:  return "r8b";
+		case X86_R9:  return "r9b";
+		case X86_R10: return "r10b";
+		case X86_R11: return "r11b";
+		case X86_R12: return "r12b";
+		case X86_R13: return "r13b";
+		case X86_R14: return "r14b";
+		case X86_R15: return "r15b";
 		case X86_RAX: return "al";
 		case X86_RBX: return "bl";
 		case X86_RCX: return "cl";
