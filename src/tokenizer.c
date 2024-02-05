@@ -81,10 +81,34 @@ get_raw_token(tokenizer *tokenizer)
 	case '}':  token.kind = TOKEN_RBRACE;    break;
 	case ',':  token.kind = TOKEN_COMMA;     break;
 	case ';':  token.kind = TOKEN_SEMICOLON; break;
-	case '&':  token.kind = TOKEN_AMP;       break;
+	case '^':  token.kind = TOKEN_CARET;     break;
 	case '\\': token.kind = TOKEN_BACKSLASH; break;
 	case '\n': token.kind = TOKEN_NEWLINE;   break;
 	case '\0': token.kind = TOKEN_EOF;       break;
+	case '&':
+		{
+			if (tokenizer->at[1] == '&') {
+				token.kind = TOKEN_AMP_AMP;
+				advance(tokenizer);
+			} else if (tokenizer->at[1] == '=') {
+				token.kind = TOKEN_AMP_EQUAL;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_AMP;
+			}
+		} break;
+	case '|':
+		{
+			if (tokenizer->at[1] == '|') {
+				token.kind = TOKEN_BAR_BAR;
+				advance(tokenizer);
+			} else if (tokenizer->at[1] == '=') {
+				token.kind = TOKEN_BAR_EQUAL;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_BAR;
+			}
+		} break;
 	case '+':
 		{
 			if (tokenizer->at[1] == '+') {

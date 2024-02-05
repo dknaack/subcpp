@@ -6,7 +6,14 @@ typedef enum {
 
 	// symbols
 	TOKEN_AMP,
+	TOKEN_AMP_AMP,
+	TOKEN_AMP_EQUAL,
 	TOKEN_BACKSLASH,
+	TOKEN_BAR,
+	TOKEN_BAR_BAR,
+	TOKEN_BAR_EQUAL,
+	TOKEN_CARET,
+	TOKEN_CARET_EQUAL,
 	TOKEN_COMMA,
 	TOKEN_DOT,
 	TOKEN_EQUAL,
@@ -101,7 +108,14 @@ get_token_name(token_kind kind)
 	case TOKEN_EOF:           return "eof";
 	case TOKEN_COMMA:         return "','";
 	case TOKEN_AMP:           return "'&'";
+	case TOKEN_AMP_AMP:       return "'&&'";
+	case TOKEN_AMP_EQUAL:     return "'&='";
 	case TOKEN_BACKSLASH:     return "'\\'";
+	case TOKEN_BAR:           return "'|'";
+	case TOKEN_BAR_BAR:       return "'||'";
+	case TOKEN_BAR_EQUAL:     return "'|='";
+	case TOKEN_CARET:         return "'^'";
+	case TOKEN_CARET_EQUAL:   return "'^='";
 	case TOKEN_DOT:           return "'.'";
 	case TOKEN_PLUS:          return "'+'";
 	case TOKEN_PLUS_PLUS:     return "'++'";

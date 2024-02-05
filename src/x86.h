@@ -20,6 +20,7 @@ typedef enum {
 
 typedef enum {
 	X86_ADD,
+	X86_AND,
 	X86_CALL,
 	X86_CMP,
 	X86_DEC,
@@ -35,6 +36,7 @@ typedef enum {
 	X86_JGE,
 	X86_LEA,
 	X86_MOV,
+	X86_OR,
 	X86_RET,
 	X86_SETZ,
 	X86_SETL,
@@ -79,6 +81,7 @@ x86_get_opcode_name(x86_opcode opcode)
 {
 	switch (opcode) {
 	case X86_ADD:   return "add";
+	case X86_AND:   return "and";
 	case X86_CALL:  return "call";
 	case X86_CMP:   return "cmp";
 	case X86_DEC:   return "dec";
@@ -94,6 +97,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_JGE:   return "jge";
 	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
+	case X86_OR:    return "or";
 	case X86_RET:   return "ret";
 	case X86_SETZ:  return "setz";
 	case X86_SETL:  return "setl";

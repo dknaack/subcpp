@@ -210,6 +210,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
 			case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
 			case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
+			case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
+			case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
+			case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
 			case TOKEN_EQUAL:         opcode = IR_STORE; break;
 			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
 			case TOKEN_LESS:          opcode = IR_LT;    break;
@@ -219,6 +222,9 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
 			case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
 			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
+			case TOKEN_AMP:           opcode = IR_AND;   break;
+			case TOKEN_BAR:           opcode = IR_OR;    break;
+			case TOKEN_CARET:         opcode = IR_XOR;   break;
 			case TOKEN_DOT:           opcode = IR_LOAD;  break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -248,6 +254,9 @@ translate_node(ir_context *ctx, ast_node *node)
 				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
 				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
 				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
+				case TOKEN_AMP_EQUAL:     opcode = IR_AND; break;
+				case TOKEN_BAR_EQUAL:     opcode = IR_OR;  break;
+				case TOKEN_CARET_EQUAL:   opcode = IR_XOR; break;
 				case TOKEN_EQUAL:         opcode = IR_NOP; break;
 				default:
 					ASSERT(!"Invalid operator");
@@ -692,6 +701,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_ADD:
+	case IR_AND:
 	case IR_SUB:
 	case IR_MUL:
 	case IR_DIV:
@@ -701,8 +711,10 @@ get_opcode_info(ir_opcode opcode)
 	case IR_GT:
 	case IR_LEQ:
 	case IR_GEQ:
+	case IR_OR:
 	case IR_SHL:
 	case IR_SHR:
+	case IR_XOR:
 		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;

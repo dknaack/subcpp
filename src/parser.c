@@ -105,7 +105,15 @@ get_precedence(token_kind token)
 	case TOKEN_STAR_EQUAL:
 	case TOKEN_SLASH_EQUAL:
 	case TOKEN_PERCENT_EQUAL:
+	case TOKEN_AMP_EQUAL:
+	case TOKEN_BAR_EQUAL:
 		return PREC_ASSIGN;
+	case TOKEN_BAR:
+		return PREC_BOR;
+	case TOKEN_CARET:
+		return PREC_XOR;
+	case TOKEN_AMP:
+		return PREC_BAND;
 	case TOKEN_LSHIFT:
 	case TOKEN_RSHIFT:
 		return PREC_SHIFT;

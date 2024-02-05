@@ -6,6 +6,7 @@ typedef enum {
 	IR_COPY,
 	IR_MOV,
 	IR_ADD,
+	IR_AND,
 	IR_SUB,
 	IR_MUL,
 	IR_DIV,
@@ -15,8 +16,10 @@ typedef enum {
 	IR_GT,
 	IR_LEQ,
 	IR_GEQ,
+	IR_OR,
 	IR_SHL,
 	IR_SHR,
+	IR_XOR,
 	IR_JMP,
 	IR_JIZ,
 	IR_JNZ,
@@ -109,6 +112,7 @@ get_opcode_name(ir_opcode opcode)
 	case IR_COPY:  return "copy";
 	case IR_MOV:   return "mov";
 	case IR_ADD:   return "add";
+	case IR_AND:   return "and";
 	case IR_SUB:   return "sub";
 	case IR_MUL:   return "mul";
 	case IR_DIV:   return "div";
@@ -118,6 +122,8 @@ get_opcode_name(ir_opcode opcode)
 	case IR_GT:    return "gt";
 	case IR_LEQ:   return "leq";
 	case IR_GEQ:   return "geq";
+	case IR_OR:    return "or";
+	case IR_XOR:   return "xor";
 	case IR_SHL:   return "shl";
 	case IR_SHR:   return "shr";
 	case IR_JMP:   return "jmp";

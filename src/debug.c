@@ -116,6 +116,7 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_LOAD:  printf("\t%%%d = load %%%d\n", dst, op0); break;
 	case IR_STORE: printf("\tstore %%%d, %%%d\n", op0, op1); break;
 	case IR_ADD:   printf("\t%%%d = %%%d + %%%d\n",  dst, op0, op1); break;
+	case IR_AND:   printf("\t%%%d = %%%d & %%%d\n",  dst, op0, op1); break;
 	case IR_SUB:   printf("\t%%%d = %%%d - %%%d\n",  dst, op0, op1); break;
 	case IR_MUL:   printf("\t%%%d = %%%d * %%%d\n",  dst, op0, op1); break;
 	case IR_DIV:   printf("\t%%%d = %%%d / %%%d\n",  dst, op0, op1); break;
@@ -125,8 +126,10 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GEQ:   printf("\t%%%d = %%%d >= %%%d\n", dst, op0, op1); break;
 	case IR_LT:    printf("\t%%%d = %%%d < %%%d\n",  dst, op0, op1); break;
 	case IR_GT:    printf("\t%%%d = %%%d > %%%d\n",  dst, op0, op1); break;
+	case IR_OR:    printf("\t%%%d = %%%d | %%%d\n",  dst, op0, op1); break;
 	case IR_SHL:   printf("\t%%%d = %%%d << %%%d\n",  dst, op0, op1); break;
 	case IR_SHR:   printf("\t%%%d = %%%d >> %%%d\n",  dst, op0, op1); break;
+	case IR_XOR:   printf("\t%%%d = %%%d ^ %%%d\n",  dst, op0, op1); break;
 	case IR_JMP:   printf("\tgoto L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz %%%d, L%d\n", op0, op1); break;
 	case IR_JNZ:   printf("\tjnz %%%d, L%d\n", op0, op1); break;
