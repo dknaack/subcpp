@@ -141,10 +141,10 @@ get_raw_token(tokenizer *tokenizer)
 			token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
 		} break;
 	case '<':
-		token.kind = eat1(tokenizer, TOKEN_LT, '=', TOKEN_LEQ);
+		token.kind = eat1(tokenizer, TOKEN_LESS, '=', TOKEN_LESS_EQUAL);
 		break;
 	case '>':
-		token.kind = eat1(tokenizer, TOKEN_GT, '=', TOKEN_GEQ);
+		token.kind = eat1(tokenizer, TOKEN_GREATER, '=', TOKEN_GREATER_EQUAL);
 		break;
 	case '#':
 		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);

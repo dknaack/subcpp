@@ -115,10 +115,10 @@ get_precedence(token_kind token)
 		return PREC_FACTOR;
 	case TOKEN_EQUAL_EQUAL:
 		return PREC_EQUAL;
-	case TOKEN_LT:
-	case TOKEN_GT:
-	case TOKEN_LEQ:
-	case TOKEN_GEQ:
+	case TOKEN_LESS:
+	case TOKEN_GREATER:
+	case TOKEN_LESS_EQUAL:
+	case TOKEN_GREATER_EQUAL:
 		return PREC_COMPARE;
 	case TOKEN_LBRACKET:
 	case TOKEN_DOT:

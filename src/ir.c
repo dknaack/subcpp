@@ -212,10 +212,10 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
 			case TOKEN_EQUAL:         opcode = IR_STORE; break;
 			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
-			case TOKEN_LT:            opcode = IR_LT;    break;
-			case TOKEN_GT:            opcode = IR_GT;    break;
-			case TOKEN_LEQ:           opcode = IR_LEQ;   break;
-			case TOKEN_GEQ:           opcode = IR_GEQ;   break;
+			case TOKEN_LESS:          opcode = IR_LT;    break;
+			case TOKEN_GREATER:       opcode = IR_GT;    break;
+			case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
+			case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
 			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
 			case TOKEN_DOT:           opcode = IR_LOAD;  break;
 			default:
