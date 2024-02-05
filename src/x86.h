@@ -41,6 +41,8 @@ typedef enum {
 	X86_SETG,
 	X86_SETLE,
 	X86_SETGE,
+	X86_SHL,
+	X86_SHR,
 	X86_SUB,
 	X86_TEST,
 	X86_XOR,
@@ -98,6 +100,8 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_SETG:  return "setg";
 	case X86_SETLE: return "setle";
 	case X86_SETGE: return "setge";
+	case X86_SHL:   return "shl";
+	case X86_SHR:   return "shr";
 	case X86_SUB:   return "sub";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";

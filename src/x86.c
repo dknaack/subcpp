@@ -349,6 +349,16 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		x86_select2(out, X86_CMP, dst, make_vreg(op1));
 		x86_select1(out, x86_get_setcc_opcode(opcode), dst);
 		break;
+	case IR_SHL:
+	case IR_SHR:
+		{
+			machine_operand shift = make_mreg(X86_RCX);
+			shift.size = 1;
+
+			x86_select_instr(out, instr, op0, dst);
+			x86_select_instr(out, instr, op1, shift);
+			x86_select2(out, opcode == IR_SHL ? X86_SHL : X86_SHR, dst, shift);
+		} break;
 	case IR_JMP:
 		op0 = instr[op0].op0;
 		x86_select1(out, X86_JMP, make_label(op0));

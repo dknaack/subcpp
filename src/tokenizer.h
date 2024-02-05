@@ -11,6 +11,7 @@ typedef enum {
 	TOKEN_DOT,
 	TOKEN_EQUAL,
 	TOKEN_EQUAL_EQUAL,
+	TOKEN_RSHIFT,
 	TOKEN_GREATER_EQUAL,
 	TOKEN_GREATER,
 	TOKEN_HASH,
@@ -18,6 +19,7 @@ typedef enum {
 	TOKEN_IDENT,
 	TOKEN_LBRACE,
 	TOKEN_LBRACKET,
+	TOKEN_LSHIFT,
 	TOKEN_LESS_EQUAL,
 	TOKEN_LPAREN,
 	TOKEN_LESS,
@@ -115,9 +117,11 @@ get_token_name(token_kind kind)
 	case TOKEN_PERCENT_EQUAL: return "'%='";
 	case TOKEN_EQUAL_EQUAL:   return "'=='";
 	case TOKEN_LESS:          return "'<'";
+	case TOKEN_LSHIFT:        return "'<<'";
 	case TOKEN_GREATER:       return "'>'";
 	case TOKEN_LESS_EQUAL:    return "'<='";
 	case TOKEN_GREATER_EQUAL: return "'>='";
+	case TOKEN_RSHIFT:        return "'>>'";
 	case TOKEN_HASH:          return "'#'";
 	case TOKEN_HASH_HASH:     return "'##'";
 	case TOKEN_EQUAL:         return "'='";

@@ -141,11 +141,29 @@ get_raw_token(tokenizer *tokenizer)
 			token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
 		} break;
 	case '<':
-		token.kind = eat1(tokenizer, TOKEN_LESS, '=', TOKEN_LESS_EQUAL);
-		break;
+		{
+			if (tokenizer->at[0] == '=') {
+				token.kind = TOKEN_LESS_EQUAL;
+				advance(tokenizer);
+			} else if (tokenizer->at[0] == '<') {
+				token.kind = TOKEN_LSHIFT;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_LESS;
+			}
+		} break;
 	case '>':
-		token.kind = eat1(tokenizer, TOKEN_GREATER, '=', TOKEN_GREATER_EQUAL);
-		break;
+		{
+			if (tokenizer->at[0] == '=') {
+				token.kind = TOKEN_GREATER_EQUAL;
+				advance(tokenizer);
+			} else if (tokenizer->at[0] == '>') {
+				token.kind = TOKEN_RSHIFT;
+				advance(tokenizer);
+			} else {
+				token.kind = TOKEN_GREATER;
+			}
+		} break;
 	case '#':
 		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
 		break;

@@ -125,6 +125,8 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GEQ:   printf("\t%%%d = %%%d >= %%%d\n", dst, op0, op1); break;
 	case IR_LT:    printf("\t%%%d = %%%d < %%%d\n",  dst, op0, op1); break;
 	case IR_GT:    printf("\t%%%d = %%%d > %%%d\n",  dst, op0, op1); break;
+	case IR_SHL:   printf("\t%%%d = %%%d << %%%d\n",  dst, op0, op1); break;
+	case IR_SHR:   printf("\t%%%d = %%%d >> %%%d\n",  dst, op0, op1); break;
 	case IR_JMP:   printf("\tgoto L%d\n", op0); break;
 	case IR_JIZ:   printf("\tjiz %%%d, L%d\n", op0, op1); break;
 	case IR_JNZ:   printf("\tjnz %%%d, L%d\n", op0, op1); break;

@@ -214,6 +214,8 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
 			case TOKEN_LESS:          opcode = IR_LT;    break;
 			case TOKEN_GREATER:       opcode = IR_GT;    break;
+			case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
+			case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
 			case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
 			case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
 			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
@@ -699,6 +701,8 @@ get_opcode_info(ir_opcode opcode)
 	case IR_GT:
 	case IR_LEQ:
 	case IR_GEQ:
+	case IR_SHL:
+	case IR_SHR:
 		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;

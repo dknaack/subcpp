@@ -106,6 +106,9 @@ get_precedence(token_kind token)
 	case TOKEN_SLASH_EQUAL:
 	case TOKEN_PERCENT_EQUAL:
 		return PREC_ASSIGN;
+	case TOKEN_LSHIFT:
+	case TOKEN_RSHIFT:
+		return PREC_SHIFT;
 	case TOKEN_PLUS:
 	case TOKEN_MINUS:
 		return PREC_TERM;
