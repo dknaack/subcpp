@@ -227,7 +227,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
-			case TOKEN_AMPERSAND:
+			case TOKEN_AMP:
 				node->type = type_create(TYPE_POINTER, arena);
 				node->type->children = operand->type;
 				break;

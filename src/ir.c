@@ -311,7 +311,7 @@ translate_node(ir_context *ctx, ast_node *node)
 		{
 			u32 operator = node->value.op;
 			switch (operator) {
-			case TOKEN_AMPERSAND:
+			case TOKEN_AMP:
 				{
 					result = translate_lvalue(ctx, node->children);
 				} break;

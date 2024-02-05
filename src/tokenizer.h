@@ -5,7 +5,7 @@ typedef enum {
 	TOKEN_WHITESPACE,
 
 	// symbols
-	TOKEN_AMPERSAND,
+	TOKEN_AMP,
 	TOKEN_BACKSLASH,
 	TOKEN_COMMA,
 	TOKEN_DOT,
@@ -100,7 +100,7 @@ get_token_name(token_kind kind)
 	case TOKEN_INVALID:       return "invalid token";
 	case TOKEN_EOF:           return "eof";
 	case TOKEN_COMMA:         return "','";
-	case TOKEN_AMPERSAND:     return "'&'";
+	case TOKEN_AMP:           return "'&'";
 	case TOKEN_BACKSLASH:     return "'\\'";
 	case TOKEN_DOT:           return "'.'";
 	case TOKEN_PLUS:          return "'+'";

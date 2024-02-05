@@ -213,7 +213,7 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 		expect(tokenizer, TOKEN_RPAREN);
 		break;
 	case TOKEN_STAR:
-	case TOKEN_AMPERSAND:
+	case TOKEN_AMP:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->value.i = token.kind;
