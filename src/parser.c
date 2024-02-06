@@ -222,11 +222,8 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 		break;
 	case TOKEN_STAR:
 	case TOKEN_AMP:
-		get_token(tokenizer);
-		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
-		expr->value.i = token.kind;
-		expr->children = parse_expr(tokenizer, PREC_PRIMARY, arena);
-		break;
+	case TOKEN_PLUS:
+	case TOKEN_MINUS:
 	case TOKEN_PLUS_PLUS:
 	case TOKEN_MINUS_MINUS:
 		get_token(tokenizer);

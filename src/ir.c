@@ -168,8 +168,15 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 			u32 operator = node->value.i;
 			switch (operator) {
 			case TOKEN_STAR:
+			case TOKEN_PLUS:
 				result = translate_node(ctx, node->children);
 				break;
+			case TOKEN_MINUS:
+				{
+					u32 zero = emit1(ctx, IR_CONST, 0);
+					result = translate_node(ctx, node->children);
+					result = emit2(ctx, IR_SUB, zero, result);
+				} break;
 			default:
 				ASSERT(!"Not an lvalue");
 			}
@@ -321,8 +328,15 @@ translate_node(ir_context *ctx, ast_node *node)
 			u32 operator = node->value.op;
 			switch (operator) {
 			case TOKEN_AMP:
+			case TOKEN_PLUS:
 				{
 					result = translate_lvalue(ctx, node->children);
+				} break;
+			case TOKEN_MINUS:
+				{
+					u32 zero = emit1(ctx, IR_CONST, 0);
+					result = translate_node(ctx, node->children);
+					result = emit2(ctx, IR_SUB, zero, result);
 				} break;
 			case TOKEN_STAR:
 				{
