@@ -344,11 +344,16 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_GT:
 	case IR_GEQ:
 	case IR_LEQ:
-		x86_select_instr(out, instr, op0, dst);
-		x86_select_instr(out, instr, op1, make_vreg(op1));
-		x86_select2(out, X86_CMP, dst, make_vreg(op1));
-		x86_select1(out, x86_get_setcc_opcode(opcode), dst);
-		break;
+		{
+			machine_operand dst_byte = dst;
+			dst_byte.size = 1;
+
+			x86_select_instr(out, instr, op0, dst);
+			x86_select_instr(out, instr, op1, make_vreg(op1));
+			x86_select2(out, X86_CMP, dst, make_vreg(op1));
+			x86_select1(out, x86_get_setcc_opcode(opcode), dst_byte);
+			x86_select2(out, X86_MOVZX, dst, dst_byte);
+		} break;
 	case IR_SHL:
 	case IR_SHR:
 		{
@@ -743,14 +748,6 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				stream_print(out, "L");
 				x86_emit_operand(out, operands[0], program.functions);
 				stream_print(out, ":\n");
-			} else if (x86_is_setcc(opcode)) {
-				ASSERT(operands[0].kind == MOP_MREG);
-				stream_print(out, "\t");
-				stream_print(out, x86_get_opcode_name(opcode));
-				stream_print(out, " ");
-				char *name = x86_get_byte_register_name(operands[0].value);
-				stream_print(out, name);
-				stream_print(out, "\n");
 			} else {
 				if (opcode == X86_IMUL || opcode == X86_IDIV) {
 					operand_count -= 2;

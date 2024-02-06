@@ -9,6 +9,7 @@ typedef enum {
 	TOKEN_AMP_AMP,
 	TOKEN_AMP_EQUAL,
 	TOKEN_BACKSLASH,
+	TOKEN_BANG,
 	TOKEN_BAR,
 	TOKEN_BAR_BAR,
 	TOKEN_BAR_EQUAL,
@@ -110,6 +111,7 @@ get_token_name(token_kind kind)
 	case TOKEN_AMP:           return "'&'";
 	case TOKEN_AMP_AMP:       return "'&&'";
 	case TOKEN_AMP_EQUAL:     return "'&='";
+	case TOKEN_BANG:          return "'!'";
 	case TOKEN_BACKSLASH:     return "'\\'";
 	case TOKEN_BAR:           return "'|'";
 	case TOKEN_BAR_BAR:       return "'||'";

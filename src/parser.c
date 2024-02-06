@@ -223,6 +223,7 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 	case TOKEN_STAR:
 	case TOKEN_AMP:
 	case TOKEN_PLUS:
+	case TOKEN_BANG:
 	case TOKEN_MINUS:
 	case TOKEN_PLUS_PLUS:
 	case TOKEN_MINUS_MINUS:
