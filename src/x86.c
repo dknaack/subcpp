@@ -607,8 +607,34 @@ x86_emit_operand(stream *out, machine_operand operand,
 		stream_printu(out, operand.value);
 		break;
 	case MOP_MREG:
+		if (operand.flags & MOP_INDIRECT) {
+			switch (operand.size) {
+			case 1:
+				stream_print(out, "byte");
+				break;
+			case 2:
+				stream_print(out, "word");
+				break;
+			case 4:
+				stream_print(out, "dword");
+				break;
+			case 8:
+				stream_print(out, "qword");
+				break;
+			default:
+				ASSERT(!"Invalid size");
+			}
+
+			stream_print(out, "[");
+			operand.size = 8;
+		}
+
 		reg = (x86_register)operand.value;
 		stream_print(out, x86_get_register_name(reg, operand.size));
+
+		if (operand.flags & MOP_INDIRECT) {
+			stream_print(out, "]");
+		}
 		break;
 	case MOP_IMMEDIATE:
 		stream_printu(out, operand.value);
@@ -623,39 +649,6 @@ x86_emit_operand(stream *out, machine_operand operand,
 		break;
 	default:
 		stream_print(out, "(invalid operand)");
-	}
-}
-
-static void
-x86_emit_operand_indirect(stream *out, machine_operand operand,
-	machine_function *functions)
-{
-	switch (operand.kind) {
-	case MOP_MREG:
-		switch (operand.size) {
-		case 1:
-			stream_print(out, "byte");
-			break;
-		case 2:
-			stream_print(out, "word");
-			break;
-		case 4:
-			stream_print(out, "dword");
-			break;
-		case 8:
-			stream_print(out, "qword");
-			break;
-		default:
-			ASSERT(!"Invalid size");
-		}
-
-		stream_print(out, "[");
-		operand.size = 8;
-		x86_emit_operand(out, operand, functions);
-		stream_print(out, "]");
-		break;
-	default:
-		x86_emit_operand(out, operand, functions);
 	}
 }
 
@@ -763,11 +756,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						stream_print(out, ", ");
 					}
 
-					if (operands[j].flags & MOP_INDIRECT) {
-						x86_emit_operand_indirect(out, operands[j], program.functions);
-					} else {
-						x86_emit_operand(out, operands[j], program.functions);
-					}
+					x86_emit_operand(out, operands[j], program.functions);
 				}
 
 				stream_print(out, "\n");
