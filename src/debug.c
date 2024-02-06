@@ -184,20 +184,10 @@ print_x86_program(machine_program program)
 			u32 value = operands[j].value;
 			switch (operands[j].kind) {
 			case MOP_VREG:
-				if ((instr->opcode == X86_STORE && j == 0)
-					|| (instr->opcode == X86_LOAD && j == 1)) {
-					printf("[%%%d]", value);
-				} else {
-					printf("%%%d", value);
-				}
+				printf("%%%d", value);
 				break;
 			case MOP_MREG:
-				if ((instr->opcode == X86_STORE && j == 0)
-					|| (instr->opcode == X86_LOAD && j == 1)) {
-					printf("[%s]", x86_get_register_name(value, 8));
-				} else {
-					printf("%s", x86_get_register_name(value, 8));
-				}
+				printf("%s", x86_get_register_name(value, 8));
 				break;
 			case MOP_LABEL:
 				printf("L%d:", value);

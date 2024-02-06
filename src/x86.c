@@ -99,25 +99,6 @@ x86_select2(machine_program *out, x86_opcode opcode,
 	}
 }
 
-static void
-x86_select3(machine_program *out, x86_opcode opcode,
-	machine_operand dst, machine_operand base, machine_operand offset)
-{
-	if (opcode == X86_STORE) {
-		dst.flags |= MOP_USE;
-	} else {
-		dst.flags |= MOP_DEF;
-	}
-
-	base.flags |= MOP_USE;
-	offset.flags |= MOP_USE;
-
-	push_instr(out, opcode, 3);
-	push_operand(out, dst);
-	push_operand(out, base);
-	push_operand(out, offset);
-}
-
 static b32
 x86_is_comparison_opcode(ir_opcode ir_opcode)
 {
@@ -784,65 +765,35 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					}
 				}
 
-				if (opcode == X86_LOAD && operand_count == 3) {
-					stream_print(out, "\tmov ");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, ", [");
+				if (operands[0].kind == MOP_SPILL
+					&& operands[1].kind == MOP_SPILL)
+				{
+					stream_print(out, "\tmov rax, ");
 					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, " + ");
-					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, "]\n");
-				} else if (opcode == X86_STORE && operand_count == 3) {
-					stream_print(out, "\tmov [");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, " + ");
-					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, "], ");
-					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, "\n");
-				} else if (opcode == X86_STORE) {
-					stream_print(out, "\tmov ");
-					x86_emit_operand_indirect(out, operands[0], program.functions);
-					stream_print(out, ", ");
-					x86_emit_operand(out, operands[1], program.functions);
-					stream_print(out, "\n");
-				} else if (opcode == X86_LOAD) {
-					stream_print(out, "\tmov ");
-					x86_emit_operand(out, operands[0], program.functions);
-					stream_print(out, ", ");
-					x86_emit_operand_indirect(out, operands[1], program.functions);
-					stream_print(out, "\n");
-				} else {
-					if (operands[0].kind == MOP_SPILL
-						&& operands[1].kind == MOP_SPILL)
-					{
-						stream_print(out, "\tmov rax, ");
-						x86_emit_operand(out, operands[1], program.functions);
-						operands[1] = make_mreg(X86_RAX);
-						stream_print(out, "\n");
-					}
-
-					stream_print(out, "\t");
-					stream_print(out, x86_get_opcode_name(opcode));
-					stream_print(out, " ");
-					for (u32 j = 0; j < operand_count; j++) {
-						if (operands[j].flags & MOP_IMPLICIT) {
-							continue;
-						}
-
-						if (j != 0) {
-							stream_print(out, ", ");
-						}
-
-						if (operands[j].flags & MOP_INDIRECT) {
-							x86_emit_operand_indirect(out, operands[j], program.functions);
-						} else {
-							x86_emit_operand(out, operands[j], program.functions);
-						}
-					}
-
+					operands[1] = make_mreg(X86_RAX);
 					stream_print(out, "\n");
 				}
+
+				stream_print(out, "\t");
+				stream_print(out, x86_get_opcode_name(opcode));
+				stream_print(out, " ");
+				for (u32 j = 0; j < operand_count; j++) {
+					if (operands[j].flags & MOP_IMPLICIT) {
+						continue;
+					}
+
+					if (j != 0) {
+						stream_print(out, ", ");
+					}
+
+					if (operands[j].flags & MOP_INDIRECT) {
+						x86_emit_operand_indirect(out, operands[j], program.functions);
+					} else {
+						x86_emit_operand(out, operands[j], program.functions);
+					}
+				}
+
+				stream_print(out, "\n");
 			}
 		}
 	}

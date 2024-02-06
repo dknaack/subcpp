@@ -50,8 +50,6 @@ typedef enum {
 	X86_TEST,
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
-	X86_LOAD,
-	X86_STORE,
 	X86_LABEL,
 	X86_PRINT
 } x86_opcode;
@@ -111,8 +109,6 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_SUB:   return "sub";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";
-	case X86_LOAD:  return "mov";
-	case X86_STORE: return "mov";
 	case X86_LABEL: return "label";
 	case X86_PRINT: return "print";
 	}
