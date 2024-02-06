@@ -69,21 +69,18 @@ x86_select2(machine_program *out, x86_opcode opcode,
 {
 	switch (opcode) {
 	case X86_MOV:
-		if (src.kind == MOP_IMMEDIATE && src.value == 0) {
-			push_instr(out, X86_XOR, 2);
-			dst.flags |= MOP_DEF | MOP_USE;
-			push_operand(out, dst);
-			push_operand(out, dst);
-		} else if (!machine_operand_equals(dst, src)) {
+		if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
-			if (dst.kind == MOP_VREG || dst.kind == MOP_MREG) {
-				dst.flags |= MOP_DEF;
-			} else {
+			if (dst.flags & MOP_INDIRECT) {
 				dst.flags |= MOP_USE;
+			} else {
+				dst.flags |= MOP_DEF;
 			}
+
 			push_operand(out, dst);
 			src.flags |= MOP_USE;
 			push_operand(out, src);
+			ASSERT(!(dst.flags & MOP_INDIRECT));
 		}
 		break;
 	case X86_CMP:
@@ -247,7 +244,8 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			} else {
 				x86_select_instr(out, instr, op0, src);
 				src.size = dst.size = size;
-				x86_select2(out, X86_LOAD, dst, src);
+				src.flags |= MOP_INDIRECT;
+				x86_select2(out, X86_MOV, dst, src);
 			}
 		} break;
 	case IR_STORE:
@@ -276,7 +274,8 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, X86_MOV, addr, src);
 			} else {
 				x86_select_instr(out, instr, op0, dst);
-				x86_select2(out, X86_STORE, dst, src);
+				dst.flags |= MOP_INDIRECT;
+				x86_select2(out, X86_MOV, dst, src);
 			}
 		} break;
 	case IR_ADD:
@@ -831,7 +830,15 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 							continue;
 						}
 
-						x86_emit_operand(out, operands[j], program.functions);
+						if (j != 0) {
+							stream_print(out, ", ");
+						}
+
+						if (operands[j].flags & MOP_INDIRECT) {
+							x86_emit_operand_indirect(out, operands[j], program.functions);
+						} else {
+							x86_emit_operand(out, operands[j], program.functions);
+						}
 					}
 
 					stream_print(out, "\n");
