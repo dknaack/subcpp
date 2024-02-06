@@ -163,14 +163,6 @@ x86_select_immediate(machine_program *out,
 }
 
 static void
-x86_alloc(machine_program *out, u32 id, u32 size)
-{
-	(void)out;
-	(void)id;
-	(void)size;
-}
-
-static void
 x86_select_instr(machine_program *out, ir_instr *instr,
 	u32 instr_index, machine_operand dst)
 {
@@ -664,21 +656,6 @@ x86_emit_operand_indirect(stream *out, machine_operand operand,
 		break;
 	default:
 		x86_emit_operand(out, operand, functions);
-	}
-}
-
-static b32
-x86_is_setcc(x86_opcode opcode)
-{
-	switch (opcode) {
-	case X86_SETZ:
-	case X86_SETL:
-	case X86_SETG:
-	case X86_SETLE:
-	case X86_SETGE:
-		return true;
-	default:
-		return false;
 	}
 }
 
