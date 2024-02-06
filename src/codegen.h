@@ -16,7 +16,6 @@ typedef enum {
 typedef enum {
 	MOP_USE        = (1 << 0),
 	MOP_DEF        = (1 << 1),
-	MOP_FORCE_MREG = (1 << 2),
 } machine_operand_flags;
 
 typedef struct {
