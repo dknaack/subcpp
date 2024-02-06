@@ -177,6 +177,12 @@ translate_lvalue(ir_context *ctx, ast_node *node)
 					result = translate_node(ctx, node->children);
 					result = emit2(ctx, IR_SUB, zero, result);
 				} break;
+			case TOKEN_BANG:
+				{
+					u32 zero = emit1(ctx, IR_CONST, 0);
+					result = translate_node(ctx, node->children);
+					result = emit2(ctx, IR_EQL, result, zero);
+				} break;
 			default:
 				ASSERT(!"Not an lvalue");
 			}
@@ -337,6 +343,12 @@ translate_node(ir_context *ctx, ast_node *node)
 					u32 zero = emit1(ctx, IR_CONST, 0);
 					result = translate_node(ctx, node->children);
 					result = emit2(ctx, IR_SUB, zero, result);
+				} break;
+			case TOKEN_BANG:
+				{
+					u32 zero = emit1(ctx, IR_CONST, 0);
+					result = translate_node(ctx, node->children);
+					result = emit2(ctx, IR_EQL, result, zero);
 				} break;
 			case TOKEN_STAR:
 				{

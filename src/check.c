@@ -231,6 +231,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				node->type = type_create(TYPE_POINTER, arena);
 				node->type->children = operand->type;
 				break;
+			case TOKEN_BANG:
 			case TOKEN_PLUS:
 			case TOKEN_MINUS:
 				// TODO: ensure that type is integer
