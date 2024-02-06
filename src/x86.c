@@ -35,11 +35,11 @@ x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 			push_operand(out, dst);
 
 			machine_operand op0 = make_mreg(X86_RAX);
-			op0.flags |= MOP_DEF | MOP_USE;
+			op0.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
 			push_operand(out, op0);
 
 			machine_operand op1 = make_mreg(X86_RDX);
-			op1.flags |= MOP_DEF | MOP_USE;
+			op1.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
 			push_operand(out, op1);
 		} break;
 	case X86_IMUL:
@@ -48,11 +48,11 @@ x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 			push_operand(out, dst);
 
 			machine_operand op0 = make_mreg(X86_RAX);
-			op0.flags |= MOP_DEF | MOP_USE;
+			op0.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
 			push_operand(out, op0);
 
 			machine_operand op1 = make_mreg(X86_RDX);
-			op1.flags |= MOP_DEF;
+			op1.flags |= MOP_DEF | MOP_IMPLICIT;
 			push_operand(out, op1);
 		} break;
 	default:
@@ -749,10 +749,6 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				x86_emit_operand(out, operands[0], program.functions);
 				stream_print(out, ":\n");
 			} else {
-				if (opcode == X86_IMUL || opcode == X86_IDIV) {
-					operand_count -= 2;
-				}
-
 				if (opcode == X86_RET) {
 					if (stack_size > 0) {
 						stream_print(out, "\tadd rsp, ");
@@ -815,13 +811,13 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 					stream_print(out, "\t");
 					stream_print(out, x86_get_opcode_name(opcode));
+					stream_print(out, " ");
 					for (u32 j = 0; j < operand_count; j++) {
-						stream_print(out, " ");
-						x86_emit_operand(out, operands[j], program.functions);
-						b32 is_last_operand = (j + 1 == operand_count);
-						if (!is_last_operand) {
-							stream_print(out, ",");
+						if (operands[j].flags & MOP_IMPLICIT) {
+							continue;
 						}
+
+						x86_emit_operand(out, operands[j], program.functions);
 					}
 
 					stream_print(out, "\n");
