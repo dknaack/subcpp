@@ -239,6 +239,8 @@ translate_node(ir_context *ctx, ast_node *node)
 			case TOKEN_BAR:           opcode = IR_OR;    break;
 			case TOKEN_CARET:         opcode = IR_XOR;   break;
 			case TOKEN_DOT:           opcode = IR_LOAD;  break;
+			case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
+			case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
 			default:
 				ASSERT(!"Invalid operator");
 				break;
@@ -254,7 +256,45 @@ translate_node(ir_context *ctx, ast_node *node)
 
 			ast_node *rhs = lhs->next;
 			u32 size = type_sizeof(node->type);
-			if (operator == TOKEN_DOT) {
+			if (operator == TOKEN_AMP_AMP) {
+				u32 end_label = new_label(ctx);
+				u32 zero_label = new_label(ctx);
+
+				result = emit1(ctx, IR_VAR, 4);
+				u32 lhs_reg = translate_node(ctx, lhs);
+				emit2(ctx, IR_JIZ, lhs_reg, zero_label);
+
+				u32 rhs_reg = translate_node(ctx, rhs);
+				emit2(ctx, IR_JIZ, rhs_reg, zero_label);
+
+				u32 one = emit1(ctx, IR_CONST, 1);
+				emit2(ctx, IR_MOV, result, one);
+				emit1(ctx, IR_JMP, end_label);
+
+				emit1(ctx, IR_LABEL, zero_label);
+				u32 zero = emit1(ctx, IR_CONST, 0);
+				emit2(ctx, IR_MOV, result, zero);
+				emit1(ctx, IR_LABEL, end_label);
+			} else if (operator == TOKEN_BAR_BAR) {
+				u32 end_label = new_label(ctx);
+				u32 one_label = new_label(ctx);
+
+				result = emit1(ctx, IR_VAR, 4);
+				u32 lhs_reg = translate_node(ctx, lhs);
+				emit2(ctx, IR_JNZ, lhs_reg, one_label);
+
+				u32 rhs_reg = translate_node(ctx, rhs);
+				emit2(ctx, IR_JNZ, rhs_reg, one_label);
+
+				u32 zero = emit1(ctx, IR_CONST, 0);
+				emit2(ctx, IR_MOV, result, zero);
+				emit1(ctx, IR_JMP, end_label);
+
+				emit1(ctx, IR_LABEL, one_label);
+				u32 one = emit1(ctx, IR_CONST, 1);
+				emit2(ctx, IR_MOV, result, one);
+				emit1(ctx, IR_LABEL, end_label);
+			} else if (operator == TOKEN_DOT) {
 				u32 offset = type_offsetof(lhs->type, rhs->value.s);
 				u32 offset_reg = emit1(ctx, IR_CONST, offset);
 				u32 base_reg = translate_lvalue(ctx, lhs);
