@@ -108,6 +108,10 @@ get_precedence(token_kind token)
 	case TOKEN_AMP_EQUAL:
 	case TOKEN_BAR_EQUAL:
 		return PREC_ASSIGN;
+	case TOKEN_BAR_BAR:
+		return PREC_LOR;
+	case TOKEN_AMP_AMP:
+		return PREC_LAND;
 	case TOKEN_BAR:
 		return PREC_BOR;
 	case TOKEN_CARET:
