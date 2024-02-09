@@ -40,6 +40,18 @@ typedef enum {
 	AST_TYPE_STRUCT_DEF, // {...declarations}
 } ast_node_kind;
 
+typedef enum {
+	AST_AUTO         = 1 << 0,
+	AST_CONST        = 1 << 1,
+	AST_REGISTER     = 1 << 2,
+	AST_RESTRICT     = 1 << 3,
+	AST_SIGNED       = 1 << 4,
+	AST_STATIC       = 1 << 5,
+	AST_THREAD_LOCAL = 1 << 6,
+	AST_TYPEDEF      = 1 << 7,
+	AST_UNSIGNED     = 1 << 8,
+} ast_node_flags;
+
 struct ast_node {
 	ast_node_kind kind;
 	ast_node *next;

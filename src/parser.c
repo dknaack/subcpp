@@ -372,54 +372,113 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 	return result;
 }
 
+static ast_node_flags
+get_qualifier(token_kind token)
+{
+	switch (token) {
+	case TOKEN_AUTO:
+		return AST_AUTO;
+	case TOKEN_CONST:
+		return AST_CONST;
+	case TOKEN_REGISTER:
+		return AST_REGISTER;
+	case TOKEN_RESTRICT:
+		return AST_RESTRICT;
+	case TOKEN_SIGNED:
+		return AST_SIGNED;
+	case TOKEN_STATIC:
+		return AST_STATIC;
+	case TOKEN_THREAD_LOCAL:
+		return AST_THREAD_LOCAL;
+	case TOKEN_TYPEDEF:
+		return AST_TYPEDEF;
+	case TOKEN_UNSIGNED:
+		return AST_UNSIGNED;
+	default:
+		return 0;
+	}
+}
+
 static ast_node *
 parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 {
 	ast_node *type_specifier = AST_NIL;
-	token token = peek_token(tokenizer);
-	switch (token.kind) {
-	case TOKEN_INT:
-		type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
-		get_token(tokenizer);
-		break;
-	case TOKEN_CHAR:
-		type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
-		get_token(tokenizer);
-		break;
-	case TOKEN_VOID:
-		type_specifier = new_ast_node(AST_TYPE_VOID, tokenizer->loc, arena);
-		get_token(tokenizer);
-		break;
-	case TOKEN_STRUCT:
-		get_token(tokenizer);
-		accept(tokenizer, TOKEN_IDENT);
+	u32 qualifiers = 0;
 
-		type_specifier = new_ast_node(AST_TYPE_STRUCT, tokenizer->loc, arena);
-		token = peek_token(tokenizer);
-		if (token.kind == TOKEN_IDENT) {
-			type_specifier->value.s = token.value;
-		}
-
-		if (accept(tokenizer, TOKEN_LBRACE)) {
-			type_specifier->kind = AST_TYPE_STRUCT_DEF;
-
-			ast_node **ptr = & type_specifier->children;
-			// TODO: set correct flags for parsing struct members, i.e.
-			// declarations are allowed to have bitfields.
-			while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
-				*ptr = parse_decl(tokenizer, 0, arena);
-				if (*ptr != AST_NIL) {
-					ptr = &(*ptr)->next;
-				} else {
-					tokenizer->error = true;
+	b32 found_qualifier = true;
+	while (found_qualifier) {
+		token token = peek_token(tokenizer);
+		switch (token.kind) {
+		case TOKEN_AUTO:
+		case TOKEN_CONST:
+		case TOKEN_REGISTER:
+		case TOKEN_RESTRICT:
+		case TOKEN_SIGNED:
+		case TOKEN_STATIC:
+		case TOKEN_THREAD_LOCAL:
+		case TOKEN_TYPEDEF:
+		case TOKEN_UNSIGNED:
+			{
+				u32 qualifier = get_qualifier(token.kind);
+				if (qualifiers & qualifier) {
+					syntax_error(tokenizer, "Declaration already has %s qualifier.",
+						get_token_name(token.kind));
 				}
 
-				expect(tokenizer, TOKEN_SEMICOLON);
+				qualifiers |= qualifier;
+				get_token(tokenizer);
+			} break;
+		case TOKEN_INT:
+			type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
+			get_token(tokenizer);
+			break;
+		case TOKEN_CHAR:
+			type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
+			get_token(tokenizer);
+			break;
+		case TOKEN_VOID:
+			type_specifier = new_ast_node(AST_TYPE_VOID, tokenizer->loc, arena);
+			get_token(tokenizer);
+			break;
+		case TOKEN_STRUCT:
+			get_token(tokenizer);
+			accept(tokenizer, TOKEN_IDENT);
+
+			type_specifier = new_ast_node(AST_TYPE_STRUCT, tokenizer->loc, arena);
+			token = peek_token(tokenizer);
+			if (token.kind == TOKEN_IDENT) {
+				type_specifier->value.s = token.value;
 			}
 
+			if (accept(tokenizer, TOKEN_LBRACE)) {
+				type_specifier->kind = AST_TYPE_STRUCT_DEF;
+
+				ast_node **ptr = & type_specifier->children;
+				// TODO: set correct flags for parsing struct members, i.e.
+				// declarations are allowed to have bitfields.
+				while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
+					*ptr = parse_decl(tokenizer, 0, arena);
+					if (*ptr != AST_NIL) {
+						ptr = &(*ptr)->next;
+					} else {
+						tokenizer->error = true;
+					}
+
+					expect(tokenizer, TOKEN_SEMICOLON);
+				}
+
+			}
+			break;
+		default:
+			found_qualifier = false;
 		}
-		break;
-	default:
+	}
+
+	if (type_specifier == AST_NIL) {
+		if (flags != 0) {
+			syntax_error(tokenizer, "Expected type after qualifiers");
+		}
+
 		return AST_NIL;
 	}
 

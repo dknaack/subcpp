@@ -52,8 +52,10 @@ typedef enum {
 	TOKEN_LITERAL_INT,
 
 	// keywords
+	TOKEN_AUTO,
 	TOKEN_BREAK,
 	TOKEN_CHAR,
+	TOKEN_CONST,
 	TOKEN_CONTINUE,
 	TOKEN_DO,
 	TOKEN_ELSE,
@@ -61,9 +63,17 @@ typedef enum {
 	TOKEN_IF,
 	TOKEN_INT,
 	TOKEN_PRINT,
+	TOKEN_REGISTER,
+	TOKEN_RESTRICT,
 	TOKEN_RETURN,
+	TOKEN_SIGNED,
+	TOKEN_STATIC,
 	TOKEN_STRUCT,
+	TOKEN_THREAD_LOCAL,
+	TOKEN_TYPEDEF,
+	TOKEN_UNSIGNED,
 	TOKEN_VOID,
+	TOKEN_VOLATILE,
 	TOKEN_WHILE,
 
 	TOKEN_COUNT
@@ -152,18 +162,28 @@ get_token_name(token_kind kind)
 	case TOKEN_LBRACE:        return "'{'";
 	case TOKEN_RBRACE:        return "'}'";
 	case TOKEN_LITERAL_INT:   return "integer";
+	case TOKEN_AUTO:          return "'auto'";
 	case TOKEN_BREAK:         return "'break'";
+	case TOKEN_CHAR:          return "'char'";
+	case TOKEN_CONST:         return "'const'";
 	case TOKEN_CONTINUE:      return "'continue'";
 	case TOKEN_DO:            return "'do'";
-	case TOKEN_CHAR:          return "'char'";
 	case TOKEN_ELSE:          return "'else'";
 	case TOKEN_FOR:           return "'for'";
 	case TOKEN_IF:            return "'if'";
 	case TOKEN_INT:           return "'int'";
 	case TOKEN_PRINT:         return "'print'";
+	case TOKEN_REGISTER:      return "'register'";
+	case TOKEN_RESTRICT:      return "'restrict'";
 	case TOKEN_RETURN:        return "'return'";
+	case TOKEN_SIGNED:        return "'signed'";
+	case TOKEN_STATIC:        return "'static'";
 	case TOKEN_STRUCT:        return "'struct'";
+	case TOKEN_THREAD_LOCAL:  return "'_Thread_local'";
+	case TOKEN_TYPEDEF:       return "'typedef'";
+	case TOKEN_UNSIGNED:      return "'unsigned'";
 	case TOKEN_VOID:          return "'void'";
+	case TOKEN_VOLATILE:      return "'volatile'";
 	case TOKEN_WHILE:         return "'while'";
 	case TOKEN_COUNT:         return "invalid token";
 	}
