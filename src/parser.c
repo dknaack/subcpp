@@ -384,10 +384,14 @@ get_qualifier(token_kind token)
 		return AST_AUTO;
 	case TOKEN_CONST:
 		return AST_CONST;
+	case TOKEN_LONG:
+		return AST_LONG;
 	case TOKEN_REGISTER:
 		return AST_REGISTER;
 	case TOKEN_RESTRICT:
 		return AST_RESTRICT;
+	case TOKEN_SHORT:
+		return AST_SHORT;
 	case TOKEN_SIGNED:
 		return AST_SIGNED;
 	case TOKEN_STATIC:
@@ -415,8 +419,10 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		switch (token.kind) {
 		case TOKEN_AUTO:
 		case TOKEN_CONST:
+		case TOKEN_LONG:
 		case TOKEN_REGISTER:
 		case TOKEN_RESTRICT:
+		case TOKEN_SHORT:
 		case TOKEN_SIGNED:
 		case TOKEN_STATIC:
 		case TOKEN_THREAD_LOCAL:
@@ -424,6 +430,22 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		case TOKEN_UNSIGNED:
 			{
 				u32 qualifier = get_qualifier(token.kind);
+				if (qualifiers & AST_LONG && (qualifier == AST_LONG)) {
+					qualifier = AST_LLONG;
+				}
+
+				if ((qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED)
+					|| (qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED))
+				{
+					syntax_error(tokenizer, "Type cannot be both signed and unsigned");
+				}
+
+				if ((qualifiers & AST_SHORT && qualifier == AST_LONG)
+					|| (qualifiers & AST_LONG && qualifier == AST_SHORT))
+				{
+					syntax_error(tokenizer, "Integer cannot be both long and short");
+				}
+
 				if (qualifiers & qualifier) {
 					syntax_error(tokenizer, "Declaration already has %s qualifier.",
 						get_token_name(token.kind));
@@ -476,6 +498,10 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		default:
 			found_qualifier = false;
 		}
+	}
+
+	if (qualifiers & (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED)) {
+		type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
 	}
 
 	if (type_specifier == AST_NIL) {

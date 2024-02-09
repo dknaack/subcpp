@@ -62,10 +62,12 @@ typedef enum {
 	TOKEN_FOR,
 	TOKEN_IF,
 	TOKEN_INT,
+	TOKEN_LONG,
 	TOKEN_PRINT,
 	TOKEN_REGISTER,
 	TOKEN_RESTRICT,
 	TOKEN_RETURN,
+	TOKEN_SHORT,
 	TOKEN_SIGNED,
 	TOKEN_STATIC,
 	TOKEN_STRUCT,
@@ -172,11 +174,13 @@ get_token_name(token_kind kind)
 	case TOKEN_FOR:           return "'for'";
 	case TOKEN_IF:            return "'if'";
 	case TOKEN_INT:           return "'int'";
+	case TOKEN_LONG:          return "'long'";
 	case TOKEN_PRINT:         return "'print'";
 	case TOKEN_REGISTER:      return "'register'";
 	case TOKEN_RESTRICT:      return "'restrict'";
 	case TOKEN_RETURN:        return "'return'";
 	case TOKEN_SIGNED:        return "'signed'";
+	case TOKEN_SHORT:         return "'short'";
 	case TOKEN_STATIC:        return "'static'";
 	case TOKEN_STRUCT:        return "'struct'";
 	case TOKEN_THREAD_LOCAL:  return "'_Thread_local'";
