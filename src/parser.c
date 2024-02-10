@@ -168,33 +168,6 @@ is_postfix_operator(token_kind token)
 	}
 }
 
-static intmax_t
-parse_int(str str)
-{
-	intmax_t ival = 0;
-
-	while (str.length-- > 0) {
-		ival *= 10;
-		ival += (*str.at++ - '0');
-	}
-
-	return ival;
-}
-
-static str
-parse_ident(tokenizer *tokenizer)
-{
-	static str empty = {"", 0};
-	token token = get_token(tokenizer);
-	if (token.kind != TOKEN_IDENT) {
-		syntax_error(tokenizer, "Expected identifier, but found %s",
-		    get_token_name(token.kind));
-		return empty;
-	}
-
-	return token.value;
-}
-
 static ast_node *parse_assign_expr(tokenizer *tokenizer, arena *arena);
 
 static ast_node *
@@ -212,7 +185,11 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 	case TOKEN_LITERAL_INT:
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
-		expr->value.i = parse_int(token.value);
+		expr->value.i = 0;
+		while (token.value.length > 0 && is_digit(*token.value.at)) {
+			expr->value.i *= 10;
+			expr->value.i += (*token.value.at++ - '0');
+		}
 		break;
 	case TOKEN_LPAREN:
 		get_token(tokenizer);
@@ -337,8 +314,17 @@ parse_declarator(tokenizer *tokenizer, arena *arena)
 		result = new_ast_node(AST_DECL_POINTER, tokenizer->loc, arena);
 		result->children = parse_declarator(tokenizer, arena);
 	} else {
+		token token = peek_token(tokenizer);
+		if (token.kind != TOKEN_IDENT) {
+			syntax_error(tokenizer, "Expected identifier, but found %s",
+				get_token_name(token.kind));
+			token.value.length = 0;
+		} else {
+			get_token(tokenizer);
+		}
+
 		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
-		result->value.s = parse_ident(tokenizer);
+		result->value.s = token.value;
 	}
 
 	if (accept(tokenizer, TOKEN_LBRACKET)) {
