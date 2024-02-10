@@ -167,10 +167,10 @@ get_raw_token(tokenizer *tokenizer)
 		} break;
 	case '<':
 		{
-			if (tokenizer->at[0] == '=') {
+			if (tokenizer->at[1] == '=') {
 				token.kind = TOKEN_LESS_EQUAL;
 				advance(tokenizer);
-			} else if (tokenizer->at[0] == '<') {
+			} else if (tokenizer->at[1] == '<') {
 				token.kind = TOKEN_LSHIFT;
 				advance(tokenizer);
 			} else {
@@ -179,10 +179,10 @@ get_raw_token(tokenizer *tokenizer)
 		} break;
 	case '>':
 		{
-			if (tokenizer->at[0] == '=') {
+			if (tokenizer->at[1] == '=') {
 				token.kind = TOKEN_GREATER_EQUAL;
 				advance(tokenizer);
-			} else if (tokenizer->at[0] == '>') {
+			} else if (tokenizer->at[1] == '>') {
 				token.kind = TOKEN_RSHIFT;
 				advance(tokenizer);
 			} else {
