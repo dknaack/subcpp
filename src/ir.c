@@ -342,11 +342,14 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
-					u32 var = translate_node(ctx, node->children, true);
-					u32 value = emit1(ctx, IR_LOAD, var);
+					u32 addr = translate_node(ctx, node->children, true);
+					u32 value = emit1(ctx, IR_LOAD, addr);
 					u32 one = emit1(ctx, IR_CONST, 1);
 					result = emit2(ctx, add_or_sub, value, one);
-					emit2(ctx, IR_STORE, var, result);
+					emit2(ctx, IR_STORE, addr, result);
+					if (is_lvalue) {
+						result = addr;
+					}
 				} break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -364,11 +367,14 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
-					u32 var = translate_node(ctx, node->children, true);
-					result = emit1(ctx, IR_LOAD, var);
+					u32 addr = translate_node(ctx, node->children, true);
+					result = emit1(ctx, IR_LOAD, addr);
 					u32 one = emit1(ctx, IR_CONST, 1);
 					u32 value = emit2(ctx, add_or_sub, result, one);
-					emit2(ctx, IR_STORE, var, value);
+					emit2(ctx, IR_STORE, addr, value);
+					if (is_lvalue) {
+						result = addr;
+					}
 				} break;
 			default:
 				ASSERT(!"Invalid postfix operator");
