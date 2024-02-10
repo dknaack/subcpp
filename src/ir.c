@@ -246,6 +246,11 @@ translate_node(ir_context *ctx, ast_node *node)
 				break;
 			}
 
+			if (is_comparison_opcode(opcode) && (node->type->kind & TYPE_UNSIGNED)) {
+				// TODO: Use switch instead of addition?
+				opcode += IR_LTU - IR_LT;
+			}
+
 			ast_node *lhs = node->children;
 			u32 lhs_reg = 0;
 			if (opcode == IR_STORE) {
@@ -777,6 +782,10 @@ get_opcode_info(ir_opcode opcode)
 	case IR_GT:
 	case IR_LEQ:
 	case IR_GEQ:
+	case IR_LTU:
+	case IR_GTU:
+	case IR_LEQU:
+	case IR_GEQU:
 	case IR_OR:
 	case IR_SHL:
 	case IR_SHR:

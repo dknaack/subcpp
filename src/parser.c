@@ -183,14 +183,44 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 		expr->value.s = token.value;
 		break;
 	case TOKEN_LITERAL_INT:
-		get_token(tokenizer);
-		expr = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
-		expr->value.i = 0;
-		while (token.value.length > 0 && is_digit(*token.value.at)) {
-			expr->value.i *= 10;
-			expr->value.i += (*token.value.at++ - '0');
-		}
-		break;
+		{
+			get_token(tokenizer);
+			expr = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
+			expr->value.i = 0;
+
+			isize i = 0;
+			for (i = 0; i < token.value.length && is_digit(token.value.at[i]); i++) {
+				expr->value.i *= 10;
+				expr->value.i += (token.value.at[i] - '0');
+			}
+
+			for (; !tokenizer->error && i < token.value.length; i++) {
+				switch (token.value.at[i]) {
+				case 'l':
+					if (expr->flags & AST_LLONG) {
+						syntax_error(tokenizer, "Invalid suffix '%.*s'",
+							(int)token.value.length, token.value.at);
+					} else if (expr->flags & AST_LONG) {
+						expr->flags |= AST_LLONG;
+					} else {
+						expr->flags |= AST_LONG;
+					}
+
+					break;
+				case 'u':
+					if (expr->flags & AST_UNSIGNED) {
+						syntax_error(tokenizer, "Invalid suffix '%.*s'",
+							(int)token.value.length, token.value.at);
+					}
+
+					expr->flags |= AST_UNSIGNED;
+					break;
+				default:
+					syntax_error(tokenizer, "Invalid suffix '%.*s'",
+						(int)token.value.length, token.value.at);
+				}
+			}
+		} break;
 	case TOKEN_LPAREN:
 		get_token(tokenizer);
 		expr = parse_expr(tokenizer, 0, arena);
@@ -498,6 +528,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		return AST_NIL;
 	}
 
+	type_specifier->flags = qualifiers;
 	ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
 	decl->children = type_specifier;
 	ast_node **ptr = &decl->children->next;

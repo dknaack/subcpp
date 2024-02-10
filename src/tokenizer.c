@@ -210,6 +210,10 @@ get_raw_token(tokenizer *tokenizer)
 			while (is_digit(tokenizer->at[1])) {
 				advance(tokenizer);
 			}
+
+			while (is_ident(tokenizer->at[1])) {
+				advance(tokenizer);
+			}
 		} break;
 	default:
 		{

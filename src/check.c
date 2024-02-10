@@ -98,10 +98,29 @@ type_equals(type *lhs, type *rhs)
 }
 
 static b32
+is_integer(type_kind type)
+{
+	switch (type) {
+	case TYPE_CHAR:
+	case TYPE_CHAR_UNSIGNED:
+	case TYPE_SHORT:
+	case TYPE_SHORT_UNSIGNED:
+	case TYPE_INT:
+	case TYPE_INT_UNSIGNED:
+	case TYPE_LONG:
+	case TYPE_LONG_UNSIGNED:
+	case TYPE_LLONG:
+	case TYPE_LLONG_UNSIGNED:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static b32
 is_pointer(type *type)
 {
-	b32 result = type->kind == TYPE_POINTER
-		|| type->kind == TYPE_ARRAY;
+	b32 result = type->kind == TYPE_POINTER || type->kind == TYPE_ARRAY;
 	return result;
 }
 
@@ -162,12 +181,23 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			} else {
 				check_type(rhs, symbols, arena);
 
-				// TODO: type coercion
-				if (!type_equals(lhs->type, rhs->type)) {
-					symbols->error = true;
-					errorf(node->loc, "Incompatible types: %s, %s",
-						type_get_name(lhs->type->kind),
-						type_get_name(rhs->type->kind));
+				// Apply integer promotion
+				b32 same_sign = (lhs->type->kind & TYPE_UNSIGNED) == (rhs->type->kind & TYPE_UNSIGNED);
+				if (lhs->type->kind == rhs->type->kind) {
+					// do nothing
+				} else if (same_sign) {
+					if (lhs->type->kind < rhs->type->kind) {
+						lhs->type->kind = rhs->type->kind;
+					}
+				} else {
+					type *unsigned_type = (lhs->type->kind & TYPE_UNSIGNED ? lhs->type : rhs->type);
+					type *signed_type = (lhs->type->kind & TYPE_UNSIGNED ? rhs->type : lhs->type);
+					if (unsigned_type->kind > signed_type->kind) {
+						signed_type->kind = unsigned_type->kind;
+					} else {
+						signed_type->kind |= TYPE_UNSIGNED;
+						unsigned_type->kind = signed_type->kind;
+					}
 				}
 
 				node->type = lhs->type;
@@ -211,6 +241,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				errorf(node->loc, "Variable '%.*s' was never defined",
 					(int)node->value.s.length, node->value.s.at);
 			}
+		} break;
+	case AST_EXPR_INT:
+		{
+			node->type = &type_int;
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
@@ -265,6 +299,8 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
 				ast_node *declarator = child;
+				ast_node *expr = AST_NIL;
+
 				type *decl_type = type_specifier->type;
 				str name = {0};
 				while (declarator != AST_NIL) {
@@ -313,6 +349,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					case AST_DECL_INIT:
 						{
 							// TODO: check type of expression
+							expr = declarator->children->next;
 						} break;
 					default:
 						// TODO: report syntax error
@@ -330,6 +367,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				// NOTE: Required for function declarators
 				if (!node->type) {
 					node->type = decl_type;
+				}
+
+				if (expr != AST_NIL) {
+					check_type(expr, symbols, arena);
 				}
 			}
 		} break;
@@ -385,12 +426,40 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_TYPE_CHAR:
 		{
-			node->type = &type_char;
+			if (node->flags & AST_UNSIGNED) {
+				node->type = &type_char_unsigned;
+			} else {
+				node->type = &type_char;
+			}
 		} break;
 	case AST_TYPE_INT:
-	case AST_EXPR_INT:
 		{
-			node->type = &type_int;
+			u32 int_flags = AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED;
+			switch (node->flags & int_flags) {
+			case AST_LLONG | AST_UNSIGNED:
+				node->type = &type_llong_unsigned;
+				break;
+			case AST_LLONG:
+				node->type = &type_llong;
+				break;
+			case AST_LONG | AST_UNSIGNED:
+				node->type = &type_long_unsigned;
+				break;
+			case AST_LONG:
+				node->type = &type_long;
+				break;
+			case AST_SHORT | AST_UNSIGNED:
+				node->type = &type_short_unsigned;
+				break;
+			case AST_SHORT:
+				node->type = &type_short;
+				break;
+			case AST_UNSIGNED:
+				node->type = &type_int_unsigned;
+				break;
+			default:
+				node->type = &type_int;
+			}
 		} break;
 	case AST_TYPE_STRUCT:
 		{

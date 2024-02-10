@@ -99,30 +99,19 @@ x86_select2(machine_program *out, x86_opcode opcode,
 	}
 }
 
-static b32
-x86_is_comparison_opcode(ir_opcode ir_opcode)
-{
-	switch (ir_opcode) {
-	case IR_EQL:
-	case IR_LT:
-	case IR_GT:
-	case IR_LEQ:
-	case IR_GEQ:
-		return true;
-	default:
-		return false;
-	}
-}
-
 static x86_opcode
 x86_get_setcc_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
-	case IR_EQL: return X86_SETZ;
-	case IR_LT:  return X86_SETL;
-	case IR_GT:  return X86_SETG;
-	case IR_LEQ: return X86_SETLE;
-	case IR_GEQ: return X86_SETGE;
+	case IR_EQL:  return X86_SETZ;
+	case IR_LT:   return X86_SETL;
+	case IR_GT:   return X86_SETG;
+	case IR_LEQ:  return X86_SETLE;
+	case IR_GEQ:  return X86_SETGE;
+	case IR_LTU:  return X86_SETB;
+	case IR_GTU:  return X86_SETA;
+	case IR_LEQU: return X86_SETAE;
+	case IR_GEQU: return X86_SETBE;
 	default:
 		ASSERT(!"Not a comparison operator");
 		return X86_SETZ;
@@ -133,14 +122,18 @@ static x86_opcode
 x86_get_jcc_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
-	case IR_EQL: return X86_JZ;
-	case IR_LT:  return X86_JGE;
-	case IR_GT:  return X86_JLE;
-	case IR_LEQ: return X86_JG;
-	case IR_GEQ: return X86_JL;
+	case IR_EQL:  return X86_JZ;
+	case IR_LT:   return X86_JGE;
+	case IR_GT:   return X86_JLE;
+	case IR_LEQ:  return X86_JG;
+	case IR_GEQ:  return X86_JL;
+	case IR_LTU:  return X86_JAE;
+	case IR_GTU:  return X86_JBE;
+	case IR_LEQU: return X86_JA;
+	case IR_GEQU: return X86_JB;
 	default:
-				 ASSERT(!"Not a comparison operator");
-				 return X86_SETZ;
+		ASSERT(!"Not a comparison operator");
+		return X86_SETZ;
 	}
 }
 
@@ -329,6 +322,10 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_GT:
 	case IR_GEQ:
 	case IR_LEQ:
+	case IR_LTU:
+	case IR_GTU:
+	case IR_GEQU:
+	case IR_LEQU:
 		{
 			machine_operand dst_byte = dst;
 			machine_operand src = make_vreg(op1);
@@ -383,7 +380,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_JNZ:
 		{
 			x86_opcode x86_opcode = opcode == IR_JIZ ? X86_JZ : X86_JNZ;
-			if (x86_is_comparison_opcode(instr[op0].opcode)) {
+			if (is_comparison_opcode(instr[op0].opcode)) {
 				dst = make_vreg(instr[op0].op0);
 				x86_select_instr(out, instr, instr[op0].op0, dst);
 				machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
@@ -651,6 +648,7 @@ x86_emit_operand(stream *out, machine_operand operand,
 		//ASSERT(!"Cannot use virtual register during code generation");
 		break;
 	default:
+		ASSERT(false);
 		stream_print(out, "(invalid operand)");
 	}
 }

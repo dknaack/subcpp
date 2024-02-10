@@ -57,6 +57,7 @@ typedef enum {
 
 struct ast_node {
 	ast_node_kind kind;
+	ast_node_flags flags;
 	ast_node *next;
 	ast_node *children;
 	location loc;
@@ -69,4 +70,4 @@ struct ast_node {
 	} value;
 };
 
-static const ast_node ast_nil = {AST_INVALID, AST_NIL, AST_NIL};
+static const ast_node ast_nil = {AST_INVALID, 0, AST_NIL, AST_NIL};

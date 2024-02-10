@@ -126,6 +126,10 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GEQ:   printf("\t%%%d = %%%d >= %%%d\n", dst, op0, op1); break;
 	case IR_LT:    printf("\t%%%d = %%%d < %%%d\n",  dst, op0, op1); break;
 	case IR_GT:    printf("\t%%%d = %%%d > %%%d\n",  dst, op0, op1); break;
+	case IR_LEQU:  printf("\t%%%d = %%%d <= %%%d (unsigned)\n", dst, op0, op1); break;
+	case IR_GEQU:  printf("\t%%%d = %%%d >= %%%d (unsigned)\n", dst, op0, op1); break;
+	case IR_LTU:   printf("\t%%%d = %%%d < %%%d (unsigned)\n",  dst, op0, op1); break;
+	case IR_GTU:   printf("\t%%%d = %%%d > %%%d (unsigned)\n",  dst, op0, op1); break;
 	case IR_OR:    printf("\t%%%d = %%%d | %%%d\n",  dst, op0, op1); break;
 	case IR_SHL:   printf("\t%%%d = %%%d << %%%d\n",  dst, op0, op1); break;
 	case IR_SHR:   printf("\t%%%d = %%%d >> %%%d\n",  dst, op0, op1); break;

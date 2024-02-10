@@ -16,6 +16,10 @@ typedef enum {
 	IR_GT,
 	IR_LEQ,
 	IR_GEQ,
+	IR_LTU,
+	IR_GTU,
+	IR_LEQU,
+	IR_GEQU,
 	IR_OR,
 	IR_SHL,
 	IR_SHR,
@@ -122,6 +126,10 @@ get_opcode_name(ir_opcode opcode)
 	case IR_GT:    return "gt";
 	case IR_LEQ:   return "leq";
 	case IR_GEQ:   return "geq";
+	case IR_LTU:   return "ltu";
+	case IR_GTU:   return "gtu";
+	case IR_LEQU:  return "lequ";
+	case IR_GEQU:  return "gequ";
 	case IR_OR:    return "or";
 	case IR_XOR:   return "xor";
 	case IR_SHL:   return "shl";
@@ -141,3 +149,21 @@ get_opcode_name(ir_opcode opcode)
 	return "(invalid)";
 }
 
+static b32
+is_comparison_opcode(ir_opcode ir_opcode)
+{
+	switch (ir_opcode) {
+	case IR_EQL:
+	case IR_LT:
+	case IR_GT:
+	case IR_LEQ:
+	case IR_GEQ:
+	case IR_LTU:
+	case IR_GTU:
+	case IR_LEQU:
+	case IR_GEQU:
+		return true;
+	default:
+		return false;
+	}
+}

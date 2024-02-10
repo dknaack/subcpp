@@ -34,6 +34,10 @@ typedef enum {
 	X86_JG,
 	X86_JLE,
 	X86_JGE,
+	X86_JA,
+	X86_JB,
+	X86_JAE,
+	X86_JBE,
 	X86_LEA,
 	X86_MOV,
 	X86_MOVZX,
@@ -45,6 +49,10 @@ typedef enum {
 	X86_SETG,
 	X86_SETLE,
 	X86_SETGE,
+	X86_SETA,
+	X86_SETB,
+	X86_SETAE,
+	X86_SETBE,
 	X86_SHL,
 	X86_SHR,
 	X86_SUB,
@@ -95,6 +103,10 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_JG:    return "jg";
 	case X86_JLE:   return "jle";
 	case X86_JGE:   return "jge";
+	case X86_JA:    return "ja";
+	case X86_JB:    return "jb";
+	case X86_JAE:   return "jae";
+	case X86_JBE:   return "jbe";
 	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
 	case X86_MOVZX: return "movzx";
@@ -106,6 +118,10 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_SETG:  return "setg";
 	case X86_SETLE: return "setle";
 	case X86_SETGE: return "setge";
+	case X86_SETA:  return "seta";
+	case X86_SETB:  return "setb";
+	case X86_SETAE: return "setae";
+	case X86_SETBE: return "setbe";
 	case X86_SHL:   return "shl";
 	case X86_SHR:   return "shr";
 	case X86_SUB:   return "sub";
