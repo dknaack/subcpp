@@ -34,6 +34,7 @@ typedef enum {
 	AST_STMT_WHILE,    // {cond, body}
 
 	AST_TYPE_CHAR,
+	AST_TYPE_FLOAT,
 	AST_TYPE_INT,
 	AST_TYPE_VOID,
 	AST_TYPE_STRUCT,
