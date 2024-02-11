@@ -59,6 +59,7 @@ typedef enum {
 	TOKEN_CONTINUE,
 	TOKEN_DO,
 	TOKEN_ELSE,
+	TOKEN_EXTERN,
 	TOKEN_FLOAT,
 	TOKEN_FOR,
 	TOKEN_IF,
@@ -171,6 +172,7 @@ get_token_name(token_kind kind)
 	case TOKEN_CONST:         return "'const'";
 	case TOKEN_CONTINUE:      return "'continue'";
 	case TOKEN_DO:            return "'do'";
+	case TOKEN_EXTERN:        return "'extern'";
 	case TOKEN_ELSE:          return "'else'";
 	case TOKEN_FLOAT:         return "'float'";
 	case TOKEN_FOR:           return "'for'";

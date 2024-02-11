@@ -400,6 +400,8 @@ get_qualifier(token_kind token)
 		return AST_AUTO;
 	case TOKEN_CONST:
 		return AST_CONST;
+	case TOKEN_EXTERN:
+		return AST_EXTERN;
 	case TOKEN_LONG:
 		return AST_LONG;
 	case TOKEN_REGISTER:
@@ -433,43 +435,6 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	while (found_qualifier) {
 		token token = peek_token(tokenizer);
 		switch (token.kind) {
-		case TOKEN_AUTO:
-		case TOKEN_CONST:
-		case TOKEN_LONG:
-		case TOKEN_REGISTER:
-		case TOKEN_RESTRICT:
-		case TOKEN_SHORT:
-		case TOKEN_SIGNED:
-		case TOKEN_STATIC:
-		case TOKEN_THREAD_LOCAL:
-		case TOKEN_TYPEDEF:
-		case TOKEN_UNSIGNED:
-			{
-				u32 qualifier = get_qualifier(token.kind);
-				if (qualifiers & AST_LONG && (qualifier == AST_LONG)) {
-					qualifier = AST_LLONG;
-				}
-
-				if ((qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED)
-					|| (qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED))
-				{
-					syntax_error(tokenizer, "Type cannot be both signed and unsigned");
-				}
-
-				if ((qualifiers & AST_SHORT && qualifier == AST_LONG)
-					|| (qualifiers & AST_LONG && qualifier == AST_SHORT))
-				{
-					syntax_error(tokenizer, "Integer cannot be both long and short");
-				}
-
-				if (qualifiers & qualifier) {
-					syntax_error(tokenizer, "Declaration already has %s qualifier.",
-						get_token_name(token.kind));
-				}
-
-				qualifiers |= qualifier;
-				get_token(tokenizer);
-			} break;
 		case TOKEN_FLOAT:
 			type_specifier = new_ast_node(AST_TYPE_FLOAT, tokenizer->loc, arena);
 			get_token(tokenizer);
@@ -516,7 +481,31 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			}
 			break;
 		default:
-			found_qualifier = false;
+			{
+				u32 qualifier = get_qualifier(token.kind);
+				if (qualifiers & AST_LONG && (qualifier == AST_LONG)) {
+					qualifier = AST_LLONG;
+				}
+
+				if ((qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED)
+					|| (qualifiers & AST_UNSIGNED && qualifier == AST_SIGNED))
+				{
+					syntax_error(tokenizer, "Type cannot be both signed and unsigned");
+				} else if ((qualifiers & AST_SHORT && qualifier == AST_LONG)
+					|| (qualifiers & AST_LONG && qualifier == AST_SHORT))
+				{
+					syntax_error(tokenizer, "Integer cannot be both long and short");
+				} else if (qualifiers & qualifier) {
+					syntax_error(tokenizer, "Declaration already has %s qualifier.",
+						get_token_name(token.kind));
+				}
+
+				found_qualifier = (qualifier != 0);
+				if (found_qualifier) {
+					qualifiers |= qualifier;
+					get_token(tokenizer);
+				}
+			} break;
 		}
 	}
 

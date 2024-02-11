@@ -366,6 +366,7 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_CONTINUE,     S("continue")      },
 		{ TOKEN_DO,           S("do")            },
 		{ TOKEN_ELSE,         S("else")          },
+		{ TOKEN_EXTERN,       S("extern")        },
 		{ TOKEN_FLOAT,        S("float")         },
 		{ TOKEN_FOR,          S("for")           },
 		{ TOKEN_IF,           S("if")            },
