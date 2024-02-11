@@ -802,10 +802,10 @@ get_toplevel_instructions(ir_program program, arena *arena)
 }
 
 static ir_program
-translate(ast_node *root, symbol_table *symbols, arena *arena)
+translate(ast_node *root, scope *scope, arena *arena)
 {
 	ir_context ctx = ir_context_init(arena);
-	if (root->kind == AST_INVALID || symbols->error) {
+	if (root->kind == AST_INVALID || scope->error) {
 		return ctx.program;
 	}
 

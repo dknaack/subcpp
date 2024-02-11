@@ -1,20 +1,20 @@
 #define TYPE_NIL (&type_nil)
 
 typedef struct type type;
+typedef struct decl decl;
+typedef struct scope scope;
 
-typedef struct symbol symbol;
-struct symbol {
+struct decl {
 	str name;
 	type *type;
-	symbol *child[4];
-	symbol *next;
+	decl *child[4];
+	decl *next;
 };
 
-typedef struct symbol_table symbol_table;
-struct symbol_table {
-	symbol_table *parent;
-	symbol *head;
-	symbol *tail;
+struct scope {
+	scope *parent;
+	decl *head;
+	decl *tail;
 	b32 error;
 };
 
@@ -50,7 +50,7 @@ struct type {
 	type_kind kind;
 	type *next;
 	type *children;
-	symbol *members;
+	decl *members;
 	i64 size;
 };
 
@@ -137,7 +137,7 @@ type_sizeof(type *type)
 	case TYPE_STRUCT:
 		{
 			usize size = 0;
-			for (symbol *s = type->members; s; s = s->next) {
+			for (decl *s = type->members; s; s = s->next) {
 				size += type_sizeof(s->type);
 			}
 			return size;
@@ -155,7 +155,7 @@ type_offsetof(type *type, str member)
 	ASSERT(type != NULL);
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
-		for (symbol *s = type->members; s; s = s->next) {
+		for (decl *s = type->members; s; s = s->next) {
 			if (str_equals(member, s->name)) {
 				break;
 			}

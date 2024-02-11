@@ -1,5 +1,5 @@
-static symbol *
-upsert_symbol(symbol **p, str key, arena *perm)
+static decl *
+upsert_decl(decl **p, str key, arena *perm)
 {
 	for (u64 h = hash(key); *p; h <<= 2) {
 		if (str_equals(key, (*p)->name)) {
@@ -13,62 +13,62 @@ upsert_symbol(symbol **p, str key, arena *perm)
 		return NULL;
 	}
 
-	*p = ALLOC(perm, 1, symbol);
+	*p = ALLOC(perm, 1, decl);
 	(*p)->name = key;
 	return *p;
 }
 
 static void
-add_variable(symbol_table *table, str name, type *type, arena *arena)
+add_variable(scope *scope, str name, type *type, arena *arena)
 {
-	// TODO: report error when symbol is already in scope
-	symbol *s = upsert_symbol(&table->head, name, arena);
-	if (!s->type) {
-		s->type = type;
-		if (table->tail) {
-			table->tail->next = s;
+	// TODO: report error when decl is already in scope
+	decl *d = upsert_decl(&scope->head, name, arena);
+	if (!d->type) {
+		d->type = type;
+		if (scope->tail) {
+			scope->tail->next = d;
 		}
 
-		table->tail = s;
+		scope->tail = d;
 	}
 }
 
 static type *
-get_variable(symbol_table *table, str name)
+get_variable(scope *scope, str name)
 {
-	while (table) {
-		symbol *s = upsert_symbol(&table->head, name, NULL);
-		if (s) {
-			return s->type;
+	while (scope) {
+		decl *d = upsert_decl(&scope->head, name, NULL);
+		if (d) {
+			return d->type;
 		}
 
-		table = table->parent;
+		scope = scope->parent;
 	}
 
 	return TYPE_NIL;
 }
 
 static void
-push_scope(symbol_table *table, arena *arena)
+push_scope(scope *s, arena *arena)
 {
-	symbol_table *parent = ALLOC(arena, 1, symbol_table);
-	*parent = *table;
-	table->parent = parent;
-	table->head = table->tail = NULL;
+	scope *orig = ALLOC(arena, 1, scope);
+	*orig = *s;
+	s->parent = orig;
+	s->head = s->tail = NULL;
 }
 
 static void
-pop_scope(symbol_table *table)
+pop_scope(scope *s)
 {
-	b32 error = table->error;
-	*table = *table->parent;
-	table->error |= error;
+	b32 error = s->error;
+	*s = *s->parent;
+	s->error |= error;
 }
 
 static b32
 type_equals(type *lhs, type *rhs)
 {
-	symbol *l, *r;
+	decl *l, *r;
 	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
 		return false;
 	}
@@ -125,7 +125,7 @@ is_pointer(type *type)
 }
 
 static void
-check_type(ast_node *node, symbol_table *symbols, arena *arena)
+check_type(ast_node *node, scope *scope, arena *arena)
 {
 	if (!node) {
 		return;
@@ -133,37 +133,37 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 
 	switch (node->kind) {
 	case AST_INVALID:
-		symbols->error = true;
+		scope->error = true;
 		break;
 	case AST_ROOT:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
+				check_type(child, scope, arena);
 			}
 		} break;
 	case AST_EXPR_BINARY:
 		{
 			ast_node *lhs = node->children;
 			ast_node *rhs = lhs->next;
-			check_type(lhs, symbols, arena);
+			check_type(lhs, scope, arena);
 
 			u32 operator = node->value.i;
 			if (operator == TOKEN_DOT) {
 				if (lhs->type->kind != TYPE_STRUCT) {
 					errorf(node->loc, "Left-hand side is not a struct");
-					symbols->error = true;
+					scope->error = true;
 				}
 
 				if (rhs->kind != AST_EXPR_IDENT) {
 					errorf(node->loc, "Right-hand side is not an identifier");
-					symbols->error = true;
+					scope->error = true;
 				}
 
-				symbol *s = upsert_symbol(&lhs->type->members, rhs->value.s, NULL);
+				decl *s = upsert_decl(&lhs->type->members, rhs->value.s, NULL);
 				rhs->type = s->type;
 				node->type = s->type;
 			} else if (operator == TOKEN_LBRACKET) {
-				check_type(rhs, symbols, arena);
+				check_type(rhs, scope, arena);
 
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
@@ -173,13 +173,13 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 					node->type = rhs->type->children;
 				} else {
 					node->type = TYPE_NIL;
-					symbols->error = true;
+					scope->error = true;
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->type->kind),
 						type_get_name(rhs->type->kind));
 				}
 			} else {
-				check_type(rhs, symbols, arena);
+				check_type(rhs, scope, arena);
 
 				// Apply integer promotion
 				b32 same_sign = (lhs->type->kind & TYPE_UNSIGNED) == (rhs->type->kind & TYPE_UNSIGNED);
@@ -206,9 +206,9 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 	case AST_EXPR_CALL:
 		{
 			ast_node *called = node->children;
-			check_type(called, symbols, arena);
+			check_type(called, scope, arena);
 			if (called->type->kind != TYPE_FUNCTION) {
-				symbols->error = true;
+				scope->error = true;
 				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
 				break;
 			}
@@ -216,14 +216,14 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 			u32 param_index = 0;
 			ast_node *param = called->next;
 			type *return_type = called->type->children;
-			symbol *param_sym = called->type->members;
+			decl *param_sym = called->type->members;
 			while (param != AST_NIL || param_sym != NULL) {
-				check_type(param, symbols, arena);
+				check_type(param, scope, arena);
 				if (!type_equals(param_sym->type, param->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
 						param_index + 1, type_get_name(param_sym->type->kind),
 						type_get_name(param->type->kind));
-					symbols->error = true;
+					scope->error = true;
 				}
 
 				param_sym = param_sym->next;
@@ -235,9 +235,9 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			node->type = get_variable(symbols, node->value.s);
+			node->type = get_variable(scope, node->value.s);
 			if (node->type == TYPE_NIL) {
-				symbols->error = true;
+				scope->error = true;
 				errorf(node->loc, "Variable '%.*s' was never defined",
 					(int)node->value.s.length, node->value.s.at);
 			}
@@ -250,14 +250,14 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 	case AST_EXPR_UNARY:
 		{
 			ast_node *operand = node->children;
-			check_type(operand, symbols, arena);
+			check_type(operand, scope, arena);
 			switch (node->value.i) {
 			case TOKEN_STAR:
 				if (operand->type->kind == TYPE_POINTER) {
 					node->type = operand->type->children;
 				} else {
 					node->type = TYPE_NIL;
-					symbols->error = true;
+					scope->error = true;
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
@@ -285,17 +285,17 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		break;
 	case AST_STMT_COMPOUND:
 		{
-			push_scope(symbols, arena);
+			push_scope(scope, arena);
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
+				check_type(child, scope, arena);
 			}
 
-			pop_scope(symbols);
+			pop_scope(scope);
 		} break;
 	case AST_DECL:
 		{
 			ast_node *type_specifier = node->children;
-			check_type(type_specifier, symbols, arena);
+			check_type(type_specifier, scope, arena);
 
 			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
 				ast_node *declarator = child;
@@ -336,15 +336,15 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 							decl_type = type_create(TYPE_FUNCTION, arena);
 							decl_type->children = target;
 
-							push_scope(symbols, arena);
+							push_scope(scope, arena);
 							ast_node *param = declarator->children->next;
 							while (param != AST_NIL) {
-								check_type(param, symbols, arena);
+								check_type(param, scope, arena);
 								param = param->next;
 							}
 
-							decl_type->members = symbols->head;
-							pop_scope(symbols);
+							decl_type->members = scope->head;
+							pop_scope(scope);
 						} break;
 					case AST_DECL_INIT:
 						{
@@ -361,7 +361,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				}
 
 				ASSERT(name.at);
-				add_variable(symbols, name, decl_type, arena);
+				add_variable(scope, name, decl_type, arena);
 				// TODO: This should be removed when function declarators are
 				// parsed correctly.
 				// NOTE: Required for function declarators
@@ -370,7 +370,7 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				}
 
 				if (expr != AST_NIL) {
-					check_type(expr, symbols, arena);
+					check_type(expr, scope, arena);
 				}
 			}
 		} break;
@@ -392,33 +392,33 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 	case AST_STMT_WHILE:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
+				check_type(child, scope, arena);
 			}
 		} break;
 	case AST_STMT_PRINT:
 		{
-			check_type(node->children, symbols, arena);
+			check_type(node->children, scope, arena);
 		} break;
 	case AST_STMT_RETURN:
 		{
-			check_type(node->children, symbols, arena);
+			check_type(node->children, scope, arena);
 		} break;
 	case AST_FUNCTION:
 		{
 			ast_node *decl = node->children;
 			ast_node *body = decl->next;
-			check_type(decl, symbols, arena);
-			node->type = symbols->tail->type;
-			node->value.s = symbols->tail->name;
-			push_scope(symbols, arena);
+			check_type(decl, scope, arena);
+			node->type = scope->tail->type;
+			node->value.s = scope->tail->name;
+			push_scope(scope, arena);
 
 			type *func_type = decl->type;
-			for (symbol *param = func_type->members; param; param = param->next) {
-				add_variable(symbols, param->name, param->type, arena);
+			for (struct decl *param = func_type->members; param; param = param->next) {
+				add_variable(scope, param->name, param->type, arena);
 			}
 
-			check_type(body, symbols, arena);
-			pop_scope(symbols);
+			check_type(body, scope, arena);
+			pop_scope(scope);
 		} break;
 	case AST_TYPE_VOID:
 		{
@@ -471,17 +471,17 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 		} break;
 	case AST_TYPE_STRUCT_DEF:
 		{
-			// TODO: add the struct tag to the symbols and ensure that the
+			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
 			node->type = type_create(TYPE_STRUCT, arena);
 
-			push_scope(symbols, arena);
+			push_scope(scope, arena);
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, symbols, arena);
+				check_type(child, scope, arena);
 			}
 
-			node->type->members = symbols->head;
-			pop_scope(symbols);
+			node->type->members = scope->head;
+			pop_scope(scope);
 		} break;
 	}
 }
