@@ -44,16 +44,17 @@ typedef enum {
 typedef enum {
 	AST_AUTO         = 1 <<  0,
 	AST_CONST        = 1 <<  1,
-	AST_LONG         = 1 <<  2,
-	AST_LLONG        = 1 <<  3,
-	AST_REGISTER     = 1 <<  4,
-	AST_RESTRICT     = 1 <<  5,
-	AST_SHORT        = 1 <<  6,
-	AST_SIGNED       = 1 <<  7,
-	AST_STATIC       = 1 <<  8,
-	AST_THREAD_LOCAL = 1 <<  9,
-	AST_TYPEDEF      = 1 << 10,
-	AST_UNSIGNED     = 1 << 11,
+	AST_EXTERN       = 1 <<  2,
+	AST_LONG         = 1 <<  3,
+	AST_LLONG        = 1 <<  4,
+	AST_REGISTER     = 1 <<  5,
+	AST_RESTRICT     = 1 <<  6,
+	AST_SHORT        = 1 <<  7,
+	AST_SIGNED       = 1 <<  8,
+	AST_STATIC       = 1 <<  9,
+	AST_THREAD_LOCAL = 1 << 10,
+	AST_TYPEDEF      = 1 << 11,
+	AST_UNSIGNED     = 1 << 12,
 } ast_node_flags;
 
 struct ast_node {
