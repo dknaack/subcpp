@@ -452,6 +452,39 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			x86_select2(out, X86_MOV, rax, make_immediate(0));
 			x86_select2(out, X86_PRINT, rdi, rsi);
 		} break;
+	case IR_FLOAT:
+		{
+			// TODO: Add floating-point constant to data section of executable.
+		} break;
+	case IR_FLOAD:
+		{
+			machine_operand src = make_vreg(op0);
+			x86_select2(out, X86_MOVSS, dst, src);
+		} break;
+	case IR_FSTORE:
+		{
+			machine_operand src = make_vreg(op1);
+			x86_select2(out, X86_MOVSS, dst, src);
+		} break;
+	case IR_FADD:
+	case IR_FSUB:
+	case IR_FMUL:
+	case IR_FDIV:
+		{
+			x86_opcode x86_opcode;
+			switch (opcode) {
+			case IR_FADD: x86_opcode = X86_ADDSS; break;
+			case IR_FSUB: x86_opcode = X86_SUBSS; break;
+			case IR_FMUL: x86_opcode = X86_MULSS; break;
+			case IR_FDIV: x86_opcode = X86_DIVSS; break;
+			default:      x86_opcode = X86_NOP;   break;
+			}
+
+			machine_operand src = make_vreg(op1);
+			x86_select_instr(out, instr, op0, dst);
+			x86_select_instr(out, instr, op1, src);
+			x86_select2(out, x86_opcode, dst, src);
+		} break;
 	case IR_LABEL:
 		x86_select1(out, X86_LABEL, make_immediate(op0));
 		break;

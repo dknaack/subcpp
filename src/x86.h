@@ -19,43 +19,49 @@ typedef enum {
 } x86_register;
 
 typedef enum {
+	X86_NOP,
 	X86_ADD,
+	X86_ADDSS,
 	X86_AND,
 	X86_CALL,
 	X86_CMP,
 	X86_DEC,
+	X86_DIVSS,
 	X86_IDIV,
 	X86_IMUL,
 	X86_INC,
-	X86_JMP,
-	X86_JZ,
-	X86_JNZ,
-	X86_JL,
-	X86_JG,
-	X86_JLE,
-	X86_JGE,
 	X86_JA,
-	X86_JB,
 	X86_JAE,
+	X86_JB,
 	X86_JBE,
+	X86_JG,
+	X86_JGE,
+	X86_JL,
+	X86_JLE,
+	X86_JMP,
+	X86_JNZ,
+	X86_JZ,
 	X86_LEA,
 	X86_MOV,
+	X86_MOVSS,
 	X86_MOVZX,
+	X86_MULSS,
 	X86_NEG,
 	X86_OR,
 	X86_RET,
-	X86_SETZ,
-	X86_SETL,
-	X86_SETG,
-	X86_SETLE,
-	X86_SETGE,
 	X86_SETA,
-	X86_SETB,
 	X86_SETAE,
+	X86_SETB,
 	X86_SETBE,
+	X86_SETG,
+	X86_SETGE,
+	X86_SETL,
+	X86_SETLE,
+	X86_SETZ,
 	X86_SHL,
 	X86_SHR,
 	X86_SUB,
+	X86_SUBSS,
 	X86_TEST,
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
@@ -88,43 +94,49 @@ static char *
 x86_get_opcode_name(x86_opcode opcode)
 {
 	switch (opcode) {
+	case X86_NOP:   return "nop";
 	case X86_ADD:   return "add";
+	case X86_ADDSS: return "addss";
 	case X86_AND:   return "and";
 	case X86_CALL:  return "call";
 	case X86_CMP:   return "cmp";
 	case X86_DEC:   return "dec";
+	case X86_DIVSS: return "divss";
 	case X86_IDIV:  return "idiv";
 	case X86_IMUL:  return "imul";
 	case X86_INC:   return "inc";
-	case X86_JMP:   return "jmp";
-	case X86_JZ:    return "jz";
-	case X86_JNZ:   return "jnz";
-	case X86_JL:    return "jl";
-	case X86_JG:    return "jg";
-	case X86_JLE:   return "jle";
-	case X86_JGE:   return "jge";
 	case X86_JA:    return "ja";
-	case X86_JB:    return "jb";
 	case X86_JAE:   return "jae";
+	case X86_JB:    return "jb";
 	case X86_JBE:   return "jbe";
+	case X86_JG:    return "jg";
+	case X86_JGE:   return "jge";
+	case X86_JL:    return "jl";
+	case X86_JLE:   return "jle";
+	case X86_JMP:   return "jmp";
+	case X86_JNZ:   return "jnz";
+	case X86_JZ:    return "jz";
 	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
+	case X86_MOVSS: return "movss";
 	case X86_MOVZX: return "movzx";
+	case X86_MULSS: return "mulss";
 	case X86_NEG:   return "neg";
 	case X86_OR:    return "or";
 	case X86_RET:   return "ret";
-	case X86_SETZ:  return "setz";
-	case X86_SETL:  return "setl";
-	case X86_SETG:  return "setg";
-	case X86_SETLE: return "setle";
-	case X86_SETGE: return "setge";
 	case X86_SETA:  return "seta";
-	case X86_SETB:  return "setb";
 	case X86_SETAE: return "setae";
+	case X86_SETB:  return "setb";
 	case X86_SETBE: return "setbe";
+	case X86_SETG:  return "setg";
+	case X86_SETGE: return "setge";
+	case X86_SETL:  return "setl";
+	case X86_SETLE: return "setle";
+	case X86_SETZ:  return "setz";
 	case X86_SHL:   return "shl";
 	case X86_SHR:   return "shr";
 	case X86_SUB:   return "sub";
+	case X86_SUBSS: return "subss";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";
 	case X86_LABEL: return "label";
