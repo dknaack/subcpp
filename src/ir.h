@@ -1,6 +1,10 @@
 typedef enum {
 	IR_NOP,
 	IR_LABEL,
+	IR_ALLOC,
+	IR_JMP,
+
+	// Integer instructions
 	IR_INT,
 	IR_VAR,
 	IR_COPY,
@@ -16,24 +20,33 @@ typedef enum {
 	IR_GT,
 	IR_LEQ,
 	IR_GEQ,
-	IR_LTU,
-	IR_GTU,
-	IR_LEQU,
-	IR_GEQU,
 	IR_OR,
 	IR_SHL,
 	IR_SHR,
 	IR_XOR,
-	IR_JMP,
 	IR_JIZ,
 	IR_JNZ,
 	IR_RET,
 	IR_CALL,
 	IR_PARAM,
-	IR_ALLOC,
 	IR_PRINT,
 	IR_LOAD,
 	IR_STORE,
+
+	// Unsigned integer instructions
+	IR_LTU,
+	IR_GTU,
+	IR_LEQU,
+	IR_GEQU,
+
+	// Floating point instructions
+	IR_FLOAT,
+	IR_FLOAD,
+	IR_FSTORE,
+	IR_FADD,
+	IR_FSUB,
+	IR_FMUL,
+	IR_FDIV,
 } ir_opcode;
 
 typedef enum {
@@ -144,6 +157,13 @@ get_opcode_name(ir_opcode opcode)
 	case IR_PRINT: return "print";
 	case IR_LOAD:  return "load";
 	case IR_STORE: return "store";
+	case IR_FLOAT: return "float";
+	case IR_FLOAD: return "fload";
+	case IR_FSTORE: return "fstore";
+	case IR_FADD:   return "fadd";
+	case IR_FSUB:   return "fsub";
+	case IR_FMUL:   return "fmul";
+	case IR_FDIV:   return "fdiv";
 	}
 
 	return "(invalid)";

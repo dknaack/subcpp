@@ -295,7 +295,11 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			u32 size = type_sizeof(node->type);
 			result = get_register(ctx, node->value.s);
 			if (!is_lvalue) {
-				result = emit1_size(ctx, IR_LOAD, size, result);
+				if (node->type->kind != TYPE_FLOAT) {
+					result = emit1_size(ctx, IR_LOAD, size, result);
+				} else {
+					result = emit1_size(ctx, IR_FLOAT, size, result);
+				}
 			}
 		} break;
 	case AST_EXPR_INT:
@@ -702,15 +706,21 @@ get_opcode_info(ir_opcode opcode)
 	case IR_PRINT:
 	case IR_PARAM:
 	case IR_RET:
+	case IR_FLOAD:
 	case IR_LOAD:
 	case IR_COPY:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:
+	case IR_FSTORE:
 	case IR_STORE:
 		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
+	case IR_FADD:
+	case IR_FSUB:
+	case IR_FMUL:
+	case IR_FDIV:
 	case IR_ADD:
 	case IR_AND:
 	case IR_SUB:
@@ -743,6 +753,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_INT:
+	case IR_FLOAT:
 		info.op0 = IR_OPERAND_CONST;
 		break;
 	case IR_CALL:
