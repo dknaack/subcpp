@@ -118,57 +118,6 @@ typedef struct {
 	u32 break_label;
 } ir_context;
 
-static char *
-get_opcode_name(ir_opcode opcode)
-{
-	switch (opcode) {
-	case IR_NOP:   return "nop";
-	case IR_LABEL: return "label";
-	case IR_VAR:   return "var";
-	case IR_INT:   return "int";
-	case IR_COPY:  return "copy";
-	case IR_MOV:   return "mov";
-	case IR_ADD:   return "add";
-	case IR_AND:   return "and";
-	case IR_SUB:   return "sub";
-	case IR_MUL:   return "mul";
-	case IR_DIV:   return "div";
-	case IR_MOD:   return "mod";
-	case IR_EQL:   return "eql";
-	case IR_LT:    return "lt";
-	case IR_GT:    return "gt";
-	case IR_LEQ:   return "leq";
-	case IR_GEQ:   return "geq";
-	case IR_LTU:   return "ltu";
-	case IR_GTU:   return "gtu";
-	case IR_LEQU:  return "lequ";
-	case IR_GEQU:  return "gequ";
-	case IR_OR:    return "or";
-	case IR_XOR:   return "xor";
-	case IR_SHL:   return "shl";
-	case IR_SHR:   return "shr";
-	case IR_JMP:   return "jmp";
-	case IR_JIZ:   return "jiz";
-	case IR_JNZ:   return "jnz";
-	case IR_RET:   return "ret";
-	case IR_CALL:  return "call";
-	case IR_PARAM: return "param";
-	case IR_ALLOC: return "alloc";
-	case IR_PRINT: return "print";
-	case IR_LOAD:  return "load";
-	case IR_STORE: return "store";
-	case IR_FLOAT: return "float";
-	case IR_FLOAD: return "fload";
-	case IR_FSTORE: return "fstore";
-	case IR_FADD:   return "fadd";
-	case IR_FSUB:   return "fsub";
-	case IR_FMUL:   return "fmul";
-	case IR_FDIV:   return "fdiv";
-	}
-
-	return "(invalid)";
-}
-
 static b32
 is_comparison_opcode(ir_opcode ir_opcode)
 {
