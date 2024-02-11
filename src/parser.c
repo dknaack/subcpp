@@ -470,6 +470,10 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 				qualifiers |= qualifier;
 				get_token(tokenizer);
 			} break;
+		case TOKEN_FLOAT:
+			type_specifier = new_ast_node(AST_TYPE_FLOAT, tokenizer->loc, arena);
+			get_token(tokenizer);
+			break;
 		case TOKEN_INT:
 			type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
 			get_token(tokenizer);

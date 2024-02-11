@@ -561,6 +561,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_TYPE_INT:
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_STRUCT_DEF:
+	case AST_TYPE_FLOAT:
 		break;
 	}
 

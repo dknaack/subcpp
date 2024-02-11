@@ -34,6 +34,9 @@ typedef enum {
 	TYPE_LLONG,
 	TYPE_LLONG_UNSIGNED,
 
+	// float types
+	TYPE_FLOAT,
+
 	// compound types
 	TYPE_ARRAY,
 	TYPE_FUNCTION,
@@ -63,6 +66,7 @@ static type type_short_unsigned = {TYPE_SHORT_UNSIGNED};
 static type type_int_unsigned   = {TYPE_INT_UNSIGNED};
 static type type_long_unsigned  = {TYPE_LONG_UNSIGNED};
 static type type_llong_unsigned = {TYPE_LLONG_UNSIGNED};
+static type type_float = {TYPE_FLOAT};
 
 static char *
 type_get_name(type_kind type)
@@ -79,6 +83,7 @@ type_get_name(type_kind type)
 	case TYPE_LONG_UNSIGNED:  return "unsigned long";
 	case TYPE_LLONG:          return "long long";
 	case TYPE_LLONG_UNSIGNED: return "unsigned long long";
+	case TYPE_FLOAT:          return "float";
 	case TYPE_FUNCTION:       return "(function)";
 	case TYPE_ARRAY:          return "(array)";
 	case TYPE_POINTER:        return "(pointer)";
@@ -111,6 +116,7 @@ type_sizeof(type *type)
 		return 2;
 	case TYPE_INT:
 	case TYPE_INT_UNSIGNED:
+	case TYPE_FLOAT:
 		return 4;
 	case TYPE_POINTER:
 	case TYPE_LONG:

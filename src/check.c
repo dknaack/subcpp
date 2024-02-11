@@ -432,6 +432,10 @@ check_type(ast_node *node, symbol_table *symbols, arena *arena)
 				node->type = &type_char;
 			}
 		} break;
+	case AST_TYPE_FLOAT:
+		{
+			node->type = &type_float;
+		} break;
 	case AST_TYPE_INT:
 		{
 			u32 int_flags = AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED;
