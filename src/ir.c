@@ -53,13 +53,6 @@ emit1(ir_context *ctx, ir_opcode opcode, u32 op0)
 }
 
 static u32
-emit0(ir_context *ctx, ir_opcode opcode)
-{
-	u32 result = emit2(ctx, opcode, 0, 0);
-	return result;
-}
-
-static u32
 emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
