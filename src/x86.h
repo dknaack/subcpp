@@ -147,28 +147,6 @@ x86_get_opcode_name(x86_opcode opcode)
 }
 
 static char *
-x86_get_byte_register_name(x86_register reg)
-{
-	switch (reg) {
-	case X86_R8:  return "r8b";
-	case X86_R9:  return "r9b";
-	case X86_R10: return "r10b";
-	case X86_R11: return "r11b";
-	case X86_R12: return "r12b";
-	case X86_R13: return "r13b";
-	case X86_R14: return "r14b";
-	case X86_R15: return "r15b";
-	case X86_RAX: return "al";
-	case X86_RBX: return "bl";
-	case X86_RCX: return "cl";
-	case X86_RDX: return "dl";
-	case X86_RSI: return "sil";
-	case X86_RDI: return "dil";
-	default:      return "(invalid)";
-	}
-}
-
-static char *
 x86_get_register_name(x86_register reg, u32 size)
 {
 	switch (size) {
