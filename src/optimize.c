@@ -156,20 +156,20 @@ optimize(ir_program program, arena *arena)
 
 		switch (instrs[i].opcode) {
 		case IR_ADD:
-			if (instrs[op0].opcode == IR_CONST
-				&& instrs[op1].opcode == IR_CONST)
+			if (instrs[op0].opcode == IR_INT
+				&& instrs[op1].opcode == IR_INT)
 			{
 				instrs[i].opcode = IR_ADD;
 				instrs[op1].opcode = IR_NOP;
 				instrs[op0].opcode = IR_NOP;
 				instrs[i].op0 = add(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op0].opcode == IR_CONST
+			} else if (instrs[op0].opcode == IR_INT
 				&& instrs[op0].op0 == 0)
 			{
 				instrs[op0].opcode = IR_NOP;
 				instrs[i].opcode = IR_MOV;
 				instrs[i].op0 = i;
-			} else if (instrs[op1].opcode == IR_CONST
+			} else if (instrs[op1].opcode == IR_INT
 				&& instrs[op1].op0 == 0)
 			{
 				instrs[op1].opcode = IR_NOP;
@@ -177,14 +177,14 @@ optimize(ir_program program, arena *arena)
 			}
 			break;
 		case IR_SUB:
-			if (instrs[op0].opcode == IR_CONST
-				&& instrs[op1].opcode == IR_CONST)
+			if (instrs[op0].opcode == IR_INT
+				&& instrs[op1].opcode == IR_INT)
 			{
-				instrs[i].opcode = IR_CONST;
+				instrs[i].opcode = IR_INT;
 				instrs[op1].opcode = IR_NOP;
 				instrs[op0].opcode = IR_NOP;
 				instrs[i].op0 = sub(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op1].opcode == IR_CONST
+			} else if (instrs[op1].opcode == IR_INT
 				&& instrs[op1].op0 == 0)
 			{
 				instrs[op1].opcode = IR_NOP;
@@ -192,19 +192,19 @@ optimize(ir_program program, arena *arena)
 			}
 			break;
 		case IR_MUL:
-			if (instrs[op0].opcode == IR_CONST
-				&& instrs[op1].opcode == IR_CONST) {
-				instrs[i].opcode = IR_CONST;
+			if (instrs[op0].opcode == IR_INT
+				&& instrs[op1].opcode == IR_INT) {
+				instrs[i].opcode = IR_INT;
 				instrs[op1].opcode = IR_NOP;
 				instrs[op0].opcode = IR_NOP;
 				/* TODO: evaluate depending on the target architecture */
 				instrs[i].op0 = multiply(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op0].opcode == IR_CONST
+			} else if (instrs[op0].opcode == IR_INT
 				&& instrs[op0].op0 == 1)
 			{
 				instrs[i].opcode = IR_MOV;
 				instrs[i].op0 = i;
-			} else if (instrs[op1].opcode == IR_CONST
+			} else if (instrs[op1].opcode == IR_INT
 				&& instrs[op1].op0 == 1)
 			{
 				instrs[i].opcode = IR_MOV;
@@ -213,7 +213,7 @@ optimize(ir_program program, arena *arena)
 			}
 			break;
 		case IR_JIZ:
-			if (instrs[op0].opcode == IR_CONST
+			if (instrs[op0].opcode == IR_INT
 				&& instrs[op0].op0 == 0)
 			{
 				instrs[op0].opcode = IR_NOP;

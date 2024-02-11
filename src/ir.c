@@ -198,12 +198,12 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 rhs_reg = translate_node(ctx, rhs, false);
 				emit2(ctx, IR_JIZ, rhs_reg, zero_label);
 
-				u32 one = emit1(ctx, IR_CONST, 1);
+				u32 one = emit1(ctx, IR_INT, 1);
 				emit2(ctx, IR_MOV, result, one);
 				emit1(ctx, IR_JMP, end_label);
 
 				emit1(ctx, IR_LABEL, zero_label);
-				u32 zero = emit1(ctx, IR_CONST, 0);
+				u32 zero = emit1(ctx, IR_INT, 0);
 				emit2(ctx, IR_MOV, result, zero);
 				emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
@@ -217,17 +217,17 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 rhs_reg = translate_node(ctx, rhs, false);
 				emit2(ctx, IR_JNZ, rhs_reg, one_label);
 
-				u32 zero = emit1(ctx, IR_CONST, 0);
+				u32 zero = emit1(ctx, IR_INT, 0);
 				emit2(ctx, IR_MOV, result, zero);
 				emit1(ctx, IR_JMP, end_label);
 
 				emit1(ctx, IR_LABEL, one_label);
-				u32 one = emit1(ctx, IR_CONST, 1);
+				u32 one = emit1(ctx, IR_INT, 1);
 				emit2(ctx, IR_MOV, result, one);
 				emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_DOT) {
 				u32 offset = type_offsetof(lhs->type, rhs->value.s);
-				u32 offset_reg = emit1(ctx, IR_CONST, offset);
+				u32 offset_reg = emit1(ctx, IR_INT, offset);
 				u32 base_reg = translate_node(ctx, lhs, true);
 				u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
 				result = emit2_size(ctx, IR_LOAD, size, addr, addr);
@@ -300,7 +300,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = emit1_size(ctx, IR_CONST, 4, node->value.i);
+			result = emit1_size(ctx, IR_INT, 4, node->value.i);
 		} break;
 	case AST_EXPR_UNARY:
 		{
@@ -316,13 +316,13 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				} break;
 			case TOKEN_MINUS:
 				{
-					u32 zero = emit1(ctx, IR_CONST, 0);
+					u32 zero = emit1(ctx, IR_INT, 0);
 					result = translate_node(ctx, node->children, false);
 					result = emit2(ctx, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
-					u32 zero = emit1(ctx, IR_CONST, 0);
+					u32 zero = emit1(ctx, IR_INT, 0);
 					result = translate_node(ctx, node->children, false);
 					result = emit2(ctx, IR_EQL, result, zero);
 				} break;
@@ -344,7 +344,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 					u32 addr = translate_node(ctx, node->children, true);
 					u32 value = emit1(ctx, IR_LOAD, addr);
-					u32 one = emit1(ctx, IR_CONST, 1);
+					u32 one = emit1(ctx, IR_INT, 1);
 					result = emit2(ctx, add_or_sub, value, one);
 					emit2(ctx, IR_STORE, addr, result);
 					if (is_lvalue) {
@@ -369,7 +369,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 					u32 addr = translate_node(ctx, node->children, true);
 					result = emit1(ctx, IR_LOAD, addr);
-					u32 one = emit1(ctx, IR_CONST, 1);
+					u32 one = emit1(ctx, IR_INT, 1);
 					u32 value = emit2(ctx, add_or_sub, result, one);
 					emit2(ctx, IR_STORE, addr, value);
 					if (is_lvalue) {
@@ -742,7 +742,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op0 = IR_OPERAND_CONST;
 		info.op1 = IR_OPERAND_CONST;
 		break;
-	case IR_CONST:
+	case IR_INT:
 		info.op0 = IR_OPERAND_CONST;
 		break;
 	case IR_CALL:

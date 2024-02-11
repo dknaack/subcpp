@@ -145,7 +145,7 @@ x86_select_immediate(machine_program *out,
 	ir_instr *instr, u32 instr_index)
 {
 	machine_operand result;
-	if (instr[instr_index].opcode == IR_CONST) {
+	if (instr[instr_index].opcode == IR_INT) {
 		result = make_immediate(instr[instr_index].op0);
 	} else {
 		result = make_vreg(instr_index);
@@ -171,7 +171,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			machine_operand src = make_vreg(instr_index);
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
-	case IR_CONST:
+	case IR_INT:
 		{
 			machine_operand src = make_immediate(op0);
 			x86_select2(out, X86_MOV, dst, src);
@@ -200,7 +200,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, X86_MOV, dst, src);
 			} else if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
-				&& instr[instr[op0].op1].opcode == IR_CONST)
+				&& instr[instr[op0].op1].opcode == IR_INT)
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
@@ -218,7 +218,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand src = make_vreg(op1);
 			ASSERT(!machine_operand_equals(src, dst));
-			if (instr[op1].opcode != IR_CONST) {
+			if (instr[op1].opcode != IR_INT) {
 				x86_select_instr(out, instr, op1, src);
 			} else {
 				src = make_immediate(instr[op1].op0);
@@ -226,7 +226,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 
 			if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
-				&& instr[instr[op0].op1].opcode == IR_CONST)
+				&& instr[instr[op0].op1].opcode == IR_INT)
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
@@ -245,14 +245,14 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			}
 		} break;
 	case IR_ADD:
-		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
 			x86_select_instr(out, instr, op0, dst);
 			x86_select1(out, X86_INC, dst);
-		} else if (instr[op1].opcode == IR_CONST) {
+		} else if (instr[op1].opcode == IR_INT) {
 			x86_select_instr(out, instr, op0, dst);
 			op1 = instr[op1].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op1));
-		} else if (instr[op0].opcode == IR_CONST) {
+		} else if (instr[op0].opcode == IR_INT) {
 			x86_select_instr(out, instr, op1, dst);
 			op0 = instr[op0].op0;
 			x86_select2(out, X86_ADD, dst, make_immediate(op0));
@@ -266,13 +266,13 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		}
 		break;
 	case IR_SUB:
-		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
 			x86_select_instr(out, instr, op0, dst);
 			x86_select1(out, X86_DEC, dst);
-		} else if (instr[op0].opcode == IR_CONST && instr[op0].op0 == 0) {
+		} else if (instr[op0].opcode == IR_INT && instr[op0].op0 == 0) {
 			x86_select_instr(out, instr, op1, dst);
 			x86_select1(out, X86_NEG, dst);
-		} else if (instr[op1].opcode == IR_CONST) {
+		} else if (instr[op1].opcode == IR_INT) {
 			op1 = instr[op1].op0;
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_SUB, dst, make_immediate(op1));
@@ -286,9 +286,9 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		}
 		break;
 	case IR_MUL:
-		if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
 			x86_select_instr(out, instr, op0, dst);
-		} else if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 2) {
+		} else if (instr[op1].opcode == IR_INT && instr[op1].op0 == 2) {
 			x86_select_instr(out, instr, op0, dst);
 			x86_select2(out, X86_ADD, dst, dst);
 		} else {
@@ -358,11 +358,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				opcode == IR_OR ? X86_OR : X86_XOR;
 			src.size = dst.size;
 
-			if (instr[op1].opcode == IR_CONST) {
+			if (instr[op1].opcode == IR_INT) {
 				src = make_immediate(instr[op1].op0);
 				x86_select_instr(out, instr, op0, dst);
 				x86_select2(out, x86_opcode, dst, src);
-			} else if (instr[op0].opcode == IR_CONST) {
+			} else if (instr[op0].opcode == IR_INT) {
 				src = make_immediate(instr[op0].op0);
 				x86_select_instr(out, instr, op1, dst);
 				x86_select2(out, x86_opcode, dst, src);
