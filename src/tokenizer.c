@@ -1,10 +1,10 @@
 static char
 advance(tokenizer *tokenizer)
 {
-	if (tokenizer->pos + 2 < tokenizer->source.length) {
+	if (tokenizer->pos + 1 < tokenizer->source.length) {
 		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
 		tokenizer->at[1] = tokenizer->source.at[tokenizer->pos + 1];
-	} else if (tokenizer->pos + 1 < tokenizer->source.length) {
+	} else if (tokenizer->pos < tokenizer->source.length) {
 		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
 		tokenizer->at[1] = '\0';
 	} else {
@@ -228,6 +228,7 @@ get_raw_token(tokenizer *tokenizer)
 
 	isize end = tokenizer->pos;
 	token.value = substr(tokenizer->source, start, end);
+	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
 }
 
