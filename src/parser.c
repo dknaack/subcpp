@@ -734,6 +734,9 @@ static ast_node *
 parse_external_decl(tokenizer *tokenizer, arena *arena)
 {
 	ast_node *decl = parse_decl(tokenizer, PARSE_DECL_EXTERNAL, arena);
+	if (decl == AST_NIL) {
+		return decl;
+	}
 
 	ast_node *declarator = decl->children->next;
 	if (is_function_decl(declarator)) {
