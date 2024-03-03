@@ -6,7 +6,8 @@
 #define TRAP() __builtin_trap()
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define LENGTH(x) (sizeof(x)/sizeof((x)[0]))
-#define MIN(a, b) ((a) < (b)? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define S(x) (str){(x), sizeof(x) - 1}
 
 typedef uintptr_t usize;

@@ -102,6 +102,8 @@ type_create(type_kind kind, arena *arena)
 	return t;
 }
 
+static usize type_alignof(type *type);
+
 static usize
 type_sizeof(type *type)
 {
@@ -138,6 +140,8 @@ type_sizeof(type *type)
 		{
 			usize size = 0;
 			for (decl *s = type->members; s; s = s->next) {
+				u32 align = type_alignof(s->type);
+				size = (size + align - 1) & ~(align - 1);
 				size += type_sizeof(s->type);
 			}
 			return size;
@@ -145,6 +149,26 @@ type_sizeof(type *type)
 	}
 
 	return 0;
+}
+
+static usize
+type_alignof(type *type)
+{
+	usize result = 0;
+
+	// TODO: proper alignment for structs and arrays
+	if (type->kind == TYPE_ARRAY) {
+		result = 16;
+	} else if (type->kind == TYPE_STRUCT) {
+		for (decl *s = type->members; s; s = s->next) {
+			u32 align = type_alignof(s->type);
+			result = MAX(result, align);
+		}
+	} else {
+		result = type_sizeof(type);
+	}
+
+	return result;
 }
 
 static usize
@@ -156,6 +180,8 @@ type_offsetof(type *type, str member)
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
 		for (decl *s = type->members; s; s = s->next) {
+			u32 align = type_alignof(s->type);
+			offset = (offset + align - 1) & ~(align - 1);
 			if (str_equals(member, s->name)) {
 				break;
 			}
