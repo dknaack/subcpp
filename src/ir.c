@@ -11,6 +11,30 @@ ir_context_init(arena *arena)
 	return ctx;
 }
 
+static symbol *
+upsert_symbol(symbol **s, str name, arena *perm)
+{
+	symbol **head = s;
+
+	for (u64 h = hash(name); *s; h <<= 2) {
+		if (str_equals(name, (*s)->name)) {
+			return *s;
+		}
+
+		s = &(*s)->child[h >> 62];
+	}
+
+	if (!perm) {
+		return NULL;
+	}
+
+	*s = ALLOC(perm, 1, symbol);
+	(*s)->name = name;
+	(*s)->next = *head;
+	*head = *s;
+	return *s;
+}
+
 static u32
 new_label(ir_context *ctx)
 {
@@ -408,8 +432,29 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_DECL:
+	case AST_EXTERN_DEF:
 		{
+			b32 add_symbol = node->kind == AST_EXTERN_DEF || (node->flags & AST_EXTERN);
+			if (add_symbol) {
+#if 0
+				for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, NULL);
+					s->size = type_sizeof(node->type);
+					s->addr = 0;
+					if (child->kind == AST_DECL_INIT) {
+						s->addr = ctx->program.instr_count;
+					}
+				}
+#endif
+			}
+
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				if (!add_symbol && child->type->kind == TYPE_FUNCTION) {
+					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, NULL);
+					s->size = type_sizeof(node->type);
+					s->addr = 0;
+				}
+
 				translate_node(ctx, child, false);
 			}
 		} break;

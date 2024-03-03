@@ -85,10 +85,23 @@ typedef struct {
 	u32 stack_size;
 } ir_function;
 
+typedef struct symbol symbol;
+struct symbol {
+	symbol *next;
+	symbol *child[4];
+
+	b32 function;
+	b32 global;
+	str name;
+	i64 addr;
+	i64 size;
+};
+
 typedef struct {
 	ir_instr *instrs;
 	ir_block *blocks;
 	ir_function *functions;
+	symbol *symbols;
 
 	u32 block_count;
 	u32 register_count;
