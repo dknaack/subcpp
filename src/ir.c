@@ -141,6 +141,39 @@ get_register(ir_context *ctx, str ident)
 	return 0;
 }
 
+static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
+
+// TODO: This only works for initializers with a correct set of braces,
+// this does not work if there are no braces in the initializer, for example.
+static void
+translate_initializer(ir_context *ctx, ast_node *node, u32 result)
+{
+	switch (node->kind) {
+	case AST_INIT:
+		{
+			usize offset = 0;
+
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				isize child_align = type_alignof(child->type);
+				offset = (offset + child_align - 1) & ~(child_align - 1);
+
+				u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
+				u32 addr = emit2_size(ctx, IR_SUB, 8, result, offset_reg);
+				translate_initializer(ctx, child, addr);
+
+				isize child_size = type_sizeof(child->type);
+				offset += child_size;
+			}
+		} break;
+	default:
+		{
+			u32 expr = translate_node(ctx, node, false);
+			u32 size = type_sizeof(node->type);
+			emit2_size(ctx, IR_STORE, size, result, expr);
+		} break;
+	}
+}
+
 static u32
 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 {
@@ -148,6 +181,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 	switch (node->kind) {
 	case AST_INVALID:
+	case AST_INIT: // Should be handled by DECL_INIT
 		{
 			ASSERT(!"Invalid node");
 		} break;
@@ -461,9 +495,14 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_DECL_INIT:
 		{
 			result = translate_node(ctx, node->children, false);
-			if (node->children->next != AST_NIL) {
-				u32 expr = translate_node(ctx, node->children->next, false);
-				emit2(ctx, IR_STORE, result, expr);
+			ast_node *expr = node->children->next;
+			if (expr != AST_NIL) {
+				if (expr->kind == AST_INIT) {
+					translate_initializer(ctx, expr, result);
+				} else {
+					u32 expr = translate_node(ctx, node->children->next, false);
+					emit2(ctx, IR_STORE, result, expr);
+				}
 			}
 		} break;
 	case AST_DECL_POINTER:
