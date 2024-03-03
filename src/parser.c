@@ -324,6 +324,35 @@ parse_assign_expr(tokenizer *tokenizer, arena *arena)
 	return expr;
 }
 
+static ast_node *
+parse_initializer(tokenizer *t, arena *perm)
+{
+	ast_node *node = new_ast_node(AST_INIT, t->loc, perm);
+	ast_node **ptr = &node->children;
+	expect(t, TOKEN_LBRACE);
+
+	do {
+		if (t->lookahead[0].kind == TOKEN_LBRACE) {
+			*ptr = parse_initializer(t, perm);
+		} else {
+			ast_node *expr = parse_assign_expr(t, perm);
+			if (expr == AST_NIL) {
+				break;
+			}
+
+			*ptr = expr;
+		}
+
+		ptr = &(*ptr)->next;
+		if (!accept(t, TOKEN_COMMA)) {
+			break;
+		}
+	} while (!t->error && t->lookahead[0].kind != TOKEN_RBRACE);
+
+	expect(t, TOKEN_RBRACE);
+	return node;
+}
+
 typedef enum {
 	PARSE_SINGLE_DECL = (1 << 0),
 
@@ -529,9 +558,8 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		ast_node *declarator = parse_declarator(tokenizer, arena);
 
 		if (accept(tokenizer, TOKEN_EQUAL)) {
-			if (accept(tokenizer, TOKEN_LBRACE)) {
-				parse_assign_expr(tokenizer, arena);
-				expect(tokenizer, TOKEN_RBRACE);
+			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
+				declarator->next = parse_initializer(tokenizer, arena);
 			} else {
 				declarator->next = parse_assign_expr(tokenizer, arena);
 			}
