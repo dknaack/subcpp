@@ -319,6 +319,7 @@ check_type(ast_node *node, scope *scope, arena *arena)
 			pop_scope(scope);
 		} break;
 	case AST_DECL:
+	case AST_EXTERN_DEF:
 		{
 			ast_node *type_specifier = node->children;
 			check_type(type_specifier, scope, arena);
