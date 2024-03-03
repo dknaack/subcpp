@@ -141,6 +141,32 @@ check_type(ast_node *node, scope *scope, arena *arena)
 				check_type(child, scope, arena);
 			}
 		} break;
+	case AST_INIT:
+		{
+			ASSERT(node->type->kind == TYPE_STRUCT);
+			decl *member = node->type->members;
+
+			// TODO: Check the type of each field in the initializer
+			ast_node *child = node->children;
+			while (member && child != AST_NIL) {
+				if (child->kind == AST_INIT) {
+					child->type = member->type;
+				}
+
+				check_type(child, scope, arena);
+				// TODO: Type conversion
+				if (!type_equals(member->type, child->type)) {
+					//errorf(node->loc, "Invalid type");
+				}
+
+				member = member->next;
+				child = child->next;
+			}
+
+			if (!member && child != AST_NIL) {
+				errorf(node->loc, "Too many fields in the initializer");
+			}
+		} break;
 	case AST_EXPR_BINARY:
 		{
 			ast_node *lhs = node->children;
@@ -361,15 +387,21 @@ check_type(ast_node *node, scope *scope, arena *arena)
 				}
 
 				ASSERT(name.at);
+				node->value.s = name;
 				add_variable(scope, name, decl_type, arena);
 				// TODO: This should be removed when function declarators are
 				// parsed correctly.
 				// NOTE: Required for function declarators
 				if (!node->type) {
 					node->type = decl_type;
+					ast_node *declarator = type_specifier->next;
+					if (declarator->kind == AST_DECL_INIT) {
+						declarator->type = decl_type;
+					}
 				}
 
 				if (expr != AST_NIL) {
+					expr->type = decl_type;
 					check_type(expr, scope, arena);
 				}
 			}
