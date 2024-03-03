@@ -5,9 +5,12 @@ typedef struct type type;
 
 typedef enum {
 	AST_INVALID,
+	AST_EXTERN_DEF,    // {type_specifier, ...declarators}
 	AST_FUNCTION,      // {declaration, body}
 	AST_ROOT,          // {...(declaration|function)}
+	AST_INIT,          // {...(init|literal)}
 
+	// declaration and declarators
 	AST_DECL,          // {type_specifier, ...declarators}
 	AST_DECL_INIT,     // {declarator, initializer}
 	AST_DECL_POINTER,  // {declarator}
@@ -15,6 +18,7 @@ typedef enum {
 	AST_DECL_FUNC,     // {declarator, ...parameters}
 	AST_DECL_IDENT,
 
+	// expressions
 	AST_EXPR_BINARY,   // {lhs, rhs}
 	AST_EXPR_CALL,     // {called, ...params}
 	AST_EXPR_IDENT,
@@ -22,6 +26,7 @@ typedef enum {
 	AST_EXPR_UNARY,    // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
 
+	// statements
 	AST_STMT_BREAK,
 	AST_STMT_COMPOUND, // {...statements}
 	AST_STMT_CONTINUE,
@@ -33,6 +38,7 @@ typedef enum {
 	AST_STMT_RETURN,   // {expr?}
 	AST_STMT_WHILE,    // {cond, body}
 
+	// types
 	AST_TYPE_CHAR,
 	AST_TYPE_FLOAT,
 	AST_TYPE_INT,

@@ -766,6 +766,7 @@ parse_external_decl(tokenizer *tokenizer, arena *arena)
 		return decl;
 	}
 
+	decl->kind = AST_EXTERN_DEF;
 	ast_node *declarator = decl->children->next;
 	if (is_function_decl(declarator)) {
 		token token = peek_token(tokenizer);
