@@ -80,7 +80,8 @@ x86_select2(machine_program *out, x86_opcode opcode,
 			push_operand(out, dst);
 			src.flags |= MOP_USE;
 			push_operand(out, src);
-			ASSERT(!(dst.flags & MOP_INDIRECT));
+			// Why was this here?
+			//ASSERT(!(dst.flags & MOP_INDIRECT));
 		}
 		break;
 	case X86_CMP:
