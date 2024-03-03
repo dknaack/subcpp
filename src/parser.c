@@ -8,7 +8,7 @@ verrorf(location loc, char *fmt, va_list ap)
 	fputc('\n', stderr);
 	fflush(stderr);
 
-	ASSERT(false);
+	ASSERT(!"Syntax error");
 }
 
 static void
@@ -57,10 +57,10 @@ accept(tokenizer *tokenizer, token_kind expected_token)
 static void
 expect(tokenizer *tokenizer, token_kind expected_token)
 {
-	token token = get_token(tokenizer);
-	if (token.kind != expected_token) {
+	if (!accept(tokenizer, expected_token)) {
+		token found_token = tokenizer->lookahead[0];
 		syntax_error(tokenizer, "Expected %s, but found %s",
-		    get_token_name(expected_token), get_token_name(token.kind));
+		    get_token_name(expected_token), get_token_name(found_token.kind));
 	}
 }
 
