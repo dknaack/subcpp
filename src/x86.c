@@ -233,6 +233,15 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				machine_operand addr = make_spill(base + offset);
 				addr.size = size;
 				x86_select2(out, X86_MOV, addr, src);
+			} else if (instr[op0].opcode == IR_SUB
+				&& instr[instr[op0].op0].opcode == IR_ALLOC
+				&& instr[instr[op0].op1].opcode == IR_INT)
+			{
+				u32 base = instr[instr[op0].op0].op1;
+				u32 offset = instr[instr[op0].op1].op0;
+				machine_operand addr = make_spill(base - offset);
+				addr.size = size;
+				x86_select2(out, X86_MOV, addr, src);
 			} else if (instr[op0].opcode == IR_ALLOC) {
 				u32 offset = instr[op0].op1;
 				machine_operand addr = make_spill(offset);
