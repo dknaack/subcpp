@@ -76,14 +76,17 @@ typedef struct {
 	u32 next[2];
 } ir_block;
 
-typedef struct {
+typedef struct ir_function ir_function;
+struct ir_function {
+	ir_function *next;
+
 	str name;
 	u32 parameter_count;
 	u32 instr_index;
 	u32 block_index;
 	u32 block_count;
 	u32 stack_size;
-} ir_function;
+};
 
 typedef struct symbol symbol;
 struct symbol {
@@ -100,7 +103,7 @@ struct symbol {
 typedef struct {
 	ir_instr *instrs;
 	ir_block *blocks;
-	ir_function *functions;
+	ir_function *function_list;
 	symbol *symbols;
 
 	u32 block_count;
@@ -119,6 +122,7 @@ struct variable {
 
 typedef struct {
 	ir_program program;
+	arena *arena;
 
 	u32 *label_addresses;
 	u32 max_instr_count;

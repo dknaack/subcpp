@@ -69,8 +69,7 @@ promote_stack_variables(ir_program program, arena *arena)
 	}
 
 	// Reallocate all stack allocations and fix the stack size for each function
-	for (u32 i = 0; i < program.function_count; i++) {
-		ir_function *function = &program.functions[i];
+	for (ir_function *function = program.function_list; function; function = function->next) {
 		u32 stack_size = 0;
 
 		u32 first_instr = function->instr_index;

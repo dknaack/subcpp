@@ -522,15 +522,15 @@ x86_select_instructions(ir_program program, arena *arena)
 
 	b8 *is_toplevel = get_toplevel_instructions(program, arena);
 
-	for (u32 f = 0; f < program.function_count; f++) {
-		ir_function ir_function = program.functions[f];
-		out.functions[f].name = ir_function.name;
-		out.functions[f].block_index = ir_function.block_index;
+	u32 f = 0;
+	for (ir_function *ir_function = program.function_list; ir_function; ir_function = ir_function->next) {
+		out.functions[f].name = ir_function->name;
+		out.functions[f].block_index = ir_function->block_index;
 		out.functions[f].instr_index = out.size;
-		out.functions[f].stack_size = ir_function.stack_size;
+		out.functions[f].stack_size = ir_function->stack_size;
 
-		for (u32 i = 0; i < ir_function.parameter_count; i++) {
-			machine_operand dst = make_vreg(ir_function.instr_index+i);
+		for (u32 i = 0; i < ir_function->parameter_count; i++) {
+			machine_operand dst = make_vreg(ir_function->instr_index+i);
 			machine_operand src;
 			switch (i) {
 			case 0:
@@ -554,8 +554,8 @@ x86_select_instructions(ir_program program, arena *arena)
 			}
 		}
 
-		u32 first_block = ir_function.block_index;
-		u32 last_block = first_block + ir_function.block_count;
+		u32 first_block = ir_function->block_index;
+		u32 last_block = first_block + ir_function->block_count;
 		for (u32 b = first_block; b < last_block; b++) {
 			ir_block block = program.blocks[b];
 			out.blocks[b].instr_index = out.size;
@@ -571,6 +571,8 @@ x86_select_instructions(ir_program program, arena *arena)
 				}
 			}
 		}
+
+		f++;
 	}
 
 	out.instr_count = 0;

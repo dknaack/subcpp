@@ -231,10 +231,10 @@ print_ir_instr(ir_instr instr, u32 i)
 static void
 print_ir_program(ir_program program)
 {
+	u32 i = 0;
 	printf("function_count: %d\n", program.function_count);
-	for (u32 i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
-		printf("function[%d]:\n", i);
+	for (ir_function *func = program.function_list; func; func = func->next) {
+		printf("function[%d]:\n", i++);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  parameter_count: %d\n", func->parameter_count);
 		printf("  block_count: %d\n", func->block_count);

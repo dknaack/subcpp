@@ -110,15 +110,18 @@ new_register(ir_context *ctx, str ident, u32 size)
 static u32
 get_function(ir_context *ctx, str ident)
 {
-	for (u32 i = 0; i < ctx->program.function_count; i++) {
-		ir_function *func = &ctx->program.functions[i];
-		if (str_equals(func->name, ident)) {
+	u32 i = 0;
+
+	for (ir_function *f = ctx->program.function_list; f; f = f->next) {
+		if (str_equals(f->name, ident)) {
 			return i;
 		}
+
+		i++;
 	}
 
 	ASSERT(!"Function not defined");
-	return ctx->program.function_count;
+	return i;
 }
 
 static u32
@@ -617,10 +620,18 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ctx->stack_size = 0;
 			// TODO: find some better mechanism to reset the variable table
 			memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
-			ir_function *ir_function = &ctx->program.functions[ctx->program.function_count++];
-			ir_function->name = node->value.s;
-			ir_function->block_index = function_label;
-			ir_function->instr_index = ctx->program.instr_count;
+
+			// TODO: Make it easier to append function to the list.
+			ir_function **ptr = &ctx->program.function_list;
+			while (*ptr) {
+				ptr = &(*ptr)->next;
+			}
+
+			ir_function *func = ALLOC(ctx->arena, 1, ir_function);
+			*ptr = func;
+			func->name = node->value.s;
+			func->block_index = function_label;
+			func->instr_index = ctx->program.instr_count;
 
 			i32 param_count = 0;
 			while (param != AST_NIL) {
@@ -629,9 +640,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				param_count++;
 			}
 
-			ir_function->parameter_count = param_count;
+			func->parameter_count = param_count;
 			translate_node(ctx, body, false);
-			ir_function->stack_size = ctx->stack_size;
+			func->stack_size = ctx->stack_size;
 		} break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
@@ -707,25 +718,24 @@ construct_cfg(ir_program *program, arena *arena)
 		}
 	}
 
-	for (u32 i = 0; i < program->function_count; i++) {
-		ir_function *curr = &program->functions[i];
+	ir_function *prev = NULL;
+	for (ir_function *curr = program->function_list; curr; curr = curr->next) {
 		u32 label = curr->block_index;
 		u32 block_index = block_indices[label];
 		block_index = instrs[block_index].op0;
 		curr->block_index = block_index;
 		ASSERT(block_index < program->block_count);
 
-		b32 is_first_function = (i == 0);
-		if (!is_first_function) {
-			ir_function *prev = &program->functions[i - 1];
+		if (prev) {
 			prev->block_count = block_index - prev->block_index;
 			ASSERT(prev->block_count > 0);
 		}
+
+		prev = curr;
 	}
 
-	if (program->function_count > 0) {
-		ir_function *last_function = &program->functions[program->function_count - 1];
-		last_function->block_count = program->block_count - last_function->block_index;
+	if (prev) {
+		prev->block_count = program->block_count - prev->block_index;
 	}
 
 	arena_temp_end(temp);
@@ -878,16 +888,12 @@ static ir_program
 translate(ast_node *root, scope *scope, arena *arena)
 {
 	ir_context ctx = ir_context_init(arena);
+	ctx.arena = arena;
+
 	if (root->kind == AST_INVALID || scope->error) {
 		return ctx.program;
 	}
 
-	u32 function_count = 0;
-	for (ast_node *node = root->children; node != AST_NIL; node = node->next) {
-		function_count += (node->kind == AST_FUNCTION);
-	}
-
-	ctx.program.functions = ALLOC(arena, function_count, ir_function);
 	translate_node(&ctx, root, false);
 	construct_cfg(&ctx.program, arena);
 	return ctx.program;
