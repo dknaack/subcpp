@@ -108,6 +108,7 @@ main(int argc, char *argv[])
 
 	arena *arena = new_arena(1000 * 1000);
 	scope scope = {0};
+
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	ast_node *root = parse(&tokenizer, arena);
 	check_type(root, &scope, arena);

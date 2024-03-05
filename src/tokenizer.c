@@ -486,15 +486,24 @@ peek_token(tokenizer *t)
 }
 
 static tokenizer
-tokenize(char *filename, arena *arena)
+tokenize_str(str src, arena *perm)
 {
 	tokenizer tokenizer = {0};
-	tokenizer.arena = arena;
-	tokenizer.filename = filename;
-	tokenizer.loc.file = filename;
+	tokenizer.arena = perm;
+	tokenizer.filename = "(no file)";
+	tokenizer.loc.file = "(no file)";
 	tokenizer.loc.line = 1;
-	tokenizer.source = read_file(filename, arena);
+	tokenizer.source = src;
 	get_token(&tokenizer);
 	get_token(&tokenizer);
 	return tokenizer;
+}
+
+static tokenizer
+tokenize(char *filename, arena *perm)
+{
+	str src = read_file(filename, perm);
+	tokenizer t = tokenize_str(src, perm);
+	t.loc.file = t.filename = filename;
+	return t;
 }
