@@ -346,11 +346,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			u32 size = type_sizeof(node->type);
 			result = get_register(ctx, node->value.s);
 			if (!is_lvalue) {
-				if (node->type->kind != TYPE_FLOAT) {
-					result = emit1_size(ctx, IR_LOAD, size, result);
-				} else {
-					result = emit1_size(ctx, IR_FLOAT, size, result);
-				}
+				result = emit1_size(ctx, IR_LOAD, size, result);
 			}
 		} break;
 	case AST_EXPR_INT:
