@@ -387,6 +387,10 @@ check_type(ast_node *node, scope *scope, arena *arena)
 					declarator = declarator->children;
 				}
 
+				declarator = type_specifier->next;
+				declarator->type = decl_type;
+				declarator->value.s = name;
+
 				ASSERT(name.at);
 				node->value.s = name;
 				add_variable(scope, name, decl_type, arena);
@@ -395,10 +399,6 @@ check_type(ast_node *node, scope *scope, arena *arena)
 				// NOTE: Required for function declarators
 				if (!node->type) {
 					node->type = decl_type;
-					ast_node *declarator = type_specifier->next;
-					if (declarator->kind == AST_DECL_INIT) {
-						declarator->type = decl_type;
-					}
 				}
 
 				if (expr != AST_NIL) {
