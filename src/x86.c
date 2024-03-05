@@ -708,6 +708,12 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		"fmt: db \"%d\", 0x0A, 0\n\n"
 		"section .text\n");
 
+	for (u32 i = 0; i < program.function_count; i++) {
+		stream_print(out, "global ");
+		stream_prints(out, program.functions[i].name);
+		stream_print(out, "\n");
+	}
+
 	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
 		u32 first_instr = program.functions[function_index].instr_index;
 		u32 last_instr = program.instr_count;
