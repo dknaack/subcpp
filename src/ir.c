@@ -107,6 +107,27 @@ new_register(ir_context *ctx, str ident, u32 size)
 	return 0;
 }
 
+static ir_function *
+add_function(ir_context *ctx, str name, arena *perm)
+{
+	ir_function **ptr = &ctx->program.function_list;
+	while (*ptr) {
+		if (str_equals((*ptr)->name, name)) {
+			return *ptr;
+		}
+
+		ptr = &(*ptr)->next;
+	}
+
+	if (!perm) {
+		return NULL;
+	}
+
+	*ptr = ALLOC(perm, 1, ir_function);
+	(*ptr)->name = name;
+	return *ptr;
+}
+
 static u32
 get_function(ir_context *ctx, str ident)
 {
@@ -465,30 +486,25 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_DECL:
+		{
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				translate_node(ctx, child, false);
+			}
+		} break;
 	case AST_EXTERN_DEF:
 		{
-			b32 add_symbol = node->kind == AST_EXTERN_DEF || (node->flags & AST_EXTERN);
-			if (add_symbol) {
-#if 0
-				for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, NULL);
-					s->size = type_sizeof(node->type);
-					s->addr = 0;
-					if (child->kind == AST_DECL_INIT) {
-						s->addr = ctx->program.instr_count;
-					}
-				}
-#endif
-			}
+			ast_node *type_specifier = node->children;
+			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
+				result = translate_node(ctx, child, false);
 
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				if (!add_symbol && child->type->kind == TYPE_FUNCTION) {
-					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, NULL);
-					s->size = type_sizeof(node->type);
-					s->addr = 0;
+				if (child->type->kind == TYPE_FUNCTION) {
+					ASSERT(child->value.s.at && child->value.s.length);
+					add_function(ctx, child->value.s, ctx->arena);
 				}
 
-				translate_node(ctx, child, false);
+				// TODO: Add the result as a symbol. Then later evaluate the IR
+				// code and store the result in the data section of the object
+				// file.
 			}
 		} break;
 	case AST_DECL_INIT:
@@ -627,9 +643,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				ptr = &(*ptr)->next;
 			}
 
-			ir_function *func = ALLOC(ctx->arena, 1, ir_function);
-			*ptr = func;
-			func->name = node->value.s;
+			ir_function *func = add_function(ctx, node->value.s, ctx->arena);
 			func->block_index = function_label;
 			func->instr_index = ctx->program.instr_count;
 
