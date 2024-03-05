@@ -3,7 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifndef TRAP
 #define TRAP() __builtin_trap()
+#endif
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define LENGTH(x) (sizeof(x)/sizeof((x)[0]))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
