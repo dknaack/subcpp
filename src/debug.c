@@ -232,13 +232,10 @@ static void
 print_ir_program(ir_program program)
 {
 	u32 i = 0;
-	printf("function_count: %d\n", program.function_count);
 	for (ir_function *func = program.function_list; func; func = func->next) {
 		printf("function[%d]:\n", i++);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  parameter_count: %d\n", func->parameter_count);
-		printf("  block_count: %d\n", func->block_count);
-		printf("  block_index: %d\n", func->block_index);
 		printf("  instr_index: %d\n", func->instr_index);
 		printf("  stack_size: %d\n", func->stack_size);
 	}
@@ -256,11 +253,12 @@ static void
 print_x86_program(machine_program program)
 {
 	char *code = program.code;
-	for (uint32_t i = 0; i < program.instr_count; i++) {
-		printf("%2d|", i);
+	char *end = code + program.size;
+	u32 i = 0;
+	while (code < end) {
+		printf("%2d|", i++);
 
-		u32 offset = program.instr_offsets[i];
-		machine_instr *instr = (machine_instr *)(code + offset);
+		machine_instr *instr = (machine_instr *)code;
 		if (instr->opcode != X86_LABEL) {
 			printf("\tX86.%s ", x86_get_opcode_name(instr->opcode));
 		}

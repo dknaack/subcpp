@@ -28,20 +28,15 @@ typedef struct {
 } machine_operand;
 
 typedef struct {
-	u32 instr_index;
-} machine_block;
-
-typedef struct {
 	str name;
-	u32 block_index;
-	u32 instr_index;
+	u32 instr_count;
+	u32 register_count;
 	u32 stack_size;
+	u32 *instr_offsets;
 } machine_function;
 
 typedef struct {
 	void *code;
-	u32 *instr_offsets;
-	machine_block *blocks;
 	machine_function *functions;
 	u32 *temp_mregs;
 
@@ -50,7 +45,6 @@ typedef struct {
 	u32 mreg_count;
 	u32 vreg_count;
 	u32 instr_count;
-	u32 block_count;
 	u32 function_count;
 	u32 temp_mreg_count;
 } machine_program;
@@ -127,10 +121,8 @@ get_instr_size(machine_instr instr)
 }
 
 static machine_instr *
-get_instr(machine_program program, u32 instr_index)
+get_instr(void *code, u32 *offsets, u32 index)
 {
-	u32 offset = program.instr_offsets[instr_index];
-	char *ptr = (char *)program.code;
-	machine_instr *instr = (machine_instr *)(ptr + offset);
+	machine_instr *instr = (machine_instr *)((char *)code + offsets[index]);
 	return instr;
 }

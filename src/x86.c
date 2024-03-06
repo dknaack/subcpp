@@ -383,7 +383,6 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			}
 		} break;
 	case IR_JMP:
-		op0 = instr[op0].op0;
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;
 	case IR_JIZ:
@@ -406,7 +405,6 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, X86_TEST, src, src);
 			}
 
-			op1 = instr[op1].op0;
 			x86_select1(out, x86_opcode, make_label(op1));
 		} break;
 	case IR_RET:
@@ -496,8 +494,9 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			x86_select2(out, x86_opcode, dst, src);
 		} break;
 	case IR_LABEL:
-		x86_select1(out, X86_LABEL, make_immediate(op0));
-		break;
+		{
+			x86_select1(out, X86_LABEL, make_immediate(op0));
+		} break;
 	case IR_NOP:
 	case IR_PARAM:
 		break;
@@ -509,28 +508,25 @@ x86_select_instructions(ir_program program, arena *arena)
 {
 	machine_program out = {0};
 	out.max_size = 1024 * 8;
-	out.blocks = ALLOC(arena, program.block_count, machine_block);
 	out.functions = ALLOC(arena, program.function_count, machine_function);
-	out.function_count = program.function_count;
-	out.block_count = program.block_count;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
 	out.mreg_count = X86_REGISTER_COUNT;
-
 	out.temp_mregs = x86_temp_regs;
 	out.temp_mreg_count = LENGTH(x86_temp_regs);
 
 	b8 *is_toplevel = get_toplevel_instructions(program, arena);
 
-	u32 f = 0;
-	for (ir_function *ir_function = program.function_list; ir_function; ir_function = ir_function->next) {
-		out.functions[f].name = ir_function->name;
-		out.functions[f].block_index = ir_function->block_index;
-		out.functions[f].instr_index = out.size;
-		out.functions[f].stack_size = ir_function->stack_size;
+	machine_function *mach_func = out.functions;
+	for (ir_function *ir_func = program.function_list; ir_func; ir_func = ir_func->next) {
+		out.function_count++;
+		mach_func->name = ir_func->name;
+		mach_func->stack_size = ir_func->stack_size;
+		mach_func->register_count = ir_func->instr_count;
+		u32 first_instr_offset = out.size;
 
-		for (u32 i = 0; i < ir_function->parameter_count; i++) {
-			machine_operand dst = make_vreg(ir_function->instr_index+i);
+		for (u32 i = 0; i < ir_func->parameter_count; i++) {
+			machine_operand dst = make_vreg(ir_func->instr_index+i);
 			machine_operand src;
 			switch (i) {
 			case 0:
@@ -554,65 +550,66 @@ x86_select_instructions(ir_program program, arena *arena)
 			}
 		}
 
-		u32 first_block = ir_function->block_index;
-		u32 last_block = first_block + ir_function->block_count;
-		for (u32 b = first_block; b < last_block; b++) {
-			ir_block block = program.blocks[b];
-			out.blocks[b].instr_index = out.size;
-			for (u32 i = block.start; i < block.start + block.size; i++) {
-				ir_instr instr = program.instrs[i];
-				machine_operand dst = make_vreg(i);
-				if (instr.opcode == IR_MOV || instr.opcode == IR_STORE) {
-					dst = make_vreg(instr.op0);
-				}
+		ir_instr *instr = program.instrs + ir_func->instr_index;
+		for (u32 i = 0; i < ir_func->instr_count; i++) {
+			machine_operand dst = make_vreg(i);
+			if (instr[i].opcode == IR_MOV || instr[i].opcode == IR_STORE) {
+				dst = make_vreg(instr[i].op0);
+			}
 
-				if (is_toplevel[i]) {
-					x86_select_instr(&out, program.instrs, i, dst);
+			if (is_toplevel[i]) {
+				x86_select_instr(&out, instr, i, dst);
+			}
+		}
+
+		// NOTE: Compute instruction offsets
+		// TODO: Count the instruction during selection. Keep a counter.
+		mach_func->instr_count = 0;
+		{
+			char *code = (char *)out.code + first_instr_offset;
+			char *end = (char *)out.code + out.size;
+			while (code < end) {
+				mach_func->instr_count++;
+				code += get_instr_size(*(machine_instr *)code);
+			}
+		}
+
+		mach_func->instr_offsets = ALLOC(arena, mach_func->instr_count, u32);
+		char *code = (char *)out.code + first_instr_offset;
+		for (u32 i = 0; i < mach_func->instr_count; i++) {
+			mach_func->instr_offsets[i] = code - (char *)out.code;
+			code += get_instr_size(*(machine_instr *)code);
+		}
+
+		// NOTE: Compute the instruction index of each label
+		u32 *label_indices = ALLOC(arena, ir_func->label_count, u32);
+		for (u32 i = 0; i < mach_func->instr_count; i++) {
+			machine_instr *instr = (machine_instr *)((char *)out.code
+				+ mach_func->instr_offsets[i]);
+			machine_operand *operands = (machine_operand *)(instr + 1);
+			if (instr->opcode == X86_LABEL) {
+				// A label should only have one operand: The index of the label.
+				ASSERT(operands[0].kind == MOP_IMMEDIATE);
+				ASSERT(operands[0].value < ir_func->label_count);
+
+				label_indices[operands[0].value] = i;
+			}
+		}
+
+		// Replace label operands with the instruction index
+		for (u32 i = 0; i < mach_func->instr_count; i++) {
+			machine_instr *instr = (machine_instr *)((char *)out.code
+				+ mach_func->instr_offsets[i]);
+			machine_operand *operands = (machine_operand *)(instr + 1);
+			for (u32 j = 0; j < instr->operand_count; j++) {
+				if (operands[j].kind == MOP_LABEL) {
+					operands[j].value = label_indices[operands[j].value];
 				}
 			}
 		}
 
-		f++;
+		mach_func++;
 	}
-
-	out.instr_count = 0;
-	char *start = out.code;
-	char *code = start;
-	char *end = start + out.size;
-	while (code < end) {
-		out.instr_count++;
-		code += get_instr_size(*(machine_instr *)code);
-	}
-
-	out.instr_offsets = ALLOC(arena, out.instr_count, u32);
-	u32 instr_index = 0;
-	code = start;
-	while (code < end) {
-		out.instr_offsets[instr_index++] = code - start;
-		code += get_instr_size(*(machine_instr *)code);
-	}
-
-	/* Convert instruction offset to instruction index */
-	instr_index = 0;
-	for (u32 i = 0; i < out.block_count; i++) {
-		u32 offset = out.blocks[i].instr_index;
-		while (out.instr_offsets[instr_index] < offset) {
-			instr_index++;
-		}
-
-		out.blocks[i].instr_index = instr_index;
-	}
-
-	instr_index = 0;
-	for (u32 i = 0; i < out.function_count; i++) {
-		u32 offset = out.functions[i].instr_index;
-		while (out.instr_offsets[instr_index] < offset) {
-			instr_index++;
-		}
-
-		out.functions[i].instr_index = instr_index;
-	}
-
 
 	return out;
 }
@@ -715,13 +712,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 	}
 
 	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
-		u32 first_instr = program.functions[function_index].instr_index;
-		u32 last_instr = program.instr_count;
-		if (function_index + 1 < program.function_count) {
-			last_instr = program.functions[function_index+1].instr_index;
-		}
-
-		stream_prints(out, program.functions[function_index].name);
+		machine_function *function = &program.functions[function_index];
+		stream_prints(out, function->name);
 		stream_print(out, ":\n");
 
 		u32 used_volatile_register_count = 0;
@@ -735,7 +727,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			}
 		}
 
-		u32 stack_size = program.functions[function_index].stack_size;
+		u32 stack_size = function->stack_size;
 		stack_size += 8 * info[function_index].spill_count;
 
 		u32 total_stack_size = (stack_size + 8 * used_volatile_register_count);
@@ -750,8 +742,24 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			stream_print(out, "\n");
 		}
 
-		for (u32 i = first_instr; i < last_instr; i++) {
-			machine_instr *instr = get_instr(program, i);
+		// Convert label instruction indices back to label indices
+		char *code = (char *)program.code;
+		for (u32 i = 0; i < function->instr_count; i++) {
+			machine_instr *instr = (machine_instr *)(code + function->instr_offsets[i]);
+			machine_operand *operands = (machine_operand *)(instr + 1);
+
+			for (u32 j = 0; j < instr->operand_count; j++) {
+				if (operands[j].kind == MOP_LABEL) {
+					isize label_offset = function->instr_offsets[operands[j].value];
+					machine_instr *label = (machine_instr *)(code + label_offset);
+					machine_operand *label_index = (machine_operand *)(label + 1);
+					operands[j].value = label_index->value;
+				}
+			}
+		}
+
+		for (u32 i = 0; i < function->instr_count; i++) {
+			machine_instr *instr = get_instr(program.code, function->instr_offsets, i);
 			machine_operand *operands = (machine_operand *)(instr + 1);
 			x86_opcode opcode = (x86_opcode)instr->opcode;
 			u32 operand_count = instr->operand_count;

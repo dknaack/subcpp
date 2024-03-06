@@ -70,12 +70,6 @@ typedef struct {
 	u32 op1;
 } ir_instr;
 
-typedef struct {
-	u32 start;
-	u32 size;
-	u32 next[2];
-} ir_block;
-
 typedef struct ir_function ir_function;
 struct ir_function {
 	ir_function *next;
@@ -83,8 +77,8 @@ struct ir_function {
 	str name;
 	u32 parameter_count;
 	u32 instr_index;
-	u32 block_index;
-	u32 block_count;
+	u32 instr_count;
+	u32 label_count;
 	u32 stack_size;
 };
 
@@ -102,11 +96,9 @@ struct symbol {
 
 typedef struct {
 	ir_instr *instrs;
-	ir_block *blocks;
 	ir_function *function_list;
 	symbol *symbols;
 
-	u32 block_count;
 	u32 register_count;
 	u32 function_count;
 	u32 instr_count;

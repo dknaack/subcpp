@@ -73,9 +73,10 @@ promote_stack_variables(ir_program program, arena *arena)
 		u32 stack_size = 0;
 
 		u32 first_instr = function->instr_index;
-		u32 last_block_index = function->block_index + function->block_count - 1;
-		ir_block *last_block = &program.blocks[last_block_index];
-		u32 last_instr = last_block->start + last_block->size;
+		u32 last_instr = program.instr_count;
+		if (function->next) {
+			last_instr = function->next->instr_index;
+		}
 
 		for (u32 j = first_instr; j < last_instr; j++) {
 			ir_instr *instr = &instrs[j];

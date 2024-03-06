@@ -95,20 +95,21 @@ print_matrix(bit_matrix matrix)
 }
 
 static bit_matrix
-get_live_matrix(machine_program program, u32 first_instr,
-    u32 last_instr, u32 reg_count, arena *arena)
+get_live_matrix(void *code, machine_function func, u32 mreg_count,
+	u32 *temp_mregs, u32 temp_mreg_count, arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a b32ean matrix.
-	u32 instr_count = last_instr - first_instr;
-	bit_matrix live_matrix = bit_matrix_init(reg_count, instr_count, arena);
+	u32 instr_count = func.instr_count;
+	u32 register_count = func.register_count + mreg_count;
+	bit_matrix live_matrix = bit_matrix_init(register_count, instr_count, arena);
 	arena_temp temp = arena_temp_begin(arena);
-	bit_matrix prev_live_matrix = bit_matrix_init(reg_count, instr_count, arena);
+	bit_matrix prev_live_matrix = bit_matrix_init(register_count, instr_count, arena);
 
 	b32 has_matrix_changed = false;
 	do {
 		u32 i = instr_count;
 		while (i-- > 0) {
-			machine_instr *instr = get_instr(program, first_instr + i);
+			machine_instr *instr = get_instr(code, func.instr_offsets, i);
 
 			clear_row(live_matrix, i);
 			/* TODO: successor of jump instructions */
@@ -118,16 +119,11 @@ get_live_matrix(machine_program program, u32 first_instr,
 
 			machine_operand *operands = (machine_operand *)(instr + 1);
 			for (u32 j = 0; j < instr->operand_count; j++) {
-				if (operands[j].kind != MOP_LABEL) {
-					continue;
+				if (operands[j].kind == MOP_LABEL) {
+					u32 instr_index = operands[j].value;
+					ASSERT(instr_index < instr_count);
+					union_rows(live_matrix, i, instr_index);
 				}
-
-				u32 block_index = operands[j].value;
-				ASSERT(block_index < program.block_count);
-
-				machine_block block = program.blocks[block_index];
-				u32 instr_index = block.instr_index - first_instr;
-				union_rows(live_matrix, i, instr_index);
 			}
 
 			for (u32 j = 0; j < instr->operand_count; j++) {
@@ -135,8 +131,8 @@ get_live_matrix(machine_program program, u32 first_instr,
 					continue;
 				}
 
-				for (u32 k = 0; k < program.temp_mreg_count; k++) {
-					u32 mreg = program.temp_mregs[k];
+				for (u32 k = 0; k < temp_mreg_count; k++) {
+					u32 mreg = temp_mregs[k];
 					set_bit(live_matrix, i, live_matrix.width - 1 - mreg);
 				}
 			}
@@ -250,32 +246,24 @@ typedef struct {
 } allocation_info;
 
 static allocation_info
-allocate_function_registers(machine_program program,
-    u32 function_index, arena *arena)
+allocate_function_registers(machine_function function, void *code,
+	u32 mreg_count, u32 *temp_mregs, u32 temp_mreg_count, arena *arena)
 {
 	allocation_info info = {0};
-	u32 mreg_count = program.mreg_count;
-	u32 reg_count = program.mreg_count + program.vreg_count;
-	info.used = ALLOC(arena, program.mreg_count, b32);
-
+	info.used = ALLOC(arena, mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
-	machine_function function = program.functions[function_index];
-	u32 first_instr = function.instr_index;
-	u32 last_instr = program.instr_count;
-	if (function_index + 1 < program.function_count) {
-		machine_function next_function = program.functions[function_index+1];
-		last_instr = next_function.instr_index;
-	}
+	bit_matrix live_matrix = get_live_matrix(code, function,
+		mreg_count, temp_mregs, temp_mreg_count, arena);
 
-	bit_matrix live_matrix = get_live_matrix(program, first_instr, last_instr, reg_count, arena);
+	u32 reg_count = mreg_count + function.register_count;
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (u32 i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	u32 *sorted_by_start = sort_intervals_by_start(intervals, program.vreg_count, arena);
+	u32 *sorted_by_start = sort_intervals_by_start(intervals, function.register_count, arena);
 
 	u32 *register_pool = ALLOC(arena, mreg_count, u32);
 	for (u32 i = 0; i < mreg_count; i++) {
@@ -292,7 +280,7 @@ allocate_function_registers(machine_program program,
 	 * value. */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	for (u32 i = 0; i < program.vreg_count; i++) {
+	for (u32 i = 0; i < function.register_count; i++) {
 		u32 current_register = sorted_by_start[i];
 		u32 current_start = intervals[current_register].start;
 		u32 current_end = intervals[current_register].end;
@@ -309,26 +297,26 @@ allocate_function_registers(machine_program program,
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_register >= program.vreg_count);
+			b32 is_mreg = (inactive_register >= function.register_count);
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_register;
 				register_pool[active_count] = mreg;
-				ASSERT(register_pool[active_count] < program.mreg_count);
+				ASSERT(register_pool[active_count] < mreg_count);
 			} else if (vreg[inactive_register].kind == MOP_MREG) {
 				u32 mreg = vreg[inactive_register].value;
 				register_pool[active_count] = mreg;
-				ASSERT(register_pool[active_count] < program.mreg_count);
+				ASSERT(register_pool[active_count] < mreg_count);
 			}
 
 			sorted_by_start[j] = sorted_by_start[active_start];
 			sorted_by_start[active_start++] = inactive_register;
 		}
 
-		ASSERT(current_register < program.vreg_count);
+		ASSERT(current_register < function.register_count);
 		b32 should_spill = (active_count >= mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < program.mreg_count; i++) {
+			for (u32 i = active_count; i < mreg_count; i++) {
 				u32 j = register_pool[i];
 				live_interval mreg_interval = intervals[reg_count - 1 - j];
 				if (!overlaps(mreg_interval, intervals[current_register])) {
@@ -382,15 +370,16 @@ allocate_function_registers(machine_program program,
 		}
 	}
 
-	for (u32 i = first_instr; i < last_instr; i++) {
-		machine_instr *instr = get_instr(program, i);
+	// NOTE: Replace the virtual registers with the allocated machine registers
+	for (u32 i = 0; i < function.instr_count; i++) {
+		machine_instr *instr = get_instr(code, function.instr_offsets, i);
 		u32 operand_count = instr->operand_count;
 
 		machine_operand *operands = (machine_operand *)(instr + 1);
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
-				ASSERT(reg < program.vreg_count);
+				ASSERT(reg < function.register_count);
 				operands[i].kind = vreg[reg].kind;
 				operands[i].value = vreg[reg].value;
 			}
@@ -406,7 +395,8 @@ allocate_registers(machine_program program, arena *arena)
 {
 	allocation_info *info = ALLOC(arena, program.function_count, allocation_info);
 	for (u32 i = 0; i < program.function_count; i++) {
-		info[i] = allocate_function_registers(program, i, arena);
+		info[i] = allocate_function_registers(program.functions[i], program.code,
+			program.mreg_count, program.temp_mregs, program.temp_mreg_count, arena);
 	}
 
 	return info;

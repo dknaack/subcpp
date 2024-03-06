@@ -123,6 +123,7 @@ add_function(ir_context *ctx, str name, arena *perm)
 		return NULL;
 	}
 
+	ctx->program.function_count++;
 	*ptr = ALLOC(perm, 1, ir_function);
 	(*ptr)->name = name;
 	return *ptr;
@@ -630,11 +631,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ast_node *declarator = decl->children->next;
 			ast_node *param = declarator->children->next;
 
-			u32 function_label = new_label(ctx);
-			emit1(ctx, IR_LABEL, function_label);
-
-			ctx->stack_size = 0;
 			// TODO: find some better mechanism to reset the variable table
+			ctx->stack_size = 0;
 			memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
 
 			// TODO: Make it easier to append function to the list.
@@ -643,9 +641,14 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				ptr = &(*ptr)->next;
 			}
 
+			u32 prev_label_count = ctx->program.label_count;
+			u32 prev_register_count = ctx->program.register_count;
+			ctx->program.label_count = 1;
+			ctx->program.register_count = 1;
+
 			ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-			func->block_index = function_label;
 			func->instr_index = ctx->program.instr_count;
+			emit1(ctx, IR_LABEL, new_label(ctx));
 
 			i32 param_count = 0;
 			while (param != AST_NIL) {
@@ -657,6 +660,12 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			func->parameter_count = param_count;
 			translate_node(ctx, body, false);
 			func->stack_size = ctx->stack_size;
+			func->label_count = ctx->program.label_count;
+			func->instr_count = ctx->program.instr_count - func->instr_index;
+
+			u32 curr_register_count = ctx->program.register_count;
+			ctx->program.label_count = MAX(func->label_count, prev_label_count);
+			ctx->program.register_count = MAX(curr_register_count, prev_register_count);
 		} break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
@@ -668,128 +677,6 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	}
 
 	return result;
-}
-
-static b32
-is_block_start(ir_instr *instrs, u32 i)
-{
-	b32 result = (i == 0 || instrs[i].opcode == IR_LABEL);
-	if (!result) {
-		u32 prev = i - 1;
-		result = (instrs[prev].opcode == IR_JMP
-		    || instrs[prev].opcode == IR_JIZ
-		    || instrs[prev].opcode == IR_JNZ
-		    || instrs[prev].opcode == IR_RET);
-	}
-
-	return result;
-}
-
-static void
-construct_cfg(ir_program *program, arena *arena)
-{
-	u32 block_count = 0;
-	for (u32 i = 0; i < program->instr_count; i++) {
-		if (is_block_start(program->instrs, i)) {
-			block_count++;
-		}
-	}
-
-	program->blocks = ALLOC(arena, block_count, ir_block);
-	program->block_count = block_count;
-
-	arena_temp temp = arena_temp_begin(arena);
-	ir_instr *instrs = program->instrs;
-	u32 instr_count = program->instr_count;
-
-	/* replace labels with block indices */
-	u32 *block_indices = ALLOC(arena, program->label_count, u32);
-	u32 block_index = 0;
-	for (u32 i = 0; i < instr_count; i++) {
-		if (is_block_start(program->instrs, i)) {
-			u32 opcode = instrs[i].opcode;
-			if (opcode == IR_LABEL) {
-				u32 label = program->instrs[i].op0;
-				block_indices[label] = i;
-				instrs[i].op0 = block_index;
-			}
-
-			program->blocks[block_index++].start = i;
-		}
-	}
-
-	for (u32 i = 0; i < program->instr_count; i++) {
-		ir_instr *instr = &program->instrs[i];
-		ir_opcode opcode = instr->opcode;
-		if (opcode == IR_JMP) {
-			u32 block = block_indices[instr->op0];
-			instr->op0 = block;
-			ASSERT(block > 0);
-		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-			u32 block = block_indices[instr->op1];
-			instr->op1 = block;
-			ASSERT(block > 0);
-		}
-	}
-
-	ir_function *prev = NULL;
-	for (ir_function *curr = program->function_list; curr; curr = curr->next) {
-		u32 label = curr->block_index;
-		u32 block_index = block_indices[label];
-		block_index = instrs[block_index].op0;
-		curr->block_index = block_index;
-		ASSERT(block_index < program->block_count);
-
-		if (prev) {
-			prev->block_count = block_index - prev->block_index;
-			ASSERT(prev->block_count > 0);
-		}
-
-		prev = curr;
-	}
-
-	if (prev) {
-		prev->block_count = program->block_count - prev->block_index;
-	}
-
-	arena_temp_end(temp);
-
-	/* calculate size of each block */
-	ir_block *blocks = program->blocks;
-	for (u32 i = 0; i < program->block_count; i++) {
-		b32 is_last_block = (i + 1 >= program->block_count);
-		if (is_last_block) {
-			blocks[i].size = program->instr_count - blocks[i].start;
-		} else {
-			blocks[i].size = blocks[i+1].start - blocks[i].start;
-		}
-
-		ASSERT(blocks[i].size > 0);
-	}
-
-	/* determine the next block */
-	for (u32 i = 0; i < program->block_count; i++) {
-		u32 block_end = blocks[i].start + blocks[i].size - 1;
-		switch (instrs[block_end].opcode) {
-		case IR_JMP:
-			blocks[i].next[0] = instrs[block_end].op0;
-			blocks[i].next[1] = instrs[block_end].op0;
-			break;
-		case IR_JIZ:
-		case IR_JNZ:
-			blocks[i].next[0] = i + 1;
-			blocks[i].next[1] = instrs[block_end].op1;
-			break;
-		case IR_RET:
-			blocks[i].next[0] = program->instr_count;
-			blocks[i].next[1] = program->instr_count;
-			break;
-		default:
-			blocks[i].next[0] = i + 1;
-			blocks[i].next[1] = i + 1;
-			break;
-		}
-	}
 }
 
 static ir_opcode_info
@@ -909,6 +796,5 @@ translate(ast_node *root, scope *scope, arena *arena)
 	}
 
 	translate_node(&ctx, root, false);
-	construct_cfg(&ctx.program, arena);
 	return ctx.program;
 }
