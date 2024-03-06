@@ -116,7 +116,6 @@ typedef struct {
 	ir_program program;
 	arena *arena;
 
-	u32 *label_addresses;
 	u32 max_instr_count;
 
 	variable *variable_table;
