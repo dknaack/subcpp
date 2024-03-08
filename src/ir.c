@@ -61,8 +61,8 @@ static u32
 emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	ctx->stack_size += size;
 	u32 result = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
+	ctx->stack_size += size;
 	return result;
 }
 
@@ -111,6 +111,12 @@ get_register(ir_context *ctx, ast_node *node, isize size)
 	u32 result = ctx->symbol_registers[node->index];
 	if (!result) {
 		result = emit_alloca(ctx, size);
+		if (node->type->kind == TYPE_ARRAY) {
+			u32 addr = emit_alloca(ctx, 8);
+			emit2(ctx, IR_STORE, addr, result);
+			result = addr;
+		}
+
 		ctx->symbol_registers[node->index] = result;
 	}
 
@@ -286,6 +292,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				}
 			} else if (operator == TOKEN_LBRACKET) {
 				u32 rhs_reg = translate_node(ctx, rhs, false);
+				u32 size_reg = emit1_size(ctx, IR_INT, 8, size);
+				rhs_reg = emit2_size(ctx, IR_MUL, 8, rhs_reg, size_reg);
 				result = emit2_size(ctx, IR_ADD, 8, lhs_reg, rhs_reg);
 				result = emit1_size(ctx, IR_LOAD, size, result);
 			} else {

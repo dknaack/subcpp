@@ -65,7 +65,8 @@ promote_stack_variables(ir_program program, arena *arena)
 			if (!addr_used[i]) {
 				instrs[i].opcode = IR_VAR;
 				instrs[i].size = instrs[i].op0;
-				ASSERT(instrs[i].op0 < 8);
+				// Can only turn scalars into registers, not arrays or structs
+				ASSERT(instrs[i].op0 <= 8);
 			}
 		}
 	}
@@ -83,8 +84,9 @@ promote_stack_variables(ir_program program, arena *arena)
 		for (u32 j = first_instr; j < last_instr; j++) {
 			ir_instr *instr = &instrs[j];
 			if (instr->opcode == IR_ALLOC) {
-				stack_size += instr->op0;
+				// TODO: Alignment
 				instr->op1 = stack_size;
+				stack_size += instr->op0;
 			}
 		}
 
