@@ -195,31 +195,31 @@ check_type(ast_node *node, arena *arena, b32 *error)
 				errorf(node->loc, "Too many fields in the initializer");
 			}
 		} break;
+	case AST_EXPR_MEMBER:
+		{
+			ast_node *lhs = node->children;
+			check_type(lhs, arena, error);
+			if (lhs->type->kind != TYPE_STRUCT) {
+				errorf(node->loc, "Left-hand side is not a struct");
+				*error = true;
+			}
+
+			member *s = get_member(lhs->type->members, node->value.s);
+			if (s) {
+				node->type = s->type;
+			} else {
+				errorf(node->loc, "Member does not exist");
+			}
+		} break;
 	case AST_EXPR_BINARY:
 		{
 			ast_node *lhs = node->children;
 			ast_node *rhs = lhs->next;
 			check_type(lhs, arena, error);
+			check_type(rhs, arena, error);
 
 			u32 operator = node->value.i;
-			if (operator == TOKEN_DOT) {
-				if (lhs->type->kind != TYPE_STRUCT) {
-					errorf(node->loc, "Left-hand side is not a struct");
-					*error = true;
-				}
-
-				if (rhs->kind != AST_EXPR_IDENT) {
-					errorf(node->loc, "Right-hand side is not an identifier");
-					*error = true;
-				}
-
-				member *s = get_member(lhs->type->members, rhs->value.s);
-				if (s) {
-					rhs->type = s->type;
-					node->type = s->type;
-				}
-			} else if (operator == TOKEN_LBRACKET) {
-				check_type(rhs, arena, error);
+			if (operator == TOKEN_LBRACKET) {
 
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
@@ -235,8 +235,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 						type_get_name(rhs->type->kind));
 				}
 			} else {
-				check_type(rhs, arena, error);
-
 				// Apply integer promotion
 				b32 same_sign = (lhs->type->kind & TYPE_UNSIGNED) == (rhs->type->kind & TYPE_UNSIGNED);
 				if (lhs->type->kind == rhs->type->kind) {

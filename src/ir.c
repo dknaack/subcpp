@@ -161,6 +161,16 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			ASSERT(!"Invalid node");
 		} break;
+	case AST_EXPR_MEMBER:
+		{
+			ast_node *operand = node->children;
+			u32 size = type_sizeof(node->type);
+			u32 offset = type_offsetof(operand->type, node->value.s);
+			u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
+			u32 base_reg = translate_node(ctx, operand, true);
+			u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
+			result = emit1_size(ctx, IR_LOAD, size, addr);
+		} break;
 	case AST_EXPR_BINARY:
 		{
 			token_kind operator = node->value.op;
@@ -191,7 +201,6 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			case TOKEN_AMP:           opcode = IR_AND;   break;
 			case TOKEN_BAR:           opcode = IR_OR;    break;
 			case TOKEN_CARET:         opcode = IR_XOR;   break;
-			case TOKEN_DOT:           opcode = IR_LOAD;  break;
 			case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
 			case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
 			default:
@@ -252,12 +261,6 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 one = emit1_size(ctx, IR_INT, 4, 1);
 				emit2(ctx, IR_MOV, result, one);
 				emit1(ctx, IR_LABEL, end_label);
-			} else if (operator == TOKEN_DOT) {
-				u32 offset = type_offsetof(lhs->type, rhs->value.s);
-				u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
-				u32 base_reg = translate_node(ctx, lhs, true);
-				u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
-				result = emit2_size(ctx, IR_LOAD, size, addr, addr);
 			} else if (opcode == IR_STORE) {
 				switch (operator) {
 				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;

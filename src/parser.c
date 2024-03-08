@@ -275,6 +275,11 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 			expr = new_ast_node(AST_EXPR_CALL, tokenizer->loc, arena);
 			expr->children = called;
 			called->next = params;
+		} else if (token.kind == TOKEN_DOT) {
+			ast_node *accessed = expr;
+			expr = new_ast_node(AST_EXPR_MEMBER, tokenizer->loc, arena);
+			expr->children = accessed;
+			expr->value.s = token.value;
 		} else {
 			precedence prec = get_precedence(operator);
 			if (prec == PREC_NONE) {
