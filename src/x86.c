@@ -69,6 +69,7 @@ x86_select2(machine_program *out, x86_opcode opcode,
 {
 	switch (opcode) {
 	case X86_MOV:
+		ASSERT(dst.size > 0 && src.size > 0);
 		if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
 			if (dst.flags & MOP_INDIRECT) {
@@ -165,16 +166,17 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	u32 op1 = instr[instr_index].op1;
 	ir_opcode opcode = instr[instr_index].opcode;
 
-	dst.size = size;
 	switch (opcode) {
 	case IR_VAR:
 		{
 			machine_operand src = make_vreg(instr_index);
+			src.size = size;
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
 	case IR_INT:
 		{
 			machine_operand src = make_immediate(op0);
+			src.size = size;
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
 	case IR_ALLOC:
@@ -218,6 +220,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_STORE:
 		{
 			machine_operand src = make_vreg(op1);
+
 			ASSERT(!machine_operand_equals(src, dst));
 			if (instr[op1].opcode != IR_INT) {
 				x86_select_instr(out, instr, op1, src);
@@ -225,6 +228,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				src = make_immediate(instr[op1].op0);
 			}
 
+			src.size = instr[op1].size;
 			if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
 				&& instr[instr[op0].op1].opcode == IR_INT)
@@ -251,6 +255,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			} else {
 				x86_select_instr(out, instr, op0, dst);
 				dst.flags |= MOP_INDIRECT;
+				dst.size = 8;
 				x86_select2(out, X86_MOV, dst, src);
 			}
 		} break;
@@ -410,6 +415,8 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_RET:
 		{
 			machine_operand rax = make_mreg(X86_RAX);
+			rax.size = size;
+
 			x86_select_instr(out, instr, op0, rax);
 			x86_select0(out, X86_RET);
 		} break;
@@ -553,8 +560,10 @@ x86_select_instructions(ir_program program, arena *arena)
 		ir_instr *instr = program.instrs + ir_func->instr_index;
 		for (u32 i = 0; i < ir_func->instr_count; i++) {
 			machine_operand dst = make_vreg(i);
+			dst.size = instr[i].size;
 			if (instr[i].opcode == IR_MOV || instr[i].opcode == IR_STORE) {
 				dst = make_vreg(instr[i].op0);
+				dst.size = instr[instr[i].op0].size;
 			}
 
 			if (is_toplevel[i]) {

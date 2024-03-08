@@ -64,6 +64,8 @@ promote_stack_variables(ir_program program, arena *arena)
 		if (instrs[i].opcode == IR_ALLOC) {
 			if (!addr_used[i]) {
 				instrs[i].opcode = IR_VAR;
+				instrs[i].size = instrs[i].op0;
+				ASSERT(instrs[i].op0 < 8);
 			}
 		}
 	}
