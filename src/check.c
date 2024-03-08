@@ -115,9 +115,10 @@ is_pointer(type *type)
 }
 
 static void
-merge_identifiers(ast_node *node, scope *s, arena temp, b32 *error)
+merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 {
 	scope *orig = NULL;
+	arena temp = {0};
 
 	ASSERT(node->kind != AST_EXPR_IDENT && node->kind != AST_DECL_IDENT);
 	if (*error || node->kind == AST_TYPE_STRUCT_DEF) {
@@ -130,14 +131,16 @@ merge_identifiers(ast_node *node, scope *s, arena temp, b32 *error)
 	// parameters should be accessible from within the function.
 	if (node->kind == AST_STMT_COMPOUND || node->kind == AST_FUNCTION) {
 		orig = s;
-		s = new_scope(orig, &temp);
+		temp = *perm;
+		perm = &temp;
+		s = new_scope(orig, perm);
 	}
 
 	for (ast_node **child = &node->children; *child != AST_NIL; child = &(*child)->next) {
 		if ((*child)->kind == AST_DECL_IDENT) {
 			ASSERT((*child)->index == 0);
 			(*child)->index = (*s->count)++;
-			*scope_upsert(s, (*child)->value.s, &temp) = *child;
+			*scope_upsert(s, (*child)->value.s, perm) = *child;
 		} else if ((*child)->kind == AST_EXPR_IDENT) {
 			ast_node **resolved = scope_upsert(s, (*child)->value.s, NULL);
 			if (resolved) {
@@ -147,7 +150,7 @@ merge_identifiers(ast_node *node, scope *s, arena temp, b32 *error)
 				*error = true;
 			}
 		} else {
-			merge_identifiers(*child, s, temp, error);
+			merge_identifiers(*child, s, perm, error);
 		}
 	}
 }
@@ -537,7 +540,7 @@ analyze(ast_node *root, arena *perm, b32 *error)
 	scope *s = new_scope(NULL, perm);
 	s->count = &table.count;
 
-	merge_identifiers(root, s, *perm, error);
+	merge_identifiers(root, s, perm, error);
 	check_type(root, perm, error);
 	return table;
 }
