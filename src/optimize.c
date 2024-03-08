@@ -228,6 +228,79 @@ optimize(ir_program program, arena *arena)
 		}
 	}
 
+	// Eliminate dead code
+	{
+		b8 *reachable = ALLOC(arena, program.label_count, b8);
+		u32 *stack = ALLOC(arena, program.label_count, u32);
+		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
+		for (ir_function *func = program.function_list; func; func = func->next) {
+			memset(reachable, 0, program.label_count * sizeof(*reachable));
+			ir_instr *instr = program.instrs + func->instr_index;
+
+			// Get the address of each label
+			for (u32 i = 0; i < func->instr_count; i++) {
+				if (instr[i].opcode == IR_LABEL) {
+					label_addresses[instr[i].op0] = i;
+				}
+			}
+
+			// Do a depth first search on the labels, start with the first
+			// instruction in the function.
+			i32 stack_pos = 0;
+			stack[stack_pos++] = 1;
+			reachable[1] = true;
+next_block:
+			while (stack_pos > 0) {
+				u32 label = stack[--stack_pos];
+
+				// NOTE: The first instruction is the label itself
+				u32 start = label_addresses[label] + 1;
+				for (u32 i = start; i < func->instr_count; i++) {
+					u32 new_label = 0;
+					switch (instr[i].opcode) {
+					case IR_JMP:
+					case IR_LABEL:
+						new_label = instr[i].op0;
+						if (!reachable[new_label]) {
+							stack[stack_pos++] = new_label;
+							reachable[new_label] = true;
+						}
+						goto next_block;
+					case IR_RET:
+						goto next_block;
+					case IR_JIZ:
+					case IR_JNZ:
+						// TODO: Check if the condition is zero or not.
+						new_label = instr[i].op1;
+						if (!reachable[new_label]) {
+							stack[stack_pos++] = new_label;
+							reachable[new_label] = true;
+						}
+						break;
+					default:
+						break;
+					}
+				}
+			}
+
+			for (u32 label = 1; label < func->label_count; label++) {
+				if (reachable[label]) {
+					continue;
+				}
+
+				u32 start = label_addresses[label];
+				instr[start].opcode = IR_NOP;
+				for (u32 i = start; i < func->instr_count; i++) {
+					if (instr[i].opcode == IR_LABEL) {
+						break;
+					}
+
+					instr[i].opcode = IR_NOP;
+				}
+			}
+		}
+	}
+
 	// Remove register copies from the IR tree
 	for (u32 i = 0; i < program.instr_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
