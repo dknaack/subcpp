@@ -462,9 +462,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			machine_operand rsi = make_mreg(X86_RSI);
 			machine_operand rdi = make_mreg(X86_RDI);
 			machine_operand rax = make_mreg(X86_RAX);
+			machine_operand zero = make_immediate(0);
+			rax.size = zero.size = 8;
 
 			x86_select_instr(out, instr, op0, rsi);
-			x86_select2(out, X86_MOV, rax, make_immediate(0));
+			x86_select2(out, X86_MOV, rax, zero);
 			x86_select2(out, X86_PRINT, rdi, rsi);
 		} break;
 	case IR_FLOAT:
