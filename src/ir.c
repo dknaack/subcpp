@@ -499,19 +499,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			ASSERT(node->type != NULL);
 			u32 size = type_sizeof(node->type);
-			b32 first_use = (node->value.i == 0);
-			if (first_use) {
-				result = get_register(ctx, node, size);
-				if (node->type->kind == TYPE_ARRAY) {
-					u32 addr = emit_alloca(ctx, 8);
-					emit2(ctx, IR_STORE, addr, result);
-					result = addr;
-				}
-			} else {
-				result = get_register(ctx, node, size);
-				if (!is_lvalue) {
-					result = emit1_size(ctx, IR_LOAD, size, result);
-				}
+			result = get_register(ctx, node, size);
+			if (!is_lvalue) {
+				result = emit1_size(ctx, IR_LOAD, size, result);
 			}
 		} break;
 	case AST_STMT_EMPTY:
