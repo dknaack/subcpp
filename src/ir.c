@@ -4,35 +4,9 @@ ir_context_init(arena *arena)
 	ir_context ctx = {0};
 	ctx.program.instrs = ALLOC(arena, 1024, ir_instr);
 	ctx.max_instr_count = 1024;
-	ctx.variable_table = ALLOC(arena, 1024, variable);
-	ctx.variable_table_size = 1024;
 	ctx.program.register_count++;
 	ctx.program.label_count++;
 	return ctx;
-}
-
-static symbol *
-upsert_symbol(symbol **s, str name, arena *perm)
-{
-	symbol **head = s;
-
-	for (u64 h = hash(name); *s; h <<= 2) {
-		if (str_equals(name, (*s)->name)) {
-			return *s;
-		}
-
-		s = &(*s)->child[h >> 62];
-	}
-
-	if (!perm) {
-		return NULL;
-	}
-
-	*s = ALLOC(perm, 1, symbol);
-	(*s)->name = name;
-	(*s)->next = *head;
-	*head = *s;
-	return *s;
 }
 
 static u32
@@ -77,34 +51,19 @@ emit1(ir_context *ctx, ir_opcode opcode, u32 op0)
 }
 
 static u32
+emit0_size(ir_context *ctx, ir_opcode opcode, u32 size)
+{
+	u32 result = emit2_size(ctx, opcode, size, 0, 0);
+	return result;
+}
+
+static u32
 emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
 	ctx->stack_size += size;
 	u32 result = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
 	return result;
-}
-
-static u32
-new_register(ir_context *ctx, str ident, u32 size)
-{
-	variable *variable_table = ctx->variable_table;
-	u32 h = hash(ident);
-	for (u32 j = 0; j < ctx->variable_table_size; j++) {
-		u32 i = (h + j) & (ctx->variable_table_size - 1);
-		if (i == 0) {
-			continue;
-		}
-
-		if (!variable_table[i].name.at) {
-			variable_table[i].name = ident;
-			variable_table[i].vreg = emit_alloca(ctx, size);
-			return variable_table[i].vreg;
-		}
-	}
-
-	ASSERT(!"OOM");
-	return 0;
 }
 
 static ir_function *
@@ -147,23 +106,15 @@ get_function(ir_context *ctx, str ident)
 }
 
 static u32
-get_register(ir_context *ctx, str ident)
+get_register(ir_context *ctx, ast_node *node, isize size)
 {
-	variable *variable_table = ctx->variable_table;
-	u32 h = hash(ident);
-	for (u32 j = 0; j < ctx->variable_table_size; j++) {
-		u32 i = (h + j) & (ctx->variable_table_size - 1);
-		if (i == 0) {
-			continue;
-		}
-
-		if (str_equals(variable_table[i].name, ident)) {
-			return variable_table[i].vreg;
-		}
+	u32 result = ctx->symbol_registers[node->index];
+	if (!result) {
+		result = emit_alloca(ctx, size);
+		ctx->symbol_registers[node->index] = result;
 	}
 
-	ASSERT(!"Variable not declared");
-	return 0;
+	return result;
 }
 
 static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
@@ -267,43 +218,43 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 end_label = new_label(ctx);
 				u32 zero_label = new_label(ctx);
 
-				result = emit1(ctx, IR_VAR, 4);
+				result = emit0_size(ctx, IR_VAR, 4);
 				u32 lhs_reg = translate_node(ctx, lhs, false);
 				emit2(ctx, IR_JIZ, lhs_reg, zero_label);
 
 				u32 rhs_reg = translate_node(ctx, rhs, false);
 				emit2(ctx, IR_JIZ, rhs_reg, zero_label);
 
-				u32 one = emit1(ctx, IR_INT, 1);
+				u32 one = emit1_size(ctx, IR_INT, 4, 1);
 				emit2(ctx, IR_MOV, result, one);
 				emit1(ctx, IR_JMP, end_label);
 
 				emit1(ctx, IR_LABEL, zero_label);
-				u32 zero = emit1(ctx, IR_INT, 0);
+				u32 zero = emit1_size(ctx, IR_INT, 4, 0);
 				emit2(ctx, IR_MOV, result, zero);
 				emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
 				u32 end_label = new_label(ctx);
 				u32 one_label = new_label(ctx);
 
-				result = emit1(ctx, IR_VAR, 4);
+				result = emit0_size(ctx, IR_VAR, 4);
 				u32 lhs_reg = translate_node(ctx, lhs, false);
 				emit2(ctx, IR_JNZ, lhs_reg, one_label);
 
 				u32 rhs_reg = translate_node(ctx, rhs, false);
 				emit2(ctx, IR_JNZ, rhs_reg, one_label);
 
-				u32 zero = emit1(ctx, IR_INT, 0);
+				u32 zero = emit1_size(ctx, IR_INT, 4, 0);
 				emit2(ctx, IR_MOV, result, zero);
 				emit1(ctx, IR_JMP, end_label);
 
 				emit1(ctx, IR_LABEL, one_label);
-				u32 one = emit1(ctx, IR_INT, 1);
+				u32 one = emit1_size(ctx, IR_INT, 4, 1);
 				emit2(ctx, IR_MOV, result, one);
 				emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_DOT) {
 				u32 offset = type_offsetof(lhs->type, rhs->value.s);
-				u32 offset_reg = emit1(ctx, IR_INT, offset);
+				u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
 				u32 base_reg = translate_node(ctx, lhs, true);
 				u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
 				result = emit2_size(ctx, IR_LOAD, size, addr, addr);
@@ -367,12 +318,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ASSERT(node->type != NULL);
-			u32 size = type_sizeof(node->type);
-			result = get_register(ctx, node->value.s);
-			if (!is_lvalue) {
-				result = emit1_size(ctx, IR_LOAD, size, result);
-			}
+			ASSERT(!"Should have been removed by merge_identifiers");
 		} break;
 	case AST_EXPR_INT:
 		{
@@ -494,19 +440,25 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_EXTERN_DEF:
 		{
+#if 0
 			ast_node *type_specifier = node->children;
 			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
-				result = translate_node(ctx, child, false);
-
 				if (child->type->kind == TYPE_FUNCTION) {
 					ASSERT(child->value.s.at && child->value.s.length);
 					add_function(ctx, child->value.s, ctx->arena);
+				} else {
+					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, ctx->arena);
+					s->is_extern = (type_specifier->flags & AST_EXTERN);
+					s->is_static = (type_specifier->flags & AST_STATIC);
+					s->size = type_sizeof(child->type);
+					if (child->kind == AST_DECL_INIT) {
+						s->data = ctx->program.instrs + ctx->program.instr_count;
+						result = translate_node(ctx, child, false);
+						s->size = (char *)(ctx->program.instrs + ctx->program.instr_count) - (char *)s->data;
+					}
 				}
-
-				// TODO: Add the result as a symbol. Then later evaluate the IR
-				// code and store the result in the data section of the object
-				// file.
 			}
+#endif
 		} break;
 	case AST_DECL_INIT:
 		{
@@ -516,8 +468,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				if (expr->kind == AST_INIT) {
 					translate_initializer(ctx, expr, result);
 				} else {
-					u32 expr = translate_node(ctx, node->children->next, false);
-					emit2(ctx, IR_STORE, result, expr);
+					u32 expr_reg = translate_node(ctx, expr, false);
+					emit2(ctx, IR_STORE, result, expr_reg);
 				}
 			}
 		} break;
@@ -534,13 +486,21 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_DECL_IDENT:
 		{
-			usize size = type_sizeof(node->type);
-			if (node->type->kind == TYPE_ARRAY) {
-				result = new_register(ctx, node->value.s, 8);
-				u32 addr = emit_alloca(ctx, size);
-				emit2(ctx, IR_STORE, result, addr);
+			ASSERT(node->type != NULL);
+			u32 size = type_sizeof(node->type);
+			b32 first_use = (node->value.i == 0);
+			if (first_use) {
+				result = get_register(ctx, node, size);
+				if (node->type->kind == TYPE_ARRAY) {
+					u32 addr = emit_alloca(ctx, 8);
+					emit2(ctx, IR_STORE, addr, result);
+					result = addr;
+				}
 			} else {
-				result = new_register(ctx, node->value.s, size);
+				result = get_register(ctx, node, size);
+				if (!is_lvalue) {
+					result = emit1_size(ctx, IR_LOAD, size, result);
+				}
 			}
 		} break;
 	case AST_STMT_EMPTY:
@@ -633,13 +593,6 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 			// TODO: find some better mechanism to reset the variable table
 			ctx->stack_size = 0;
-			memset(ctx->variable_table, 0, ctx->variable_table_size * sizeof(variable));
-
-			// TODO: Make it easier to append function to the list.
-			ir_function **ptr = &ctx->program.function_list;
-			while (*ptr) {
-				ptr = &(*ptr)->next;
-			}
 
 			u32 prev_label_count = ctx->program.label_count;
 			u32 prev_register_count = ctx->program.register_count;
@@ -786,12 +739,13 @@ get_toplevel_instructions(ir_program program, arena *arena)
 }
 
 static ir_program
-translate(ast_node *root, scope *scope, arena *arena)
+translate(ast_node *root, symbol_table *symbol_table, arena *arena)
 {
 	ir_context ctx = ir_context_init(arena);
 	ctx.arena = arena;
+	ctx.symbol_registers = ALLOC(arena, symbol_table->count, u32);
 
-	if (root->kind == AST_INVALID || scope->error) {
+	if (root->kind == AST_INVALID) {
 		return ctx.program;
 	}
 

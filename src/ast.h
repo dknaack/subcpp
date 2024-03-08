@@ -70,6 +70,7 @@ struct ast_node {
 	ast_node *children;
 	location loc;
 	type *type;
+	isize index;
 
 	union {
 		token_kind op;

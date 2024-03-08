@@ -106,14 +106,13 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+	b32 error = false;
 	arena *arena = new_arena(1000 * 1000);
-	scope scope = {0};
-
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	ast_node *root = parse(&tokenizer, arena);
-	check_type(root, &scope, arena);
+	symbol_table symbol_table = analyze(root, arena, &error);
 
-	ir_program ir_program = translate(root, &scope, arena);
+	ir_program ir_program = translate(root, &symbol_table, arena);
 	optimize(ir_program, arena);
 
 	machine_program machine_program = x86_select_instructions(ir_program, arena);
@@ -126,5 +125,5 @@ main(int argc, char *argv[])
 	run_linker("/tmp/out.o", output);
 
 	free(arena);
-	return scope.error;
+	return error;
 }

@@ -82,18 +82,6 @@ struct ir_function {
 	u32 stack_size;
 };
 
-typedef struct symbol symbol;
-struct symbol {
-	symbol *next;
-	symbol *child[4];
-
-	b32 function;
-	b32 global;
-	str name;
-	i64 addr;
-	i64 size;
-};
-
 typedef struct {
 	ir_instr *instrs;
 	ir_function *function_list;
@@ -116,12 +104,9 @@ typedef struct {
 	ir_program program;
 	arena *arena;
 
+	u32 *symbol_registers;
 	u32 max_instr_count;
-
-	variable *variable_table;
-	u32 variable_table_size;
 	u32 stack_size;
-
 	u32 continue_label;
 	u32 break_label;
 } ir_context;

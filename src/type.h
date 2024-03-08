@@ -1,22 +1,15 @@
 #define TYPE_NIL (&type_nil)
 
+typedef struct member member;
 typedef struct type type;
-typedef struct decl decl;
-typedef struct scope scope;
 
-struct decl {
+typedef struct symbol {
 	str name;
-	type *type;
-	decl *child[4];
-	decl *next;
-};
+} symbol;
 
-struct scope {
-	scope *parent;
-	decl *head;
-	decl *tail;
-	b32 error;
-};
+typedef struct {
+	isize count;
+} symbol_table;
 
 typedef enum {
 	TYPE_UNKNOWN,
@@ -46,11 +39,17 @@ typedef enum {
 	TYPE_UNSIGNED = 1,
 } type_kind;
 
+struct member {
+	member *next;
+	str name;
+	type *type;
+};
+
 struct type {
 	type_kind kind;
 	type *next;
 	type *children;
-	decl *members;
+	member *members;
 	i64 size;
 };
 
@@ -139,7 +138,7 @@ type_sizeof(type *type)
 	case TYPE_STRUCT:
 		{
 			usize size = 0;
-			for (decl *s = type->members; s; s = s->next) {
+			for (member *s = type->members; s; s = s->next) {
 				u32 align = type_alignof(s->type);
 				size = (size + align - 1) & ~(align - 1);
 				size += type_sizeof(s->type);
@@ -160,7 +159,7 @@ type_alignof(type *type)
 	if (type->kind == TYPE_ARRAY) {
 		result = 16;
 	} else if (type->kind == TYPE_STRUCT) {
-		for (decl *s = type->members; s; s = s->next) {
+		for (member *s = type->members; s; s = s->next) {
 			u32 align = type_alignof(s->type);
 			result = MAX(result, align);
 		}
@@ -172,17 +171,17 @@ type_alignof(type *type)
 }
 
 static usize
-type_offsetof(type *type, str member)
+type_offsetof(type *type, str member_name)
 {
 	usize offset = 0;
 
 	ASSERT(type != NULL);
 	if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
-		for (decl *s = type->members; s; s = s->next) {
+		for (member *s = type->members; s; s = s->next) {
 			u32 align = type_alignof(s->type);
 			offset = (offset + align - 1) & ~(align - 1);
-			if (str_equals(member, s->name)) {
+			if (str_equals(member_name, s->name)) {
 				break;
 			}
 
@@ -194,4 +193,41 @@ type_offsetof(type *type, str member)
 	}
 
 	return offset;
+}
+
+static usize
+type_offsetof_index(type *type, isize index)
+{
+	usize offset = 0;
+
+	ASSERT(type != NULL);
+	if (type->kind == TYPE_STRUCT) {
+		// TODO: member could be in an unnamed struct
+		for (member *s = type->members; s; s = s->next) {
+			u32 align = type_alignof(s->type);
+			offset = (offset + align - 1) & ~(align - 1);
+			if (index-- <= 0) {
+				break;
+			}
+
+			offset += type_sizeof(s->type);
+		}
+	} else {
+		// TODO: report error
+		ASSERT(!"Type must be struct or union");
+	}
+
+	return offset;
+}
+
+static member *
+get_member(member *list, str key)
+{
+	for (member *m = list; m; m = m->next) {
+		if (str_equals(m->name, key)) {
+			return m;
+		}
+	}
+
+	return NULL;
 }
