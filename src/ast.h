@@ -6,44 +6,45 @@ typedef struct type type;
 typedef enum {
 	AST_INVALID,
 	AST_EXTERN_DEF,    // {type_specifier, ...declarators}
-	AST_ROOT,          // {...(declaration|function)}
-	AST_INIT,          // {...(init|literal)}
-
-	// declaration and declarators
-	AST_DECL_LIST,     // {...declaration}
-	AST_DECL,          // {type, value}
+	AST_INIT_LIST,     // {expr, list}
+	AST_DECL_LIST,     // {decl, decl_list}
+	AST_DECL,          // {type, value?}
 
 	// expressions
 	AST_EXPR_BINARY,   // {lhs, rhs}
-	AST_EXPR_CALL,     // {called, ...params}
+	AST_EXPR_CALL,     // {called: expr, params: expr_list}
 	AST_EXPR_IDENT,    // value.s
 	AST_EXPR_INT,      // value.i
-	AST_EXPR_UNARY,    // {operand}
-	AST_EXPR_POSTFIX,  // {operand}
+	AST_EXPR_LIST,     // {expr, list}
 	AST_EXPR_MEMBER,   // {operand}
+	AST_EXPR_POSTFIX,  // {operand}
+	AST_EXPR_UNARY,    // {operand}
 
 	// statements
-	AST_STMT_BREAK,
-	AST_STMT_COMPOUND, // {...statements}
+	AST_STMT_BREAK,    // {}
 	AST_STMT_CONTINUE, // {}
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
-	AST_STMT_FOR,      // {init, cond, post, body}
-	AST_STMT_IF,       // {cond, if_branch, else_branch?}
+	AST_STMT_FOR_INIT, // {init, cond}
+	AST_STMT_FOR_COND, // {cond, post}
+	AST_STMT_FOR_POST, // {post, body}
+	AST_STMT_IF_COND,  // {cond, if_else}
+	AST_STMT_IF_ELSE,  // {if, else?}
+	AST_STMT_LIST,     // {stmt, stmt_list}
 	AST_STMT_PRINT,    // {expr}
 	AST_STMT_RETURN,   // {expr?}
 	AST_STMT_WHILE,    // {cond, body}
 
 	// types
-	AST_TYPE_CHAR,
-	AST_TYPE_FLOAT,
-	AST_TYPE_INT,
-	AST_TYPE_VOID,
-	AST_TYPE_POINTER,    // {type}
 	AST_TYPE_ARRAY,      // {size_expr, type}
+	AST_TYPE_CHAR,       // {}
+	AST_TYPE_FLOAT,      // {}
 	AST_TYPE_FUNC,       // {param_list, return_type}
-	AST_TYPE_STRUCT,
+	AST_TYPE_INT,        // {}
+	AST_TYPE_POINTER,    // {type}
+	AST_TYPE_STRUCT,     // {}
 	AST_TYPE_STRUCT_DEF, // {...declarations}
+	AST_TYPE_VOID,       // {}
 } ast_node_kind;
 
 typedef enum {
@@ -65,8 +66,7 @@ typedef enum {
 struct ast_node {
 	ast_node_kind kind;
 	ast_node_flags flags;
-	ast_node *next;
-	ast_node *children;
+	ast_node *child[2];
 	location loc;
 	type *type;
 	isize index;
@@ -78,4 +78,27 @@ struct ast_node {
 	} value;
 };
 
-static const ast_node ast_nil = {AST_INVALID, 0, AST_NIL, AST_NIL};
+static const ast_node ast_nil = {AST_INVALID, 0, {AST_NIL, AST_NIL}};
+
+static b32
+is_statement(ast_node_kind node_kind)
+{
+	switch (node_kind) {
+	case AST_STMT_BREAK:
+	case AST_STMT_CONTINUE:
+	case AST_STMT_DO_WHILE:
+	case AST_STMT_EMPTY:
+	case AST_STMT_FOR_INIT:
+	case AST_STMT_FOR_COND:
+	case AST_STMT_FOR_POST:
+	case AST_STMT_IF_COND:
+	case AST_STMT_IF_ELSE:
+	case AST_STMT_LIST:
+	case AST_STMT_PRINT:
+	case AST_STMT_RETURN:
+	case AST_STMT_WHILE:
+		return true;
+	default:
+		return false;
+	}
+}

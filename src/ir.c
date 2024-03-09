@@ -122,7 +122,7 @@ get_register(ir_context *ctx, ast_node *node)
 			result = addr;
 		}
 
-		ast_node *expr = node->children->next;
+		ast_node *expr = node->child[1];
 		if (expr != AST_NIL) {
 			u32 value = translate_node(ctx, expr, false);
 			emit2_size(ctx, IR_STORE, size, result, value);
@@ -140,20 +140,21 @@ static void
 translate_initializer(ir_context *ctx, ast_node *node, u32 result)
 {
 	switch (node->kind) {
-	case AST_INIT:
+	case AST_INIT_LIST:
 		{
 			usize offset = 0;
 
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				isize child_align = type_alignof(child->type);
+			while (node != AST_NIL) {
+				isize child_align = type_alignof(node->child[0]->type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
 				u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
 				u32 addr = emit2_size(ctx, IR_SUB, 8, result, offset_reg);
-				translate_initializer(ctx, child, addr);
+				translate_initializer(ctx, node->child[0], addr);
 
-				isize child_size = type_sizeof(child->type);
+				isize child_size = type_sizeof(node->child[0]->type);
 				offset += child_size;
+				node = node->child[1];
 			}
 		} break;
 	default:
@@ -172,13 +173,17 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 	switch (node->kind) {
 	case AST_INVALID:
-	case AST_INIT: // Should be handled by DECL_INIT
+	case AST_INIT_LIST: // Should be handled by DECL_INIT
+	case AST_STMT_IF_ELSE:
+	case AST_STMT_FOR_COND:
+	case AST_STMT_FOR_POST:
+	case AST_EXPR_LIST:
 		{
 			ASSERT(!"Invalid node");
 		} break;
 	case AST_EXPR_MEMBER:
 		{
-			ast_node *operand = node->children;
+			ast_node *operand = node->child[0];
 			u32 size = type_sizeof(node->type);
 			u32 offset = type_offsetof(operand->type, node->value.s);
 			u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
@@ -228,7 +233,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				opcode += IR_LTU - IR_LT;
 			}
 
-			ast_node *lhs = node->children;
+			ast_node *lhs = node->child[0];
+			ast_node *rhs = node->child[1];
 			u32 lhs_reg = 0;
 			if (opcode == IR_STORE) {
 				lhs_reg = translate_node(ctx, lhs, true);
@@ -236,7 +242,6 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				lhs_reg = translate_node(ctx, lhs, false);
 			}
 
-			ast_node *rhs = lhs->next;
 			u32 size = type_sizeof(node->type);
 			if (operator == TOKEN_AMP_AMP) {
 				u32 end_label = new_label(ctx);
@@ -312,23 +317,23 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			ast_node *called = node->children;
+			ast_node *called = node->child[0];
 			if (called->kind == AST_EXPR_IDENT) {
 				u32 label = get_function(ctx, called->value.s);
-				ast_node *param = called->next;
+				ast_node *param_list = node->child[1];
 				i32 param_count = 0;
 				u32 param_register[128] = {0};
-				while (param != AST_NIL) {
+				while (param_list != AST_NIL) {
 					ASSERT(param_count < 128);
-					param_register[param_count++ & 127] = translate_node(ctx, param, false);
-					param = param->next;
+					param_register[param_count++ & 127] = translate_node(ctx, param_list->child[0], false);
+					param_list = param_list->child[1];
 				}
 
-				param = called->next;
+				param_list = node->child[1];
 				for (i32 i = 0; i < param_count; i++) {
-					u32 param_size = type_sizeof(param->type);
+					u32 param_size = type_sizeof(param_list->child[0]->type);
 					emit1_size(ctx, IR_PARAM, param_size, param_register[i]);
-					param = param->next;
+					param_list = param_list->child[1];
 				}
 
 				type *return_type = called->type->children;
@@ -350,27 +355,27 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			switch (operator) {
 			case TOKEN_AMP:
 				{
-					result = translate_node(ctx, node->children, true);
+					result = translate_node(ctx, node->child[0], true);
 				} break;
 			case TOKEN_PLUS:
 				{
-					result = translate_node(ctx, node->children, false);
+					result = translate_node(ctx, node->child[0], false);
 				} break;
 			case TOKEN_MINUS:
 				{
 					u32 zero = emit1(ctx, IR_INT, 0);
-					result = translate_node(ctx, node->children, false);
+					result = translate_node(ctx, node->child[0], false);
 					result = emit2(ctx, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
 					u32 zero = emit1(ctx, IR_INT, 0);
-					result = translate_node(ctx, node->children, false);
+					result = translate_node(ctx, node->child[0], false);
 					result = emit2(ctx, IR_EQL, result, zero);
 				} break;
 			case TOKEN_STAR:
 				{
-					result = translate_node(ctx, node->children, false);
+					result = translate_node(ctx, node->child[0], false);
 					u32 size = type_sizeof(node->type);
 					if (!is_lvalue) {
 						result = emit1_size(ctx, IR_LOAD, size, result);
@@ -384,7 +389,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
-					u32 addr = translate_node(ctx, node->children, true);
+					u32 addr = translate_node(ctx, node->child[0], true);
 					u32 value = emit1(ctx, IR_LOAD, addr);
 					u32 one = emit1(ctx, IR_INT, 1);
 					result = emit2(ctx, add_or_sub, value, one);
@@ -409,7 +414,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
-					u32 addr = translate_node(ctx, node->children, true);
+					u32 addr = translate_node(ctx, node->child[0], true);
 					result = emit1(ctx, IR_LOAD, addr);
 					u32 one = emit1(ctx, IR_INT, 1);
 					u32 value = emit2(ctx, add_or_sub, result, one);
@@ -426,12 +431,12 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			emit1(ctx, IR_JMP, ctx->break_label);
 		} break;
-	case AST_ROOT:
 	case AST_DECL_LIST:
-	case AST_STMT_COMPOUND:
+	case AST_STMT_LIST:
 		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				translate_node(ctx, child, false);
+			while (node != AST_NIL) {
+				translate_node(ctx, node->child[0], false);
+				node = node->child[1];
 			}
 		} break;
 	case AST_STMT_CONTINUE:
@@ -442,8 +447,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
-			ast_node *cond = node->children;
-			ast_node *body = cond->next;
+			ast_node *cond = node->child[0];
+			ast_node *body = node->child[1];
 
 			emit1(ctx, IR_LABEL, ctx->continue_label);
 			translate_node(ctx, body, false);
@@ -457,10 +462,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_EXTERN_DEF:
 		{
 			if (node->type->kind == TYPE_FUNCTION) {
-				ast_node *decl = node->children;
-				ast_node *body = decl->next;
-				ast_node *declarator = decl->children->next;
-				ast_node *param = declarator->children->next;
+				ast_node *body = node->child[1];
+				ast_node *type = node->child[0];
+				ASSERT(type->kind == AST_TYPE_FUNC);
+				ast_node *param_list = type->child[0];
 
 				ctx->stack_size = 0;
 
@@ -474,9 +479,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				emit1(ctx, IR_LABEL, new_label(ctx));
 
 				i32 param_count = 0;
-				while (param != AST_NIL) {
-					translate_node(ctx, param, false);
-					param = param->next;
+				while (param_list != AST_NIL) {
+					translate_node(ctx, param_list->child[0], false);
+					param_list = param_list->child[1];
 					param_count++;
 				}
 
@@ -499,46 +504,46 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_EMPTY:
 		break;
-	case AST_STMT_FOR:
+	case AST_STMT_FOR_INIT:
 		{
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
 			u32 cond_label = new_label(ctx);
 
-			ast_node *init = node->children;
-			translate_node(ctx, init, false);
+			translate_node(ctx, node->child[0], false);
 			emit1(ctx, IR_LABEL, cond_label);
 
-			ast_node *cond = init->next;
-			u32 cond_reg = translate_node(ctx, cond, false);
-			u32 cond_size = type_sizeof(cond->type);
+			ast_node *cond = node->child[1];
+			u32 cond_reg = translate_node(ctx, cond->child[0], false);
+			u32 cond_size = type_sizeof(cond->child[0]->type);
 			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, ctx->break_label);
 
-			ast_node *post = cond->next;
-			ast_node *body = post->next;
+			ast_node *post = cond->child[1];
+			ast_node *body = post->child[1];
 			translate_node(ctx, body, false);
 			emit1(ctx, IR_LABEL, ctx->continue_label);
 
-			translate_node(ctx, post, false);
+			translate_node(ctx, post->child[0], false);
 			emit1(ctx, IR_JMP, cond_label);
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
-	case AST_STMT_IF:
+	case AST_STMT_IF_COND:
 		{
 			u32 endif_label = new_label(ctx);
 			u32 else_label = new_label(ctx);
 
-			ast_node *cond = node->children;
+			ast_node *cond = node->child[0];
+			ast_node *if_else = node->child[1];
 			u32 cond_reg = translate_node(ctx, cond, false);
 			u32 cond_size = type_sizeof(cond->type);
 			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, else_label);
 
-			ast_node *if_branch = cond->next;
+			ast_node *if_branch = if_else->child[0];
 			translate_node(ctx, if_branch, false);
 			emit1(ctx, IR_JMP, endif_label);
 
 			emit1(ctx, IR_LABEL, else_label);
-			ast_node *else_branch = if_branch->next;
+			ast_node *else_branch = if_branch->child[1];
 			if (else_branch != AST_NIL) {
 				translate_node(ctx, else_branch, false);
 			}
@@ -551,12 +556,12 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ctx->continue_label = new_label(ctx);
 
 			emit1(ctx, IR_LABEL, ctx->continue_label);
-			ast_node *cond = node->children;
+			ast_node *cond = node->child[0];
 			u32 cond_reg = translate_node(ctx, cond, false);
 			u32 cond_size = type_sizeof(cond->type);
 			emit2_size(ctx, IR_JIZ, cond_size, cond_reg, ctx->break_label);
 
-			ast_node *body = cond->next;
+			ast_node *body = node->child[1];
 			translate_node(ctx, body, false);
 			emit1(ctx, IR_JMP, ctx->continue_label);
 			emit1(ctx, IR_LABEL, ctx->break_label);
@@ -565,9 +570,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			u32 size = 0;
 			u32 value = 0;
-			if (node->children) {
-				size = type_sizeof(node->children->type);
-				value = translate_node(ctx, node->children, false);
+			if (node->child[0]) {
+				size = type_sizeof(node->child[0]->type);
+				value = translate_node(ctx, node->child[0], false);
 			}
 
 			emit1_size(ctx, IR_RET, size, value);
@@ -576,8 +581,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_PRINT:
 		{
-			u32 size = type_sizeof(node->children->type);
-			u32 value = translate_node(ctx, node->children, false);
+			u32 size = type_sizeof(node->child[0]->type);
+			u32 value = translate_node(ctx, node->child[0], false);
 			emit1_size(ctx, IR_PRINT, size, value);
 		} break;
 	case AST_TYPE_VOID:

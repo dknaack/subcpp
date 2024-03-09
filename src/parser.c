@@ -241,7 +241,7 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 		get_token(tokenizer);
 		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
 		expr->value.i = token.kind;
-		expr->children = parse_expr(tokenizer, PREC_PRIMARY, arena);
+		expr->child[0] = parse_expr(tokenizer, PREC_PRIMARY, arena);
 		break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
@@ -263,22 +263,21 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 			ast_node **ptr = &params;
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				do {
-					*ptr = parse_assign_expr(tokenizer, arena);
-					if (*ptr != AST_NIL) {
-						ptr = &(*ptr)->next;
-					}
+					*ptr = new_ast_node(AST_EXPR_LIST, tokenizer->loc, arena);
+					(*ptr)->child[0] = parse_assign_expr(tokenizer, arena);
+					ptr = &(*ptr)->child[1];
 				} while (!tokenizer->error && accept(tokenizer, TOKEN_COMMA));
 				expect(tokenizer, TOKEN_RPAREN);
 			}
 
 			ast_node *called = expr;
 			expr = new_ast_node(AST_EXPR_CALL, tokenizer->loc, arena);
-			expr->children = called;
-			called->next = params;
+			expr->child[0] = called;
+			expr->child[1] = params;
 		} else if (token.kind == TOKEN_DOT) {
 			ast_node *accessed = expr;
 			expr = new_ast_node(AST_EXPR_MEMBER, tokenizer->loc, arena);
-			expr->children = accessed;
+			expr->child[0] = accessed;
 			expr->value.s = token.value;
 		} else {
 			precedence prec = get_precedence(operator);
@@ -296,7 +295,7 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 				ast_node *operand = expr;
 				expr = new_ast_node(AST_EXPR_POSTFIX, tokenizer->loc, arena);
 				expr->value.op = operator;
-				expr->children = operand;
+				expr->child[0] = operand;
 			} else {
 				if (token.kind == TOKEN_LBRACKET) {
 					prec = PREC_NONE;
@@ -305,12 +304,11 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 				prec -= is_right_associative(operator);
 				ast_node *rhs = parse_expr(tokenizer, prec, arena);
 				ASSERT(rhs != AST_NIL);
-				lhs->next = rhs;
-
 
 				expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
 				expr->value.i = token.kind;
-				expr->children = lhs;
+				expr->child[0] = lhs;
+				expr->child[1] = rhs;
 
 				if (token.kind == TOKEN_LBRACKET) {
 					expect(tokenizer, TOKEN_RBRACKET);
@@ -332,30 +330,26 @@ parse_assign_expr(tokenizer *tokenizer, arena *arena)
 static ast_node *
 parse_initializer(tokenizer *t, arena *perm)
 {
-	ast_node *node = new_ast_node(AST_INIT, t->loc, perm);
-	ast_node **ptr = &node->children;
+	ast_node *list = AST_NIL;
+	ast_node **ptr = &list;
 	expect(t, TOKEN_LBRACE);
 
 	do {
+		*ptr = new_ast_node(AST_INIT_LIST, t->loc, perm);
 		if (t->lookahead[0].kind == TOKEN_LBRACE) {
-			*ptr = parse_initializer(t, perm);
+			(*ptr)->child[0] = parse_initializer(t, perm);
 		} else {
-			ast_node *expr = parse_assign_expr(t, perm);
-			if (expr == AST_NIL) {
-				break;
-			}
-
-			*ptr = expr;
+			(*ptr)->child[0] = parse_assign_expr(t, perm);
 		}
 
-		ptr = &(*ptr)->next;
+		ptr = &(*ptr)->child[1];
 		if (!accept(t, TOKEN_COMMA)) {
 			break;
 		}
 	} while (!t->error && t->lookahead[0].kind != TOKEN_RBRACE);
 
 	expect(t, TOKEN_RBRACE);
-	return node;
+	return list;
 }
 
 typedef enum {
@@ -422,9 +416,9 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 		ast_node *tmp = pointer_decl;
 		pointer_decl = new_ast_node(AST_TYPE_POINTER, tokenizer->loc, arena);
 		if (!base_type) {
-			base_type = &pointer_decl->children;
+			base_type = &pointer_decl->child[0];
 		} else {
-			pointer_decl->children = tmp;
+			pointer_decl->child[0] = tmp;
 		}
 
 		token_kind qualifier_token = tokenizer->lookahead[0].kind;
@@ -455,19 +449,19 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 
 		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
 		(*ptr)->value.s = token.value;
-		ptr = &(*ptr)->children;
+		ptr = &(*ptr)->child[0];
 	}
 
 	while (!tokenizer->error) {
 		if (accept(tokenizer, TOKEN_LBRACKET)) {
 			*ptr = new_ast_node(AST_TYPE_ARRAY, tokenizer->loc, arena);
-			(*ptr)->children = parse_assign_expr(tokenizer, arena);
-			ptr = &(*ptr)->children->next;
+			(*ptr)->child[0] = parse_assign_expr(tokenizer, arena);
+			ptr = &(*ptr)->child[1];
 			expect(tokenizer, TOKEN_RBRACKET);
 		} else if (accept(tokenizer, TOKEN_LPAREN)) {
 			*ptr = new_ast_node(AST_TYPE_FUNC, tokenizer->loc, arena);
 
-			ast_node *params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+			ast_node *params = AST_NIL;
 			if (tokenizer->lookahead[0].kind == TOKEN_RPAREN) {
 				get_token(tokenizer);
 			} else if (tokenizer->lookahead[0].kind == TOKEN_VOID
@@ -476,19 +470,22 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 				get_token(tokenizer);
 				get_token(tokenizer);
 			} else {
-				ast_node **ptr = &params->children;
+				ast_node **ptr = &params;
+				params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
 				while (!tokenizer->error && !accept(tokenizer, TOKEN_RPAREN)) {
 					*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 					if (*ptr != AST_NIL) {
-						ptr = &(*ptr)->next;
+						// Only single declaration allowed
+						ASSERT((*ptr)->child[1] == AST_NIL);
+						ptr = &(*ptr)->child[1];
 					} else {
 						tokenizer->error = true;
 					}
 				}
 			}
 
-			(*ptr)->children = params;
-			ptr = &params->next;
+			(*ptr)->child[0] = params;
+			ptr = &(*ptr)->child[1];
 		} else {
 			break;
 		}
@@ -541,13 +538,15 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			if (accept(tokenizer, TOKEN_LBRACE)) {
 				type_specifier->kind = AST_TYPE_STRUCT_DEF;
 
-				ast_node **ptr = & type_specifier->children;
+				ast_node **ptr = &type_specifier->child[0];
 				// TODO: set correct flags for parsing struct members, i.e.
 				// declarations are allowed to have bitfields.
 				while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
 					*ptr = parse_decl(tokenizer, 0, arena);
 					if (*ptr != AST_NIL) {
-						ptr = &(*ptr)->next;
+						// TODO: Walk to the end of the declaration
+						ASSERT((*ptr)->child[1] == AST_NIL);
+						ptr = &(*ptr)->child[1];
 					} else {
 						tokenizer->error = true;
 					}
@@ -599,29 +598,26 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	}
 
 	type_specifier->flags = qualifiers;
-	ast_node *list = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-	ast_node **ptr = &list->children;
+	ast_node *list = NULL;
+	ast_node **ptr = &list;
 	do {
-		ast_node **base_ptr = parse_declarator(tokenizer, ptr, arena);
+		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+		ast_node **base_ptr = parse_declarator(tokenizer, &(*ptr)->child[0], arena);
 		ASSERT(base_ptr);
 		if (base_ptr) {
 			*base_ptr = type_specifier;
 		}
 
 		if (accept(tokenizer, TOKEN_EQUAL)) {
-			// TODO: This doesn't work for multiple declarations. For example,
-			// declaring `int x = 1, y = 0` would overwrite the expression for
-			// x with the expression for y.
-			ASSERT((*ptr)->children->next == AST_NIL);
-
+			ast_node *decl = (*ptr)->child[0];
 			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
-				(*ptr)->children->next = parse_initializer(tokenizer, arena);
+				decl->child[1] = parse_initializer(tokenizer, arena);
 			} else {
-				(*ptr)->children->next = parse_assign_expr(tokenizer, arena);
+				decl->child[1] = parse_assign_expr(tokenizer, arena);
 			}
 		}
 
-		ptr = &(*ptr)->next;
+		ptr = &(*ptr)->child[1];
 	} while (!tokenizer->error
 	    && !(flags & PARSE_SINGLE_DECL)
 	    && accept(tokenizer, TOKEN_COMMA));
@@ -634,13 +630,18 @@ static ast_node *parse_stmt(tokenizer *tokenizer, arena *arena);
 static ast_node *
 parse_compound_stmt(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *result = new_ast_node(AST_STMT_COMPOUND, tokenizer->loc, arena);
-	ast_node **ptr = &result->children;
+	ast_node *result = AST_NIL;
+	ast_node **ptr = &result;
 
 	expect(tokenizer, TOKEN_LBRACE);
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
-		*ptr = parse_stmt(tokenizer, arena);
-		ptr = &(*ptr)->next;
+		*ptr = new_ast_node(AST_STMT_LIST, tokenizer->loc, arena);
+		(*ptr)->child[0] = parse_stmt(tokenizer, arena);
+		ptr = &(*ptr)->child[1];
+	}
+
+	if (result == AST_NIL) {
+		result = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 	}
 
 	return result;
@@ -672,66 +673,63 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 			expect(tokenizer, TOKEN_SEMICOLON);
 
 			node = new_ast_node(AST_STMT_DO_WHILE, tokenizer->loc, arena);
-			node->children = cond;
-			cond->next = body;
+			node->child[0] = cond;
+			node->child[1] = body;
 		} break;
 	case TOKEN_FOR:
 		{
-			ast_node *init, *post, *cond, *body;
-			init = post = cond = body = AST_NIL;
-
 			get_token(tokenizer);
 			expect(tokenizer, TOKEN_LPAREN);
 
+			ast_node *init = new_ast_node(AST_STMT_FOR_INIT, tokenizer->loc, arena);
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 				token = peek_token(tokenizer);
-				init = parse_decl(tokenizer, 0, arena);
+				init->child[0] = parse_decl(tokenizer, 0, arena);
 				if (init == AST_NIL) {
-					init = parse_assign_expr(tokenizer, arena);
+					init->child[0] = parse_assign_expr(tokenizer, arena);
 				}
 
 				expect(tokenizer, TOKEN_SEMICOLON);
 			} else {
-				init = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
+				init->child[0] = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 			}
 
+			ast_node *cond = new_ast_node(AST_STMT_FOR_COND, tokenizer->loc, arena);
+			init->child[1] = cond;
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-				cond = parse_assign_expr(tokenizer, arena);
+				cond->child[0] = parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_SEMICOLON);
 			} else {
-				cond = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
+				cond->child[0] = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
 				cond->value.i = 1;
 			}
 
+			ast_node *post = new_ast_node(AST_STMT_FOR_POST, tokenizer->loc, arena);
+			cond->child[1] = post;
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
-				post = parse_assign_expr(tokenizer, arena);
+				post->child[0] = parse_assign_expr(tokenizer, arena);
 				expect(tokenizer, TOKEN_RPAREN);
 			} else {
-				post = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
+				post->child[0] = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 			}
 
-			body = parse_stmt(tokenizer, arena);
-
-			node = new_ast_node(AST_STMT_FOR, tokenizer->loc, arena);
-			node->children = init;
-			init->next = cond;
-			cond->next = post;
-			post->next = body;
+			post->child[1] = parse_stmt(tokenizer, arena);
+			node = init;
 		} break;
 	case TOKEN_IF:
 		get_token(tokenizer);
 		expect(tokenizer, TOKEN_LPAREN);
 		ast_node *cond = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_RPAREN);
-		ast_node *then = parse_stmt(tokenizer, arena);
+		ast_node *if_else = new_ast_node(AST_STMT_IF_ELSE, tokenizer->loc, arena);
+		if_else->child[0] = parse_stmt(tokenizer, arena);
 		if (accept(tokenizer, TOKEN_ELSE)) {
-			ast_node *otherwise = parse_stmt(tokenizer, arena);
-			then->next = otherwise;
+			if_else->child[1] = parse_stmt(tokenizer, arena);
 		}
 
-		node = new_ast_node(AST_STMT_IF, tokenizer->loc, arena);
-		node->children = cond;
-		cond->next = then;
+		node = new_ast_node(AST_STMT_IF_COND, tokenizer->loc, arena);
+		node->child[0] = cond;
+		node->child[1] = if_else;
 		break;
 	case TOKEN_WHILE:
 		{
@@ -742,21 +740,21 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 			ast_node *body = parse_stmt(tokenizer, arena);
 
 			node = new_ast_node(AST_STMT_WHILE, tokenizer->loc, arena);
-			node->children = cond;
-			cond->next = body;
+			node->child[0] = cond;
+			node->child[1] = body;
 		} break;
 	case TOKEN_RETURN:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_RETURN, tokenizer->loc, arena);
 		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			node->children = parse_assign_expr(tokenizer, arena);
+			node->child[0] = parse_assign_expr(tokenizer, arena);
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
 		break;
 	case TOKEN_PRINT:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_PRINT, tokenizer->loc, arena);
-		node->children = parse_assign_expr(tokenizer, arena);
+		node->child[0] = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	case TOKEN_SEMICOLON:
@@ -764,8 +762,7 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
 		break;
 	case TOKEN_LBRACE:
-		node = new_ast_node(AST_STMT_COMPOUND, tokenizer->loc, arena);
-		node->children = parse_compound_stmt(tokenizer, arena);
+		node = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
 		node = parse_decl(tokenizer, 0, arena);
@@ -797,14 +794,15 @@ parse_external_decl(tokenizer *tokenizer, arena *arena)
 		return list;
 	}
 
-	list->kind = AST_EXTERN_DEF;
-	ast_node *decl = list->children;
-	ast_node *type = decl->children;
-	if (decl->next == AST_NIL && type->kind == AST_TYPE_FUNC) {
+	ast_node *decl = list->child[0];
+	decl->kind = AST_EXTERN_DEF;
+
+	ast_node *type = decl->child[0];
+	if (list->child[1] == AST_NIL && type->kind == AST_TYPE_FUNC) {
 		token token = peek_token(tokenizer);
 		if (token.kind == TOKEN_LBRACE) {
 			ast_node *body = parse_compound_stmt(tokenizer, arena);
-			type->next = body;
+			decl->child[1] = body;
 		} else {
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
@@ -812,18 +810,19 @@ parse_external_decl(tokenizer *tokenizer, arena *arena)
 		expect(tokenizer, TOKEN_SEMICOLON);
 	}
 
-	return decl;
+	return list;
 }
 
 static ast_node *
 parse(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *root = new_ast_node(AST_ROOT, tokenizer->loc, arena);
-	ast_node **ptr = &root->children;
+	ast_node *root = AST_NIL;
+	ast_node **ptr = &root;
 	do {
 		*ptr = parse_external_decl(tokenizer, arena);
-		if (*ptr != AST_NIL) {
-			ptr = &(*ptr)->next;
+		while (*ptr != AST_NIL) {
+			ASSERT((*ptr)->kind == AST_DECL_LIST);
+			ptr = &(*ptr)->child[1];
 		}
 	} while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF));
 
