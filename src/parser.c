@@ -366,66 +366,6 @@ typedef enum {
 
 static ast_node *parse_decl(tokenizer *tokenizer, u32 flags, arena *arena);
 
-static ast_node *
-parse_declarator(tokenizer *tokenizer, arena *arena)
-{
-	ast_node *result = AST_NIL;
-
-	if (accept(tokenizer, TOKEN_LPAREN)) {
-		result = parse_declarator(tokenizer, arena);
-		expect(tokenizer, TOKEN_RPAREN);
-	} else if (accept(tokenizer, TOKEN_STAR)) {
-		result = new_ast_node(AST_DECL_POINTER, tokenizer->loc, arena);
-		result->children = parse_declarator(tokenizer, arena);
-	} else {
-		token token = peek_token(tokenizer);
-		if (token.kind != TOKEN_IDENT) {
-			syntax_error(tokenizer, "Expected identifier, but found %s",
-				get_token_name(token.kind));
-			token.value.length = 0;
-		} else {
-			get_token(tokenizer);
-		}
-
-		result = new_ast_node(AST_DECL_IDENT, tokenizer->loc, arena);
-		result->value.s = token.value;
-	}
-
-	if (accept(tokenizer, TOKEN_LBRACKET)) {
-		ast_node *declarator = result;
-		result = new_ast_node(AST_DECL_ARRAY, tokenizer->loc, arena);
-		result->children = declarator;
-		declarator->next = parse_assign_expr(tokenizer, arena);
-		expect(tokenizer, TOKEN_RBRACKET);
-	} else if (accept(tokenizer, TOKEN_LPAREN)) {
-		ast_node *declarator = result;
-		result = new_ast_node(AST_DECL_FUNC, tokenizer->loc, arena);
-		result->children = declarator;
-
-		// TODO: correctly parse functions without any arguments
-		if (tokenizer->lookahead[0].kind == TOKEN_RPAREN) {
-			get_token(tokenizer);
-		} else if (tokenizer->lookahead[0].kind == TOKEN_VOID
-			&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
-		{
-			get_token(tokenizer);
-			get_token(tokenizer);
-		} else {
-			ast_node **ptr = &declarator->next;
-			while (!tokenizer->error && !accept(tokenizer, TOKEN_RPAREN)) {
-				*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
-				if (*ptr != AST_NIL) {
-					ptr = &(*ptr)->next;
-				} else {
-					tokenizer->error = true;
-				}
-			}
-		}
-	}
-
-	return result;
-}
-
 static ast_node_flags
 get_qualifier(token_kind token)
 {
@@ -457,6 +397,109 @@ get_qualifier(token_kind token)
 	default:
 		return 0;
 	}
+}
+
+/*
+ * NOTE: The pointer argument points to the children member of the declaration
+ * node. Thus, this function fills in the children field. It then returns the
+ * part that still needs to be filled in. For example, parsing int *x would
+ * look like this:
+ *
+ *     <ptr>
+ *     x -> <ptr>
+ *     x -> * -> <ptr>
+ *     x -> * -> int
+ */
+static ast_node **
+parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
+{
+	ast_node *pointer_decl = AST_NIL;
+	// This is where the base type goes. Filled in by parse_declaration.
+	ast_node **base_type = NULL;
+	token token = {0};
+
+	while (accept(tokenizer, TOKEN_STAR)) {
+		ast_node *tmp = pointer_decl;
+		pointer_decl = new_ast_node(AST_TYPE_POINTER, tokenizer->loc, arena);
+		if (!base_type) {
+			base_type = &pointer_decl->children;
+		} else {
+			pointer_decl->children = tmp;
+		}
+
+		token_kind qualifier_token = tokenizer->lookahead[0].kind;
+		switch (qualifier_token) {
+		case TOKEN_CONST:
+		case TOKEN_RESTRICT:
+		case TOKEN_VOLATILE:
+			get_token(tokenizer);
+			pointer_decl->flags |= get_qualifier(token.kind);
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (accept(tokenizer, TOKEN_LPAREN)) {
+		ptr = parse_declarator(tokenizer, ptr, arena);
+		expect(tokenizer, TOKEN_RPAREN);
+	} else {
+		token = tokenizer->lookahead[0];
+		if (token.kind != TOKEN_IDENT) {
+			syntax_error(tokenizer, "Expected identifier, but found %s",
+				get_token_name(token.kind));
+			token.value.length = 0;
+		} else {
+			get_token(tokenizer);
+		}
+
+		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
+		(*ptr)->value.s = token.value;
+		ptr = &(*ptr)->children;
+	}
+
+	while (!tokenizer->error) {
+		if (accept(tokenizer, TOKEN_LBRACKET)) {
+			*ptr = new_ast_node(AST_TYPE_ARRAY, tokenizer->loc, arena);
+			(*ptr)->children = parse_assign_expr(tokenizer, arena);
+			ptr = &(*ptr)->children->next;
+			expect(tokenizer, TOKEN_RBRACKET);
+		} else if (accept(tokenizer, TOKEN_LPAREN)) {
+			*ptr = new_ast_node(AST_TYPE_FUNC, tokenizer->loc, arena);
+
+			ast_node *params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+			if (tokenizer->lookahead[0].kind == TOKEN_RPAREN) {
+				get_token(tokenizer);
+			} else if (tokenizer->lookahead[0].kind == TOKEN_VOID
+				&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
+			{
+				get_token(tokenizer);
+				get_token(tokenizer);
+			} else {
+				ast_node **ptr = &params->children;
+				while (!tokenizer->error && !accept(tokenizer, TOKEN_RPAREN)) {
+					*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+					if (*ptr != AST_NIL) {
+						ptr = &(*ptr)->next;
+					} else {
+						tokenizer->error = true;
+					}
+				}
+			}
+
+			(*ptr)->children = params;
+			ptr = &params->next;
+		} else {
+			break;
+		}
+	}
+
+	if (pointer_decl != AST_NIL) {
+		*ptr = pointer_decl;
+		ptr = base_type;
+	}
+
+	return ptr;
 }
 
 static ast_node *
@@ -556,23 +599,26 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	}
 
 	type_specifier->flags = qualifiers;
-	ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
-	decl->children = type_specifier;
-	ast_node **ptr = &decl->children->next;
+	ast_node *list = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+	ast_node **ptr = &list->children;
 	do {
-		ast_node *declarator = parse_declarator(tokenizer, arena);
+		ast_node **base_ptr = parse_declarator(tokenizer, ptr, arena);
+		ASSERT(base_ptr);
+		if (base_ptr) {
+			*base_ptr = type_specifier;
+		}
 
 		if (accept(tokenizer, TOKEN_EQUAL)) {
-			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
-				declarator->next = parse_initializer(tokenizer, arena);
-			} else {
-				declarator->next = parse_assign_expr(tokenizer, arena);
-			}
+			// TODO: This doesn't work for multiple declarations. For example,
+			// declaring `int x = 1, y = 0` would overwrite the expression for
+			// x with the expression for y.
+			ASSERT((*ptr)->children->next == AST_NIL);
 
-			*ptr = new_ast_node(AST_DECL_INIT, tokenizer->loc, arena);
-			(*ptr)->children = declarator;
-		} else {
-			*ptr = declarator;
+			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
+				(*ptr)->children->next = parse_initializer(tokenizer, arena);
+			} else {
+				(*ptr)->children->next = parse_assign_expr(tokenizer, arena);
+			}
 		}
 
 		ptr = &(*ptr)->next;
@@ -580,7 +626,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	    && !(flags & PARSE_SINGLE_DECL)
 	    && accept(tokenizer, TOKEN_COMMA));
 
-	return decl;
+	return list;
 }
 
 static ast_node *parse_stmt(tokenizer *tokenizer, arena *arena);
@@ -743,44 +789,22 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 	return node;
 }
 
-static b32
-is_function_decl(ast_node *declarator)
-{
-	b32 only_one_declarator = (declarator->next == AST_NIL);
-	b32 no_initializer = (declarator->kind != AST_DECL_INIT);
-	if (only_one_declarator && no_initializer) {
-		while (declarator != AST_NIL) {
-			if (declarator->kind == AST_DECL_FUNC
-				&& declarator->children->kind == AST_DECL_IDENT)
-			{
-				return true;
-			}
-
-			declarator = declarator->children;
-		}
-	}
-
-	return false;
-}
-
 static ast_node *
 parse_external_decl(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *decl = parse_decl(tokenizer, PARSE_DECL_EXTERNAL, arena);
-	if (decl == AST_NIL) {
-		return decl;
+	ast_node *list = parse_decl(tokenizer, PARSE_DECL_EXTERNAL, arena);
+	if (list == AST_NIL) {
+		return list;
 	}
 
-	decl->kind = AST_EXTERN_DEF;
-	ast_node *declarator = decl->children->next;
-	if (is_function_decl(declarator)) {
+	list->kind = AST_EXTERN_DEF;
+	ast_node *decl = list->children;
+	ast_node *type = decl->children;
+	if (decl->next == AST_NIL && type->kind == AST_TYPE_FUNC) {
 		token token = peek_token(tokenizer);
 		if (token.kind == TOKEN_LBRACE) {
 			ast_node *body = parse_compound_stmt(tokenizer, arena);
-			ast_node *node = new_ast_node(AST_FUNCTION, tokenizer->loc, arena);
-			node->children = decl;
-			decl->next = body;
-			decl = node;
+			type->next = body;
 		} else {
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}

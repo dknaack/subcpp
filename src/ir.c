@@ -105,9 +105,14 @@ get_function(ir_context *ctx, str ident)
 	return i;
 }
 
+static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
+
 static u32
-get_register(ir_context *ctx, ast_node *node, isize size)
+get_register(ir_context *ctx, ast_node *node)
 {
+	ASSERT(node->kind == AST_DECL);
+
+	isize size = type_sizeof(node->type);
 	u32 result = ctx->symbol_registers[node->index];
 	if (!result) {
 		result = emit_alloca(ctx, size);
@@ -117,13 +122,17 @@ get_register(ir_context *ctx, ast_node *node, isize size)
 			result = addr;
 		}
 
+		ast_node *expr = node->children->next;
+		if (expr != AST_NIL) {
+			u32 value = translate_node(ctx, expr, false);
+			emit2_size(ctx, IR_STORE, size, result, value);
+		}
+
 		ctx->symbol_registers[node->index] = result;
 	}
 
 	return result;
 }
-
-static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
@@ -418,6 +427,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			emit1(ctx, IR_JMP, ctx->break_label);
 		} break;
 	case AST_ROOT:
+	case AST_DECL_LIST:
 	case AST_STMT_COMPOUND:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
@@ -444,64 +454,47 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_DECL:
-		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				translate_node(ctx, child, false);
-			}
-		} break;
 	case AST_EXTERN_DEF:
 		{
-#if 0
-			ast_node *type_specifier = node->children;
-			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
-				if (child->type->kind == TYPE_FUNCTION) {
-					ASSERT(child->value.s.at && child->value.s.length);
-					add_function(ctx, child->value.s, ctx->arena);
-				} else {
-					symbol *s = upsert_symbol(&ctx->program.symbols, child->value.s, ctx->arena);
-					s->is_extern = (type_specifier->flags & AST_EXTERN);
-					s->is_static = (type_specifier->flags & AST_STATIC);
-					s->size = type_sizeof(child->type);
-					if (child->kind == AST_DECL_INIT) {
-						s->data = ctx->program.instrs + ctx->program.instr_count;
-						result = translate_node(ctx, child, false);
-						s->size = (char *)(ctx->program.instrs + ctx->program.instr_count) - (char *)s->data;
-					}
+			if (node->type->kind == TYPE_FUNCTION) {
+				ast_node *decl = node->children;
+				ast_node *body = decl->next;
+				ast_node *declarator = decl->children->next;
+				ast_node *param = declarator->children->next;
+
+				ctx->stack_size = 0;
+
+				u32 prev_label_count = ctx->program.label_count;
+				u32 prev_register_count = ctx->program.register_count;
+				ctx->program.label_count = 1;
+				ctx->program.register_count = 1;
+
+				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
+				func->instr_index = ctx->program.instr_count;
+				emit1(ctx, IR_LABEL, new_label(ctx));
+
+				i32 param_count = 0;
+				while (param != AST_NIL) {
+					translate_node(ctx, param, false);
+					param = param->next;
+					param_count++;
 				}
-			}
-#endif
-		} break;
-	case AST_DECL_INIT:
-		{
-			result = translate_node(ctx, node->children, false);
-			ast_node *expr = node->children->next;
-			if (expr != AST_NIL) {
-				if (expr->kind == AST_INIT) {
-					translate_initializer(ctx, expr, result);
-				} else {
-					u32 expr_reg = translate_node(ctx, expr, false);
-					emit2(ctx, IR_STORE, result, expr_reg);
+
+				func->parameter_count = param_count;
+				translate_node(ctx, body, false);
+				func->stack_size = ctx->stack_size;
+				func->label_count = ctx->program.label_count;
+				func->instr_count = ctx->program.instr_count - func->instr_index;
+
+				u32 curr_register_count = ctx->program.register_count;
+				ctx->program.label_count = MAX(func->label_count, prev_label_count);
+				ctx->program.register_count = MAX(curr_register_count, prev_register_count);
+			} else {
+				result = get_register(ctx, node);
+				if (!is_lvalue) {
+					u32 size = type_sizeof(node->type);
+					result = emit1_size(ctx, IR_LOAD, size, result);
 				}
-			}
-		} break;
-	case AST_DECL_POINTER:
-	case AST_DECL_ARRAY:
-		{
-			result = translate_node(ctx, node->children, false);
-		} break;
-	case AST_DECL_FUNC:
-		{
-			if (node->children->kind != AST_DECL_IDENT) {
-				result = translate_node(ctx, node->children, false);
-			}
-		} break;
-	case AST_DECL_IDENT:
-		{
-			ASSERT(node->type != NULL);
-			u32 size = type_sizeof(node->type);
-			result = get_register(ctx, node, size);
-			if (!is_lvalue) {
-				result = emit1_size(ctx, IR_LOAD, size, result);
 			}
 		} break;
 	case AST_STMT_EMPTY:
@@ -587,48 +580,16 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			u32 value = translate_node(ctx, node->children, false);
 			emit1_size(ctx, IR_PRINT, size, value);
 		} break;
-	case AST_FUNCTION:
-		{
-			ast_node *decl = node->children;
-			ast_node *body = decl->next;
-			ast_node *declarator = decl->children->next;
-			ast_node *param = declarator->children->next;
-
-			// TODO: find some better mechanism to reset the variable table
-			ctx->stack_size = 0;
-
-			u32 prev_label_count = ctx->program.label_count;
-			u32 prev_register_count = ctx->program.register_count;
-			ctx->program.label_count = 1;
-			ctx->program.register_count = 1;
-
-			ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-			func->instr_index = ctx->program.instr_count;
-			emit1(ctx, IR_LABEL, new_label(ctx));
-
-			i32 param_count = 0;
-			while (param != AST_NIL) {
-				translate_node(ctx, param, false);
-				param = param->next;
-				param_count++;
-			}
-
-			func->parameter_count = param_count;
-			translate_node(ctx, body, false);
-			func->stack_size = ctx->stack_size;
-			func->label_count = ctx->program.label_count;
-			func->instr_count = ctx->program.instr_count - func->instr_index;
-
-			u32 curr_register_count = ctx->program.register_count;
-			ctx->program.label_count = MAX(func->label_count, prev_label_count);
-			ctx->program.register_count = MAX(curr_register_count, prev_register_count);
-		} break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_STRUCT_DEF:
 	case AST_TYPE_FLOAT:
+	case AST_TYPE_FUNC:
+	case AST_TYPE_ARRAY:
+	case AST_TYPE_POINTER:
+		ASSERT(false);
 		break;
 	}
 

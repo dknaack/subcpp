@@ -120,7 +120,6 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 	scope *orig = NULL;
 	arena temp = {0};
 
-	ASSERT(node->kind != AST_EXPR_IDENT && node->kind != AST_DECL_IDENT);
 	if (*error || node->kind == AST_TYPE_STRUCT_DEF) {
 		return;
 	}
@@ -129,7 +128,7 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 	// definitions. For function declarations the parameters should be only
 	// accessible from the parameters themselves. In a definition, the
 	// parameters should be accessible from within the function.
-	if (node->kind == AST_STMT_COMPOUND || node->kind == AST_FUNCTION) {
+	if (node->kind == AST_STMT_COMPOUND) {
 		orig = s;
 		temp = *perm;
 		perm = &temp;
@@ -137,7 +136,7 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 	}
 
 	for (ast_node **child = &node->children; *child != AST_NIL; child = &(*child)->next) {
-		if ((*child)->kind == AST_DECL_IDENT) {
+		if ((*child)->kind == AST_DECL) {
 			ASSERT((*child)->index == 0);
 			(*child)->index = (*s->count)++;
 			*scope_upsert(s, (*child)->value.s, perm) = *child;
@@ -149,16 +148,16 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 				errorf(node->loc, "Variable was never declared");
 				*error = true;
 			}
-		} else {
-			merge_identifiers(*child, s, perm, error);
 		}
+
+		merge_identifiers(*child, s, perm, error);
 	}
 }
 
 static void
 check_type(ast_node *node, arena *arena, b32 *error)
 {
-	if (!node) {
+	if (node->type) {
 		return;
 	}
 
@@ -336,6 +335,7 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_STMT_BREAK:
 		break;
 	case AST_STMT_COMPOUND:
+	case AST_DECL_LIST:
 		{
 			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
 				check_type(child, arena, error);
@@ -344,101 +344,11 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			ast_node *type_specifier = node->children;
-			check_type(type_specifier, arena, error);
-
-			for (ast_node *child = type_specifier->next; child != AST_NIL; child = child->next) {
-				ast_node *declarator = child;
-				ast_node *expr = AST_NIL;
-
-				type *decl_type = type_specifier->type;
-				str name = {0};
-				while (declarator != AST_NIL) {
-					switch (declarator->kind) {
-					case AST_DECL_IDENT:
-						{
-							name = declarator->value.s;
-							declarator->type = decl_type;
-						} break;
-					case AST_DECL_POINTER:
-						{
-							type *target = decl_type;
-							// TODO: add qualifiers to the pointer type
-							decl_type = type_create(TYPE_POINTER, arena);
-							decl_type->children = target;
-						} break;
-					case AST_DECL_ARRAY:
-						{
-							type *target = decl_type;
-							decl_type = type_create(TYPE_ARRAY, arena);
-							decl_type->children = target;
-
-							// TODO: Evaluate the array size of the declarator
-							decl_type->size = 1;
-							ast_node *size = declarator->children->next;
-							if (size->kind == AST_EXPR_INT) {
-								decl_type->size = size->value.i;
-							}
-						} break;
-					case AST_DECL_FUNC:
-						{
-							type *target = decl_type;
-							decl_type = type_create(TYPE_FUNCTION, arena);
-							decl_type->children = target;
-
-							// TODO: Collect the types of the parameters
-							ast_node *param = declarator->children->next;
-							while (param != AST_NIL) {
-								check_type(param, arena, error);
-								param = param->next;
-							}
-						} break;
-					case AST_DECL_INIT:
-						{
-							expr = declarator->children->next;
-						} break;
-					default:
-						// TODO: report syntax error
-						ASSERT(!"Invalid node in declarator");
-						break;
-					}
-
-					declarator = declarator->children;
-				}
-
-				declarator = type_specifier->next;
-				declarator->type = decl_type;
-				declarator->value.s = name;
-
-				ASSERT(name.at);
-				node->value.s = name;
-				// TODO: This should be removed when function declarators are
-				// parsed correctly.
-				// NOTE: Required for function declarators
-				if (!node->type) {
-					node->type = decl_type;
-				}
-
-				if (expr != AST_NIL) {
-					expr->type = decl_type;
-					check_type(expr, arena, error);
-				}
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				check_type(child, arena, error);
 			}
-		} break;
-	case AST_DECL_IDENT:
-		{
-			// NOTE: There can be multiple declared identifiers, since we merge
-			// identifiers before checking the types. However, the type is only
-			// assigned if the parent node is a declaration. Thus, we do
-			// nothing here.
-		} break;
-	case AST_DECL_INIT:
-	case AST_DECL_POINTER:
-	case AST_DECL_ARRAY:
-	case AST_DECL_FUNC:
-		{
-			// TODO: report syntax error when declarator is encountered here.
-			ASSERT(!"Should be handled in decl");
+
+			node->type = node->children->type;
 		} break;
 	case AST_STMT_CONTINUE:
 	case AST_STMT_EMPTY:
@@ -459,16 +369,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_STMT_RETURN:
 		{
 			check_type(node->children, arena, error);
-		} break;
-	case AST_FUNCTION:
-		{
-			ast_node *decl = node->children;
-			ast_node *body = decl->next;
-			check_type(decl, arena, error);
-			node->type = decl->type;
-			node->value.s = decl->value.s;
-
-			check_type(body, arena, error);
 		} break;
 	case AST_TYPE_VOID:
 		{
@@ -514,6 +414,42 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			default:
 				node->type = &type_int;
 			}
+		} break;
+	case AST_TYPE_POINTER:
+		{
+			check_type(node->children, arena, error);
+
+			node->type = type_create(TYPE_POINTER, arena);
+			node->type->children = node->children->type;
+		} break;
+	case AST_TYPE_ARRAY:
+		{
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+				check_type(child, arena, error);
+			}
+
+			node->type = type_create(TYPE_ARRAY, arena);
+			// TODO: Evaluate the size of the array
+			node->type->size = 1;
+			node->type->children = node->children->next->type;
+		} break;
+	case AST_TYPE_FUNC:
+		{
+			ast_node *param_list = node->children;
+			ast_node *return_type = param_list->next;
+
+			node->type = type_create(TYPE_FUNCTION, arena);
+			member **m = &node->type->members;
+			for (ast_node *param = param_list->children; param != AST_NIL; param = param->next) {
+				check_type(param, arena, error);
+				*m = ALLOC(arena, 1, member);
+				(*m)->name = param->value.s;
+				(*m)->type = param->type;
+				m = &(*m)->next;
+			}
+
+			check_type(return_type, arena, error);
+			node->type->children = return_type->type;
 		} break;
 	case AST_TYPE_STRUCT:
 		{
