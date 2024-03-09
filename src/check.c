@@ -161,16 +161,30 @@ check_type(ast_node *node, arena *arena, b32 *error)
 		return;
 	}
 
+	for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
+		if (child->kind != AST_INIT) {
+			check_type(child, arena, error);
+		}
+	}
+
 	switch (node->kind) {
 	case AST_INVALID:
 		*error = true;
 		break;
 	case AST_ROOT:
-		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
-			}
-		} break;
+	case AST_STMT_BREAK:
+	case AST_STMT_COMPOUND:
+	case AST_DECL_LIST:
+	case AST_STMT_CONTINUE:
+	case AST_STMT_EMPTY:
+	case AST_STMT_FOR:
+	case AST_STMT_IF:
+	case AST_STMT_DO_WHILE:
+	case AST_STMT_WHILE:
+	case AST_STMT_PRINT:
+	case AST_STMT_RETURN:
+		// NOTE: Types are already checked above
+		break;
 	case AST_INIT:
 		{
 			ASSERT(node->type->kind == TYPE_STRUCT);
@@ -199,14 +213,13 @@ check_type(ast_node *node, arena *arena, b32 *error)
 		} break;
 	case AST_EXPR_MEMBER:
 		{
-			ast_node *lhs = node->children;
-			check_type(lhs, arena, error);
-			if (lhs->type->kind != TYPE_STRUCT) {
+			ast_node *operand = node->children;
+			if (operand->type->kind != TYPE_STRUCT) {
 				errorf(node->loc, "Left-hand side is not a struct");
 				*error = true;
 			}
 
-			member *s = get_member(lhs->type->members, node->value.s);
+			member *s = get_member(operand->type->members, node->value.s);
 			if (s) {
 				node->type = s->type;
 			} else {
@@ -217,8 +230,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 		{
 			ast_node *lhs = node->children;
 			ast_node *rhs = lhs->next;
-			check_type(lhs, arena, error);
-			check_type(rhs, arena, error);
 
 			u32 operator = node->value.i;
 			if (operator == TOKEN_LBRACKET) {
@@ -262,7 +273,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_EXPR_CALL:
 		{
 			ast_node *called = node->children;
-			check_type(called, arena, error);
 			if (called->type->kind != TYPE_FUNCTION) {
 				*error = true;
 				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
@@ -274,7 +284,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			type *return_type = called->type->children;
 			member *param_sym = called->type->members;
 			while (param != AST_NIL || param_sym != NULL) {
-				check_type(param, arena, error);
 				if (!type_equals(param_sym->type, param->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
 						param_index + 1, type_get_name(param_sym->type->kind),
@@ -301,7 +310,6 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_EXPR_UNARY:
 		{
 			ast_node *operand = node->children;
-			check_type(operand, arena, error);
 			switch (node->value.i) {
 			case TOKEN_STAR:
 				if (operand->type->kind == TYPE_POINTER) {
@@ -332,43 +340,15 @@ check_type(ast_node *node, arena *arena, b32 *error)
 				break;
 			}
 		} break;
-	case AST_STMT_BREAK:
-		break;
-	case AST_STMT_COMPOUND:
-	case AST_DECL_LIST:
-		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
-			}
-		} break;
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
-			}
-
 			node->type = node->children->type;
-		} break;
-	case AST_STMT_CONTINUE:
-	case AST_STMT_EMPTY:
-		break;
-	case AST_STMT_FOR:
-	case AST_STMT_IF:
-	case AST_STMT_DO_WHILE:
-	case AST_STMT_WHILE:
-		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
+			ast_node *initializer = node->children->next;
+			if (initializer->kind == AST_INIT) {
+				initializer->type = node->type;
+				check_type(initializer, arena, error);
 			}
-		} break;
-	case AST_STMT_PRINT:
-		{
-			check_type(node->children, arena, error);
-		} break;
-	case AST_STMT_RETURN:
-		{
-			check_type(node->children, arena, error);
 		} break;
 	case AST_TYPE_VOID:
 		{
@@ -417,17 +397,11 @@ check_type(ast_node *node, arena *arena, b32 *error)
 		} break;
 	case AST_TYPE_POINTER:
 		{
-			check_type(node->children, arena, error);
-
 			node->type = type_create(TYPE_POINTER, arena);
 			node->type->children = node->children->type;
 		} break;
 	case AST_TYPE_ARRAY:
 		{
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
-			}
-
 			node->type = type_create(TYPE_ARRAY, arena);
 			// TODO: Evaluate the size of the array
 			node->type->size = 1;
@@ -441,14 +415,12 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			node->type = type_create(TYPE_FUNCTION, arena);
 			member **m = &node->type->members;
 			for (ast_node *param = param_list->children; param != AST_NIL; param = param->next) {
-				check_type(param, arena, error);
 				*m = ALLOC(arena, 1, member);
 				(*m)->name = param->value.s;
 				(*m)->type = param->type;
 				m = &(*m)->next;
 			}
 
-			check_type(return_type, arena, error);
 			node->type->children = return_type->type;
 		} break;
 	case AST_TYPE_STRUCT:
@@ -462,9 +434,7 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			node->type = type_create(TYPE_STRUCT, arena);
 
 			// TODO: Collect the members of the struct
-			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {
-				check_type(child, arena, error);
-			}
+			for (ast_node *child = node->children; child != AST_NIL; child = child->next) {}
 		} break;
 	}
 }
