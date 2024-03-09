@@ -324,11 +324,15 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			machine_operand rax = make_mreg(X86_RAX);
 			machine_operand rcx = make_mreg(X86_RCX);
 			machine_operand rdx = make_mreg(X86_RDX);
-			rax.size = rcx.size = rdx.size = dst.size;
+			machine_operand zero = make_immediate(0);
+			rax.size = instr[op0].size;
+			rcx.size = instr[op1].size;
+			rdx.size = dst.size;
+			zero.size = rdx.size;
 
 			x86_select_instr(out, instr, op0, rax);
 			x86_select_instr(out, instr, op1, rcx);
-			x86_select2(out, X86_MOV, rdx, make_immediate(0));
+			x86_select2(out, X86_MOV, rdx, zero);
 			x86_select1(out, X86_IDIV, rcx);
 			x86_select2(out, X86_MOV, dst, opcode == IR_DIV ? rax : rdx);
 		} break;
