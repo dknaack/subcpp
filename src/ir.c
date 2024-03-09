@@ -39,6 +39,7 @@ emit2(ir_context *ctx, ir_opcode opcode, u32 op0, u32 op1)
 static u32
 emit1_size(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0)
 {
+	ASSERT(size != 0);
 	u32 result = emit2_size(ctx, opcode, size, op0, 0);
 	return result;
 }
@@ -188,7 +189,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			u32 offset = type_offsetof(operand->type, node->value.s);
 			u32 offset_reg = emit1_size(ctx, IR_INT, 8, offset);
 			u32 base_reg = translate_node(ctx, operand, true);
-			u32 addr = emit2(ctx, IR_ADD, base_reg, offset_reg);
+			u32 addr = emit2_size(ctx, IR_ADD, 8, base_reg, offset_reg);
 			result = emit1_size(ctx, IR_LOAD, size, addr);
 		} break;
 	case AST_EXPR_BINARY:
@@ -363,15 +364,17 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				} break;
 			case TOKEN_MINUS:
 				{
-					u32 zero = emit1(ctx, IR_INT, 0);
+					u32 size = type_sizeof(node->type);
+					u32 zero = emit1_size(ctx, IR_INT, size, 0);
 					result = translate_node(ctx, node->child[0], false);
-					result = emit2(ctx, IR_SUB, zero, result);
+					result = emit2_size(ctx, IR_SUB, size, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
-					u32 zero = emit1(ctx, IR_INT, 0);
+					u32 size = type_sizeof(node->type);
+					u32 zero = emit1_size(ctx, IR_INT, size, 0);
 					result = translate_node(ctx, node->child[0], false);
-					result = emit2(ctx, IR_EQL, result, zero);
+					result = emit2_size(ctx, IR_EQL, size, result, zero);
 				} break;
 			case TOKEN_STAR:
 				{
@@ -389,10 +392,11 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
+					u32 size = type_sizeof(node->type);
 					u32 addr = translate_node(ctx, node->child[0], true);
-					u32 value = emit1(ctx, IR_LOAD, addr);
-					u32 one = emit1(ctx, IR_INT, 1);
-					result = emit2(ctx, add_or_sub, value, one);
+					u32 value = emit1_size(ctx, IR_LOAD, size, addr);
+					u32 one = emit1_size(ctx, IR_INT, size, 1);
+					result = emit2_size(ctx, add_or_sub, size, value, one);
 					emit2(ctx, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
@@ -414,10 +418,11 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 						add_or_sub = IR_SUB;
 					}
 
+					u32 size = type_sizeof(node->type);
 					u32 addr = translate_node(ctx, node->child[0], true);
 					result = emit1(ctx, IR_LOAD, addr);
-					u32 one = emit1(ctx, IR_INT, 1);
-					u32 value = emit2(ctx, add_or_sub, result, one);
+					u32 one = emit1_size(ctx, IR_INT, size, 1);
+					u32 value = emit2_size(ctx, add_or_sub, size, result, one);
 					emit2(ctx, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;

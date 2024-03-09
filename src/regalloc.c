@@ -366,7 +366,7 @@ allocate_function_registers(machine_function function, void *code,
 			u32 mreg = register_pool[active_count++];
 			ASSERT(mreg < mreg_count);
 			info.used[mreg] |= !is_empty;
-			vreg[current_register] = make_mreg(mreg);
+			vreg[current_register] = make_mreg(mreg, 0);
 		}
 	}
 

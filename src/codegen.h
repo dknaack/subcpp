@@ -57,58 +57,55 @@ machine_operand_equals(machine_operand a, machine_operand b)
 }
 
 static machine_operand
-make_mreg(u32 mreg)
+machine_operand_init(u32 kind, u32 value, u32 size)
 {
 	machine_operand operand = {0};
-	operand.kind = MOP_MREG;
-	operand.value = mreg;
+	operand.kind = kind;
+	operand.value = value;
+	operand.size = size;
+	ASSERT(size <= 16);
 	return operand;
 }
 
 static machine_operand
-make_vreg(u32 vreg)
+make_mreg(u32 mreg, u32 size)
 {
-	machine_operand operand = {0};
-	operand.kind = MOP_VREG;
-	operand.value = vreg;
-	operand.size = 8;
+	machine_operand operand = machine_operand_init(MOP_MREG, mreg, size);
+	return operand;
+}
+
+static machine_operand
+make_vreg(u32 vreg, u32 size)
+{
+	machine_operand operand = machine_operand_init(MOP_VREG, vreg, size);
 	return operand;
 }
 
 static machine_operand
 make_spill(u32 index)
 {
-	machine_operand operand = {0};
-	operand.kind = MOP_SPILL;
-	operand.value = index;
-	operand.size = 8;
+	machine_operand operand = machine_operand_init(MOP_SPILL, index, 8);
 	return operand;
 }
 
 static machine_operand
-make_immediate(u32 value)
+make_immediate(u32 value, u32 size)
 {
-	machine_operand operand = {0};
-	operand.kind = MOP_IMMEDIATE;
-	operand.value = value;
+	machine_operand operand = machine_operand_init(MOP_IMMEDIATE, value, size);
 	return operand;
 }
 
 static machine_operand
 make_label(u32 value)
 {
-	machine_operand operand = {0};
-	operand.kind = MOP_LABEL;
-	operand.value = value;
+	machine_operand operand = machine_operand_init(MOP_LABEL, value, 0);
 	return operand;
 }
 
 static machine_operand
 make_func(u32 index)
 {
-	machine_operand operand = {0};
-	operand.kind = MOP_FUNC;
-	operand.value = index;
+	machine_operand operand = machine_operand_init(MOP_FUNC, index, 8);
 	return operand;
 }
 
