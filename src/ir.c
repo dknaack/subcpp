@@ -25,8 +25,8 @@ emit2_size(ir_context *ctx, ir_opcode opcode, u32 size, u32 op0, u32 op1)
 	instr->size = size;
 	instr->op0 = op0;
 	instr->op1 = op1;
-	ctx->program.register_count++;
-	return ctx->program.instr_count - 1;
+	u32 result = ctx->program.register_count++;
+	return result;
 }
 
 static u32

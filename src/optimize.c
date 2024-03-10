@@ -99,134 +99,137 @@ promote_stack_variables(ir_program program, arena *arena)
 static void
 remove_unused_registers(ir_program program, arena *arena)
 {
-	ir_instr *instrs = program.instrs;
-	arena_temp temp = arena_temp_begin(arena);
-
 	// Remove unused registers
-	b32 *used = ALLOC(arena, program.instr_count, b32);
-	for (u32 j = 0; j < program.instr_count; j++) {
-		u32 i = program.instr_count - 1 - j;
-		ir_instr instr = program.instrs[i];
-		ir_opcode_info info = get_opcode_info(instr.opcode);
+	for (ir_function *func = program.function_list; func; func = func->next) {
+		arena_temp temp = arena_temp_begin(arena);
+		ir_instr *instrs = program.instrs + func->instr_index;
 
-		switch (instr.opcode) {
-		case IR_STORE:
-		case IR_PARAM:
-		case IR_CALL:
-		case IR_RET:
-		case IR_MOV:
-		case IR_PRINT:
-		case IR_JIZ:
-		case IR_JNZ:
-		case IR_JMP:
-		case IR_LABEL: // TODO: Removal of unused labels
-			used[i] = true;
-		default:
-			break;
+		b32 *used = ALLOC(arena, func->instr_count, b32);
+		for (u32 j = 0; j < func->instr_count; j++) {
+			u32 i = func->instr_count - 1 - j;
+			ir_instr instr = instrs[i];
+			ir_opcode_info info = get_opcode_info(instr.opcode);
+
+			switch (instr.opcode) {
+			case IR_STORE:
+			case IR_PARAM:
+			case IR_CALL:
+			case IR_RET:
+			case IR_MOV:
+			case IR_PRINT:
+			case IR_JIZ:
+			case IR_JNZ:
+			case IR_JMP:
+			case IR_LABEL: // TODO: Removal of unused labels
+				used[i] = true;
+			default:
+				break;
+			}
+
+			if (!used[i]) {
+				continue;
+			}
+
+			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
+				used[instr.op0] = true;
+			}
+
+			if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
+				used[instr.op1] = true;
+			}
 		}
 
-		if (!used[i]) {
-			continue;
+		for (u32 i = 0; i < func->instr_count; i++) {
+			if (!used[i]) {
+				instrs[i].opcode = IR_NOP;
+			}
 		}
 
-		if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
-			used[instr.op0] = true;
-		}
-
-		if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
-			used[instr.op1] = true;
-		}
+		arena_temp_end(temp);
 	}
-
-	for (u32 i = 0; i < program.instr_count; i++) {
-		if (!used[i]) {
-			instrs[i].opcode = IR_NOP;
-		}
-	}
-
-	arena_temp_end(temp);
 }
 
 static void
 optimize(ir_program program, arena *arena)
 {
-	ir_instr *instrs = program.instrs;
-
 	promote_stack_variables(program, arena);
 
-	for (u32 i = 0; i < program.instr_count; i++) {
-		u32 op0 = instrs[i].op0;
-		u32 op1 = instrs[i].op1;
+	for (ir_function *func = program.function_list; func; func = func->next) {
+		ir_instr *instrs = program.instrs + func->instr_index;
+		for (u32 i = 0; i < func->instr_count; i++) {
+			u32 op0 = instrs[i].op0;
+			u32 op1 = instrs[i].op1;
 
-		switch (instrs[i].opcode) {
-		case IR_ADD:
-			if (instrs[op0].opcode == IR_INT
-				&& instrs[op1].opcode == IR_INT)
-			{
-				instrs[i].opcode = IR_ADD;
-				instrs[op1].opcode = IR_NOP;
-				instrs[op0].opcode = IR_NOP;
-				instrs[i].op0 = add(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op0].opcode == IR_INT
-				&& instrs[op0].op0 == 0)
-			{
-				instrs[op0].opcode = IR_NOP;
-				instrs[i].opcode = IR_MOV;
-				instrs[i].op0 = i;
-			} else if (instrs[op1].opcode == IR_INT
-				&& instrs[op1].op0 == 0)
-			{
-				instrs[op1].opcode = IR_NOP;
-				instrs[i].opcode = IR_COPY;
+			switch (instrs[i].opcode) {
+			case IR_ADD:
+				if (instrs[op0].opcode == IR_INT
+					&& instrs[op1].opcode == IR_INT)
+				{
+					instrs[i].opcode = IR_ADD;
+					instrs[op1].opcode = IR_NOP;
+					instrs[op0].opcode = IR_NOP;
+					instrs[i].op0 = add(instrs[op0].op0, instrs[op1].op0);
+				} else if (instrs[op0].opcode == IR_INT
+					&& instrs[op0].op0 == 0)
+				{
+					instrs[op0].opcode = IR_NOP;
+					instrs[i].opcode = IR_MOV;
+					instrs[i].op0 = i;
+				} else if (instrs[op1].opcode == IR_INT
+					&& instrs[op1].op0 == 0)
+				{
+					instrs[op1].opcode = IR_NOP;
+					instrs[i].opcode = IR_COPY;
+				}
+				break;
+			case IR_SUB:
+				if (instrs[op0].opcode == IR_INT
+					&& instrs[op1].opcode == IR_INT)
+				{
+					instrs[i].opcode = IR_INT;
+					instrs[op1].opcode = IR_NOP;
+					instrs[op0].opcode = IR_NOP;
+					instrs[i].op0 = sub(instrs[op0].op0, instrs[op1].op0);
+				} else if (instrs[op1].opcode == IR_INT
+					&& instrs[op1].op0 == 0)
+				{
+					instrs[op1].opcode = IR_NOP;
+					instrs[i].opcode = IR_COPY;
+				}
+				break;
+			case IR_MUL:
+				if (instrs[op0].opcode == IR_INT
+					&& instrs[op1].opcode == IR_INT) {
+					instrs[i].opcode = IR_INT;
+					instrs[op1].opcode = IR_NOP;
+					instrs[op0].opcode = IR_NOP;
+					/* TODO: evaluate depending on the target architecture */
+					instrs[i].op0 = multiply(instrs[op0].op0, instrs[op1].op0);
+				} else if (instrs[op0].opcode == IR_INT
+					&& instrs[op0].op0 == 1)
+				{
+					instrs[i].opcode = IR_MOV;
+					instrs[i].op0 = i;
+				} else if (instrs[op1].opcode == IR_INT
+					&& instrs[op1].op0 == 1)
+				{
+					instrs[i].opcode = IR_MOV;
+					instrs[i].op1 = op0;
+					instrs[i].op0 = i;
+				}
+				break;
+			case IR_JIZ:
+				if (instrs[op0].opcode == IR_INT
+					&& instrs[op0].op0 == 0)
+				{
+					instrs[op0].opcode = IR_NOP;
+					instrs[i].opcode = IR_JMP;
+					instrs[i].op0 = instrs[i].op1;
+				}
+				break;
+			default:
+				break;
 			}
-			break;
-		case IR_SUB:
-			if (instrs[op0].opcode == IR_INT
-				&& instrs[op1].opcode == IR_INT)
-			{
-				instrs[i].opcode = IR_INT;
-				instrs[op1].opcode = IR_NOP;
-				instrs[op0].opcode = IR_NOP;
-				instrs[i].op0 = sub(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op1].opcode == IR_INT
-				&& instrs[op1].op0 == 0)
-			{
-				instrs[op1].opcode = IR_NOP;
-				instrs[i].opcode = IR_COPY;
-			}
-			break;
-		case IR_MUL:
-			if (instrs[op0].opcode == IR_INT
-				&& instrs[op1].opcode == IR_INT) {
-				instrs[i].opcode = IR_INT;
-				instrs[op1].opcode = IR_NOP;
-				instrs[op0].opcode = IR_NOP;
-				/* TODO: evaluate depending on the target architecture */
-				instrs[i].op0 = multiply(instrs[op0].op0, instrs[op1].op0);
-			} else if (instrs[op0].opcode == IR_INT
-				&& instrs[op0].op0 == 1)
-			{
-				instrs[i].opcode = IR_MOV;
-				instrs[i].op0 = i;
-			} else if (instrs[op1].opcode == IR_INT
-				&& instrs[op1].op0 == 1)
-			{
-				instrs[i].opcode = IR_MOV;
-				instrs[i].op1 = op0;
-				instrs[i].op0 = i;
-			}
-			break;
-		case IR_JIZ:
-			if (instrs[op0].opcode == IR_INT
-				&& instrs[op0].op0 == 0)
-			{
-				instrs[op0].opcode = IR_NOP;
-				instrs[i].opcode = IR_JMP;
-				instrs[i].op0 = instrs[i].op1;
-			}
-			break;
-		default:
-			break;
 		}
 	}
 
@@ -304,17 +307,20 @@ next_block:
 	}
 
 	// Remove register copies from the IR tree
-	for (u32 i = 0; i < program.instr_count; i++) {
-		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+	for (ir_function *func = program.function_list; func; func = func->next) {
+		ir_instr *instrs = program.instrs + func->instr_index;
+		for (u32 i = 0; i < program.instr_count; i++) {
+			ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 
-		u32 op0 = instrs[i].op0;
-		if (is_register_operand(info.op0) && instrs[op0].opcode == IR_COPY) {
-			instrs[i].op0 = instrs[op0].op0;
-		}
+			u32 op0 = instrs[i].op0;
+			if (is_register_operand(info.op0) && instrs[op0].opcode == IR_COPY) {
+				instrs[i].op0 = instrs[op0].op0;
+			}
 
-		u32 op1 = instrs[i].op1;
-		if (is_register_operand(info.op1) && instrs[op1].opcode == IR_COPY) {
-			instrs[i].op1 = instrs[op1].op0;
+			u32 op1 = instrs[i].op1;
+			if (is_register_operand(info.op1) && instrs[op1].opcode == IR_COPY) {
+				instrs[i].op1 = instrs[op1].op0;
+			}
 		}
 	}
 
