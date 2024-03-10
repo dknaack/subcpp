@@ -161,6 +161,7 @@ get_live_matrix(void *code, machine_function func, u32 mreg_count,
 				case MOP_LABEL:
 				case MOP_IMMEDIATE:
 				case MOP_FUNC:
+				case MOP_GLOBAL:
 					break;
 				default:
 					ASSERT(!"Invalid operand type");
@@ -362,7 +363,7 @@ allocate_function_registers(machine_function function, void *code,
 				ASSERT(!force_mreg_for[current_register]);
 				vreg[current_register] = make_spill(8 * info.spill_count++);
 			}
-		} else if (!is_empty) {
+		} else {
 			u32 mreg = register_pool[active_count++];
 			ASSERT(mreg < mreg_count);
 			info.used[mreg] |= !is_empty;
@@ -380,6 +381,7 @@ allocate_function_registers(machine_function function, void *code,
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
 				ASSERT(reg < function.register_count);
+				ASSERT(vreg[reg].kind != MOP_INVALID);
 				operands[i].kind = vreg[reg].kind;
 				operands[i].value = vreg[reg].value;
 			}

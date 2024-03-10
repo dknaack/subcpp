@@ -10,6 +10,7 @@ typedef enum {
 	MOP_SPILL,
 	MOP_LABEL,
 	MOP_FUNC,
+	MOP_GLOBAL,
 	MOP_IMMEDIATE,
 } machine_operand_kind;
 
@@ -38,6 +39,7 @@ typedef struct {
 typedef struct {
 	void *code;
 	machine_function *functions;
+	symbol_table *symtab;
 	u32 *temp_mregs;
 
 	u32 size;
@@ -106,6 +108,13 @@ static machine_operand
 make_func(u32 index)
 {
 	machine_operand operand = machine_operand_init(MOP_FUNC, index, 8);
+	return operand;
+}
+
+static machine_operand
+make_global(u32 index, u32 size)
+{
+	machine_operand operand = machine_operand_init(MOP_GLOBAL, index, size);
 	return operand;
 }
 

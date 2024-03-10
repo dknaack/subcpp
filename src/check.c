@@ -138,9 +138,9 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 
 	while (node != AST_NIL) {
 		for (i32 i = 0; i < 2; i++) {
-			if (node->child[i]->kind == AST_DECL) {
-				ASSERT(node->child[i]->index == i);
-				node->child[i]->index = (*s->count)++;
+			if (node->child[i]->kind == AST_DECL || node->child[i]->kind == AST_EXTERN_DEF) {
+				ASSERT(node->child[i]->symbol_id.value == i);
+				node->child[i]->symbol_id.value = (*s->count)++;
 				*scope_upsert(s, node->child[i]->value.s, perm) = node->child[i];
 			} else if (node->child[i]->kind == AST_EXPR_IDENT) {
 				ast_node **resolved = scope_upsert(s, node->child[i]->value.s, NULL);
@@ -463,14 +463,36 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	}
 }
 
+static void
+add_global_symbols(ast_node *node, symbol_table symtab)
+{
+	if (node == AST_NIL) {
+		return;
+	}
+
+	add_global_symbols(node->child[0], symtab);
+	add_global_symbols(node->child[1], symtab);
+
+	if (node->kind == AST_EXTERN_DEF) {
+		symbol *sym = &symtab.symbols[node->symbol_id.value];
+		sym->name = node->value.s;
+		sym->type = node->type;
+		sym->definition = node->child[1];
+		sym->is_global = true;
+		sym->is_function = (sym->definition->kind == AST_STMT_LIST);
+	}
+}
+
 static symbol_table
 analyze(ast_node *root, arena *perm, b32 *error)
 {
-	symbol_table table = {0};
+	symbol_table symtab = {0};
 	scope *s = new_scope(NULL, perm);
-	s->count = &table.count;
+	s->count = &symtab.count;
 
 	merge_identifiers(root, s, perm, error);
+	symtab.symbols = ALLOC(perm, symtab.count, symbol);
 	check_type(root, perm, error);
-	return table;
+	add_global_symbols(root, symtab);
+	return symtab;
 }

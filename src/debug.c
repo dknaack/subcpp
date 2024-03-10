@@ -8,6 +8,9 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_NOP:
 		printf("\tnop\n");
 		break;
+	case IR_GLOBAL:
+		printf("\t%%%d = global %d\n", dst, op0);
+		break;
 	case IR_VAR:
 		printf("\t%%%d = new vreg\n", dst);
 		break;
@@ -135,12 +138,12 @@ print_ir_program(ir_program program)
 		printf("  parameter_count: %d\n", func->parameter_count);
 		printf("  instr_index: %d\n", func->instr_index);
 		printf("  stack_size: %d\n", func->stack_size);
-	}
 
-	for (u32 i = 0; i < program.instr_count; i++) {
-		printf("%2d| ", i);
-		ir_instr instr = program.instrs[i];
-		print_ir_instr(instr, i);
+		for (u32 i = 0; i < func->instr_count; i++) {
+			printf("%2d| ", i);
+			ir_instr instr = program.instrs[func->instr_index + i];
+			print_ir_instr(instr, i);
+		}
 	}
 
 	printf("\n");

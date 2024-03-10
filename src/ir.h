@@ -2,6 +2,7 @@ typedef enum {
 	IR_NOP,
 	IR_LABEL,
 	IR_ALLOC,
+	IR_GLOBAL,
 	IR_JMP,
 
 	// Integer instructions
@@ -53,6 +54,7 @@ typedef enum {
 	IR_OPERAND_NONE,
 	IR_OPERAND_REG_SRC,
 	IR_OPERAND_REG_DST,
+	IR_OPERAND_GLOBAL,
 	IR_OPERAND_CONST,
 	IR_OPERAND_LABEL,
 	IR_OPERAND_FUNC,
@@ -85,7 +87,6 @@ struct ir_function {
 typedef struct {
 	ir_instr *instrs;
 	ir_function *function_list;
-	symbol *symbols;
 
 	u32 register_count;
 	u32 function_count;
@@ -102,6 +103,7 @@ struct variable {
 
 typedef struct {
 	ir_program program;
+	symbol_table *symbol_table;
 	arena *arena;
 
 	u32 *symbol_registers;

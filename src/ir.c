@@ -111,25 +111,32 @@ static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
 static u32
 get_register(ir_context *ctx, ast_node *node)
 {
-	ASSERT(node->kind == AST_DECL);
+	ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
+	u32 result = 0;
 	isize size = type_sizeof(node->type);
-	u32 result = ctx->symbol_registers[node->index];
-	if (!result) {
-		result = emit_alloca(ctx, size);
-		if (node->type->kind == TYPE_ARRAY) {
-			u32 addr = emit_alloca(ctx, 8);
-			emit2(ctx, IR_STORE, addr, result);
-			result = addr;
-		}
+	symbol_id symbol_id = node->symbol_id;
+	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
+	if (sym->is_global) {
+		result = emit1_size(ctx, IR_GLOBAL, 8, symbol_id.value);
+	} else {
+		result = ctx->symbol_registers[node->symbol_id.value];
+		if (!result) {
+			result = emit_alloca(ctx, size);
+			if (node->type->kind == TYPE_ARRAY) {
+				u32 addr = emit_alloca(ctx, 8);
+				emit2(ctx, IR_STORE, addr, result);
+				result = addr;
+			}
 
-		ast_node *expr = node->child[1];
-		if (expr != AST_NIL) {
-			u32 value = translate_node(ctx, expr, false);
-			emit2_size(ctx, IR_STORE, size, result, value);
-		}
+			ast_node *expr = node->child[1];
+			if (expr != AST_NIL) {
+				u32 value = translate_node(ctx, expr, false);
+				emit2_size(ctx, IR_STORE, size, result, value);
+			}
 
-		ctx->symbol_registers[node->index] = result;
+			ctx->symbol_registers[node->symbol_id.value] = result;
+		}
 	}
 
 	return result;
@@ -477,7 +484,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 prev_label_count = ctx->program.label_count;
 				u32 prev_register_count = ctx->program.register_count;
 				ctx->program.label_count = 1;
-				ctx->program.register_count = 1;
+				ctx->program.register_count = 0;
 
 				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
 				func->instr_index = ctx->program.instr_count;
@@ -671,6 +678,9 @@ get_opcode_info(ir_opcode opcode)
 		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_FUNC;
 		break;
+	case IR_GLOBAL:
+		info.op0 = IR_OPERAND_GLOBAL;
+		break;
 	case IR_LABEL:
 		info.op0 = IR_OPERAND_LABEL;
 		break;
@@ -700,6 +710,10 @@ get_toplevel_instructions(ir_program program, arena *arena)
 	ir_instr *instrs = program.instrs;
 	for (u32 i = 0; i < program.instr_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		if (instrs[i].opcode == IR_GLOBAL) {
+			is_toplevel[i] = false;
+		}
+
 		if (is_register_operand(info.op0)) {
 			is_toplevel[instrs[i].op0] = false;
 		}
@@ -718,6 +732,7 @@ translate(ast_node *root, symbol_table *symbol_table, arena *arena)
 	ir_context ctx = ir_context_init(arena);
 	ctx.arena = arena;
 	ctx.symbol_registers = ALLOC(arena, symbol_table->count, u32);
+	ctx.symbol_table = symbol_table;
 
 	if (root->kind == AST_INVALID) {
 		return ctx.program;

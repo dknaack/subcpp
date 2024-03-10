@@ -2,13 +2,23 @@
 
 typedef struct member member;
 typedef struct type type;
+typedef struct ast_node ast_node;
 
-typedef struct symbol {
+typedef struct symbol_id {
+	i32 value;
+} symbol_id;
+
+typedef struct {
 	str name;
+	type *type;
+	ast_node *definition;
+	b8 is_global;
+	b8 is_function;
 } symbol;
 
 typedef struct {
 	isize count;
+	symbol *symbols;
 } symbol_table;
 
 typedef enum {

@@ -67,9 +67,11 @@ static void
 x86_select2(machine_program *out, x86_opcode opcode,
 	machine_operand dst, machine_operand src)
 {
+	ASSERT(dst.kind != 0 && src.kind != 0);
+	ASSERT(dst.size > 0 && src.size > 0);
+
 	switch (opcode) {
 	case X86_MOV:
-		ASSERT(dst.size > 0 && src.size > 0);
 		if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
 			if (dst.flags & MOP_INDIRECT) {
@@ -168,6 +170,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	ir_opcode opcode = instr[instr_index].opcode;
 
 	switch (opcode) {
+	case IR_GLOBAL:
+		{
+			machine_operand src = make_global(op0, size);
+			x86_select2(out, X86_MOV, dst, src);
+		} break;
 	case IR_VAR:
 		{
 			machine_operand src = make_vreg(instr_index, size);
@@ -555,7 +562,7 @@ x86_select_instructions(ir_program program, arena *arena)
 				dst = make_vreg(instr[i].op0, instr[instr[i].op0].size);
 			}
 
-			if (is_toplevel[i]) {
+			if (is_toplevel[ir_func->instr_index + i]) {
 				x86_select_instr(&out, instr, i, dst);
 			}
 		}
@@ -614,12 +621,13 @@ x86_select_instructions(ir_program program, arena *arena)
 
 static void
 x86_emit_operand(stream *out, machine_operand operand,
-	machine_function *functions)
+	machine_function *functions, symbol_table *symtab)
 {
 	x86_register reg;
 
-	switch (operand.kind) {
-	case MOP_SPILL:
+	b32 print_size = (operand.kind == MOP_SPILL
+		|| (operand.flags & MOP_INDIRECT));
+	if (print_size) {
 		switch (operand.size) {
 		case 1:
 			stream_print(out, "byte");
@@ -637,7 +645,13 @@ x86_emit_operand(stream *out, machine_operand operand,
 		default:
 			ASSERT(!"Invalid size");
 		}
+	}
 
+	switch (operand.kind) {
+	case MOP_GLOBAL:
+		stream_prints(out, symtab->symbols[operand.value].name);
+		break;
+	case MOP_SPILL:
 		stream_print(out, "[rsp+");
 		stream_printu(out, operand.value);
 		stream_print(out, "]");
@@ -648,23 +662,6 @@ x86_emit_operand(stream *out, machine_operand operand,
 		break;
 	case MOP_MREG:
 		if (operand.flags & MOP_INDIRECT) {
-			switch (operand.size) {
-			case 1:
-				stream_print(out, "byte");
-				break;
-			case 2:
-				stream_print(out, "word");
-				break;
-			case 4:
-				stream_print(out, "dword");
-				break;
-			case 8:
-				stream_print(out, "qword");
-				break;
-			default:
-				ASSERT(!"Invalid size");
-			}
-
 			stream_print(out, "[");
 			operand.size = 8;
 		}
@@ -700,8 +697,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		"global main\n"
 		"extern printf\n\n"
 		"section .data\n"
-		"fmt: db \"%d\", 0x0A, 0\n\n"
-		"section .text\n");
+		"fmt: db \"%d\", 0x0A, 0\n\n");
 
 	for (u32 i = 0; i < program.function_count; i++) {
 		stream_print(out, "global ");
@@ -709,6 +705,20 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		stream_print(out, "\n");
 	}
 
+	stream_print(out, "section .bss\n");
+	for (u32 i = 0; i < program.symtab->count; i++) {
+		symbol *sym = &program.symtab->symbols[i];
+		if (sym->is_global && !sym->is_function) {
+			stream_print(out, "\t");
+			stream_prints(out, sym->name);
+			stream_print(out, " resb ");
+			u32 size = type_sizeof(sym->type);
+			stream_printu(out, size);
+			stream_print(out, "\n");
+		}
+	}
+
+	stream_print(out, "\nsection .text\n");
 	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
 		machine_function *function = &program.functions[function_index];
 		stream_prints(out, function->name);
@@ -719,7 +729,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_mreg(mreg, 8), program.functions);
+				x86_emit_operand(out, make_mreg(mreg, 8), program.functions, program.symtab);
 				stream_print(out, "\n");
 				used_volatile_register_count++;
 			}
@@ -768,7 +778,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
 				stream_print(out, "L");
-				x86_emit_operand(out, operands[0], program.functions);
+				x86_emit_operand(out, operands[0], program.functions, program.symtab);
 				stream_print(out, ":\n");
 			} else {
 				if (opcode == X86_RET) {
@@ -783,7 +793,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						u32 mreg = x86_preserved_regs[j];
 						if (info[function_index].used[mreg]) {
 							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_mreg(mreg, 8), program.functions);
+							x86_emit_operand(out, make_mreg(mreg, 8),
+								program.functions, program.symtab);
 							stream_print(out, "\n");
 						}
 					}
@@ -797,7 +808,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					&& operands[1].kind == MOP_SPILL)
 				{
 					stream_print(out, "\tmov rax, ");
-					x86_emit_operand(out, operands[1], program.functions);
+					x86_emit_operand(out, operands[1], program.functions,
+						program.symtab);
 					operands[1] = make_mreg(X86_RAX, operands[0].size);
 					stream_print(out, "\n");
 				}
@@ -814,7 +826,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						stream_print(out, ", ");
 					}
 
-					x86_emit_operand(out, operands[j], program.functions);
+					x86_emit_operand(out, operands[j], program.functions, program.symtab);
 				}
 
 				stream_print(out, "\n");

@@ -116,6 +116,7 @@ main(int argc, char *argv[])
 	optimize(ir_program, arena);
 
 	machine_program machine_program = x86_select_instructions(ir_program, arena);
+	machine_program.symtab = &symbol_table;
 	allocation_info *info = allocate_registers(machine_program, arena);
 	stream out = stream_open("/tmp/out.s", 1024, arena);
 	x86_generate(&out, machine_program, info);
