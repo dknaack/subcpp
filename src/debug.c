@@ -179,8 +179,8 @@ print_x86_program(machine_program program)
 			case MOP_IMMEDIATE:
 				printf("%d", value);
 				break;
-			case MOP_FUNC:
-				printf("func_%d", value);
+			case MOP_GLOBAL:
+				printf("global_%d", value);
 				break;
 			case MOP_SPILL:
 				printf("spill");

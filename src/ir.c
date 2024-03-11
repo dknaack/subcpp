@@ -108,40 +108,6 @@ get_function(ir_context *ctx, str ident)
 
 static u32 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue);
 
-static u32
-get_register(ir_context *ctx, ast_node *node)
-{
-	ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
-
-	u32 result = 0;
-	isize size = type_sizeof(node->type);
-	symbol_id symbol_id = node->symbol_id;
-	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
-	if (sym->is_global) {
-		result = emit1_size(ctx, IR_GLOBAL, 8, symbol_id.value);
-	} else {
-		result = ctx->symbol_registers[node->symbol_id.value];
-		if (!result) {
-			result = emit_alloca(ctx, size);
-			if (node->type->kind == TYPE_ARRAY) {
-				u32 addr = emit_alloca(ctx, 8);
-				emit2(ctx, IR_STORE, addr, result);
-				result = addr;
-			}
-
-			ast_node *expr = node->child[1];
-			if (expr != AST_NIL) {
-				u32 value = translate_node(ctx, expr, false);
-				emit2_size(ctx, IR_STORE, size, result, value);
-			}
-
-			ctx->symbol_registers[node->symbol_id.value] = result;
-		}
-	}
-
-	return result;
-}
-
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
@@ -175,13 +141,51 @@ translate_initializer(ir_context *ctx, ast_node *node, u32 result)
 }
 
 static u32
+get_register(ir_context *ctx, ast_node *node)
+{
+	ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
+
+	u32 result = 0;
+	isize size = type_sizeof(node->type);
+	symbol_id symbol_id = node->symbol_id;
+	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
+	if (sym->is_global) {
+		result = emit1_size(ctx, IR_GLOBAL, 8, symbol_id.value);
+	} else {
+		result = ctx->symbol_registers[node->symbol_id.value];
+		if (!result) {
+			result = emit_alloca(ctx, size);
+			if (node->type->kind == TYPE_ARRAY) {
+				u32 addr = emit_alloca(ctx, 8);
+				emit2(ctx, IR_STORE, addr, result);
+				result = addr;
+			}
+
+			ast_node *expr = node->child[1];
+			if (expr != AST_NIL) {
+				if (expr->kind == AST_INIT_LIST) {
+					translate_initializer(ctx, expr, result);
+				} else {
+					u32 value = translate_node(ctx, expr, false);
+					emit2_size(ctx, IR_STORE, size, result, value);
+				}
+			}
+
+			ctx->symbol_registers[node->symbol_id.value] = result;
+		}
+	}
+
+	return result;
+}
+
+static u32
 translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 {
 	u32 result = 0;
 
 	switch (node->kind) {
 	case AST_INVALID:
-	case AST_INIT_LIST: // Should be handled by DECL_INIT
+	case AST_INIT_LIST: // Should be handled by get_register
 	case AST_STMT_IF_ELSE:
 	case AST_STMT_FOR_COND:
 	case AST_STMT_FOR_POST:
@@ -326,28 +330,27 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_EXPR_CALL:
 		{
 			ast_node *called = node->child[0];
-			if (called->kind == AST_EXPR_IDENT) {
-				u32 label = get_function(ctx, called->value.s);
-				ast_node *param_list = node->child[1];
-				i32 param_count = 0;
-				u32 param_register[128] = {0};
-				while (param_list != AST_NIL) {
-					ASSERT(param_count < 128);
-					param_register[param_count++ & 127] = translate_node(ctx, param_list->child[0], false);
-					param_list = param_list->child[1];
-				}
+			u32 called_reg = translate_node(ctx, node->child[0], false);
 
-				param_list = node->child[1];
-				for (i32 i = 0; i < param_count; i++) {
-					u32 param_size = type_sizeof(param_list->child[0]->type);
-					emit1_size(ctx, IR_PARAM, param_size, param_register[i]);
-					param_list = param_list->child[1];
-				}
-
-				type *return_type = called->type->children;
-				u32 result_size = type_sizeof(return_type);
-				result = emit2_size(ctx, IR_CALL, result_size, label, param_count);
+			ast_node *param_list = node->child[1];
+			i32 param_count = 0;
+			u32 param_register[128] = {0};
+			while (param_list != AST_NIL) {
+				ASSERT(param_count < 128);
+				param_register[param_count++ & 127] = translate_node(ctx, param_list->child[0], false);
+				param_list = param_list->child[1];
 			}
+
+			param_list = node->child[1];
+			for (i32 i = 0; i < param_count; i++) {
+				u32 param_size = type_sizeof(param_list->child[0]->type);
+				emit1_size(ctx, IR_PARAM, param_size, param_register[i]);
+				param_list = param_list->child[1];
+			}
+
+			type *return_type = called->type->children;
+			u32 result_size = type_sizeof(return_type);
+			result = emit2_size(ctx, IR_CALL, result_size, called_reg, param_count);
 		} break;
 	case AST_EXPR_IDENT:
 		{

@@ -418,6 +418,13 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_CALL:
 		{
+			machine_operand called = make_vreg(op0, 8);
+			if (instr[op0].opcode == IR_GLOBAL) {
+				called = make_func(instr[op0].op0);
+			} else {
+				x86_select_instr(out, instr, op0, called);
+			}
+
 			for (u32 i = 1; i <= op1; i++) {
 				ASSERT(instr[instr_index - i].opcode == IR_PARAM);
 				machine_operand src = make_vreg(instr[instr_index - i].op0, size);
@@ -620,8 +627,7 @@ x86_select_instructions(ir_program program, arena *arena)
 }
 
 static void
-x86_emit_operand(stream *out, machine_operand operand,
-	machine_function *functions, symbol_table *symtab)
+x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 {
 	x86_register reg;
 
@@ -677,7 +683,7 @@ x86_emit_operand(stream *out, machine_operand operand,
 		stream_printu(out, operand.value);
 		break;
 	case MOP_FUNC:
-		stream_prints(out, functions[operand.value].name);
+		stream_prints(out, symtab->symbols[operand.value].name);
 		break;
 	case MOP_VREG:
 		stream_print(out, "v");
@@ -729,7 +735,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_mreg(mreg, 8), program.functions, program.symtab);
+				x86_emit_operand(out, make_mreg(mreg, 8), program.symtab);
 				stream_print(out, "\n");
 				used_volatile_register_count++;
 			}
@@ -778,7 +784,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
 				stream_print(out, "L");
-				x86_emit_operand(out, operands[0], program.functions, program.symtab);
+				x86_emit_operand(out, operands[0], program.symtab);
 				stream_print(out, ":\n");
 			} else {
 				if (opcode == X86_RET) {
@@ -793,8 +799,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						u32 mreg = x86_preserved_regs[j];
 						if (info[function_index].used[mreg]) {
 							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_mreg(mreg, 8),
-								program.functions, program.symtab);
+							x86_emit_operand(out, make_mreg(mreg, 8), program.symtab);
 							stream_print(out, "\n");
 						}
 					}
@@ -808,8 +813,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					&& operands[1].kind == MOP_SPILL)
 				{
 					stream_print(out, "\tmov rax, ");
-					x86_emit_operand(out, operands[1], program.functions,
-						program.symtab);
+					x86_emit_operand(out, operands[1], program.symtab);
 					operands[1] = make_mreg(X86_RAX, operands[0].size);
 					stream_print(out, "\n");
 				}
@@ -826,7 +830,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						stream_print(out, ", ");
 					}
 
-					x86_emit_operand(out, operands[j], program.functions, program.symtab);
+					x86_emit_operand(out, operands[j], program.symtab);
 				}
 
 				stream_print(out, "\n");
