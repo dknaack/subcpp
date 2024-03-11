@@ -209,27 +209,39 @@ check_type(ast_node *node, arena *arena, b32 *error)
 		} break;
 	case AST_INIT_LIST:
 		{
-			ASSERT(node->type->kind == TYPE_STRUCT);
+			ASSERT(node->type->kind == TYPE_STRUCT || node->type->kind == TYPE_ARRAY);
 			member *member = node->type->members;
 
 			// TODO: Check the type of each field in the initializer
-			while (member && node != AST_NIL) {
-				if (node->child[0]->kind == AST_INIT_LIST) {
-					node->child[0]->type = member->type;
+			if (node->type->kind == TYPE_STRUCT) {
+				while (member && node != AST_NIL) {
+					if (node->child[0]->kind == AST_INIT_LIST) {
+						node->child[0]->type = member->type;
+					}
+
+					check_type(node->child[0], arena, error);
+					// TODO: Type conversion
+					if (!type_equals(member->type, node->child[0]->type)) {
+						//errorf(node->loc, "Invalid type");
+					}
+
+					member = member->next;
+					node = node->child[1];
 				}
 
-				check_type(node->child[0], arena, error);
-				// TODO: Type conversion
-				if (!type_equals(member->type, node->child[0]->type)) {
-					//errorf(node->loc, "Invalid type");
+				if (!member && node != AST_NIL) {
+					errorf(node->loc, "Too many fields in the initializer");
 				}
+			} else if (node->type->kind == TYPE_ARRAY) {
+				type *ty = node->type;
+				while (node != AST_NIL) {
+					check_type(node->child[0], arena, error);
+					if (!type_equals(node->child[0]->type, ty->children)) {
+						errorf(node->loc, "Invalid array member type");
+					}
 
-				member = member->next;
-				node = node->child[1];
-			}
-
-			if (!member && node != AST_NIL) {
-				errorf(node->loc, "Too many fields in the initializer");
+					node = node->child[1];
+				}
 			}
 		} break;
 	case AST_EXPR_MEMBER:
