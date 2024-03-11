@@ -6,7 +6,7 @@ new_label(ir_context *ctx)
 }
 
 static u32
-emit2_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0, u32 op1)
+ir_emit2_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(ctx->program.instr_count <= ctx->max_instr_count);
 	ir_instr *instr = &ctx->program.instrs[ctx->program.instr_count++];
@@ -19,39 +19,39 @@ emit2_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0, u32 op1)
 }
 
 static u32
-emit2(ir_context *ctx, ir_opcode opcode, u32 op0, u32 op1)
+ir_emit2(ir_context *ctx, ir_opcode opcode, u32 op0, u32 op1)
 {
-	u32 result = emit2_size(ctx, 0, opcode, op0, op1);
+	u32 result = ir_emit2_size(ctx, 0, opcode, op0, op1);
 	return result;
 }
 
 static u32
-emit1_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0)
+ir_emit1_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0)
 {
 	ASSERT(size != 0);
-	u32 result = emit2_size(ctx, size, opcode, op0, 0);
+	u32 result = ir_emit2_size(ctx, size, opcode, op0, 0);
 	return result;
 }
 
 static u32
-emit1(ir_context *ctx, ir_opcode opcode, u32 op0)
+ir_emit1(ir_context *ctx, ir_opcode opcode, u32 op0)
 {
-	u32 result = emit2(ctx, opcode, op0, 0);
+	u32 result = ir_emit2(ctx, opcode, op0, 0);
 	return result;
 }
 
 static u32
-emit0_size(ir_context *ctx, u32 size, ir_opcode opcode)
+ir_emit0_size(ir_context *ctx, u32 size, ir_opcode opcode)
 {
-	u32 result = emit2_size(ctx, size, opcode, 0, 0);
+	u32 result = ir_emit2_size(ctx, size, opcode, 0, 0);
 	return result;
 }
 
 static u32
-emit_alloca(ir_context *ctx, u32 size)
+ir_emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	u32 result = emit2(ctx, IR_ALLOC, size, ctx->stack_size);
+	u32 result = ir_emit2(ctx, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
 	return result;
 }
@@ -111,8 +111,8 @@ translate_initializer(ir_context *ctx, ast_node *node, u32 result)
 				isize child_align = type_alignof(node->child[0]->type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
-				u32 offset_reg = emit1_size(ctx, 8, IR_INT, offset);
-				u32 addr = emit2_size(ctx, 8, IR_SUB, result, offset_reg);
+				u32 offset_reg = ir_emit1_size(ctx, 8, IR_INT, offset);
+				u32 addr = ir_emit2_size(ctx, 8, IR_SUB, result, offset_reg);
 				translate_initializer(ctx, node->child[0], addr);
 
 				isize child_size = type_sizeof(node->child[0]->type);
@@ -124,7 +124,7 @@ translate_initializer(ir_context *ctx, ast_node *node, u32 result)
 		{
 			u32 expr = translate_node(ctx, node, false);
 			u32 size = type_sizeof(node->type);
-			emit2_size(ctx, size, IR_STORE, result, expr);
+			ir_emit2_size(ctx, size, IR_STORE, result, expr);
 		} break;
 	}
 }
@@ -139,14 +139,14 @@ get_register(ir_context *ctx, ast_node *node)
 	symbol_id symbol_id = node->symbol_id;
 	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
 	if (sym->is_global) {
-		result = emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
+		result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
 	} else {
 		result = ctx->symbol_registers[node->symbol_id.value];
 		if (!result) {
-			result = emit_alloca(ctx, size);
+			result = ir_emit_alloca(ctx, size);
 			if (node->type->kind == TYPE_ARRAY) {
-				u32 addr = emit_alloca(ctx, 8);
-				emit2(ctx, IR_STORE, addr, result);
+				u32 addr = ir_emit_alloca(ctx, 8);
+				ir_emit2(ctx, IR_STORE, addr, result);
 				result = addr;
 			}
 
@@ -156,7 +156,7 @@ get_register(ir_context *ctx, ast_node *node)
 					translate_initializer(ctx, expr, result);
 				} else {
 					u32 value = translate_node(ctx, expr, false);
-					emit2_size(ctx, size, IR_STORE, result, value);
+					ir_emit2_size(ctx, size, IR_STORE, result, value);
 				}
 			}
 
@@ -187,10 +187,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ast_node *operand = node->child[0];
 			u32 size = type_sizeof(node->type);
 			u32 offset = type_offsetof(operand->type, node->value.s);
-			u32 offset_reg = emit1_size(ctx, 8, IR_INT, offset);
+			u32 offset_reg = ir_emit1_size(ctx, 8, IR_INT, offset);
 			u32 base_reg = translate_node(ctx, operand, true);
-			u32 addr = emit2_size(ctx, 8, IR_ADD, base_reg, offset_reg);
-			result = emit1_size(ctx, size, IR_LOAD, addr);
+			u32 addr = ir_emit2_size(ctx, 8, IR_ADD, base_reg, offset_reg);
+			result = ir_emit1_size(ctx, size, IR_LOAD, addr);
 		} break;
 	case AST_EXPR_BINARY:
 		{
@@ -248,40 +248,40 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				u32 end_label = new_label(ctx);
 				u32 zero_label = new_label(ctx);
 
-				result = emit0_size(ctx, 4, IR_VAR);
+				result = ir_emit0_size(ctx, 4, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, lhs, false);
-				emit2(ctx, IR_JIZ, lhs_reg, zero_label);
+				ir_emit2(ctx, IR_JIZ, lhs_reg, zero_label);
 
 				u32 rhs_reg = translate_node(ctx, rhs, false);
-				emit2(ctx, IR_JIZ, rhs_reg, zero_label);
+				ir_emit2(ctx, IR_JIZ, rhs_reg, zero_label);
 
-				u32 one = emit1_size(ctx, 4, IR_INT, 1);
-				emit2(ctx, IR_MOV, result, one);
-				emit1(ctx, IR_JMP, end_label);
+				u32 one = ir_emit1_size(ctx, 4, IR_INT, 1);
+				ir_emit2(ctx, IR_MOV, result, one);
+				ir_emit1(ctx, IR_JMP, end_label);
 
-				emit1(ctx, IR_LABEL, zero_label);
-				u32 zero = emit1_size(ctx, 4, IR_INT, 0);
-				emit2(ctx, IR_MOV, result, zero);
-				emit1(ctx, IR_LABEL, end_label);
+				ir_emit1(ctx, IR_LABEL, zero_label);
+				u32 zero = ir_emit1_size(ctx, 4, IR_INT, 0);
+				ir_emit2(ctx, IR_MOV, result, zero);
+				ir_emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
 				u32 end_label = new_label(ctx);
 				u32 one_label = new_label(ctx);
 
-				result = emit0_size(ctx, 4, IR_VAR);
+				result = ir_emit0_size(ctx, 4, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, lhs, false);
-				emit2(ctx, IR_JNZ, lhs_reg, one_label);
+				ir_emit2(ctx, IR_JNZ, lhs_reg, one_label);
 
 				u32 rhs_reg = translate_node(ctx, rhs, false);
-				emit2(ctx, IR_JNZ, rhs_reg, one_label);
+				ir_emit2(ctx, IR_JNZ, rhs_reg, one_label);
 
-				u32 zero = emit1_size(ctx, 4, IR_INT, 0);
-				emit2(ctx, IR_MOV, result, zero);
-				emit1(ctx, IR_JMP, end_label);
+				u32 zero = ir_emit1_size(ctx, 4, IR_INT, 0);
+				ir_emit2(ctx, IR_MOV, result, zero);
+				ir_emit1(ctx, IR_JMP, end_label);
 
-				emit1(ctx, IR_LABEL, one_label);
-				u32 one = emit1_size(ctx, 4, IR_INT, 1);
-				emit2(ctx, IR_MOV, result, one);
-				emit1(ctx, IR_LABEL, end_label);
+				ir_emit1(ctx, IR_LABEL, one_label);
+				u32 one = ir_emit1_size(ctx, 4, IR_INT, 1);
+				ir_emit2(ctx, IR_MOV, result, one);
+				ir_emit1(ctx, IR_LABEL, end_label);
 			} else if (opcode == IR_STORE) {
 				switch (operator) {
 				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
@@ -299,21 +299,21 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 				u32 rhs_reg = translate_node(ctx, rhs, false);
 				if (operator != TOKEN_EQUAL) {
-					u32 value = emit1_size(ctx, size, IR_LOAD, lhs_reg);
-					result = emit2_size(ctx, size, opcode, value, rhs_reg);
-					emit2_size(ctx, size, IR_STORE, lhs_reg, result);
+					u32 value = ir_emit1_size(ctx, size, IR_LOAD, lhs_reg);
+					result = ir_emit2_size(ctx, size, opcode, value, rhs_reg);
+					ir_emit2_size(ctx, size, IR_STORE, lhs_reg, result);
 				} else {
-					emit2_size(ctx, size, IR_STORE, lhs_reg, rhs_reg);
+					ir_emit2_size(ctx, size, IR_STORE, lhs_reg, rhs_reg);
 				}
 			} else if (operator == TOKEN_LBRACKET) {
 				u32 rhs_reg = translate_node(ctx, rhs, false);
-				u32 size_reg = emit1_size(ctx, 8, IR_INT, size);
-				rhs_reg = emit2_size(ctx, 8, IR_MUL, rhs_reg, size_reg);
-				result = emit2_size(ctx, 8, IR_ADD, lhs_reg, rhs_reg);
-				result = emit1_size(ctx, size, IR_LOAD, result);
+				u32 size_reg = ir_emit1_size(ctx, 8, IR_INT, size);
+				rhs_reg = ir_emit2_size(ctx, 8, IR_MUL, rhs_reg, size_reg);
+				result = ir_emit2_size(ctx, 8, IR_ADD, lhs_reg, rhs_reg);
+				result = ir_emit1_size(ctx, size, IR_LOAD, result);
 			} else {
 				u32 rhs_reg = translate_node(ctx, rhs, false);
-				result = emit2_size(ctx, size, opcode, lhs_reg, rhs_reg);
+				result = ir_emit2_size(ctx, size, opcode, lhs_reg, rhs_reg);
 			}
 		} break;
 	case AST_EXPR_CALL:
@@ -333,13 +333,13 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			param_list = node->child[1];
 			for (i32 i = 0; i < param_count; i++) {
 				u32 param_size = type_sizeof(param_list->child[0]->type);
-				emit1_size(ctx, param_size, IR_PARAM, param_register[i]);
+				ir_emit1_size(ctx, param_size, IR_PARAM, param_register[i]);
 				param_list = param_list->child[1];
 			}
 
 			type *return_type = called->type->children;
 			u32 result_size = type_sizeof(return_type);
-			result = emit2_size(ctx, result_size, IR_CALL, called_reg, param_count);
+			result = ir_emit2_size(ctx, result_size, IR_CALL, called_reg, param_count);
 		} break;
 	case AST_EXPR_IDENT:
 		{
@@ -347,7 +347,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = emit1_size(ctx, 4, IR_INT, node->value.i);
+			result = ir_emit1_size(ctx, 4, IR_INT, node->value.i);
 		} break;
 	case AST_EXPR_UNARY:
 		{
@@ -364,23 +364,23 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			case TOKEN_MINUS:
 				{
 					u32 size = type_sizeof(node->type);
-					u32 zero = emit1_size(ctx, size, IR_INT, 0);
+					u32 zero = ir_emit1_size(ctx, size, IR_INT, 0);
 					result = translate_node(ctx, node->child[0], false);
-					result = emit2_size(ctx, size, IR_SUB, zero, result);
+					result = ir_emit2_size(ctx, size, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
 					u32 size = type_sizeof(node->type);
-					u32 zero = emit1_size(ctx, size, IR_INT, 0);
+					u32 zero = ir_emit1_size(ctx, size, IR_INT, 0);
 					result = translate_node(ctx, node->child[0], false);
-					result = emit2_size(ctx, size, IR_EQL, result, zero);
+					result = ir_emit2_size(ctx, size, IR_EQL, result, zero);
 				} break;
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, node->child[0], false);
 					u32 size = type_sizeof(node->type);
 					if (!is_lvalue) {
-						result = emit1_size(ctx, size, IR_LOAD, result);
+						result = ir_emit1_size(ctx, size, IR_LOAD, result);
 					}
 				} break;
 			case TOKEN_PLUS_PLUS:
@@ -393,10 +393,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 					u32 size = type_sizeof(node->type);
 					u32 addr = translate_node(ctx, node->child[0], true);
-					u32 value = emit1_size(ctx, size, IR_LOAD, addr);
-					u32 one = emit1_size(ctx, size, IR_INT, 1);
-					result = emit2_size(ctx, size, add_or_sub, value, one);
-					emit2(ctx, IR_STORE, addr, result);
+					u32 value = ir_emit1_size(ctx, size, IR_LOAD, addr);
+					u32 one = ir_emit1_size(ctx, size, IR_INT, 1);
+					result = ir_emit2_size(ctx, size, add_or_sub, value, one);
+					ir_emit2(ctx, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -419,10 +419,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 					u32 size = type_sizeof(node->type);
 					u32 addr = translate_node(ctx, node->child[0], true);
-					result = emit1(ctx, IR_LOAD, addr);
-					u32 one = emit1_size(ctx, size, IR_INT, 1);
-					u32 value = emit2_size(ctx, size, add_or_sub, result, one);
-					emit2(ctx, IR_STORE, addr, value);
+					result = ir_emit1(ctx, IR_LOAD, addr);
+					u32 one = ir_emit1_size(ctx, size, IR_INT, 1);
+					u32 value = ir_emit2_size(ctx, size, add_or_sub, result, one);
+					ir_emit2(ctx, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -433,7 +433,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_BREAK:
 		{
-			emit1(ctx, IR_JMP, ctx->break_label);
+			ir_emit1(ctx, IR_JMP, ctx->break_label);
 		} break;
 	case AST_DECL_LIST:
 	case AST_STMT_LIST:
@@ -445,7 +445,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_CONTINUE:
 		{
-			emit1(ctx, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, IR_JMP, ctx->continue_label);
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
@@ -454,13 +454,13 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ast_node *cond = node->child[0];
 			ast_node *body = node->child[1];
 
-			emit1(ctx, IR_LABEL, ctx->continue_label);
+			ir_emit1(ctx, IR_LABEL, ctx->continue_label);
 			translate_node(ctx, body, false);
 
 			u32 cond_reg = translate_node(ctx, cond, false);
 			u32 cond_size = type_sizeof(cond->type);
-			emit2_size(ctx, cond_size, IR_JNZ, cond_reg, ctx->continue_label);
-			emit1(ctx, IR_LABEL, ctx->break_label);
+			ir_emit2_size(ctx, cond_size, IR_JNZ, cond_reg, ctx->continue_label);
+			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_DECL:
 	case AST_EXTERN_DEF:
@@ -480,7 +480,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
 				func->instr_index = ctx->program.instr_count;
-				emit1(ctx, IR_LABEL, new_label(ctx));
+				ir_emit1(ctx, IR_LABEL, new_label(ctx));
 
 				i32 param_count = 0;
 				while (param_list != AST_NIL) {
@@ -502,7 +502,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				result = get_register(ctx, node);
 				if (!is_lvalue) {
 					u32 size = type_sizeof(node->type);
-					result = emit1_size(ctx, size, IR_LOAD, result);
+					result = ir_emit1_size(ctx, size, IR_LOAD, result);
 				}
 			}
 		} break;
@@ -515,21 +515,21 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			u32 cond_label = new_label(ctx);
 
 			translate_node(ctx, node->child[0], false);
-			emit1(ctx, IR_LABEL, cond_label);
+			ir_emit1(ctx, IR_LABEL, cond_label);
 
 			ast_node *cond = node->child[1];
 			u32 cond_reg = translate_node(ctx, cond->child[0], false);
 			u32 cond_size = type_sizeof(cond->child[0]->type);
-			emit2_size(ctx, cond_size, IR_JIZ, cond_reg, ctx->break_label);
+			ir_emit2_size(ctx, cond_size, IR_JIZ, cond_reg, ctx->break_label);
 
 			ast_node *post = cond->child[1];
 			ast_node *body = post->child[1];
 			translate_node(ctx, body, false);
-			emit1(ctx, IR_LABEL, ctx->continue_label);
+			ir_emit1(ctx, IR_LABEL, ctx->continue_label);
 
 			translate_node(ctx, post->child[0], false);
-			emit1(ctx, IR_JMP, cond_label);
-			emit1(ctx, IR_LABEL, ctx->break_label);
+			ir_emit1(ctx, IR_JMP, cond_label);
+			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_IF_COND:
 		{
@@ -540,35 +540,35 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ast_node *if_else = node->child[1];
 			u32 cond_reg = translate_node(ctx, cond, false);
 			u32 cond_size = type_sizeof(cond->type);
-			emit2_size(ctx, cond_size, IR_JIZ, cond_reg, else_label);
+			ir_emit2_size(ctx, cond_size, IR_JIZ, cond_reg, else_label);
 
 			ast_node *if_branch = if_else->child[0];
 			translate_node(ctx, if_branch, false);
-			emit1(ctx, IR_JMP, endif_label);
+			ir_emit1(ctx, IR_JMP, endif_label);
 
-			emit1(ctx, IR_LABEL, else_label);
+			ir_emit1(ctx, IR_LABEL, else_label);
 			ast_node *else_branch = if_branch->child[1];
 			if (else_branch != AST_NIL) {
 				translate_node(ctx, else_branch, false);
 			}
 
-			emit1(ctx, IR_LABEL, endif_label);
+			ir_emit1(ctx, IR_LABEL, endif_label);
 		} break;
 	case AST_STMT_WHILE:
 		{
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
 
-			emit1(ctx, IR_LABEL, ctx->continue_label);
+			ir_emit1(ctx, IR_LABEL, ctx->continue_label);
 			ast_node *cond = node->child[0];
 			u32 cond_reg = translate_node(ctx, cond, false);
 			u32 cond_size = type_sizeof(cond->type);
-			emit2_size(ctx, cond_size, IR_JIZ, cond_reg, ctx->break_label);
+			ir_emit2_size(ctx, cond_size, IR_JIZ, cond_reg, ctx->break_label);
 
 			ast_node *body = node->child[1];
 			translate_node(ctx, body, false);
-			emit1(ctx, IR_JMP, ctx->continue_label);
-			emit1(ctx, IR_LABEL, ctx->break_label);
+			ir_emit1(ctx, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_RETURN:
 		{
@@ -579,15 +579,15 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				value = translate_node(ctx, node->child[0], false);
 			}
 
-			emit1_size(ctx, size, IR_RET, value);
+			ir_emit1_size(ctx, size, IR_RET, value);
 			// NOTE: For dead code elimination
-			emit1(ctx, IR_LABEL, new_label(ctx));
+			ir_emit1(ctx, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_PRINT:
 		{
 			u32 size = type_sizeof(node->child[0]->type);
 			u32 value = translate_node(ctx, node->child[0], false);
-			emit1_size(ctx, size, IR_PRINT, value);
+			ir_emit1_size(ctx, size, IR_PRINT, value);
 		} break;
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
