@@ -316,17 +316,21 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			ast_node *param = node->child[1];
 			type *return_type = called->type->children;
 			member *param_sym = called->type->members;
-			while (param != AST_NIL || param_sym != NULL) {
+			while (param != AST_NIL && param_sym != NULL) {
 				if (!type_equals(param_sym->type, param->child[0]->type)) {
 					errorf(node->loc, "Parameter %d has wrong type: Expected %s, but found %s",
 						param_index + 1, type_get_name(param_sym->type->kind),
-						type_get_name(param->type->kind));
+						type_get_name(param->child[0]->type->kind));
 					*error = true;
 				}
 
 				param_sym = param_sym->next;
 				param = param->child[1];
 				param_index++;
+			}
+
+			if (param != AST_NIL || param_sym != NULL) {
+				errorf(node->loc, "Invalid number of arguments");
 			}
 
 			node->type = return_type;
