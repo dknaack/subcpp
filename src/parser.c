@@ -472,7 +472,7 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 			} else {
 				ast_node **ptr = &params;
 				params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-				while (!tokenizer->error && !accept(tokenizer, TOKEN_RPAREN)) {
+				do {
 					*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
 					if (*ptr != AST_NIL) {
 						// Only single declaration allowed
@@ -481,7 +481,8 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 					} else {
 						tokenizer->error = true;
 					}
-				}
+				} while (!tokenizer->error && accept(tokenizer, TOKEN_COMMA));
+				expect(tokenizer, TOKEN_RPAREN);
 			}
 
 			(*ptr)->child[0] = params;
