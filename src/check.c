@@ -138,8 +138,9 @@ merge_identifiers(ast_node *node, scope *s, arena *perm, b32 *error)
 
 	while (node != AST_NIL) {
 		for (i32 i = 0; i < 2; i++) {
-			if (node->child[i]->kind == AST_DECL || node->child[i]->kind == AST_EXTERN_DEF) {
-				ASSERT(node->child[i]->symbol_id.value == i);
+			if ((node->child[i]->kind == AST_DECL || node->child[i]->kind == AST_EXTERN_DEF)
+				&& (node->child[i]->symbol_id.value == 0)) {
+				ASSERT(node->child[i]->symbol_id.value == 0);
 				node->child[i]->symbol_id.value = (*s->count)++;
 				*scope_upsert(s, node->child[i]->value.s, perm) = node->child[i];
 			} else if (node->child[i]->kind == AST_EXPR_IDENT) {
