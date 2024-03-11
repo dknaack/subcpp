@@ -280,7 +280,7 @@ check_type(ast_node *node, arena *arena, b32 *error)
 						type_get_name(lhs->type->kind),
 						type_get_name(rhs->type->kind));
 				}
-			} else {
+			} else if (is_integer(lhs->type->kind) && is_integer(rhs->type->kind)) {
 				// Apply integer promotion
 				b32 same_sign = (lhs->type->kind & TYPE_UNSIGNED) == (rhs->type->kind & TYPE_UNSIGNED);
 				if (lhs->type->kind == rhs->type->kind) {
