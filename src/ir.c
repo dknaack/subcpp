@@ -1,14 +1,3 @@
-static ir_context
-ir_context_init(arena *arena)
-{
-	ir_context ctx = {0};
-	ctx.program.instrs = ALLOC(arena, 1024, ir_instr);
-	ctx.max_instr_count = 1024;
-	ctx.program.register_count++;
-	ctx.program.label_count++;
-	return ctx;
-}
-
 static u32
 new_label(ir_context *ctx)
 {
@@ -732,7 +721,11 @@ get_toplevel_instructions(ir_program program, arena *arena)
 static ir_program
 translate(ast_node *root, symbol_table *symbol_table, arena *arena)
 {
-	ir_context ctx = ir_context_init(arena);
+	ir_context ctx = {0};
+	ctx.program.instrs = ALLOC(arena, 1024, ir_instr);
+	ctx.max_instr_count = 1024;
+	ctx.program.register_count++;
+	ctx.program.label_count++;
 	ctx.arena = arena;
 	ctx.symbol_registers = ALLOC(arena, symbol_table->count, u32);
 	ctx.symbol_table = symbol_table;
