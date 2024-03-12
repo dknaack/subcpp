@@ -414,7 +414,8 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand rax = make_mreg(X86_RAX, size);
 			x86_select_instr(out, instr, op0, rax);
-			x86_select0(out, X86_RET);
+			rax.flags |= MOP_IMPLICIT;
+			x86_select1(out, X86_RET, rax);
 		} break;
 	case IR_CALL:
 		{
