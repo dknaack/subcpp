@@ -527,10 +527,10 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.temp_mregs = x86_temp_regs;
 	out.temp_mreg_count = LENGTH(x86_temp_regs);
 
-	b8 *is_toplevel = get_toplevel_instructions(program, arena);
-
 	machine_function *mach_func = out.functions;
 	for (ir_function *ir_func = program.function_list; ir_func; ir_func = ir_func->next) {
+		b8 *is_toplevel = get_toplevel_instructions(ir_func, program.instrs + ir_func->instr_index, arena);
+
 		out.function_count++;
 		mach_func->name = ir_func->name;
 		mach_func->stack_size = ir_func->stack_size;
@@ -564,13 +564,13 @@ x86_select_instructions(ir_program program, arena *arena)
 		}
 
 		ir_instr *instr = program.instrs + ir_func->instr_index;
-		for (u32 i = 0; i < ir_func->instr_count; i++) {
+		for (u32 i = ir_func->parameter_count; i < ir_func->instr_count; i++) {
 			machine_operand dst = make_vreg(i, instr[i].size);
 			if (instr[i].opcode == IR_MOV || instr[i].opcode == IR_STORE) {
 				dst = make_vreg(instr[i].op0, instr[instr[i].op0].size);
 			}
 
-			if (is_toplevel[ir_func->instr_index + i]) {
+			if (is_toplevel[i]) {
 				x86_select_instr(&out, instr, i, dst);
 			}
 		}
@@ -585,13 +585,13 @@ x86_select_instructions(ir_program program, arena *arena)
 				mach_func->instr_count++;
 				code += get_instr_size(*(machine_instr *)code);
 			}
-		}
 
-		mach_func->instr_offsets = ALLOC(arena, mach_func->instr_count, u32);
-		char *code = (char *)out.code + first_instr_offset;
-		for (u32 i = 0; i < mach_func->instr_count; i++) {
-			mach_func->instr_offsets[i] = code - (char *)out.code;
-			code += get_instr_size(*(machine_instr *)code);
+			mach_func->instr_offsets = ALLOC(arena, mach_func->instr_count, u32);
+			code = (char *)out.code + first_instr_offset;
+			for (u32 i = 0; i < mach_func->instr_count; i++) {
+				mach_func->instr_offsets[i] = code - (char *)out.code;
+				code += get_instr_size(*(machine_instr *)code);
+			}
 		}
 
 		// NOTE: Compute the instruction index of each label
