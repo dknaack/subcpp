@@ -458,7 +458,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			}
 
 			machine_operand rax = make_mreg(X86_RAX, size);
-			x86_select1(out, X86_CALL, make_func(op0));
+			x86_select1(out, X86_CALL, called);
 			x86_select2(out, X86_MOV, dst, rax);
 		} break;
 	case IR_PRINT:
