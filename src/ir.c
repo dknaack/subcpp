@@ -51,7 +51,7 @@ static u32
 ir_emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	u32 result = ir_emit2(ctx, IR_ALLOC, size, ctx->stack_size);
+	u32 result = ir_emit2_size(ctx, 8, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
 	return result;
 }
@@ -134,16 +134,57 @@ get_register(ir_context *ctx, ast_node *node)
 {
 	ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
-	u32 result = 0;
-	isize size = type_sizeof(node->type);
 	symbol_id symbol_id = node->symbol_id;
 	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
-	if (sym->is_global) {
-		result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
-	} else {
-		result = ctx->symbol_registers[node->symbol_id.value];
-		if (!result) {
+	u32 result = ctx->symbol_registers[node->symbol_id.value];
+	b32 is_initialized = (result != 0);
+	if (!is_initialized) {
+		if (sym->is_global) {
+			result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
+			ctx->symbol_registers[node->symbol_id.value] = symbol_id.value;
+
+			if (node->type->kind == TYPE_FUNCTION) {
+				ast_node *body = node->child[1];
+				ast_node *type = node->child[0];
+				ASSERT(type->kind == AST_TYPE_FUNC);
+				ast_node *param_list = type->child[0];
+
+				ctx->stack_size = 0;
+
+				u32 prev_label_count = ctx->program.label_count;
+				u32 prev_register_count = ctx->program.register_count;
+				ctx->program.label_count = 1;
+				ctx->program.register_count = 0;
+
+				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
+				func->instr_index = ctx->program.instr_count;
+				ir_emit1(ctx, IR_LABEL, new_label(ctx));
+
+				i32 param_count = 0;
+				while (param_list != AST_NIL) {
+					ASSERT(ctx->symbol_registers[param_list->child[0]->symbol_id.value] == 0);
+					get_register(ctx, param_list->child[0]);
+					param_list = param_list->child[1];
+					param_count++;
+				}
+
+				func->parameter_count = param_count;
+				translate_node(ctx, body, false);
+				func->stack_size = ctx->stack_size;
+				func->label_count = ctx->program.label_count;
+				func->instr_count = ctx->program.instr_count - func->instr_index;
+
+				u32 curr_register_count = ctx->program.register_count;
+				ctx->program.label_count = MAX(func->label_count, prev_label_count);
+				ctx->program.register_count = MAX(curr_register_count, prev_register_count);
+			} else {
+				// TODO: Initialize the variable
+			}
+		} else {
+			isize size = type_sizeof(node->type);
 			result = ir_emit_alloca(ctx, size);
+			ctx->symbol_registers[node->symbol_id.value] = result;
+
 			if (node->type->kind == TYPE_ARRAY) {
 				u32 addr = ir_emit_alloca(ctx, 8);
 				ir_emit2(ctx, IR_STORE, addr, result);
@@ -160,10 +201,14 @@ get_register(ir_context *ctx, ast_node *node)
 				}
 			}
 
-			ctx->symbol_registers[node->symbol_id.value] = result;
 		}
 	}
 
+	if (sym->is_global) {
+		result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
+	}
+
+	ASSERT(result != 4);
 	return result;
 }
 
@@ -378,8 +423,8 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, node->child[0], false);
-					u32 size = type_sizeof(node->type);
-					if (!is_lvalue) {
+					if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
+						u32 size = type_sizeof(node->type);
 						result = ir_emit1_size(ctx, size, IR_LOAD, result);
 					}
 				} break;
@@ -419,7 +464,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 
 					u32 size = type_sizeof(node->type);
 					u32 addr = translate_node(ctx, node->child[0], true);
-					result = ir_emit1(ctx, IR_LOAD, addr);
+					result = ir_emit1_size(ctx, size, IR_LOAD, addr);
 					u32 one = ir_emit1_size(ctx, size, IR_INT, 1);
 					u32 value = ir_emit2_size(ctx, size, add_or_sub, result, one);
 					ir_emit2(ctx, IR_STORE, addr, value);
@@ -465,45 +510,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			if (node->type->kind == TYPE_FUNCTION) {
-				ast_node *body = node->child[1];
-				ast_node *type = node->child[0];
-				ASSERT(type->kind == AST_TYPE_FUNC);
-				ast_node *param_list = type->child[0];
-
-				ctx->stack_size = 0;
-
-				u32 prev_label_count = ctx->program.label_count;
-				u32 prev_register_count = ctx->program.register_count;
-				ctx->program.label_count = 1;
-				ctx->program.register_count = 0;
-
-				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-				func->instr_index = ctx->program.instr_count;
-				ir_emit1(ctx, IR_LABEL, new_label(ctx));
-
-				i32 param_count = 0;
-				while (param_list != AST_NIL) {
-					translate_node(ctx, param_list->child[0], false);
-					param_list = param_list->child[1];
-					param_count++;
-				}
-
-				func->parameter_count = param_count;
-				translate_node(ctx, body, false);
-				func->stack_size = ctx->stack_size;
-				func->label_count = ctx->program.label_count;
-				func->instr_count = ctx->program.instr_count - func->instr_index;
-
-				u32 curr_register_count = ctx->program.register_count;
-				ctx->program.label_count = MAX(func->label_count, prev_label_count);
-				ctx->program.register_count = MAX(curr_register_count, prev_register_count);
-			} else {
-				result = get_register(ctx, node);
-				if (!is_lvalue) {
-					u32 size = type_sizeof(node->type);
-					result = ir_emit1_size(ctx, size, IR_LOAD, result);
-				}
+			result = get_register(ctx, node);
+			if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
+				u32 size = type_sizeof(node->type);
+				result = ir_emit1_size(ctx, size, IR_LOAD, result);
 			}
 		} break;
 	case AST_STMT_EMPTY:
@@ -692,15 +702,14 @@ is_register_operand(ir_operand_type operand)
 }
 
 static b8 *
-get_toplevel_instructions(ir_program program, arena *arena)
+get_toplevel_instructions(ir_function *func, ir_instr *instrs, arena *arena)
 {
-	b8 *is_toplevel = ALLOC(arena, program.instr_count, b8);
-	for (u32 i = 0; i < program.instr_count; i++) {
+	b8 *is_toplevel = ALLOC(arena, func->instr_count, b8);
+	for (u32 i = 0; i < func->instr_count; i++) {
 		is_toplevel[i] = true;
 	}
 
-	ir_instr *instrs = program.instrs;
-	for (u32 i = 0; i < program.instr_count; i++) {
+	for (u32 i = 0; i < func->instr_count; i++) {
 		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 		if (instrs[i].opcode == IR_GLOBAL) {
 			is_toplevel[i] = false;
