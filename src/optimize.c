@@ -22,66 +22,58 @@ multiply(u32 a, u32 b)
 static void
 promote_stack_variables(ir_program program, arena *arena)
 {
-	ir_instr *instrs = program.instrs;
-	arena_temp temp = arena_temp_begin(arena);
-
-	// Mark all stack variables which address is used by a different
-	// instruction than load/store.
-	b32 *addr_used = ALLOC(arena, program.instr_count, b32);
-	for (u32 i = 0; i < program.instr_count; i++) {
-		u32 opcode = instrs[i].opcode;
-		u32 op0 = instrs[i].op0;
-		u32 op1 = instrs[i].op1;
-
-		ir_opcode_info info = get_opcode_info(opcode);
-		if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
-			&& instrs[op0].opcode == IR_ALLOC)
-		{
-			addr_used[op0] = true;
-		}
-
-		if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_ALLOC) {
-			addr_used[op1] = true;
-		}
-	}
-
-	// Promote stack variables to registers
-	for (u32 i = 0; i < program.instr_count; i++) {
-		if (instrs[i].opcode == IR_LOAD) {
+	for (ir_function *func = program.function_list; func; func = func->next) {
+		// Mark all stack variables which address is used by a different
+		// instruction than load/store.
+		ir_instr *instrs = program.instrs + func->instr_index;
+		arena_temp temp = arena_temp_begin(arena);
+		b32 *addr_used = ALLOC(arena, func->instr_count, b32);
+		for (u32 i = 0; i < func->instr_count; i++) {
+			u32 opcode = instrs[i].opcode;
 			u32 op0 = instrs[i].op0;
-			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-				instrs[i].opcode = IR_COPY;
+			u32 op1 = instrs[i].op1;
+
+			ir_opcode_info info = get_opcode_info(opcode);
+			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
+				&& instrs[op0].opcode == IR_ALLOC)
+			{
+				addr_used[op0] = true;
 			}
-		} else if (instrs[i].opcode == IR_STORE) {
-			u32 op0 = instrs[i].op0;
-			if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-				instrs[i].opcode = IR_MOV;
+
+			if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_ALLOC) {
+				addr_used[op1] = true;
 			}
 		}
-	}
 
-	for (u32 i = 0; i < program.instr_count; i++) {
-		if (instrs[i].opcode == IR_ALLOC) {
-			if (!addr_used[i]) {
-				instrs[i].opcode = IR_VAR;
-				instrs[i].size = instrs[i].op0;
-				// Can only turn scalars into registers, not arrays or structs
-				ASSERT(instrs[i].op0 <= 8);
+		// Promote stack variables to registers
+		for (u32 i = 0; i < func->instr_count; i++) {
+			if (instrs[i].opcode == IR_LOAD) {
+				u32 op0 = instrs[i].op0;
+				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+					instrs[i].opcode = IR_COPY;
+				}
+			} else if (instrs[i].opcode == IR_STORE) {
+				u32 op0 = instrs[i].op0;
+				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+					instrs[i].opcode = IR_MOV;
+				}
 			}
 		}
-	}
 
-	// Reallocate all stack allocations and fix the stack size for each function
-	for (ir_function *function = program.function_list; function; function = function->next) {
+		for (u32 i = 0; i < func->instr_count; i++) {
+			if (instrs[i].opcode == IR_ALLOC) {
+				if (!addr_used[i]) {
+					instrs[i].opcode = IR_VAR;
+					instrs[i].size = instrs[i].op0;
+					// Can only turn scalars into registers, not arrays or structs
+					ASSERT(instrs[i].op0 <= 8);
+				}
+			}
+		}
+
+		// Reallocate all stack allocations and fix the stack size for each function
 		u32 stack_size = 0;
-
-		u32 first_instr = function->instr_index;
-		u32 last_instr = program.instr_count;
-		if (function->next) {
-			last_instr = function->next->instr_index;
-		}
-
-		for (u32 j = first_instr; j < last_instr; j++) {
+		for (u32 j = 0; j < func->instr_count; j++) {
 			ir_instr *instr = &instrs[j];
 			if (instr->opcode == IR_ALLOC) {
 				// TODO: Alignment
@@ -90,10 +82,10 @@ promote_stack_variables(ir_program program, arena *arena)
 			}
 		}
 
-		function->stack_size = stack_size;
-	}
+		func->stack_size = stack_size;
 
-	arena_temp_end(temp);
+		arena_temp_end(temp);
+	}
 }
 
 static void
@@ -309,7 +301,7 @@ next_block:
 	// Remove register copies from the IR tree
 	for (ir_function *func = program.function_list; func; func = func->next) {
 		ir_instr *instrs = program.instrs + func->instr_index;
-		for (u32 i = 0; i < program.instr_count; i++) {
+		for (u32 i = 0; i < func->instr_count; i++) {
 			ir_opcode_info info = get_opcode_info(instrs[i].opcode);
 
 			u32 op0 = instrs[i].op0;
