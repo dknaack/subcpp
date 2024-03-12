@@ -506,6 +506,8 @@ analyze(ast_node *root, arena *perm, b32 *error)
 	symbol_table symtab = {0};
 	scope *s = new_scope(NULL, perm);
 	s->count = &symtab.count;
+	// NOTE: Reserve the first symbol as a NIL symbol
+	symtab.count++;
 
 	merge_identifiers(root, s, perm, error);
 	symtab.symbols = ALLOC(perm, symtab.count, symbol);
