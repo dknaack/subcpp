@@ -463,7 +463,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_PRINT:
 		{
-			machine_operand rsi = make_mreg(X86_RSI, 8);
+			machine_operand rsi = make_mreg(X86_RSI, size);
 			machine_operand rdi = make_mreg(X86_RDI, 8);
 			machine_operand rax = make_mreg(X86_RAX, 8);
 			machine_operand zero = make_immediate(0, 8);
