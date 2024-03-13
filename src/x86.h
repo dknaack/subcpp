@@ -233,5 +233,6 @@ x86_get_register_name(x86_register reg, u32 size)
 		}
 	}
 
+	ASSERT(false);
 	return "(invalid size)";
 }
