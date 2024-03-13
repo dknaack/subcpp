@@ -123,21 +123,38 @@ x86_get_setcc_opcode(ir_opcode ir_opcode)
 }
 
 static x86_opcode
-x86_get_jcc_opcode(ir_opcode ir_opcode)
+x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 {
-	switch (ir_opcode) {
-	case IR_EQL:  return X86_JNZ;
-	case IR_LT:   return X86_JGE;
-	case IR_GT:   return X86_JLE;
-	case IR_LEQ:  return X86_JG;
-	case IR_GEQ:  return X86_JL;
-	case IR_LTU:  return X86_JAE;
-	case IR_GTU:  return X86_JBE;
-	case IR_LEQU: return X86_JA;
-	case IR_GEQU: return X86_JB;
-	default:
-		ASSERT(!"Not a comparison operator");
-		return X86_SETZ;
+	if (is_jiz) {
+		switch (ir_opcode) {
+		case IR_EQL:  return X86_JNZ;
+		case IR_LT:   return X86_JGE;
+		case IR_GT:   return X86_JLE;
+		case IR_LEQ:  return X86_JG;
+		case IR_GEQ:  return X86_JL;
+		case IR_LTU:  return X86_JAE;
+		case IR_GTU:  return X86_JBE;
+		case IR_LEQU: return X86_JA;
+		case IR_GEQU: return X86_JB;
+		default:
+			ASSERT(!"Not a comparison operator");
+			return X86_SETZ;
+		}
+	} else {
+		switch (ir_opcode) {
+		case IR_EQL:  return X86_JZ;
+		case IR_LT:   return X86_JL;
+		case IR_GT:   return X86_JG;
+		case IR_LEQ:  return X86_JLE;
+		case IR_GEQ:  return X86_JGE;
+		case IR_LTU:  return X86_JB;
+		case IR_GTU:  return X86_JA;
+		case IR_LEQU: return X86_JBE;
+		case IR_GEQU: return X86_JAE;
+		default:
+			ASSERT(!"Not a comparison operator");
+			return X86_SETZ;
+		}
 	}
 }
 
@@ -391,20 +408,22 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_JIZ:
 	case IR_JNZ:
 		{
-			x86_opcode x86_opcode = opcode == IR_JIZ ? X86_JZ : X86_JNZ;
+			b32 is_jiz = opcode == IR_JIZ;
+			x86_opcode x86_opcode = is_jiz ? X86_JZ : X86_JNZ;
 			if (is_comparison_opcode(instr[op0].opcode)) {
 				dst = make_vreg(instr[op0].op0, instr[op0].size);
 				x86_select_instr(out, instr, instr[op0].op0, dst);
 				machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
 				src.size = dst.size;
 				x86_select2(out, X86_CMP, dst, src);
-				x86_opcode = x86_get_jcc_opcode(instr[op0].opcode);
+				x86_opcode = x86_get_jcc_opcode(instr[op0].opcode, is_jiz);
 			} else if (instr[op0].opcode == IR_SUB) {
 				machine_operand src = {0};
 				x86_select_instr(out, instr, op0, src);
 			} else {
 				machine_operand src = make_vreg(op0, instr[op0].size);
 				x86_select_instr(out, instr, op0, src);
+				ASSERT(src.size > 0 && src.size <= 8);
 				x86_select2(out, X86_TEST, src, src);
 			}
 
