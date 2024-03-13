@@ -477,16 +477,16 @@ get_token(tokenizer *tokenizer)
 		|| token.kind == TOKEN_NEWLINE);
 
 	tmp = token;
-	token = tokenizer->lookahead[0];
-	tokenizer->lookahead[0] = tokenizer->lookahead[1];
-	tokenizer->lookahead[1] = tmp;
+	token = tokenizer->peek[0];
+	tokenizer->peek[0] = tokenizer->peek[1];
+	tokenizer->peek[1] = tmp;
 	return token;
 }
 
 static token
 peek_token(tokenizer *t)
 {
-	token result = t->lookahead[0];
+	token result = t->peek[0];
 	return result;
 }
 

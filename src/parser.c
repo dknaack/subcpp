@@ -58,7 +58,7 @@ static void
 expect(tokenizer *tokenizer, token_kind expected_token)
 {
 	if (!accept(tokenizer, expected_token)) {
-		token found_token = tokenizer->lookahead[0];
+		token found_token = tokenizer->peek[0];
 		syntax_error(tokenizer, "Expected %s, but found %s",
 		    get_token_name(expected_token), get_token_name(found_token.kind));
 	}
@@ -340,7 +340,7 @@ parse_initializer(tokenizer *t, arena *perm)
 
 	do {
 		*ptr = new_ast_node(AST_INIT_LIST, t->loc, perm);
-		if (t->lookahead[0].kind == TOKEN_LBRACE) {
+		if (t->peek[0].kind == TOKEN_LBRACE) {
 			(*ptr)->child[0] = parse_initializer(t, perm);
 		} else {
 			(*ptr)->child[0] = parse_assign_expr(t, perm);
@@ -350,7 +350,7 @@ parse_initializer(tokenizer *t, arena *perm)
 		if (!accept(t, TOKEN_COMMA)) {
 			break;
 		}
-	} while (!t->error && t->lookahead[0].kind != TOKEN_RBRACE);
+	} while (!t->error && t->peek[0].kind != TOKEN_RBRACE);
 
 	expect(t, TOKEN_RBRACE);
 	return list;
@@ -429,7 +429,7 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 			pointer_decl->child[0] = tmp;
 		}
 
-		token_kind qualifier_token = tokenizer->lookahead[0].kind;
+		token_kind qualifier_token = tokenizer->peek[0].kind;
 		switch (qualifier_token) {
 		case TOKEN_CONST:
 		case TOKEN_RESTRICT:
@@ -446,7 +446,7 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 		ptr = parse_declarator(tokenizer, ptr, arena);
 		expect(tokenizer, TOKEN_RPAREN);
 	} else {
-		token = tokenizer->lookahead[0];
+		token = tokenizer->peek[0];
 		if (token.kind != TOKEN_IDENT) {
 			syntax_error(tokenizer, "Expected identifier, but found %s",
 				get_token_name(token.kind));
@@ -470,10 +470,10 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 			*ptr = new_ast_node(AST_TYPE_FUNC, tokenizer->loc, arena);
 
 			ast_node *params = AST_NIL;
-			if (tokenizer->lookahead[0].kind == TOKEN_RPAREN) {
+			if (tokenizer->peek[0].kind == TOKEN_RPAREN) {
 				get_token(tokenizer);
-			} else if (tokenizer->lookahead[0].kind == TOKEN_VOID
-				&& tokenizer->lookahead[1].kind == TOKEN_RPAREN)
+			} else if (tokenizer->peek[0].kind == TOKEN_VOID
+				&& tokenizer->peek[1].kind == TOKEN_RPAREN)
 			{
 				get_token(tokenizer);
 				get_token(tokenizer);
@@ -627,7 +627,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		}
 
 		if (!(flags & PARSE_NO_INITIALIZER) && accept(tokenizer, TOKEN_EQUAL)) {
-			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
+			if (tokenizer->peek[0].kind == TOKEN_LBRACE) {
 				decl->child[1] = parse_initializer(tokenizer, arena);
 			} else {
 				decl->child[1] = parse_assign_expr(tokenizer, arena);
@@ -816,8 +816,8 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
-		if (tokenizer->lookahead[0].kind == TOKEN_IDENT
-			&& tokenizer->lookahead[1].kind == TOKEN_COLON)
+		if (tokenizer->peek[0].kind == TOKEN_IDENT
+			&& tokenizer->peek[1].kind == TOKEN_COLON)
 		{
 			node = new_ast_node(AST_STMT_LABEL, tokenizer->loc, arena);
 			node->value.s = token.value;

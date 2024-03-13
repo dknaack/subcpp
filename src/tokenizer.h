@@ -112,7 +112,7 @@ typedef struct {
 	arena *arena;
 	file *files;
 	char *filename;
-	token lookahead[2];
+	token peek[2];
 	location loc;
 	str source;
 	isize pos;
