@@ -501,17 +501,25 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		{
 			// NOTE: Jump over the case check if coming from a different case.
 			u32 stmt_label = new_label(ctx);
-			ir_emit1(ctx, IR_JMP, stmt_label);
 			ir_emit1(ctx, IR_LABEL, ctx->case_label);
 			ctx->case_label = new_label(ctx);
 
+			while (node != AST_NIL) {
+				u32 size = type_sizeof(node->child[0]->type);
+				u32 value = translate_node(ctx, node->child[0], false);
+				u32 result = ir_emit2_size(ctx, size, IR_EQL, ctx->switch_value, value);
 
-			u32 size = type_sizeof(node->child[0]->type);
-			u32 value = translate_node(ctx, node->child[0], false);
-			u32 result = ir_emit2_size(ctx, size, IR_EQL, ctx->switch_value, value);
-			ir_emit2(ctx, IR_JIZ, result, ctx->case_label);
+				node = node->child[1];
+				if (node->kind == AST_STMT_CASE) {
+					ir_emit2(ctx, IR_JNZ, result, stmt_label);
+				} else {
+					ir_emit2(ctx, IR_JIZ, result, ctx->case_label);
+					break;
+				}
+			}
+
 			ir_emit1(ctx, IR_LABEL, stmt_label);
-			translate_node(ctx, node->child[1], false);
+			translate_node(ctx, node, false);
 		} break;
 	case AST_STMT_CONTINUE:
 		{
