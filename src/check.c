@@ -186,16 +186,19 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_STMT_BREAK:
 	case AST_STMT_LIST:
 	case AST_DECL_LIST:
+	case AST_STMT_CASE:
 	case AST_STMT_CONTINUE:
+	case AST_STMT_DEFAULT:
+	case AST_STMT_DO_WHILE:
 	case AST_STMT_EMPTY:
 	case AST_STMT_FOR_COND:
 	case AST_STMT_FOR_POST:
 	case AST_STMT_IF_COND:
 	case AST_STMT_IF_ELSE:
-	case AST_STMT_DO_WHILE:
-	case AST_STMT_WHILE:
 	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:
+	case AST_STMT_SWITCH:
+	case AST_STMT_WHILE:
 		// NOTE: Types are already checked above
 		break;
 	case AST_STMT_FOR_INIT:

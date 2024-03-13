@@ -660,11 +660,26 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node = new_ast_node(AST_STMT_BREAK, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
+	case TOKEN_CASE:
+		{
+			get_token(tokenizer);
+			node = new_ast_node(AST_STMT_CASE, tokenizer->loc, arena);
+			node->child[0] = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_COLON);
+			node->child[1] = parse_stmt(tokenizer, arena);
+		} break;
 	case TOKEN_CONTINUE:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_CONTINUE, tokenizer->loc, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
+	case TOKEN_DEFAULT:
+		{
+			get_token(tokenizer);
+			expect(tokenizer, TOKEN_COLON);
+			node = new_ast_node(AST_STMT_DEFAULT, tokenizer->loc, arena);
+			node->child[0] = parse_stmt(tokenizer, arena);
+		} break;
 	case TOKEN_DO:
 		{
 			get_token(tokenizer);
@@ -758,6 +773,15 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node->child[0] = parse_assign_expr(tokenizer, arena);
 		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
+	case TOKEN_SWITCH:
+		{
+			get_token(tokenizer);
+			node = new_ast_node(AST_STMT_SWITCH, tokenizer->loc, arena);
+			expect(tokenizer, TOKEN_LPAREN);
+			node->child[0] = parse_assign_expr(tokenizer, arena);
+			expect(tokenizer, TOKEN_RPAREN);
+			node->child[1] = parse_stmt(tokenizer, arena);
+		} break;
 	case TOKEN_SEMICOLON:
 		get_token(tokenizer);
 		node = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);

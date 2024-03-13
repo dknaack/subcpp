@@ -22,7 +22,9 @@ typedef enum {
 
 	// statements
 	AST_STMT_BREAK,    // {}
+	AST_STMT_CASE,     // {expr, stmt}
 	AST_STMT_CONTINUE, // {}
+	AST_STMT_DEFAULT,  // {stmt}
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
 	AST_STMT_FOR_INIT, // {init, cond}
@@ -32,6 +34,7 @@ typedef enum {
 	AST_STMT_IF_ELSE,  // {if, else?}
 	AST_STMT_LIST,     // {stmt, stmt_list}
 	AST_STMT_PRINT,    // {expr}
+	AST_STMT_SWITCH,   // {expr, stmt}
 	AST_STMT_RETURN,   // {expr?}
 	AST_STMT_WHILE,    // {cond, body}
 

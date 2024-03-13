@@ -488,9 +488,17 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 				node = node->child[1];
 			}
 		} break;
+	case AST_STMT_CASE:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_STMT_CONTINUE:
 		{
 			ir_emit1(ctx, IR_JMP, ctx->continue_label);
+		} break;
+	case AST_STMT_DEFAULT:
+		{
+			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
@@ -592,6 +600,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ir_emit1_size(ctx, size, IR_RET, value);
 			// NOTE: For dead code elimination
 			ir_emit1(ctx, IR_LABEL, new_label(ctx));
+		} break;
+	case AST_STMT_SWITCH:
+		{
+			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_PRINT:
 		{
