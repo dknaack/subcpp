@@ -587,6 +587,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			ir_emit1(ctx, IR_JMP, cond_label);
 			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
+	case AST_STMT_GOTO:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_STMT_IF_COND:
 		{
 			u32 endif_label = new_label(ctx);
@@ -609,6 +613,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 			}
 
 			ir_emit1(ctx, IR_LABEL, endif_label);
+		} break;
+	case AST_STMT_LABEL:
+		{
+			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_WHILE:
 		{

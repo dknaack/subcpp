@@ -732,6 +732,15 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 			post->child[1] = parse_stmt(tokenizer, arena);
 			node = init;
 		} break;
+	case TOKEN_GOTO:
+		{
+			get_token(tokenizer);
+			token = peek_token(tokenizer);
+			expect(tokenizer, TOKEN_IDENT);
+			node = new_ast_node(AST_STMT_GOTO, tokenizer->loc, arena);
+			node->value.s = token.value;
+			expect(tokenizer, TOKEN_SEMICOLON);
+		} break;
 	case TOKEN_IF:
 		get_token(tokenizer);
 		expect(tokenizer, TOKEN_LPAREN);
@@ -790,11 +799,21 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 		node = parse_compound_stmt(tokenizer, arena);
 		break;
 	default:
-		node = parse_decl(tokenizer, 0, arena);
-		if (node == AST_NIL) {
-			node = parse_assign_expr(tokenizer, arena);
+		if (tokenizer->lookahead[0].kind == TOKEN_IDENT
+			&& tokenizer->lookahead[1].kind == TOKEN_COLON)
+		{
+			node = new_ast_node(AST_STMT_LABEL, tokenizer->loc, arena);
+			node->value.s = token.value;
+			get_token(tokenizer);
+			get_token(tokenizer);
+			node->child[0] = parse_stmt(tokenizer, arena);
+		} else {
+			node = parse_decl(tokenizer, 0, arena);
+			if (node == AST_NIL) {
+				node = parse_assign_expr(tokenizer, arena);
+			}
+			expect(tokenizer, TOKEN_SEMICOLON);
 		}
-		expect(tokenizer, TOKEN_SEMICOLON);
 		break;
 	}
 

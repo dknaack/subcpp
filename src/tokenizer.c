@@ -373,6 +373,7 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_EXTERN,       S("extern")        },
 		{ TOKEN_FLOAT,        S("float")         },
 		{ TOKEN_FOR,          S("for")           },
+		{ TOKEN_GOTO,         S("goto")          },
 		{ TOKEN_IF,           S("if")            },
 		{ TOKEN_INT,          S("int")           },
 		{ TOKEN_LONG,         S("long")          },

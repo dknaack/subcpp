@@ -193,8 +193,10 @@ check_type(ast_node *node, arena *arena, b32 *error)
 	case AST_STMT_EMPTY:
 	case AST_STMT_FOR_COND:
 	case AST_STMT_FOR_POST:
+	case AST_STMT_GOTO:
 	case AST_STMT_IF_COND:
 	case AST_STMT_IF_ELSE:
+	case AST_STMT_LABEL:
 	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:
 	case AST_STMT_SWITCH:

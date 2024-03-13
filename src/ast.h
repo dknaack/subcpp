@@ -27,11 +27,13 @@ typedef enum {
 	AST_STMT_DEFAULT,  // {stmt}
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
+	AST_STMT_GOTO,     // {}
 	AST_STMT_FOR_INIT, // {init, cond}
 	AST_STMT_FOR_COND, // {cond, post}
 	AST_STMT_FOR_POST, // {post, body}
 	AST_STMT_IF_COND,  // {cond, if_else}
 	AST_STMT_IF_ELSE,  // {if, else?}
+	AST_STMT_LABEL,    // {stmt}
 	AST_STMT_LIST,     // {stmt, stmt_list}
 	AST_STMT_PRINT,    // {expr}
 	AST_STMT_SWITCH,   // {expr, stmt}

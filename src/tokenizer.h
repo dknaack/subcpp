@@ -65,6 +65,7 @@ typedef enum {
 	TOKEN_EXTERN,
 	TOKEN_FLOAT,
 	TOKEN_FOR,
+	TOKEN_GOTO,
 	TOKEN_IF,
 	TOKEN_INT,
 	TOKEN_LONG,
@@ -183,6 +184,7 @@ get_token_name(token_kind kind)
 	case TOKEN_ELSE:          return "'else'";
 	case TOKEN_FLOAT:         return "'float'";
 	case TOKEN_FOR:           return "'for'";
+	case TOKEN_GOTO:          return "'goto'";
 	case TOKEN_IF:            return "'if'";
 	case TOKEN_INT:           return "'int'";
 	case TOKEN_LONG:          return "'long'";
