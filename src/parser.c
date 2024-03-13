@@ -275,6 +275,10 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 			expr->child[0] = called;
 			expr->child[1] = params;
 		} else if (token.kind == TOKEN_DOT) {
+			get_token(tokenizer);
+			token = peek_token(tokenizer);
+			expect(tokenizer, TOKEN_IDENT);
+
 			ast_node *accessed = expr;
 			expr = new_ast_node(AST_EXPR_MEMBER, tokenizer->loc, arena);
 			expr->child[0] = accessed;
