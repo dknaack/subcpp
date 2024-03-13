@@ -1,20 +1,28 @@
+static ir_context
+ir_push_context(ir_context *parent)
+{
+	ir_context ctx = {0};
+	memcpy(&ctx, parent, sizeof(ctx));
+	return ctx;
+}
+
 static u32
 new_label(ir_context *ctx)
 {
-	u32 result = ctx->program.label_count++;
+	u32 result = ctx->program->label_count++;
 	return result;
 }
 
 static u32
 ir_emit2_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0, u32 op1)
 {
-	ASSERT(ctx->program.instr_count <= ctx->max_instr_count);
-	ir_instr *instr = &ctx->program.instrs[ctx->program.instr_count++];
+	ASSERT(ctx->program->instr_count <= ctx->max_instr_count);
+	ir_instr *instr = &ctx->program->instrs[ctx->program->instr_count++];
 	instr->opcode = opcode;
 	instr->size = size;
 	instr->op0 = op0;
 	instr->op1 = op1;
-	u32 result = ctx->program.register_count++;
+	u32 result = ctx->program->register_count++;
 	return result;
 }
 
@@ -59,7 +67,7 @@ ir_emit_alloca(ir_context *ctx, u32 size)
 static ir_function *
 add_function(ir_context *ctx, str name, arena *perm)
 {
-	ir_function **ptr = &ctx->program.function_list;
+	ir_function **ptr = &ctx->program->function_list;
 	while (*ptr) {
 		if (str_equals((*ptr)->name, name)) {
 			return *ptr;
@@ -72,7 +80,7 @@ add_function(ir_context *ctx, str name, arena *perm)
 		return NULL;
 	}
 
-	ctx->program.function_count++;
+	ctx->program->function_count++;
 	*ptr = ALLOC(perm, 1, ir_function);
 	(*ptr)->name = name;
 	return *ptr;
@@ -83,7 +91,7 @@ get_function(ir_context *ctx, str ident)
 {
 	u32 i = 0;
 
-	for (ir_function *f = ctx->program.function_list; f; f = f->next) {
+	for (ir_function *f = ctx->program->function_list; f; f = f->next) {
 		if (str_equals(f->name, ident)) {
 			return i;
 		}
@@ -151,13 +159,13 @@ get_register(ir_context *ctx, ast_node *node)
 
 				ctx->stack_size = 0;
 
-				u32 prev_label_count = ctx->program.label_count;
-				u32 prev_register_count = ctx->program.register_count;
-				ctx->program.label_count = 1;
-				ctx->program.register_count = 0;
+				u32 prev_label_count = ctx->program->label_count;
+				u32 prev_register_count = ctx->program->register_count;
+				ctx->program->label_count = 1;
+				ctx->program->register_count = 0;
 
 				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-				func->instr_index = ctx->program.instr_count;
+				func->instr_index = ctx->program->instr_count;
 				ir_emit1(ctx, IR_LABEL, new_label(ctx));
 
 				i32 param_count = 0;
@@ -171,12 +179,12 @@ get_register(ir_context *ctx, ast_node *node)
 				func->parameter_count = param_count;
 				translate_node(ctx, body, false);
 				func->stack_size = ctx->stack_size;
-				func->label_count = ctx->program.label_count;
-				func->instr_count = ctx->program.instr_count - func->instr_index;
+				func->label_count = ctx->program->label_count;
+				func->instr_count = ctx->program->instr_count - func->instr_index;
 
-				u32 curr_register_count = ctx->program.register_count;
-				ctx->program.label_count = MAX(func->label_count, prev_label_count);
-				ctx->program.register_count = MAX(curr_register_count, prev_register_count);
+				u32 curr_register_count = ctx->program->register_count;
+				ctx->program->label_count = MAX(func->label_count, prev_label_count);
+				ctx->program->register_count = MAX(curr_register_count, prev_register_count);
 			} else {
 				// TODO: Initialize the variable
 			}
@@ -502,6 +510,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
+			ir_context new_ctx = ir_push_context(ctx);
+			ctx = &new_ctx;
+
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
 			ast_node *cond = node->child[0];
@@ -528,6 +539,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		break;
 	case AST_STMT_FOR_INIT:
 		{
+			ir_context new_ctx = ir_push_context(ctx);
+			ctx = &new_ctx;
+
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
 			u32 cond_label = new_label(ctx);
@@ -574,6 +588,9 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_WHILE:
 		{
+			ir_context new_ctx = ir_push_context(ctx);
+			ctx = &new_ctx;
+
 			ctx->break_label = new_label(ctx);
 			ctx->continue_label = new_label(ctx);
 
@@ -742,19 +759,22 @@ get_toplevel_instructions(ir_function *func, ir_instr *instrs, arena *arena)
 static ir_program
 translate(ast_node *root, symbol_table *symbol_table, arena *arena)
 {
+	ir_program program = {0};
+	program.instrs = ALLOC(arena, 1024, ir_instr);
+	program.register_count++;
+	program.label_count++;
+
 	ir_context ctx = {0};
-	ctx.program.instrs = ALLOC(arena, 1024, ir_instr);
+	ctx.program = &program;
 	ctx.max_instr_count = 1024;
-	ctx.program.register_count++;
-	ctx.program.label_count++;
 	ctx.arena = arena;
 	ctx.symbol_registers = ALLOC(arena, symbol_table->count, u32);
 	ctx.symbol_table = symbol_table;
 
 	if (root->kind == AST_INVALID) {
-		return ctx.program;
+		return program;
 	}
 
 	translate_node(&ctx, root, false);
-	return ctx.program;
+	return program;
 }

@@ -102,7 +102,7 @@ struct variable {
 };
 
 typedef struct {
-	ir_program program;
+	ir_program *program;
 	symbol_table *symbol_table;
 	arena *arena;
 
