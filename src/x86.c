@@ -126,7 +126,7 @@ static x86_opcode
 x86_get_jcc_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
-	case IR_EQL:  return X86_JZ;
+	case IR_EQL:  return X86_JNZ;
 	case IR_LT:   return X86_JGE;
 	case IR_GT:   return X86_JLE;
 	case IR_LEQ:  return X86_JG;
