@@ -102,15 +102,17 @@ struct variable {
 };
 
 typedef struct {
-	ir_program program;
+	ir_program *program;
+	ir_function *function;
 	symbol_table *symbol_table;
 	arena *arena;
 
 	u32 *symbol_registers;
 	u32 max_instr_count;
-	u32 stack_size;
 	u32 continue_label;
 	u32 break_label;
+	u32 default_label;
+	u32 case_label;
 } ir_context;
 
 static b32
