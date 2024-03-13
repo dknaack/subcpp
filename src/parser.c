@@ -534,6 +534,26 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			type_specifier = new_ast_node(AST_TYPE_VOID, tokenizer->loc, arena);
 			get_token(tokenizer);
 			break;
+		case TOKEN_ENUM:
+			{
+				type_specifier = new_ast_node(AST_TYPE_ENUM, tokenizer->loc, arena);
+				get_token(tokenizer);
+				accept(tokenizer, TOKEN_IDENT);
+				expect(tokenizer, TOKEN_LBRACE);
+
+				while (!tokenizer->error && tokenizer->peek[0].kind != TOKEN_RBRACE) {
+					expect(tokenizer, TOKEN_IDENT);
+					if (accept(tokenizer, TOKEN_EQUAL)) {
+						parse_assign_expr(tokenizer, arena);
+					}
+
+					if (!accept(tokenizer, TOKEN_COMMA)) {
+						break;
+					}
+				}
+
+				expect(tokenizer, TOKEN_RBRACE);
+			} break;
 		case TOKEN_STRUCT:
 			get_token(tokenizer);
 			accept(tokenizer, TOKEN_IDENT);

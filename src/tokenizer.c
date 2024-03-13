@@ -370,6 +370,7 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_DO,           S("do")            },
 		{ TOKEN_DEFAULT,      S("default")       },
 		{ TOKEN_ELSE,         S("else")          },
+		{ TOKEN_ENUM,         S("enum")          },
 		{ TOKEN_EXTERN,       S("extern")        },
 		{ TOKEN_FLOAT,        S("float")         },
 		{ TOKEN_FOR,          S("for")           },
