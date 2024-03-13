@@ -42,6 +42,7 @@ typedef enum {
 
 	// compound types
 	TYPE_ARRAY,
+	TYPE_BITFIELD,
 	TYPE_FUNCTION,
 	TYPE_POINTER,
 	TYPE_STRUCT,
@@ -97,6 +98,7 @@ type_get_name(type_kind type)
 	case TYPE_ARRAY:          return "(array)";
 	case TYPE_POINTER:        return "(pointer)";
 	case TYPE_STRUCT:         return "(struct)";
+	case TYPE_BITFIELD:       return "(bitfield)";
 	case TYPE_UNKNOWN:        return "(unknown)";
 	}
 
@@ -139,6 +141,9 @@ type_sizeof(type *type)
 	case TYPE_FUNCTION:
 	case TYPE_UNKNOWN:
 		ASSERT(!"Type does not have a size");
+		return 0;
+	case TYPE_BITFIELD:
+		ASSERT(!"TODO");
 		return 0;
 	case TYPE_ARRAY:
 		{

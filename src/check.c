@@ -451,6 +451,13 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			node->type->size = 1;
 			node->type->children = node->child[1]->type;
 		} break;
+	case AST_TYPE_BITFIELD:
+		{
+			node->type = type_create(TYPE_BITFIELD, arena);
+			// TODO: Evaluate the expression
+			node->type->size = 1;
+			node->type->children = node->child[1]->type;
+		} break;
 	case AST_TYPE_FUNC:
 		{
 			ast_node *param_list = node->child[0];
@@ -480,7 +487,16 @@ check_type(ast_node *node, arena *arena, b32 *error)
 			node->type = type_create(TYPE_STRUCT, arena);
 
 			// TODO: Collect the members of the struct
-			//for (ast_node *child = node->children; child != AST_NIL; child = child->next) {}
+			member **ptr = &node->type->members;
+			ast_node *decls = node->child[0];
+			ASSERT(decls->kind == AST_DECL_LIST);
+			while (decls != AST_NIL) {
+				*ptr = ALLOC(arena, 1, member);
+				(*ptr)->name = decls->child[0]->value.s;
+				(*ptr)->type = decls->child[0]->type;
+				ptr = &(*ptr)->next;
+				decls = decls->child[1];
+			}
 		} break;
 	}
 }

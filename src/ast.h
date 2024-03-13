@@ -42,6 +42,7 @@ typedef enum {
 
 	// types
 	AST_TYPE_ARRAY,      // {size_expr, type}
+	AST_TYPE_BITFIELD,   // {expr, type}
 	AST_TYPE_CHAR,       // {}
 	AST_TYPE_FLOAT,      // {}
 	AST_TYPE_FUNC,       // {param_list, return_type}

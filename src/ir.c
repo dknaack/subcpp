@@ -684,6 +684,7 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 	case AST_TYPE_FUNC:
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_POINTER:
+	case AST_TYPE_BITFIELD:
 		ASSERT(false);
 		break;
 	}

@@ -353,9 +353,13 @@ parse_initializer(tokenizer *t, arena *perm)
 }
 
 typedef enum {
-	PARSE_SINGLE_DECL = (1 << 0),
+	PARSE_SINGLE_DECL    = 1 << 0,
+	PARSE_BITFIELD       = 1 << 1,
+	PARSE_NO_INITIALIZER = 1 << 2,
 
-	PARSE_DECL_EXTERNAL = 0,
+	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
+	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
+	PARSE_EXTERNAL_DECL = 0,
 } parse_decl_flags;
 
 static ast_node *parse_decl(tokenizer *tokenizer, u32 flags, arena *arena);
@@ -473,7 +477,7 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 				ast_node **ptr = &params;
 				params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
 				do {
-					*ptr = parse_decl(tokenizer, PARSE_SINGLE_DECL, arena);
+					*ptr = parse_decl(tokenizer, PARSE_PARAM, arena);
 					if (*ptr != AST_NIL) {
 						// Only single declaration allowed
 						ASSERT((*ptr)->child[1] == AST_NIL);
@@ -543,7 +547,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 				// TODO: set correct flags for parsing struct members, i.e.
 				// declarations are allowed to have bitfields.
 				while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
-					*ptr = parse_decl(tokenizer, 0, arena);
+					*ptr = parse_decl(tokenizer, PARSE_STRUCT_MEMBER, arena);
 					if (*ptr != AST_NIL) {
 						// TODO: Walk to the end of the declaration
 						ASSERT((*ptr)->child[1] == AST_NIL);
@@ -603,14 +607,22 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	ast_node **ptr = &list;
 	do {
 		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-		ast_node **base_ptr = parse_declarator(tokenizer, &(*ptr)->child[0], arena);
+		ast_node *decl = NULL;
+		ast_node **base_ptr = parse_declarator(tokenizer, &decl, arena);
 		ASSERT(base_ptr);
 		if (base_ptr) {
 			*base_ptr = type_specifier;
 		}
 
-		if (accept(tokenizer, TOKEN_EQUAL)) {
-			ast_node *decl = (*ptr)->child[0];
+		if ((flags & PARSE_BITFIELD) && accept(tokenizer, TOKEN_COLON)) {
+			ast_node *type = decl->child[0];
+			ast_node *bitfield = new_ast_node(AST_TYPE_BITFIELD, tokenizer->loc, arena);
+			bitfield->child[0] = parse_assign_expr(tokenizer, arena);
+			bitfield->child[1] = type;
+			decl->child[0] = bitfield;
+		}
+
+		if (!(flags & PARSE_NO_INITIALIZER) && accept(tokenizer, TOKEN_EQUAL)) {
 			if (tokenizer->lookahead[0].kind == TOKEN_LBRACE) {
 				decl->child[1] = parse_initializer(tokenizer, arena);
 			} else {
@@ -618,6 +630,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			}
 		}
 
+		(*ptr)->child[0] = decl;
 		ptr = &(*ptr)->child[1];
 	} while (!tokenizer->error
 	    && !(flags & PARSE_SINGLE_DECL)
@@ -833,7 +846,7 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 static ast_node *
 parse_external_decl(tokenizer *tokenizer, arena *arena)
 {
-	ast_node *list = parse_decl(tokenizer, PARSE_DECL_EXTERNAL, arena);
+	ast_node *list = parse_decl(tokenizer, PARSE_EXTERNAL_DECL, arena);
 	if (list == AST_NIL) {
 		return list;
 	}
