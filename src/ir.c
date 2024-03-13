@@ -16,6 +16,7 @@ new_label(ir_context *ctx)
 static u32
 ir_emit2_size(ir_context *ctx, u32 size, ir_opcode opcode, u32 op0, u32 op1)
 {
+	ASSERT(size == 1 || size == 2 || size == 4 || size == 8 || size == 0);
 	ASSERT(ctx->program->instr_count <= ctx->max_instr_count);
 	ir_instr *instr = &ctx->program->instrs[ctx->program->instr_count++];
 	instr->opcode = opcode;
@@ -498,7 +499,19 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			ASSERT(!"TODO");
+			// NOTE: Jump over the case check if coming from a different case.
+			u32 stmt_label = new_label(ctx);
+			ir_emit1(ctx, IR_JMP, stmt_label);
+			ir_emit1(ctx, IR_LABEL, ctx->case_label);
+			ctx->case_label = new_label(ctx);
+
+
+			u32 size = type_sizeof(node->child[0]->type);
+			u32 value = translate_node(ctx, node->child[0], false);
+			u32 result = ir_emit2_size(ctx, size, IR_EQL, ctx->switch_value, value);
+			ir_emit2(ctx, IR_JIZ, result, ctx->case_label);
+			ir_emit1(ctx, IR_LABEL, stmt_label);
+			translate_node(ctx, node->child[1], false);
 		} break;
 	case AST_STMT_CONTINUE:
 		{
@@ -506,7 +519,10 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_DEFAULT:
 		{
-			ASSERT(!"TODO");
+			ctx->default_label = new_label(ctx);
+			ir_emit1(ctx, IR_LABEL, ctx->default_label);
+			translate_node(ctx, node->child[0], false);
+			ir_emit1(ctx, IR_JMP, ctx->break_label);
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
@@ -620,7 +636,22 @@ translate_node(ir_context *ctx, ast_node *node, b32 is_lvalue)
 		} break;
 	case AST_STMT_SWITCH:
 		{
-			ASSERT(!"TODO");
+			ir_context new_ctx = ir_push_context(ctx);
+			ctx = &new_ctx;
+
+			ctx->case_label = new_label(ctx);
+			ctx->break_label = new_label(ctx);
+			ctx->default_label = 0;
+			ctx->switch_value = translate_node(ctx,node->child[0], false);
+
+			ir_emit1(ctx, IR_JMP, ctx->case_label);
+			translate_node(ctx,node->child[1], false);
+			ir_emit1(ctx, IR_LABEL, ctx->case_label);
+			if (ctx->default_label != 0) {
+				ir_emit1(ctx, IR_JMP, ctx->default_label);
+			}
+			ir_emit1(ctx, IR_NOP, 0);
+			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_PRINT:
 		{

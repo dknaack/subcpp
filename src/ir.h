@@ -111,6 +111,9 @@ typedef struct {
 	u32 stack_size;
 	u32 continue_label;
 	u32 break_label;
+	u32 case_label;
+	u32 default_label;
+	u32 switch_value;
 } ir_context;
 
 static b32
