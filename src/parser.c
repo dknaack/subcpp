@@ -627,6 +627,14 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	}
 
 	type_specifier->flags = qualifiers;
+	if (tokenizer->peek[0].kind == TOKEN_SEMICOLON) {
+		ast_node *list = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+		ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
+		list->child[0] = decl;
+		decl->child[0] = type_specifier;
+		return list;
+	}
+
 	ast_node *list = NULL;
 	ast_node **ptr = &list;
 	do {
