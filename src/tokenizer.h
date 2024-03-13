@@ -54,9 +54,11 @@ typedef enum {
 	// keywords
 	TOKEN_AUTO,
 	TOKEN_BREAK,
+	TOKEN_CASE,
 	TOKEN_CHAR,
 	TOKEN_CONST,
 	TOKEN_CONTINUE,
+	TOKEN_DEFAULT,
 	TOKEN_DO,
 	TOKEN_ELSE,
 	TOKEN_EXTERN,
@@ -73,6 +75,7 @@ typedef enum {
 	TOKEN_SIGNED,
 	TOKEN_STATIC,
 	TOKEN_STRUCT,
+	TOKEN_SWITCH,
 	TOKEN_THREAD_LOCAL,
 	TOKEN_TYPEDEF,
 	TOKEN_UNSIGNED,
@@ -168,10 +171,12 @@ get_token_name(token_kind kind)
 	case TOKEN_LITERAL_INT:   return "integer";
 	case TOKEN_AUTO:          return "'auto'";
 	case TOKEN_BREAK:         return "'break'";
+	case TOKEN_CASE:          return "'case'";
 	case TOKEN_CHAR:          return "'char'";
 	case TOKEN_CONST:         return "'const'";
 	case TOKEN_CONTINUE:      return "'continue'";
 	case TOKEN_DO:            return "'do'";
+	case TOKEN_DEFAULT:       return "'default'";
 	case TOKEN_EXTERN:        return "'extern'";
 	case TOKEN_ELSE:          return "'else'";
 	case TOKEN_FLOAT:         return "'float'";
@@ -187,6 +192,7 @@ get_token_name(token_kind kind)
 	case TOKEN_SHORT:         return "'short'";
 	case TOKEN_STATIC:        return "'static'";
 	case TOKEN_STRUCT:        return "'struct'";
+	case TOKEN_SWITCH:        return "'switch'";
 	case TOKEN_THREAD_LOCAL:  return "'_Thread_local'";
 	case TOKEN_TYPEDEF:       return "'typedef'";
 	case TOKEN_UNSIGNED:      return "'unsigned'";
