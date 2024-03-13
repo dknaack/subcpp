@@ -15,6 +15,7 @@ typedef enum {
 	TOKEN_BAR_EQUAL,
 	TOKEN_CARET,
 	TOKEN_CARET_EQUAL,
+	TOKEN_COLON,
 	TOKEN_COMMA,
 	TOKEN_DOT,
 	TOKEN_EQUAL,
@@ -125,6 +126,7 @@ get_token_name(token_kind kind)
 	case TOKEN_INVALID:       return "invalid token";
 	case TOKEN_EOF:           return "eof";
 	case TOKEN_COMMA:         return "','";
+	case TOKEN_COLON:         return "':'";
 	case TOKEN_AMP:           return "'&'";
 	case TOKEN_AMP_AMP:       return "'&&'";
 	case TOKEN_AMP_EQUAL:     return "'&='";
