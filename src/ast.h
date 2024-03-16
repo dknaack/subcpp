@@ -15,6 +15,7 @@ typedef enum {
 	AST_EXPR_CALL,     // {called: expr, params: expr_list}
 	AST_EXPR_IDENT,    // value.s
 	AST_EXPR_INT,      // value.i
+	AST_EXPR_FLOAT,    // value.f
 	AST_EXPR_LIST,     // {expr, list}
 	AST_EXPR_MEMBER,   // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
@@ -47,9 +48,10 @@ typedef enum {
 	AST_TYPE_FLOAT,      // {}
 	AST_TYPE_FUNC,       // {param_list, return_type}
 	AST_TYPE_INT,        // {}
-	AST_TYPE_POINTER,    // {type}
+	AST_TYPE_POINTER,    // {_, type}
 	AST_TYPE_STRUCT,     // {}
 	AST_TYPE_STRUCT_DEF, // {...declarations}
+	AST_TYPE_ENUM,       // {...members}
 	AST_TYPE_VOID,       // {}
 } ast_node_kind;
 
@@ -69,10 +71,18 @@ typedef enum {
 	AST_UNSIGNED     = 1 << 12,
 } ast_node_flags;
 
+typedef struct {
+	i32 value;
+} ast_id;
+
+typedef struct {
+	ast_id first, last;
+} ast_list;
+
 struct ast_node {
 	ast_node_kind kind;
 	ast_node_flags flags;
-	ast_node *child[2];
+	ast_id child[2];
 	location loc;
 	type *type;
 	symbol_id symbol_id;
@@ -80,11 +90,20 @@ struct ast_node {
 	union {
 		token_kind op;
 		intmax_t i;
+		double f;
 		str s;
 	} value;
 };
 
-static const ast_node ast_nil = {AST_INVALID, 0, {AST_NIL, AST_NIL}};
+typedef struct {
+	ast_node *nodes;
+	ast_id root;
+	isize cap;
+	isize size;
+} ast_pool;
+
+static const ast_node ast_nil = {0};
+static const ast_id ast_id_nil = {0};
 
 static b32
 is_statement(ast_node_kind node_kind)

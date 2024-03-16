@@ -1,5 +1,108 @@
 #include <stdarg.h>
 
+static ast_node
+ast_make_node(ast_node_kind kind, location loc)
+{
+	ast_node node = {0};
+	node.kind = kind;
+	node.loc = loc;
+	return node;
+}
+
+static ast_id
+ast_get_id(ast_pool *pool, ast_node *node)
+{
+	ast_id id;
+	id.value = node - pool->nodes;
+	return id;
+}
+
+static ast_id
+ast_push(ast_pool *pool, ast_node node)
+{
+	ast_id id = {0};
+
+	if (!pool->cap) {
+		pool->cap = 1024;
+		pool->size = 1;
+		pool->nodes = calloc(pool->cap, sizeof(*pool->nodes));
+	} else if (pool->size + 1 >= pool->cap) {
+		pool->cap *= 2;
+		pool->nodes = realloc(pool->nodes, pool->cap * sizeof(*pool->nodes));
+	}
+
+	if (!pool->nodes) {
+		return id;
+	}
+
+	id.value = pool->size++;
+	memcpy(&pool->nodes[id.value], &node, sizeof(node));
+	return id;
+}
+
+static ast_node *
+ast_get(ast_pool *pool, ast_id id)
+{
+	ast_node *node = NULL;
+
+	if (0 < id.value && id.value < pool->size) {
+		node = pool->nodes + id.value;
+	} else {
+		ASSERT(!"ID is out of bounds");
+	}
+
+	return node;
+}
+
+static void
+ast_append(ast_pool *pool, ast_list *list, ast_node node)
+{
+	ast_id node_id = ast_push(pool, node);
+
+	if (list->last.value != 0) {
+		ast_node *last_node = ast_get(pool, list->last);
+		last_node->child[1] = node_id;
+	} else {
+		list->first = node_id;
+	}
+
+	list->last = node_id;
+}
+
+static void
+ast_prepend(ast_pool *pool, ast_list *list, ast_node node)
+{
+	node.child[1] = list->first;
+	list->first = ast_push(pool, node);
+	if (list->last.value == 0) {
+		list->last = list->first;
+	}
+}
+
+static void
+ast_concat(ast_pool *pool, ast_list *a, ast_list b)
+{
+	if (b.first.value != 0) {
+		if (a->last.value != 0) {
+			ast_node *last =  ast_get(pool, a->last);
+			last->child[1] = b.first;
+			a->last = b.last;
+		} else {
+			*a = b;
+		}
+	}
+}
+
+static void
+ast_shrink(ast_pool *pool)
+{
+	ast_node *nodes = realloc(pool->nodes, pool->size * sizeof(*pool->nodes));
+	if (nodes) {
+		pool->nodes = nodes;
+		pool->cap = pool->size;
+	}
+}
+
 static void
 verrorf(location loc, char *fmt, va_list ap)
 {
@@ -8,7 +111,7 @@ verrorf(location loc, char *fmt, va_list ap)
 	fputc('\n', stderr);
 	fflush(stderr);
 
-	ASSERT(!"Syntax error");
+	//ASSERT(!"Syntax error");
 }
 
 static void
@@ -62,16 +165,6 @@ expect(tokenizer *tokenizer, token_kind expected_token)
 		syntax_error(tokenizer, "Expected %s, but found %s",
 		    get_token_name(expected_token), get_token_name(found_token.kind));
 	}
-}
-
-static ast_node *
-new_ast_node(ast_node_kind kind, location loc, arena *arena)
-{
-	ast_node *node = ALLOC(arena, 1, ast_node);
-	*node = ast_nil;
-	node->kind = kind;
-	node->loc = loc;
-	return node;
 }
 
 typedef enum {
@@ -168,63 +261,75 @@ is_postfix_operator(token_kind token)
 	}
 }
 
-static ast_node *parse_assign_expr(tokenizer *tokenizer, arena *arena);
+static ast_id parse_assign_expr(tokenizer *tokenizer, ast_pool *pool);
 
-static ast_node *
-parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
+static ast_id
+parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 {
-	ast_node *expr;
+	ast_id expr;
 
 	token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_IDENT:
-		get_token(tokenizer);
-		expr = new_ast_node(AST_EXPR_IDENT, tokenizer->loc, arena);
-		expr->value.s = token.value;
-		break;
+		{
+			get_token(tokenizer);
+			ast_node ident = ast_make_node(AST_EXPR_IDENT, tokenizer->loc);
+			ident.value.s = token.value;
+			expr = ast_push(pool, ident);
+		} break;
+	case TOKEN_LITERAL_FLOAT:
+		{
+			get_token(tokenizer);
+			ast_node literal = ast_make_node(AST_EXPR_FLOAT, tokenizer->loc);
+			// TODO: Parse the value
+			literal.value.f = 0.0f;
+			expr = ast_push(pool, literal);
+		} break;
 	case TOKEN_LITERAL_INT:
 		{
 			get_token(tokenizer);
-			expr = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
-			expr->value.i = 0;
+			ast_node literal = ast_make_node(AST_EXPR_INT, tokenizer->loc);
+			literal.value.i = 0;
 
 			isize i = 0;
 			for (i = 0; i < token.value.length && is_digit(token.value.at[i]); i++) {
-				expr->value.i *= 10;
-				expr->value.i += (token.value.at[i] - '0');
+				literal.value.i *= 10;
+				literal.value.i += (token.value.at[i] - '0');
 			}
 
 			for (; !tokenizer->error && i < token.value.length; i++) {
 				switch (token.value.at[i]) {
 				case 'l':
-					if (expr->flags & AST_LLONG) {
+					if (literal.flags & AST_LLONG) {
 						syntax_error(tokenizer, "Invalid suffix '%.*s'",
 							(int)token.value.length, token.value.at);
-					} else if (expr->flags & AST_LONG) {
-						expr->flags |= AST_LLONG;
+					} else if (literal.flags & AST_LONG) {
+						literal.flags |= AST_LLONG;
 					} else {
-						expr->flags |= AST_LONG;
+						literal.flags |= AST_LONG;
 					}
 
 					break;
 				case 'u':
-					if (expr->flags & AST_UNSIGNED) {
+					if (literal.flags & AST_UNSIGNED) {
 						syntax_error(tokenizer, "Invalid suffix '%.*s'",
 							(int)token.value.length, token.value.at);
 					}
 
-					expr->flags |= AST_UNSIGNED;
+					literal.flags |= AST_UNSIGNED;
 					break;
 				default:
 					syntax_error(tokenizer, "Invalid suffix '%.*s'",
 						(int)token.value.length, token.value.at);
 				}
 			}
+
+			expr = ast_push(pool, literal);
 		} break;
 	case TOKEN_LPAREN:
 		get_token(tokenizer);
-		expr = parse_expr(tokenizer, 0, arena);
-		if (expr == AST_NIL) {
+		expr = parse_expr(tokenizer, 0, pool);
+		if (expr.value == 0) {
 			syntax_error(tokenizer, "Expected expression");
 			return expr;
 		}
@@ -238,14 +343,16 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 	case TOKEN_MINUS:
 	case TOKEN_PLUS_PLUS:
 	case TOKEN_MINUS_MINUS:
-		get_token(tokenizer);
-		expr = new_ast_node(AST_EXPR_UNARY, tokenizer->loc, arena);
-		expr->value.i = token.kind;
-		expr->child[0] = parse_expr(tokenizer, PREC_PRIMARY, arena);
-		break;
+		{
+			get_token(tokenizer);
+			ast_node node = ast_make_node(AST_EXPR_UNARY, tokenizer->loc);
+			node.value.i = token.kind;
+			node.child[0] = parse_expr(tokenizer, PREC_PRIMARY, pool);
+			expr = ast_push(pool, node);
+		} break;
 	default:
 		syntax_error(tokenizer, "Expected expression");
-		return AST_NIL;
+		return ast_id_nil;
 	}
 
 	for (;;) {
@@ -259,30 +366,30 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 		token_kind operator = token.kind;
 		if (operator == TOKEN_LPAREN) {
 			get_token(tokenizer);
-			ast_node *params = AST_NIL;
-			ast_node **ptr = &params;
+			ast_list params = {0};
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				do {
-					*ptr = new_ast_node(AST_EXPR_LIST, tokenizer->loc, arena);
-					(*ptr)->child[0] = parse_assign_expr(tokenizer, arena);
-					ptr = &(*ptr)->child[1];
+					ast_node node = ast_make_node(AST_EXPR_LIST, tokenizer->loc);
+					node.child[0] = parse_assign_expr(tokenizer, pool);
+					ast_append(pool, &params, node);
 				} while (!tokenizer->error && accept(tokenizer, TOKEN_COMMA));
 				expect(tokenizer, TOKEN_RPAREN);
 			}
 
-			ast_node *called = expr;
-			expr = new_ast_node(AST_EXPR_CALL, tokenizer->loc, arena);
-			expr->child[0] = called;
-			expr->child[1] = params;
+			ast_id called = expr;
+			ast_node node = ast_make_node(AST_EXPR_CALL, tokenizer->loc);
+			node.child[0] = called;
+			node.child[1] = params.first;
+			expr = ast_push(pool, node);
 		} else if (token.kind == TOKEN_DOT) {
 			get_token(tokenizer);
 			token = peek_token(tokenizer);
 			expect(tokenizer, TOKEN_IDENT);
 
-			ast_node *accessed = expr;
-			expr = new_ast_node(AST_EXPR_MEMBER, tokenizer->loc, arena);
-			expr->child[0] = accessed;
-			expr->value.s = token.value;
+			ast_node node = ast_make_node(AST_EXPR_MEMBER, tokenizer->loc);
+			node.child[0] = expr;
+			node.value.s = token.value;
+			expr = ast_push(pool, node);
 		} else {
 			precedence prec = get_precedence(operator);
 			if (prec == PREC_NONE) {
@@ -294,25 +401,26 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 			}
 
 			get_token(tokenizer);
-			ast_node *lhs = expr;
+			ast_id lhs = expr;
 			if (is_postfix_operator(token.kind)) {
-				ast_node *operand = expr;
-				expr = new_ast_node(AST_EXPR_POSTFIX, tokenizer->loc, arena);
-				expr->value.op = operator;
-				expr->child[0] = operand;
+				ast_node node = ast_make_node(AST_EXPR_POSTFIX, tokenizer->loc);
+				node.value.op = operator;
+				node.child[0] = expr;
+				expr = ast_push(pool, node);
 			} else {
 				if (token.kind == TOKEN_LBRACKET) {
 					prec = PREC_NONE;
 				}
 
 				prec -= is_right_associative(operator);
-				ast_node *rhs = parse_expr(tokenizer, prec, arena);
-				ASSERT(rhs != AST_NIL);
+				ast_id rhs = parse_expr(tokenizer, prec, pool);
+				ASSERT(rhs.value != 0);
 
-				expr = new_ast_node(AST_EXPR_BINARY, tokenizer->loc, arena);
-				expr->value.i = token.kind;
-				expr->child[0] = lhs;
-				expr->child[1] = rhs;
+				ast_node node = ast_make_node(AST_EXPR_BINARY, tokenizer->loc);
+				node.value.i = token.kind;
+				node.child[0] = lhs;
+				node.child[1] = rhs;
+				expr = ast_push(pool, node);
 
 				if (token.kind == TOKEN_LBRACKET) {
 					expect(tokenizer, TOKEN_RBRACKET);
@@ -324,36 +432,35 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, arena *arena)
 	return expr;
 }
 
-static ast_node *
-parse_assign_expr(tokenizer *tokenizer, arena *arena)
+static ast_id
+parse_assign_expr(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *expr = parse_expr(tokenizer, PREC_ASSIGN, arena);
+	ast_id expr = parse_expr(tokenizer, PREC_ASSIGN, pool);
 	return expr;
 }
 
-static ast_node *
-parse_initializer(tokenizer *t, arena *perm)
+static ast_id
+parse_initializer(tokenizer *t, ast_pool *pool)
 {
-	ast_node *list = AST_NIL;
-	ast_node **ptr = &list;
+	ast_list list = {0};
 	expect(t, TOKEN_LBRACE);
 
 	do {
-		*ptr = new_ast_node(AST_INIT_LIST, t->loc, perm);
+		ast_node node = ast_make_node(AST_INIT_LIST, t->loc);
 		if (t->peek[0].kind == TOKEN_LBRACE) {
-			(*ptr)->child[0] = parse_initializer(t, perm);
+			node.child[0] = parse_initializer(t, pool);
 		} else {
-			(*ptr)->child[0] = parse_assign_expr(t, perm);
+			node.child[0] = parse_assign_expr(t, pool);
 		}
 
-		ptr = &(*ptr)->child[1];
+		ast_append(pool, &list, node);
 		if (!accept(t, TOKEN_COMMA)) {
 			break;
 		}
 	} while (!t->error && t->peek[0].kind != TOKEN_RBRACE);
 
 	expect(t, TOKEN_RBRACE);
-	return list;
+	return list.first;
 }
 
 typedef enum {
@@ -366,7 +473,7 @@ typedef enum {
 	PARSE_EXTERNAL_DECL = 0,
 } parse_decl_flags;
 
-static ast_node *parse_decl(tokenizer *tokenizer, u32 flags, arena *arena);
+static ast_list parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool);
 
 static ast_node_flags
 get_qualifier(token_kind token)
@@ -401,49 +508,32 @@ get_qualifier(token_kind token)
 	}
 }
 
-/*
- * NOTE: The pointer argument points to the children member of the declaration
- * node. Thus, this function fills in the children field. It then returns the
- * part that still needs to be filled in. For example, parsing int *x would
- * look like this:
- *
- *     <ptr>
- *     x -> <ptr>
- *     x -> * -> <ptr>
- *     x -> * -> int
- */
-static ast_node **
-parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
+static ast_list
+parse_declarator(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *pointer_decl = AST_NIL;
-	// This is where the base type goes. Filled in by parse_declaration.
-	ast_node **base_type = NULL;
-	token token = {0};
+	ast_list declarator = {0};
+	ast_list pointer_declarator = {0};
 
 	while (accept(tokenizer, TOKEN_STAR)) {
-		ast_node *tmp = pointer_decl;
-		pointer_decl = new_ast_node(AST_TYPE_POINTER, tokenizer->loc, arena);
-		if (!base_type) {
-			base_type = &pointer_decl->child[0];
-		} else {
-			pointer_decl->child[0] = tmp;
-		}
-
+		ast_node node = ast_make_node(AST_TYPE_POINTER, tokenizer->loc);
 		token_kind qualifier_token = tokenizer->peek[0].kind;
 		switch (qualifier_token) {
 		case TOKEN_CONST:
 		case TOKEN_RESTRICT:
 		case TOKEN_VOLATILE:
 			get_token(tokenizer);
-			pointer_decl->flags |= get_qualifier(token.kind);
+			node.flags |= get_qualifier(qualifier_token);
 			break;
 		default:
 			break;
 		}
+
+		ast_prepend(pool, &pointer_declarator, node);
 	}
 
+	token token = {0};
 	if (accept(tokenizer, TOKEN_LPAREN)) {
-		ptr = parse_declarator(tokenizer, ptr, arena);
+		declarator = parse_declarator(tokenizer, pool);
 		expect(tokenizer, TOKEN_RPAREN);
 	} else {
 		token = tokenizer->peek[0];
@@ -455,21 +545,20 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 			get_token(tokenizer);
 		}
 
-		*ptr = new_ast_node(AST_DECL, tokenizer->loc, arena);
-		(*ptr)->value.s = token.value;
-		ptr = &(*ptr)->child[0];
+		ast_node node = ast_make_node(AST_DECL, tokenizer->loc);
+		node.value.s = token.value;
+		ast_append(pool, &declarator, node);
 	}
 
 	while (!tokenizer->error) {
 		if (accept(tokenizer, TOKEN_LBRACKET)) {
-			*ptr = new_ast_node(AST_TYPE_ARRAY, tokenizer->loc, arena);
-			(*ptr)->child[0] = parse_assign_expr(tokenizer, arena);
-			ptr = &(*ptr)->child[1];
+			ast_node node = ast_make_node(AST_TYPE_ARRAY, tokenizer->loc);
+			node.child[0] = parse_assign_expr(tokenizer, pool);
+			ast_append(pool, &declarator, node);
 			expect(tokenizer, TOKEN_RBRACKET);
 		} else if (accept(tokenizer, TOKEN_LPAREN)) {
-			*ptr = new_ast_node(AST_TYPE_FUNC, tokenizer->loc, arena);
+			ast_node node = ast_make_node(AST_TYPE_FUNC, tokenizer->loc);
 
-			ast_node *params = AST_NIL;
 			if (tokenizer->peek[0].kind == TOKEN_RPAREN) {
 				get_token(tokenizer);
 			} else if (tokenizer->peek[0].kind == TOKEN_VOID
@@ -478,40 +567,32 @@ parse_declarator(tokenizer *tokenizer, ast_node **ptr, arena *arena)
 				get_token(tokenizer);
 				get_token(tokenizer);
 			} else {
-				ast_node **ptr = &params;
-				params = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
+				ast_list params = {0};
 				do {
-					*ptr = parse_decl(tokenizer, PARSE_PARAM, arena);
-					if (*ptr != AST_NIL) {
-						// Only single declaration allowed
-						ASSERT((*ptr)->child[1] == AST_NIL);
-						ptr = &(*ptr)->child[1];
-					} else {
+					ast_list param = parse_decl(tokenizer, PARSE_PARAM, pool);
+					ast_concat(pool, &params, param);
+					if (param.first.value == 0) {
 						tokenizer->error = true;
 					}
 				} while (!tokenizer->error && accept(tokenizer, TOKEN_COMMA));
 				expect(tokenizer, TOKEN_RPAREN);
+				node.child[0] = params.first;
 			}
 
-			(*ptr)->child[0] = params;
-			ptr = &(*ptr)->child[1];
+			ast_append(pool, &declarator, node);
 		} else {
 			break;
 		}
 	}
 
-	if (pointer_decl != AST_NIL) {
-		*ptr = pointer_decl;
-		ptr = base_type;
-	}
-
-	return ptr;
+	ast_concat(pool, &declarator, pointer_declarator);
+	return declarator;
 }
 
-static ast_node *
-parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
+static ast_list
+parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 {
-	ast_node *type_specifier = AST_NIL;
+	ast_node type_specifier = {0};
 	u32 qualifiers = 0;
 
 	b32 found_qualifier = true;
@@ -519,24 +600,24 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 		token token = peek_token(tokenizer);
 		switch (token.kind) {
 		case TOKEN_FLOAT:
-			type_specifier = new_ast_node(AST_TYPE_FLOAT, tokenizer->loc, arena);
+			type_specifier = ast_make_node(AST_TYPE_FLOAT, tokenizer->loc);
 			get_token(tokenizer);
 			break;
 		case TOKEN_INT:
-			type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
+			type_specifier = ast_make_node(AST_TYPE_INT, tokenizer->loc);
 			get_token(tokenizer);
 			break;
 		case TOKEN_CHAR:
-			type_specifier = new_ast_node(AST_TYPE_CHAR, tokenizer->loc, arena);
+			type_specifier = ast_make_node(AST_TYPE_CHAR, tokenizer->loc);
 			get_token(tokenizer);
 			break;
 		case TOKEN_VOID:
-			type_specifier = new_ast_node(AST_TYPE_VOID, tokenizer->loc, arena);
+			type_specifier = ast_make_node(AST_TYPE_VOID, tokenizer->loc);
 			get_token(tokenizer);
 			break;
 		case TOKEN_ENUM:
 			{
-				type_specifier = new_ast_node(AST_TYPE_ENUM, tokenizer->loc, arena);
+				type_specifier = ast_make_node(AST_TYPE_ENUM, tokenizer->loc);
 				get_token(tokenizer);
 				accept(tokenizer, TOKEN_IDENT);
 				expect(tokenizer, TOKEN_LBRACE);
@@ -544,7 +625,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 				while (!tokenizer->error && tokenizer->peek[0].kind != TOKEN_RBRACE) {
 					expect(tokenizer, TOKEN_IDENT);
 					if (accept(tokenizer, TOKEN_EQUAL)) {
-						parse_assign_expr(tokenizer, arena);
+						parse_assign_expr(tokenizer, pool);
 					}
 
 					if (!accept(tokenizer, TOKEN_COMMA)) {
@@ -558,24 +639,23 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 			get_token(tokenizer);
 			accept(tokenizer, TOKEN_IDENT);
 
-			type_specifier = new_ast_node(AST_TYPE_STRUCT, tokenizer->loc, arena);
+			type_specifier = ast_make_node(AST_TYPE_STRUCT, tokenizer->loc);
 			token = peek_token(tokenizer);
 			if (token.kind == TOKEN_IDENT) {
-				type_specifier->value.s = token.value;
+				type_specifier.value.s = token.value;
 			}
 
 			if (accept(tokenizer, TOKEN_LBRACE)) {
-				type_specifier->kind = AST_TYPE_STRUCT_DEF;
+				type_specifier.kind = AST_TYPE_STRUCT_DEF;
 
-				ast_node **ptr = &type_specifier->child[0];
+				ast_list params = {0};
 				// TODO: set correct flags for parsing struct members, i.e.
 				// declarations are allowed to have bitfields.
 				while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
-					*ptr = parse_decl(tokenizer, PARSE_STRUCT_MEMBER, arena);
-					if (*ptr != AST_NIL) {
+					ast_list decl = parse_decl(tokenizer, PARSE_STRUCT_MEMBER, pool);
+					if (decl.first.value != 0) {
 						// TODO: Walk to the end of the declaration
-						ASSERT((*ptr)->child[1] == AST_NIL);
-						ptr = &(*ptr)->child[1];
+						ast_concat(pool, &params, decl);
 					} else {
 						tokenizer->error = true;
 					}
@@ -615,55 +695,65 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	}
 
 	if (qualifiers & (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED)) {
-		type_specifier = new_ast_node(AST_TYPE_INT, tokenizer->loc, arena);
+		type_specifier = ast_make_node(AST_TYPE_INT, tokenizer->loc);
 	}
 
-	if (type_specifier == AST_NIL) {
+	ast_list list = {0};
+	if (type_specifier.kind == AST_INVALID) {
 		if (flags != 0) {
 			syntax_error(tokenizer, "Expected type after qualifiers");
 		}
 
-		return AST_NIL;
-	}
-
-	type_specifier->flags = qualifiers;
-	if (tokenizer->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_node *list = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-		ast_node *decl = new_ast_node(AST_DECL, tokenizer->loc, arena);
-		list->child[0] = decl;
-		decl->child[0] = type_specifier;
 		return list;
 	}
 
-	ast_node *list = NULL;
-	ast_node **ptr = &list;
+	type_specifier.flags = qualifiers;
+	if (tokenizer->peek[0].kind == TOKEN_SEMICOLON) {
+		ast_node decl = ast_make_node(AST_DECL, tokenizer->loc);
+		decl.child[0] = ast_push(pool, type_specifier);
+
+		ast_node list_node = ast_make_node(AST_DECL_LIST, tokenizer->loc);
+		list_node.child[0] = ast_push(pool, decl);
+		ast_append(pool, &list, list_node);
+		return list;
+	}
+
 	do {
-		*ptr = new_ast_node(AST_DECL_LIST, tokenizer->loc, arena);
-		ast_node *decl = NULL;
-		ast_node **base_ptr = parse_declarator(tokenizer, &decl, arena);
-		ASSERT(base_ptr);
-		if (base_ptr) {
-			*base_ptr = type_specifier;
-		}
+		ast_node node = ast_make_node(AST_DECL_LIST, tokenizer->loc);
+		ast_list decl = parse_declarator(tokenizer, pool);
+		ASSERT(decl.first.value != 0);
+		ASSERT(decl.last.value != 0);
+		ast_append(pool, &decl, type_specifier);
+
+		ast_node *decl_node = ast_get(pool, decl.first);
+		decl_node->child[0] = decl_node->child[1];
+		decl_node->child[1] = ast_id_nil;
 
 		if ((flags & PARSE_BITFIELD) && accept(tokenizer, TOKEN_COLON)) {
-			ast_node *type = decl->child[0];
-			ast_node *bitfield = new_ast_node(AST_TYPE_BITFIELD, tokenizer->loc, arena);
-			bitfield->child[0] = parse_assign_expr(tokenizer, arena);
-			bitfield->child[1] = type;
-			decl->child[0] = bitfield;
+			ast_id type = ast_get(pool, decl.first)->child[0];
+			ast_node bitfield = ast_make_node(AST_TYPE_BITFIELD, tokenizer->loc);
+			bitfield.child[0] = parse_assign_expr(tokenizer, pool);
+			bitfield.child[1] = type;
+
+			ast_id bitfield_id = ast_push(pool, bitfield);
+			ast_node *decl_node = ast_get(pool, decl.first);
+			decl_node->child[0] = bitfield_id;
 		}
 
 		if (!(flags & PARSE_NO_INITIALIZER) && accept(tokenizer, TOKEN_EQUAL)) {
+			ast_id initializer = {0};
 			if (tokenizer->peek[0].kind == TOKEN_LBRACE) {
-				decl->child[1] = parse_initializer(tokenizer, arena);
+				initializer = parse_initializer(tokenizer, pool);
 			} else {
-				decl->child[1] = parse_assign_expr(tokenizer, arena);
+				initializer = parse_assign_expr(tokenizer, pool);
 			}
+
+			ast_node *decl_node = ast_get(pool, decl.first);
+			decl_node->child[1] = initializer;
 		}
 
-		(*ptr)->child[0] = decl;
-		ptr = &(*ptr)->child[1];
+		node.child[0] = decl.first;
+		ast_append(pool, &list, node);
 	} while (!tokenizer->error
 	    && !(flags & PARSE_SINGLE_DECL)
 	    && accept(tokenizer, TOKEN_COMMA));
@@ -671,195 +761,220 @@ parse_decl(tokenizer *tokenizer, u32 flags, arena *arena)
 	return list;
 }
 
-static ast_node *parse_stmt(tokenizer *tokenizer, arena *arena);
+static ast_id parse_stmt(tokenizer *tokenizer, ast_pool *pool);
 
-static ast_node *
-parse_compound_stmt(tokenizer *tokenizer, arena *arena)
+static ast_id
+parse_compound_stmt(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *result = AST_NIL;
-	ast_node **ptr = &result;
+	ast_list list = {0};
 
 	expect(tokenizer, TOKEN_LBRACE);
 	while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
-		*ptr = new_ast_node(AST_STMT_LIST, tokenizer->loc, arena);
-		(*ptr)->child[0] = parse_stmt(tokenizer, arena);
-		ptr = &(*ptr)->child[1];
+		ast_node node = ast_make_node(AST_STMT_LIST, tokenizer->loc);
+		node.child[0] = parse_stmt(tokenizer, pool);
+		ast_append(pool, &list, node);
 	}
 
-	if (result == AST_NIL) {
-		result = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
+	if (list.first.value == 0) {
+		ast_node node = ast_make_node(AST_STMT_EMPTY, tokenizer->loc);
+		list.first = ast_push(pool, node);
 	}
 
-	return result;
+	return list.first;
 }
 
-static ast_node *
-parse_stmt(tokenizer *tokenizer, arena *arena)
+static ast_id
+parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *node = AST_NIL;
+	ast_id result;
 
 	token token = peek_token(tokenizer);
 	switch (token.kind) {
 	case TOKEN_BREAK:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_BREAK, tokenizer->loc, arena);
-		expect(tokenizer, TOKEN_SEMICOLON);
-		break;
+		{
+			get_token(tokenizer);
+			expect(tokenizer, TOKEN_SEMICOLON);
+
+			ast_node node = ast_make_node(AST_STMT_BREAK, tokenizer->loc);
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_CASE:
 		{
 			get_token(tokenizer);
-			node = new_ast_node(AST_STMT_CASE, tokenizer->loc, arena);
-			node->child[0] = parse_assign_expr(tokenizer, arena);
+			ast_node node = ast_make_node(AST_STMT_CASE, tokenizer->loc);
+			node.child[0] = parse_assign_expr(tokenizer, pool);
 			expect(tokenizer, TOKEN_COLON);
-			node->child[1] = parse_stmt(tokenizer, arena);
+			node.child[1] = parse_stmt(tokenizer, pool);
+			result = ast_push(pool, node);
 		} break;
 	case TOKEN_CONTINUE:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_CONTINUE, tokenizer->loc, arena);
-		expect(tokenizer, TOKEN_SEMICOLON);
-		break;
+		{
+			get_token(tokenizer);
+			ast_node node = ast_make_node(AST_STMT_CONTINUE, tokenizer->loc);
+			expect(tokenizer, TOKEN_SEMICOLON);
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_DEFAULT:
 		{
 			get_token(tokenizer);
 			expect(tokenizer, TOKEN_COLON);
-			node = new_ast_node(AST_STMT_DEFAULT, tokenizer->loc, arena);
-			node->child[0] = parse_stmt(tokenizer, arena);
+			ast_node node = ast_make_node(AST_STMT_DEFAULT, tokenizer->loc);
+			node.child[0] = parse_stmt(tokenizer, pool);
+			result = ast_push(pool, node);
 		} break;
 	case TOKEN_DO:
 		{
 			get_token(tokenizer);
-			ast_node *body = parse_stmt(tokenizer, arena);
+			ast_id body = parse_stmt(tokenizer, pool);
 			expect(tokenizer, TOKEN_WHILE);
-			ast_node *cond = parse_assign_expr(tokenizer, arena);
+			ast_id cond = parse_assign_expr(tokenizer, pool);
 			expect(tokenizer, TOKEN_SEMICOLON);
 
-			node = new_ast_node(AST_STMT_DO_WHILE, tokenizer->loc, arena);
-			node->child[0] = cond;
-			node->child[1] = body;
+			ast_node node = ast_make_node(AST_STMT_DO_WHILE, tokenizer->loc);
+			node.child[0] = cond;
+			node.child[1] = body;
+			result = ast_push(pool, node);
 		} break;
 	case TOKEN_FOR:
 		{
 			get_token(tokenizer);
 			expect(tokenizer, TOKEN_LPAREN);
 
-			ast_node *init = new_ast_node(AST_STMT_FOR_INIT, tokenizer->loc, arena);
+			ast_node init = ast_make_node(AST_STMT_FOR_INIT, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 				token = peek_token(tokenizer);
-				init->child[0] = parse_decl(tokenizer, 0, arena);
-				if (init == AST_NIL) {
-					init->child[0] = parse_assign_expr(tokenizer, arena);
+				init.child[0] = parse_decl(tokenizer, 0, pool).first;
+				if (init.child[0].value == 0) {
+					init.child[0] = parse_assign_expr(tokenizer, pool);
 				}
 
 				expect(tokenizer, TOKEN_SEMICOLON);
 			} else {
-				init->child[0] = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, tokenizer->loc);
+				init.child[0] = ast_push(pool, empty);
 			}
 
-			ast_node *cond = new_ast_node(AST_STMT_FOR_COND, tokenizer->loc, arena);
-			init->child[1] = cond;
+			ast_node cond = ast_make_node(AST_STMT_FOR_COND, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-				cond->child[0] = parse_assign_expr(tokenizer, arena);
+				cond.child[0] = parse_assign_expr(tokenizer, pool);
 				expect(tokenizer, TOKEN_SEMICOLON);
 			} else {
-				cond->child[0] = new_ast_node(AST_EXPR_INT, tokenizer->loc, arena);
-				cond->value.i = 1;
+				ast_node one = ast_make_node(AST_EXPR_INT, tokenizer->loc);
+				one.value.i = 1;
+				cond.child[0] = ast_push(pool, one);
 			}
 
-			ast_node *post = new_ast_node(AST_STMT_FOR_POST, tokenizer->loc, arena);
-			cond->child[1] = post;
+			ast_node post = ast_make_node(AST_STMT_FOR_POST, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
-				post->child[0] = parse_assign_expr(tokenizer, arena);
+				post.child[0] = parse_assign_expr(tokenizer, pool);
 				expect(tokenizer, TOKEN_RPAREN);
 			} else {
-				post->child[0] = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, tokenizer->loc);
+				post.child[0] = ast_push(pool, empty);
 			}
 
-			post->child[1] = parse_stmt(tokenizer, arena);
-			node = init;
+			post.child[1] = parse_stmt(tokenizer, pool);
+			cond.child[1] = ast_push(pool, post);
+			init.child[1] = ast_push(pool, cond);
+			result = ast_push(pool, init);
 		} break;
 	case TOKEN_GOTO:
 		{
 			get_token(tokenizer);
 			token = peek_token(tokenizer);
 			expect(tokenizer, TOKEN_IDENT);
-			node = new_ast_node(AST_STMT_GOTO, tokenizer->loc, arena);
-			node->value.s = token.value;
+			ast_node node = ast_make_node(AST_STMT_GOTO, tokenizer->loc);
+			node.value.s = token.value;
+			result = ast_push(pool, node);
 			expect(tokenizer, TOKEN_SEMICOLON);
 		} break;
 	case TOKEN_IF:
-		get_token(tokenizer);
-		expect(tokenizer, TOKEN_LPAREN);
-		ast_node *cond = parse_assign_expr(tokenizer, arena);
-		expect(tokenizer, TOKEN_RPAREN);
-		ast_node *if_else = new_ast_node(AST_STMT_IF_ELSE, tokenizer->loc, arena);
-		if_else->child[0] = parse_stmt(tokenizer, arena);
-		if (accept(tokenizer, TOKEN_ELSE)) {
-			if_else->child[1] = parse_stmt(tokenizer, arena);
-		}
+		{
+			get_token(tokenizer);
+			expect(tokenizer, TOKEN_LPAREN);
+			ast_id cond = parse_assign_expr(tokenizer, pool);
+			expect(tokenizer, TOKEN_RPAREN);
+			ast_node if_else = ast_make_node(AST_STMT_IF_ELSE, tokenizer->loc);
+			if_else.child[0] = parse_stmt(tokenizer, pool);
+			if (accept(tokenizer, TOKEN_ELSE)) {
+				if_else.child[1] = parse_stmt(tokenizer, pool);
+			} else {
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, tokenizer->loc);
+				if_else.child[1] = ast_push(pool, empty);
+			}
 
-		node = new_ast_node(AST_STMT_IF_COND, tokenizer->loc, arena);
-		node->child[0] = cond;
-		node->child[1] = if_else;
-		break;
+			ast_node node = ast_make_node(AST_STMT_IF_COND, tokenizer->loc);
+			node.child[0] = cond;
+			node.child[1] = ast_push(pool, if_else);
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_WHILE:
 		{
 			get_token(tokenizer);
 			expect(tokenizer, TOKEN_LPAREN);
-			ast_node *cond = parse_assign_expr(tokenizer, arena);
+			ast_id cond = parse_assign_expr(tokenizer, pool);
 			expect(tokenizer, TOKEN_RPAREN);
-			ast_node *body = parse_stmt(tokenizer, arena);
+			ast_id body = parse_stmt(tokenizer, pool);
 
-			node = new_ast_node(AST_STMT_WHILE, tokenizer->loc, arena);
-			node->child[0] = cond;
-			node->child[1] = body;
+			ast_node node = ast_make_node(AST_STMT_WHILE, tokenizer->loc);
+			node.child[0] = cond;
+			node.child[1] = body;
+			result = ast_push(pool, node);
 		} break;
 	case TOKEN_RETURN:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_RETURN, tokenizer->loc, arena);
-		if (!accept(tokenizer, TOKEN_SEMICOLON)) {
-			node->child[0] = parse_assign_expr(tokenizer, arena);
-			expect(tokenizer, TOKEN_SEMICOLON);
-		}
-		break;
+		{
+			get_token(tokenizer);
+			ast_node node = ast_make_node(AST_STMT_RETURN, tokenizer->loc);
+			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
+				node.child[0] = parse_assign_expr(tokenizer, pool);
+				expect(tokenizer, TOKEN_SEMICOLON);
+			}
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_PRINT:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_PRINT, tokenizer->loc, arena);
-		node->child[0] = parse_assign_expr(tokenizer, arena);
-		expect(tokenizer, TOKEN_SEMICOLON);
-		break;
+		{
+			get_token(tokenizer);
+			ast_node node = ast_make_node(AST_STMT_PRINT, tokenizer->loc);
+			node.child[0] = parse_assign_expr(tokenizer, pool);
+			expect(tokenizer, TOKEN_SEMICOLON);
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_SWITCH:
 		{
 			get_token(tokenizer);
-			node = new_ast_node(AST_STMT_SWITCH, tokenizer->loc, arena);
+			ast_node node = ast_make_node(AST_STMT_SWITCH, tokenizer->loc);
 			expect(tokenizer, TOKEN_LPAREN);
-			node->child[0] = parse_assign_expr(tokenizer, arena);
+			node.child[0] = parse_assign_expr(tokenizer, pool);
 			expect(tokenizer, TOKEN_RPAREN);
-			node->child[1] = parse_stmt(tokenizer, arena);
+			node.child[1] = parse_stmt(tokenizer, pool);
+			result = ast_push(pool, node);
 		} break;
 	case TOKEN_SEMICOLON:
-		get_token(tokenizer);
-		node = new_ast_node(AST_STMT_EMPTY, tokenizer->loc, arena);
-		break;
+		{
+			get_token(tokenizer);
+			ast_node node = ast_make_node(AST_STMT_EMPTY, tokenizer->loc);
+			result = ast_push(pool, node);
+		} break;
 	case TOKEN_LBRACE:
-		node = parse_compound_stmt(tokenizer, arena);
+		result = parse_compound_stmt(tokenizer, pool);
 		break;
 	default:
 		if (tokenizer->peek[0].kind == TOKEN_IDENT
 			&& tokenizer->peek[1].kind == TOKEN_COLON)
 		{
-			node = new_ast_node(AST_STMT_LABEL, tokenizer->loc, arena);
-			node->value.s = token.value;
+			ast_node node = ast_make_node(AST_STMT_LABEL, tokenizer->loc);
+			node.value.s = token.value;
 			get_token(tokenizer);
 			get_token(tokenizer);
-			node->child[0] = parse_stmt(tokenizer, arena);
+			node.child[0] = parse_stmt(tokenizer, pool);
+			result = ast_push(pool, node);
 		} else {
-			node = parse_decl(tokenizer, 0, arena);
-			if (node == AST_NIL) {
-				node = parse_assign_expr(tokenizer, arena);
+			result = parse_decl(tokenizer, 0, pool).first;
+			if (result.value == 0) {
+				result = parse_assign_expr(tokenizer, pool);
 			}
 			expect(tokenizer, TOKEN_SEMICOLON);
 		}
-		break;
 	}
 
 #if 0
@@ -872,25 +987,28 @@ parse_stmt(tokenizer *tokenizer, arena *arena)
 	}
 #endif
 
-	return node;
+	return result;
 }
 
-static ast_node *
-parse_external_decl(tokenizer *tokenizer, arena *arena)
+static ast_list
+parse_external_decl(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *list = parse_decl(tokenizer, PARSE_EXTERNAL_DECL, arena);
-	if (list == AST_NIL) {
+	ast_list list = parse_decl(tokenizer, PARSE_EXTERNAL_DECL, pool);
+	if (list.first.value == 0) {
 		return list;
 	}
 
-	ast_node *decl = list->child[0];
+	ast_node *decl_list = ast_get(pool, list.first);
+	ast_id decl_id = decl_list->child[0];
+	ast_node *decl = ast_get(pool, decl_id);
+	ast_node *type = ast_get(pool, decl->child[0]);
 	decl->kind = AST_EXTERN_DEF;
 
-	ast_node *type = decl->child[0];
-	if (list->child[1] == AST_NIL && type->kind == AST_TYPE_FUNC) {
+	if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
 		token token = peek_token(tokenizer);
 		if (token.kind == TOKEN_LBRACE) {
-			ast_node *body = parse_compound_stmt(tokenizer, arena);
+			ast_id body = parse_compound_stmt(tokenizer, pool);
+			ast_node *decl = ast_get(pool, decl_id);
 			decl->child[1] = body;
 		} else {
 			expect(tokenizer, TOKEN_SEMICOLON);
@@ -902,22 +1020,17 @@ parse_external_decl(tokenizer *tokenizer, arena *arena)
 	return list;
 }
 
-static ast_node *
-parse(tokenizer *tokenizer, arena *arena)
+static b32
+parse(tokenizer *tokenizer, ast_pool *pool)
 {
-	ast_node *root = AST_NIL;
-	ast_node **ptr = &root;
+	ast_list list = {0};
+
 	do {
-		*ptr = parse_external_decl(tokenizer, arena);
-		while (*ptr != AST_NIL) {
-			ASSERT((*ptr)->kind == AST_DECL_LIST);
-			ptr = &(*ptr)->child[1];
-		}
+		ast_list decls = parse_external_decl(tokenizer, pool);
+		ast_concat(pool, &list, decls);
 	} while (!tokenizer->error && !accept(tokenizer, TOKEN_EOF));
 
-	if (tokenizer->error) {
-		root->kind = AST_INVALID;
-	}
-
-	return root;
+	pool->root = list.first;
+	ast_shrink(pool);
+	return tokenizer->error;
 }

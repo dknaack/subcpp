@@ -108,13 +108,18 @@ main(int argc, char *argv[])
 
 	b32 error = false;
 	arena *arena = new_arena(1000 * 1000);
+	ast_pool pool = {0};
 	tokenizer tokenizer = tokenize(argv[1], arena);
-	ast_node *root = parse(&tokenizer, arena);
-	symbol_table symbol_table = analyze(root, arena, &error);
+	parse(&tokenizer, &pool);
+	symbol_table symbol_table = analyze(&pool, arena, &error);
 
-	ir_program ir_program = translate(root, &symbol_table, arena);
-	optimize(ir_program, arena);
+	if (!error) {
+		ir_program ir_program = translate(&pool, &symbol_table, arena);
+		print_ir_program(ir_program);
+		optimize(ir_program, arena);
+	}
 
+#if 0
 	machine_program machine_program = x86_select_instructions(ir_program, arena);
 	machine_program.symtab = &symbol_table;
 	allocation_info *info = allocate_registers(machine_program, arena);
@@ -124,7 +129,8 @@ main(int argc, char *argv[])
 
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", output);
+#endif
 
 	free(arena);
-	return error;
+	return 0;
 }

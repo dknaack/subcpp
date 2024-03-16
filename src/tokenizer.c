@@ -212,6 +212,14 @@ get_raw_token(tokenizer *tokenizer)
 				advance(tokenizer);
 			}
 
+			if (tokenizer->at[1] == '.') {
+				advance(tokenizer);
+				token.kind = TOKEN_LITERAL_FLOAT;
+				while (is_digit(tokenizer->at[1])) {
+					advance(tokenizer);
+				}
+			}
+
 			while (is_ident(tokenizer->at[1])) {
 				advance(tokenizer);
 			}
