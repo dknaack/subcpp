@@ -117,19 +117,17 @@ main(int argc, char *argv[])
 		ir_program ir_program = translate(&pool, &symbol_table, arena);
 		print_ir_program(ir_program);
 		optimize(ir_program, arena);
+
+		machine_program machine_program = x86_select_instructions(ir_program, arena);
+		machine_program.symtab = &symbol_table;
+		allocation_info *info = allocate_registers(machine_program, arena);
+		stream out = stream_open("/tmp/out.s", 1024, arena);
+		x86_generate(&out, machine_program, info);
+		stream_close(&out);
+
+		run_assembler("/tmp/out.s", "/tmp/out.o");
+		run_linker("/tmp/out.o", output);
 	}
-
-#if 0
-	machine_program machine_program = x86_select_instructions(ir_program, arena);
-	machine_program.symtab = &symbol_table;
-	allocation_info *info = allocate_registers(machine_program, arena);
-	stream out = stream_open("/tmp/out.s", 1024, arena);
-	x86_generate(&out, machine_program, info);
-	stream_close(&out);
-
-	run_assembler("/tmp/out.s", "/tmp/out.o");
-	run_linker("/tmp/out.o", output);
-#endif
 
 	free(arena);
 	return 0;

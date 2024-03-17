@@ -550,11 +550,17 @@ add_global_symbols(ast_pool *pool, ast_id node_id, symbol_table symtab)
 		sym->name = node->value.s;
 		sym->type = node->type;
 		ASSERT(node->type);
+
+		sym->linkage = LINK_DEFAULT;
+		if (node->flags & AST_EXTERN) {
+			sym->linkage = LINK_EXTERN;
+		} else if (node->flags & AST_STATIC) {
+			sym->linkage = LINK_STATIC;
+		}
+
 		sym->is_global = true;
 		sym->is_function = (node->type->kind == TYPE_FUNCTION);
-		if (node->child[1].value != 0) {
-			sym->definition = ast_get(pool, node->child[1]);
-		}
+		sym->definition = node->child[1];
 	}
 }
 

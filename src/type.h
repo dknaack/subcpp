@@ -4,6 +4,12 @@ typedef struct member member;
 typedef struct type type;
 typedef struct ast_node ast_node;
 
+typedef enum {
+	LINK_DEFAULT,
+	LINK_EXTERN,
+	LINK_STATIC,
+} linkage;
+
 typedef struct symbol_id {
 	i32 value;
 } symbol_id;
@@ -11,7 +17,8 @@ typedef struct symbol_id {
 typedef struct {
 	str name;
 	type *type;
-	ast_node *definition;
+	ast_id definition;
+	linkage linkage;
 	b8 is_global;
 	b8 is_function;
 } symbol;

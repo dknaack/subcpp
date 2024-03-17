@@ -72,10 +72,6 @@ typedef enum {
 } ast_node_flags;
 
 typedef struct {
-	i32 value;
-} ast_id;
-
-typedef struct {
 	ast_id first, last;
 } ast_list;
 

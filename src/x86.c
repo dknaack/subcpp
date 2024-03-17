@@ -720,18 +720,25 @@ static void
 x86_generate(stream *out, machine_program program, allocation_info *info)
 {
 	stream_print(out,
-		"global main\n"
 		"extern printf\n\n"
 		"section .data\n"
 		"fmt: db \"%d\", 0x0A, 0\n\n");
 
-	for (u32 i = 0; i < program.function_count; i++) {
-		stream_print(out, "global ");
-		stream_prints(out, program.functions[i].name);
-		stream_print(out, "\n");
+	for (u32 i = 0; i < program.symtab->count; i++) {
+		symbol *sym = &program.symtab->symbols[i];
+		if (sym->is_function) {
+			if (sym->linkage == LINK_EXTERN) {
+				stream_print(out, "extern ");
+			} else if (sym->linkage != LINK_STATIC) {
+				stream_print(out, "global ");
+			}
+
+			stream_prints(out, sym->name);
+			stream_print(out, "\n");
+		}
 	}
 
-	stream_print(out, "section .bss\n");
+	stream_print(out, "\nsection .bss\n");
 	for (u32 i = 0; i < program.symtab->count; i++) {
 		symbol *sym = &program.symtab->symbols[i];
 		if (sym->is_global && !sym->is_function) {

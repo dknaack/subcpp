@@ -726,6 +726,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 		ast_append(pool, &decl, type_specifier);
 
 		ast_node *decl_node = ast_get(pool, decl.first);
+		decl_node->flags |= type_specifier.flags;
 		decl_node->child[0] = decl_node->child[1];
 		decl_node->child[1] = ast_id_nil;
 

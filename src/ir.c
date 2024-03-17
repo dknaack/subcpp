@@ -155,7 +155,7 @@ get_register(ir_context *ctx, ast_pool *pool, ast_id node_id)
 			result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
 			ctx->symbol_registers[node->symbol_id.value] = symbol_id.value;
 
-			if (node->type->kind == TYPE_FUNCTION) {
+			if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
 				ast_id body = node->child[1];
 				ast_node *type = ast_get(pool, node->child[0]);
 				ASSERT(type->kind == AST_TYPE_FUNC);

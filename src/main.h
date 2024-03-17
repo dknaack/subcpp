@@ -35,6 +35,10 @@ typedef struct str {
 	isize length;
 } str;
 
+typedef struct {
+	i32 value;
+} ast_id;
+
 #include "memory.h"
 #include "util.h"
 #include "tokenizer.h"
