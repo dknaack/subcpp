@@ -683,7 +683,7 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		stream_print(out, "]");
 		break;
 	case MOP_LABEL:
-		stream_print(out, "L");
+		stream_print(out, "L#");
 		stream_printu(out, operand.value);
 		break;
 	case MOP_MREG:
@@ -803,7 +803,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					"\tmov rdi, fmt\n"
 					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
-				stream_print(out, "L");
+				stream_print(out, "L#");
 				x86_emit_operand(out, operands[0], program.symtab);
 				stream_print(out, ":\n");
 			} else {
