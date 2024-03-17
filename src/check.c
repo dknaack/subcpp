@@ -132,7 +132,7 @@ merge_identifiers(ast_pool *pool, ast_id node_id, scope *s, arena *perm, b32 *er
 	// definitions. For function declarations the parameters should be only
 	// accessible from the parameters themselves. In a definition, the
 	// parameters should be accessible from within the function.
-	if (node->kind == AST_STMT_LIST || node->kind == AST_STMT_FOR_INIT) {
+	if (node->kind == AST_STMT_LIST || node->kind == AST_STMT_FOR1) {
 		orig = s;
 		temp = *perm;
 		perm = &temp;
@@ -206,11 +206,11 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 	case AST_STMT_DEFAULT:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_EMPTY:
-	case AST_STMT_FOR_COND:
-	case AST_STMT_FOR_POST:
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
 	case AST_STMT_GOTO:
-	case AST_STMT_IF_COND:
-	case AST_STMT_IF_ELSE:
+	case AST_STMT_IF1:
+	case AST_STMT_IF2:
 	case AST_STMT_LABEL:
 	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:
@@ -218,13 +218,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 	case AST_STMT_WHILE:
 		// NOTE: Types are already checked above
 		break;
-	case AST_STMT_FOR_INIT:
+	case AST_STMT_FOR1:
 		{
 			ast_node *cond = ast_get(pool, node->child[1]);
 			ast_node *post = ast_get(pool, cond->child[1]);
 			ast_node *body = ast_get(pool, post->child[1]);
-			ASSERT(cond->kind == AST_STMT_FOR_COND);
-			ASSERT(post->kind == AST_STMT_FOR_POST);
+			ASSERT(cond->kind == AST_STMT_FOR2);
+			ASSERT(post->kind == AST_STMT_FOR3);
 			ASSERT(is_statement(body->kind));
 		} break;
 	case AST_INIT_LIST:

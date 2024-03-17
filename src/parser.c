@@ -841,7 +841,7 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 			get_token(tokenizer);
 			expect(tokenizer, TOKEN_LPAREN);
 
-			ast_node init = ast_make_node(AST_STMT_FOR_INIT, tokenizer->loc);
+			ast_node init = ast_make_node(AST_STMT_FOR1, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 				token = peek_token(tokenizer);
 				init.child[0] = parse_decl(tokenizer, 0, pool).first;
@@ -855,7 +855,7 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 				init.child[0] = ast_push(pool, empty);
 			}
 
-			ast_node cond = ast_make_node(AST_STMT_FOR_COND, tokenizer->loc);
+			ast_node cond = ast_make_node(AST_STMT_FOR2, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_SEMICOLON)) {
 				cond.child[0] = parse_assign_expr(tokenizer, pool);
 				expect(tokenizer, TOKEN_SEMICOLON);
@@ -865,7 +865,7 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 				cond.child[0] = ast_push(pool, one);
 			}
 
-			ast_node post = ast_make_node(AST_STMT_FOR_POST, tokenizer->loc);
+			ast_node post = ast_make_node(AST_STMT_FOR3, tokenizer->loc);
 			if (!accept(tokenizer, TOKEN_RPAREN)) {
 				post.child[0] = parse_assign_expr(tokenizer, pool);
 				expect(tokenizer, TOKEN_RPAREN);
@@ -895,7 +895,7 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 			expect(tokenizer, TOKEN_LPAREN);
 			ast_id cond = parse_assign_expr(tokenizer, pool);
 			expect(tokenizer, TOKEN_RPAREN);
-			ast_node if_else = ast_make_node(AST_STMT_IF_ELSE, tokenizer->loc);
+			ast_node if_else = ast_make_node(AST_STMT_IF2, tokenizer->loc);
 			if_else.child[0] = parse_stmt(tokenizer, pool);
 			if (accept(tokenizer, TOKEN_ELSE)) {
 				if_else.child[1] = parse_stmt(tokenizer, pool);
@@ -904,7 +904,7 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 				if_else.child[1] = ast_push(pool, empty);
 			}
 
-			ast_node node = ast_make_node(AST_STMT_IF_COND, tokenizer->loc);
+			ast_node node = ast_make_node(AST_STMT_IF1, tokenizer->loc);
 			node.child[0] = cond;
 			node.child[1] = ast_push(pool, if_else);
 			result = ast_push(pool, node);

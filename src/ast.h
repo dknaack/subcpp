@@ -29,11 +29,11 @@ typedef enum {
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
 	AST_STMT_GOTO,     // {}
-	AST_STMT_FOR_INIT, // {init, cond}
-	AST_STMT_FOR_COND, // {cond, post}
-	AST_STMT_FOR_POST, // {post, body}
-	AST_STMT_IF_COND,  // {cond, if_else}
-	AST_STMT_IF_ELSE,  // {if, else?}
+	AST_STMT_FOR1,     // {init, cond}
+	AST_STMT_FOR2,     // {cond, post}
+	AST_STMT_FOR3,     // {post, body}
+	AST_STMT_IF1,      // {cond, if_else}
+	AST_STMT_IF2,      // {if, else?}
 	AST_STMT_LABEL,    // {stmt}
 	AST_STMT_LIST,     // {stmt, stmt_list}
 	AST_STMT_PRINT,    // {expr}
@@ -109,11 +109,11 @@ is_statement(ast_node_kind node_kind)
 	case AST_STMT_CONTINUE:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_EMPTY:
-	case AST_STMT_FOR_INIT:
-	case AST_STMT_FOR_COND:
-	case AST_STMT_FOR_POST:
-	case AST_STMT_IF_COND:
-	case AST_STMT_IF_ELSE:
+	case AST_STMT_FOR1:
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
+	case AST_STMT_IF1:
+	case AST_STMT_IF2:
 	case AST_STMT_LIST:
 	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:

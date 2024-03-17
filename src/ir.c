@@ -239,9 +239,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	switch (node->kind) {
 	case AST_INVALID:
 	case AST_INIT_LIST: // Should be handled by get_register
-	case AST_STMT_IF_ELSE:
-	case AST_STMT_FOR_COND:
-	case AST_STMT_FOR_POST:
+	case AST_STMT_IF2:
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
 	case AST_EXPR_LIST:
 		{
 			ASSERT(!"Invalid node");
@@ -576,7 +576,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_EMPTY:
 		break;
-	case AST_STMT_FOR_INIT:
+	case AST_STMT_FOR1:
 		{
 			ir_context new_ctx = ir_push_context(ctx);
 			ctx = &new_ctx;
@@ -606,7 +606,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			ASSERT(!"TODO");
 		} break;
-	case AST_STMT_IF_COND:
+	case AST_STMT_IF1:
 		{
 			u32 endif_label = new_label(ctx);
 			u32 else_label = new_label(ctx);
