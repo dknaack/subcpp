@@ -206,15 +206,14 @@ get_interval_end(bit_matrix live_matrix, u32 reg)
 
 // TODO: replace with counting-sort?
 static u32 *
-sort_intervals_by_start(live_interval *intervals,
-    u32 interval_count, arena *arena)
+sort_intervals_by_start(live_interval *intervals, u32 count, arena *arena)
 {
 	u32 *index = ALLOC(arena, interval_count, u32);
-	for (u32 i = 0; i < interval_count; i++) {
+	for (u32 i = 0; i < count; i++) {
 		index[i] = i;
 	}
 
-	for (u32 i = 1; i < interval_count; i++) {
+	for (u32 i = 1; i < count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[index[j - 1]].start > intervals[index[j]].start) {
 			u32 tmp = index[j];
@@ -248,7 +247,7 @@ typedef struct {
 } allocation_info;
 
 static allocation_info
-allocate_function_registers(machine_function function, void *code,
+allocate_function_registers(machine_function func, void *code,
 	machine_register_info reg_info, arena *arena)
 {
 	allocation_info info = {0};
@@ -262,31 +261,32 @@ allocate_function_registers(machine_function function, void *code,
 	}
 
 	// Calculate the live intervals of the virtual registers
-	bit_matrix live_matrix = get_live_matrix(code, function, reg_info, arena);
-	u32 reg_count = reg_info.register_count + function.register_count;
+	bit_matrix live_matrix = get_live_matrix(code, func, reg_info, arena);
+	u32 reg_count = reg_info.register_count + func.register_count;
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (u32 i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	u32 *sorted_by_start = sort_intervals_by_start(intervals, function.register_count, arena);
-	machine_operand *mreg_map = ALLOC(arena, function.register_count, machine_operand);
+	u32 *sorted = sort_intervals_by_start(intervals, func.register_count, arena);
+	machine_operand *mreg_map = ALLOC(arena, func.register_count, machine_operand);
 
-	/* NOTE: the register pool is only valid after active_count. In the
-	 * active part of the array, there be multiple registers with the same
-	 * value. */
+	/*
+	 * NOTE: the register pool is only valid after active_count. In the active
+	 * part of the array, there can be multiple registers with the same value.
+	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	for (u32 i = 0; i < function.register_count; i++) {
-		u32 curr_reg = sorted_by_start[i];
+	for (u32 i = 0; i < func.register_count; i++) {
+		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
 		b32 is_empty = (curr_start > curr_end);
 
 		u32 active_end = active_start + active_count;
 		for (u32 j = active_start; j < active_end; j++) {
-			u32 inactive_reg = sorted_by_start[j];
+			u32 inactive_reg = sorted[j];
 			u32 end = intervals[inactive_reg].end;
 			b32 is_active = (end >= curr_start);
 			if (is_active) {
@@ -295,7 +295,7 @@ allocate_function_registers(machine_function function, void *code,
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg >= function.register_count);
+			b32 is_mreg = (inactive_reg >= func.register_count);
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
@@ -306,11 +306,11 @@ allocate_function_registers(machine_function function, void *code,
 				ASSERT(pool[active_count] < reg_info.register_count);
 			}
 
-			sorted_by_start[j] = sorted_by_start[active_start];
-			sorted_by_start[active_start++] = inactive_reg;
+			sorted[j] = sorted[active_start];
+			sorted[active_start++] = inactive_reg;
 		}
 
-		ASSERT(curr_reg < function.register_count);
+		ASSERT(curr_reg < func.register_count);
 		b32 should_spill = (active_count >= reg_info.register_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
@@ -328,11 +328,11 @@ allocate_function_registers(machine_function function, void *code,
 		}
 
 		if (should_spill) {
-			u32 spill = sorted_by_start[active_start];
+			u32 spill = sorted[active_start];
 			u32 spill_index = active_start;
 			u32 end = 0;
 			for (u32 j = active_start + 1; j < active_end; j++) {
-				u32 reg = sorted_by_start[j];
+				u32 reg = sorted[j];
 				if (intervals[reg].end > end) {
 					end = intervals[reg].end;
 					spill_index = j;
@@ -348,8 +348,8 @@ allocate_function_registers(machine_function function, void *code,
 				// we cannot use the register here.
 				mreg_map[curr_reg] = mreg_map[spill];
 				mreg_map[spill] = make_spill(8 * info.spill_count++);
-				sorted_by_start[spill_index] = sorted_by_start[active_start];
-				sorted_by_start[active_start] = spill;
+				sorted[spill_index] = sorted[active_start];
+				sorted[active_start] = spill;
 				active_start++;
 			} else {
 				mreg_map[curr_reg] = make_spill(8 * info.spill_count++);
@@ -363,15 +363,15 @@ allocate_function_registers(machine_function function, void *code,
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
-	for (u32 i = 0; i < function.instr_count; i++) {
-		machine_instr *instr = get_instr(code, function.instr_offsets, i);
+	for (u32 i = 0; i < func.instr_count; i++) {
+		machine_instr *instr = get_instr(code, func.instr_offsets, i);
 		u32 operand_count = instr->operand_count;
 
 		machine_operand *operands = (machine_operand *)(instr + 1);
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
-				ASSERT(reg < function.register_count);
+				ASSERT(reg < func.register_count);
 				ASSERT(mreg_map[reg].kind != MOP_INVALID);
 				operands[i].kind = mreg_map[reg].kind;
 				operands[i].value = mreg_map[reg].value;
