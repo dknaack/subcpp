@@ -7,8 +7,8 @@ get_ir_type_str(ir_type type)
 	case IR_I16:  return "i16";
 	case IR_I32:  return "i32";
 	case IR_I64:  return "i64";
-	case IR_F32:  return "i32";
-	case IR_F64:  return "i64";
+	case IR_F32:  return "f32";
+	case IR_F64:  return "f64";
 	}
 
 	return "(invalid)";
