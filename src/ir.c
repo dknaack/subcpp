@@ -410,7 +410,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_FLOAT:
 		{
-			ASSERT(!"TODO");
+			union { float f; i32 i; } value;
+			value.f = node->value.f;
+			result = ir_emit1_size(ctx, 4, IR_FLOAT, value.i);
 		} break;
 	case AST_EXPR_INT:
 		{

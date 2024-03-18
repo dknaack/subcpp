@@ -493,7 +493,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_FLOAT:
 		{
-			// TODO: Add floating-point constant to data section of executable.
+			x86_select2(out, X86_MOVSS, dst, make_float(op0));
 		} break;
 	case IR_FLOAD:
 		{
@@ -555,6 +555,26 @@ x86_select_instructions(ir_program program, arena *arena)
 		mach_func->stack_size = ir_func->stack_size;
 		mach_func->register_count = ir_func->instr_count;
 		u32 first_instr_offset = out.size;
+		ir_instr *instr = program.instrs + ir_func->instr_index;
+
+		i32 float_count = 0;
+		for (u32 i = 0; i < ir_func->instr_count; i++) {
+			if (instr[i].opcode == IR_FLOAT) {
+				float_count++;
+			}
+		}
+
+		f32 *floats = alloc(arena, 1, sizeof(*floats));
+		i32 j = 0;
+		for (u32 i = 0; i < ir_func->instr_count; i++) {
+			if (instr[i].opcode == IR_FLOAT) {
+				floats[j] = instr[i].op0;
+				instr[i].op0 = j++;
+			}
+		}
+
+		mach_func->float_count = float_count;
+		mach_func->floats = (i32 *)floats;
 
 		for (u32 i = 0; i < ir_func->parameter_count; i++) {
 			// TODO: Set the correct size of the parameters
@@ -582,7 +602,6 @@ x86_select_instructions(ir_program program, arena *arena)
 			}
 		}
 
-		ir_instr *instr = program.instrs + ir_func->instr_index;
 		for (u32 i = ir_func->parameter_count; i < ir_func->instr_count; i++) {
 			machine_operand dst = make_vreg(i, instr[i].size);
 			if (instr[i].opcode == IR_MOV || instr[i].opcode == IR_STORE) {
@@ -702,6 +721,10 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 	case MOP_IMMEDIATE:
 		stream_printu(out, operand.value);
 		break;
+	case MOP_FLOAT:
+		stream_print(out, "float#");
+		stream_printu(out, operand.value);
+		break;
 	case MOP_FUNC:
 		stream_prints(out, symtab->symbols[operand.value].name);
 		break;
@@ -722,7 +745,20 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 	stream_print(out,
 		"extern printf\n\n"
 		"section .data\n"
-		"fmt: db \"%d\", 0x0A, 0\n\n");
+		"fmt: db \"%d\", 0x0A, 0\n");
+
+	for (u32 i = 0; i < program.function_count; i++) {
+		machine_function *function = &program.functions[i];
+		for (i32 j = 0; j < function->float_count; j++) {
+			stream_print(out, "float#");
+			stream_printu(out, j);
+			stream_print(out, ": dd ");
+			stream_printu(out, function->floats[j]);
+			stream_print(out, "\n");
+		}
+	}
+
+	stream_print(out, "\n");
 
 	for (u32 i = 0; i < program.symtab->count; i++) {
 		symbol *sym = &program.symtab->symbols[i];
