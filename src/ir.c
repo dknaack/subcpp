@@ -18,7 +18,6 @@ ir_emit2_type(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(type <= IR_F64);
 	ASSERT(ctx->program->instr_count <= ctx->max_instr_count);
-	ASSERT(opcode != IR_STORE);
 	ir_instr *instr = &ctx->program->instrs[ctx->program->instr_count++];
 	instr->opcode = opcode;
 	instr->type = type;
