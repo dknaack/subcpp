@@ -1,114 +1,131 @@
+static char *
+get_ir_type_str(ir_type type)
+{
+	switch (type) {
+	case IR_VOID: return "void";
+	case IR_I8:   return "i8";
+	case IR_I16:  return "i16";
+	case IR_I32:  return "i32";
+	case IR_I64:  return "i64";
+	case IR_F32:  return "i32";
+	case IR_F64:  return "i64";
+	}
+
+	return "(invalid)";
+}
+
 static void
 print_ir_instr(ir_instr instr, u32 i)
 {
 	u32 dst = i;
 	u32 op0 = instr.op0;
 	u32 op1 = instr.op1;
+	char *type = get_ir_type_str(instr.type);
 	switch (instr.opcode) {
 	case IR_NOP:
 		printf("\tnop\n");
 		break;
 	case IR_GLOBAL:
-		printf("\t%%%d = global %d\n", dst, op0);
+		printf("\t%%%d =%s global %d\n", dst, type, op0);
 		break;
 	case IR_FVAR:
-		printf("\t%%%d = new freg\n", dst);
+		printf("\t%%%d =%s new freg\n", dst, type);
 		break;
 	case IR_VAR:
-		printf("\t%%%d = new vreg\n", dst);
+		printf("\t%%%d =%s new vreg\n", dst, type);
 		break;
 	case IR_INT:
-		printf("\t%%%d = %d\n", dst, op0);
+		printf("\t%%%d =%s %d\n", dst, type, op0);
 		break;
 	case IR_COPY:
-		printf("\t%%%d = %%%d (copy)\n", dst, op0);
+		printf("\t%%%d =%s %%%d (copy)\n", dst, type, op0);
 		break;
 	case IR_FMOV:
-		printf("\t%%%d = %%%d (fmov)\n", op0, op1);
+		printf("\t%%%d =%s %%%d (fmov)\n", op0, type, op1);
 		break;
 	case IR_MOV:
-		printf("\t%%%d = %%%d (mov)\n", op0, op1);
+		printf("\t%%%d =%s %%%d (mov)\n", op0, type, op1);
 		break;
 	case IR_FLOAD:
-		printf("\t%%%d = fload %%%d\n", dst, op0);
+		printf("\t%%%d =%s fload %%%d\n", dst, type, op0);
 		break;
 	case IR_LOAD:
-		printf("\t%%%d = load %%%d\n", dst, op0);
+		printf("\t%%%d =%s load %%%d\n", dst, type, op0);
 		break;
 	case IR_FSTORE:
-		printf("\tfstore %%%d, %%%d\n", op0, op1);
+		printf("\tfstore %s %%%d, %%%d\n", type, op0, op1);
 		break;
 	case IR_STORE:
-		printf("\tstore %%%d, %%%d\n", op0, op1);
+		printf("\tstore %s %%%d, %%%d\n", type, op0, op1);
 		break;
 	case IR_FADD:
-		printf("\t%%%d = %%%d +. %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d +. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_ADD:
-		printf("\t%%%d = %%%d + %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d + %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_AND:
-		printf("\t%%%d = %%%d & %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d & %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_FSUB:
-		printf("\t%%%d = %%%d -. %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d -. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_SUB:
-		printf("\t%%%d = %%%d - %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d - %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_FMUL:
-		printf("\t%%%d = %%%d *. %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d *. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_MUL:
-		printf("\t%%%d = %%%d * %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d * %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_FDIV:
-		printf("\t%%%d = %%%d /. %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d /. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_DIV:
-		printf("\t%%%d = %%%d / %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d / %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_MOD:
-		printf("\t%%%d = %%%d %% %%%d\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d %% %%%d\n", dst, type, op0, op1);
 		break;
 	case IR_EQL:
-		printf("\t%%%d = %%%d == %%%d\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d == %%%d\n", dst, type, op0, op1);
 		break;
 	case IR_LEQ:
-		printf("\t%%%d = %%%d <= %%%d\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d <= %%%d\n", dst, type, op0, op1);
 		break;
 	case IR_GEQ:
-		printf("\t%%%d = %%%d >= %%%d\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d >= %%%d\n", dst, type, op0, op1);
 		break;
 	case IR_LT:
-		printf("\t%%%d = %%%d < %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d < %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_GT:
-		printf("\t%%%d = %%%d > %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d > %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_LEQU:
-		printf("\t%%%d = %%%d <= %%%d (unsigned)\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d <= %%%d (unsigned)\n", dst, type, op0, op1);
 		break;
 	case IR_GEQU:
-		printf("\t%%%d = %%%d >= %%%d (unsigned)\n", dst, op0, op1);
+		printf("\t%%%d =%s %%%d >= %%%d (unsigned)\n", dst, type, op0, op1);
 		break;
 	case IR_LTU:
-		printf("\t%%%d = %%%d < %%%d (unsigned)\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d < %%%d (unsigned)\n",  dst, type, op0, op1);
 		break;
 	case IR_GTU:
-		printf("\t%%%d = %%%d > %%%d (unsigned)\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d > %%%d (unsigned)\n",  dst, type, op0, op1);
 		break;
 	case IR_OR:
-		printf("\t%%%d = %%%d | %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d | %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_SHL:
-		printf("\t%%%d = %%%d << %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d << %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_SHR:
-		printf("\t%%%d = %%%d >> %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d >> %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_XOR:
-		printf("\t%%%d = %%%d ^ %%%d\n",  dst, op0, op1);
+		printf("\t%%%d =%s %%%d ^ %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_JMP:
 		printf("\tgoto L%d\n", op0);
@@ -123,16 +140,16 @@ print_ir_instr(ir_instr instr, u32 i)
 		printf("\tret %%%d\n", op0);
 		break;
 	case IR_CALL:
-		printf("\t%%%d = call L%d, %d\n", dst, op0, op1);
+		printf("\t%%%d =%s call L%d, %d\n", dst, type, op0, op1);
 		break;
 	case IR_PRINT:
-		printf("\tprint %%%d\n", op0);
+		printf("\tprint %s %%%d\n", type, op0);
 		break;
 	case IR_PARAM:
-		printf("\tparam %%%d\n", op0);
+		printf("\tparam %s %%%d\n", type, op0);
 		break;
 	case IR_ALLOC:
-		printf("\t%%%d = alloc %d, %d\n", dst, op0, op1);
+		printf("\t%%%d =%s alloc %d, %d\n", dst, type, op0, op1);
 		break;
 	case IR_LABEL:
 		printf("L%d:\n", op0);
@@ -141,7 +158,7 @@ print_ir_instr(ir_instr instr, u32 i)
 		{
 			f32 operand;
 			memcpy(&operand, &op0, sizeof(f32));
-			printf("\t%%%d = %f\n", dst, operand);
+			printf("\t%%%d =%s %f\n", dst, type, operand);
 		} break;
 	}
 }
