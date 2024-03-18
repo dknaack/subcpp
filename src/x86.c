@@ -542,9 +542,9 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.functions = ALLOC(arena, program.function_count, machine_function);
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
-	out.mreg_count = X86_REGISTER_COUNT;
-	out.temp_mregs = x86_temp_regs;
-	out.temp_mreg_count = LENGTH(x86_temp_regs);
+	out.register_info.register_count = X86_REGISTER_COUNT;
+	out.register_info.volatile_registers = x86_temp_regs;
+	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
 
 	machine_function *mach_func = out.functions;
 	for (ir_function *ir_func = program.function_list; ir_func; ir_func = ir_func->next) {

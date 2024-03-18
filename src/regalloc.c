@@ -95,12 +95,12 @@ print_matrix(bit_matrix matrix)
 }
 
 static bit_matrix
-get_live_matrix(void *code, machine_function func, u32 mreg_count,
-	u32 *temp_mregs, u32 temp_mreg_count, arena *arena)
+get_live_matrix(void *code, machine_function func,
+	machine_register_info reg_info, arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a b32ean matrix.
 	u32 instr_count = func.instr_count;
-	u32 register_count = func.register_count + mreg_count;
+	u32 register_count = func.register_count + reg_info.register_count;
 	bit_matrix live_matrix = bit_matrix_init(register_count, instr_count, arena);
 	arena_temp temp = arena_temp_begin(arena);
 	bit_matrix prev_live_matrix = bit_matrix_init(register_count, instr_count, arena);
@@ -131,8 +131,8 @@ get_live_matrix(void *code, machine_function func, u32 mreg_count,
 					continue;
 				}
 
-				for (u32 k = 0; k < temp_mreg_count; k++) {
-					u32 mreg = temp_mregs[k];
+				for (u32 k = 0; k < reg_info.volatile_register_count; k++) {
+					u32 mreg = reg_info.volatile_registers[k];
 					set_bit(live_matrix, i, live_matrix.width - 1 - mreg);
 				}
 			}
@@ -160,6 +160,7 @@ get_live_matrix(void *code, machine_function func, u32 mreg_count,
 				case MOP_SPILL:
 				case MOP_LABEL:
 				case MOP_IMMEDIATE:
+				case MOP_FLOAT:
 				case MOP_FUNC:
 				case MOP_GLOBAL:
 					break;
@@ -248,16 +249,21 @@ typedef struct {
 
 static allocation_info
 allocate_function_registers(machine_function function, void *code,
-	u32 mreg_count, u32 *temp_mregs, u32 temp_mreg_count, arena *arena)
+	machine_register_info reg_info, arena *arena)
 {
 	allocation_info info = {0};
-	info.used = ALLOC(arena, mreg_count, b32);
+	info.used = ALLOC(arena, reg_info.register_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
-	bit_matrix live_matrix = get_live_matrix(code, function,
-		mreg_count, temp_mregs, temp_mreg_count, arena);
+	// Initialize the register pool
+	u32 *pool = ALLOC(arena, reg_info.register_count, u32);
+	for (u32 i = 0; i < reg_info.register_count; i++) {
+		pool[i] = i;
+	}
 
-	u32 reg_count = mreg_count + function.register_count;
+	// Calculate the live intervals of the virtual registers
+	bit_matrix live_matrix = get_live_matrix(code, function, reg_info, arena);
+	u32 reg_count = reg_info.register_count + function.register_count;
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (u32 i = 0; i < reg_count; i++) {
 		intervals[i].start = get_interval_start(live_matrix, i);
@@ -265,16 +271,7 @@ allocate_function_registers(machine_function function, void *code,
 	}
 
 	u32 *sorted_by_start = sort_intervals_by_start(intervals, function.register_count, arena);
-
-	u32 *register_pool = ALLOC(arena, mreg_count, u32);
-	for (u32 i = 0; i < mreg_count; i++) {
-		register_pool[i] = i;
-	}
-
-	machine_operand *vreg = ALLOC(arena, reg_count, machine_operand);
-
-	b32 *force_mreg_for = ALLOC(arena, reg_count, b32);
-	/* TODO: Mark registers where the force flag is set */
+	machine_operand *mreg_map = ALLOC(arena, function.register_count, machine_operand);
 
 	/* NOTE: the register pool is only valid after active_count. In the
 	 * active part of the array, there be multiple registers with the same
@@ -282,46 +279,46 @@ allocate_function_registers(machine_function function, void *code,
 	u32 active_start = 0;
 	u32 active_count = 0;
 	for (u32 i = 0; i < function.register_count; i++) {
-		u32 current_register = sorted_by_start[i];
-		u32 current_start = intervals[current_register].start;
-		u32 current_end = intervals[current_register].end;
-		b32 is_empty = (current_start > current_end);
+		u32 curr_reg = sorted_by_start[i];
+		u32 curr_start = intervals[curr_reg].start;
+		u32 curr_end = intervals[curr_reg].end;
+		b32 is_empty = (curr_start > curr_end);
 
 		u32 active_end = active_start + active_count;
 		for (u32 j = active_start; j < active_end; j++) {
-			u32 inactive_register = sorted_by_start[j];
-			u32 end = intervals[inactive_register].end;
-			b32 is_active = (end >= current_start);
+			u32 inactive_reg = sorted_by_start[j];
+			u32 end = intervals[inactive_reg].end;
+			b32 is_active = (end >= curr_start);
 			if (is_active) {
 				continue;
 			}
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_register >= function.register_count);
+			b32 is_mreg = (inactive_reg >= function.register_count);
 			if (is_mreg) {
-				u32 mreg = reg_count - 1 - inactive_register;
-				register_pool[active_count] = mreg;
-				ASSERT(register_pool[active_count] < mreg_count);
-			} else if (vreg[inactive_register].kind == MOP_MREG) {
-				u32 mreg = vreg[inactive_register].value;
-				register_pool[active_count] = mreg;
-				ASSERT(register_pool[active_count] < mreg_count);
+				u32 mreg = reg_count - 1 - inactive_reg;
+				pool[active_count] = mreg;
+				ASSERT(pool[active_count] < reg_info.register_count);
+			} else if (mreg_map[inactive_reg].kind == MOP_MREG) {
+				u32 mreg = mreg_map[inactive_reg].value;
+				pool[active_count] = mreg;
+				ASSERT(pool[active_count] < reg_info.register_count);
 			}
 
 			sorted_by_start[j] = sorted_by_start[active_start];
-			sorted_by_start[active_start++] = inactive_register;
+			sorted_by_start[active_start++] = inactive_reg;
 		}
 
-		ASSERT(current_register < function.register_count);
-		b32 should_spill = (active_count >= mreg_count);
+		ASSERT(curr_reg < function.register_count);
+		b32 should_spill = (active_count >= reg_info.register_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < mreg_count; i++) {
-				u32 j = register_pool[i];
-				live_interval mreg_interval = intervals[reg_count - 1 - j];
-				if (!overlaps(mreg_interval, intervals[current_register])) {
-					swap_u32(register_pool + active_count, register_pool + i);
+			for (u32 i = active_count; i < reg_info.register_count; i++) {
+				u32 j = pool[i];
+				live_interval interval = intervals[reg_count - 1 - j];
+				if (!overlaps(interval, intervals[curr_reg])) {
+					swap_u32(pool + active_count, pool + i);
 					found_mreg = true;
 					break;
 				}
@@ -336,9 +333,6 @@ allocate_function_registers(machine_function function, void *code,
 			u32 end = 0;
 			for (u32 j = active_start + 1; j < active_end; j++) {
 				u32 reg = sorted_by_start[j];
-				if (force_mreg_for[reg]) {
-					continue;
-				}
 				if (intervals[reg].end > end) {
 					end = intervals[reg].end;
 					spill_index = j;
@@ -346,28 +340,25 @@ allocate_function_registers(machine_function function, void *code,
 				}
 			}
 
-			b32 swap_spill_register_with_current_register =
-				(intervals[spill].end > intervals[current_register].end);
+			b32 swap_with_spill = (intervals[spill].end > intervals[curr_reg].end);
 			// TODO: currently we always spill the current register, see below.
-			if (false && swap_spill_register_with_current_register) {
-				ASSERT(!force_mreg_for[spill]);
+			if (false && swap_with_spill) {
 				// TODO: check that the machine register of spill doesn't
 				// overlap with the interval of the current register. Otherwise
 				// we cannot use the register here.
-				vreg[current_register] = vreg[spill];
-				vreg[spill] = make_spill(8 * info.spill_count++);
+				mreg_map[curr_reg] = mreg_map[spill];
+				mreg_map[spill] = make_spill(8 * info.spill_count++);
 				sorted_by_start[spill_index] = sorted_by_start[active_start];
 				sorted_by_start[active_start] = spill;
 				active_start++;
 			} else {
-				ASSERT(!force_mreg_for[current_register]);
-				vreg[current_register] = make_spill(8 * info.spill_count++);
+				mreg_map[curr_reg] = make_spill(8 * info.spill_count++);
 			}
 		} else {
-			u32 mreg = register_pool[active_count++];
-			ASSERT(mreg < mreg_count);
+			u32 mreg = pool[active_count++];
+			ASSERT(mreg < reg_info.register_count);
 			info.used[mreg] |= !is_empty;
-			vreg[current_register] = make_mreg(mreg, 0);
+			mreg_map[curr_reg] = make_mreg(mreg, 0);
 		}
 	}
 
@@ -381,9 +372,9 @@ allocate_function_registers(machine_function function, void *code,
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
 				ASSERT(reg < function.register_count);
-				ASSERT(vreg[reg].kind != MOP_INVALID);
-				operands[i].kind = vreg[reg].kind;
-				operands[i].value = vreg[reg].value;
+				ASSERT(mreg_map[reg].kind != MOP_INVALID);
+				operands[i].kind = mreg_map[reg].kind;
+				operands[i].value = mreg_map[reg].value;
 			}
 		}
 	}
@@ -397,8 +388,8 @@ allocate_registers(machine_program program, arena *arena)
 {
 	allocation_info *info = ALLOC(arena, program.function_count, allocation_info);
 	for (u32 i = 0; i < program.function_count; i++) {
-		info[i] = allocate_function_registers(program.functions[i], program.code,
-			program.mreg_count, program.temp_mregs, program.temp_mreg_count, arena);
+		info[i] = allocate_function_registers(program.functions[i],
+			program.code, program.register_info, arena);
 	}
 
 	return info;

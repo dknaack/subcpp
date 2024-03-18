@@ -9,6 +9,7 @@ typedef enum {
 	MOP_VREG,
 	MOP_SPILL,
 	MOP_LABEL,
+	MOP_FLOAT,
 	MOP_FUNC,
 	MOP_GLOBAL,
 	MOP_IMMEDIATE,
@@ -19,6 +20,7 @@ typedef enum {
 	MOP_DEF      = (1 << 1),
 	MOP_IMPLICIT = (1 << 2),
 	MOP_INDIRECT = (1 << 3),
+	MOP_ISFLOAT  = (1 << 4),
 } machine_operand_flags;
 
 typedef struct {
@@ -34,21 +36,28 @@ typedef struct {
 	u32 register_count;
 	u32 stack_size;
 	u32 *instr_offsets;
+	i32 *floats;
+	i32 float_count;
 } machine_function;
 
 typedef struct {
+	u32 *volatile_registers;
+	u32 volatile_register_count;
+	u32 float_register_count;
+	u32 register_count;
+} machine_register_info;
+
+typedef struct {
 	void *code;
-	machine_function *functions;
 	symbol_table *symtab;
-	u32 *temp_mregs;
+	machine_function *functions;
+	machine_register_info register_info;
 
 	u32 size;
 	u32 max_size;
-	u32 mreg_count;
 	u32 vreg_count;
 	u32 instr_count;
 	u32 function_count;
-	u32 temp_mreg_count;
 } machine_program;
 
 static b32
@@ -94,6 +103,13 @@ static machine_operand
 make_immediate(u32 value, u32 size)
 {
 	machine_operand operand = machine_operand_init(MOP_IMMEDIATE, value, size);
+	return operand;
+}
+
+static machine_operand
+make_float(u32 index)
+{
+	machine_operand operand = machine_operand_init(MOP_FLOAT, index, 4);
 	return operand;
 }
 
