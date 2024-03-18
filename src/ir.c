@@ -147,101 +147,6 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 }
 
 static u32
-get_register(ir_context *ctx, ast_pool *pool, ast_id node_id)
-{
-	ast_node *node = ast_get(pool, node_id);
-	ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
-
-	symbol_id symbol_id = node->symbol_id;
-	symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
-	u32 result = ctx->symbol_registers[node->symbol_id.value];
-	b32 is_initialized = (result != 0);
-	if (!is_initialized) {
-		if (sym->is_global) {
-			result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
-			ctx->symbol_registers[node->symbol_id.value] = symbol_id.value;
-
-			if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
-				ast_id body = node->child[1];
-				ast_node *type = ast_get(pool, node->child[0]);
-				ASSERT(type->kind == AST_TYPE_FUNC);
-
-				ctx->stack_size = 0;
-
-				u32 prev_label_count = ctx->program->label_count;
-				u32 prev_register_count = ctx->program->register_count;
-				ctx->program->label_count = 1;
-				ctx->program->register_count = 0;
-
-				ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-				func->instr_index = ctx->program->instr_count;
-				ir_emit1(ctx, IR_LABEL, new_label(ctx));
-
-				i32 param_count = 0;
-				ast_id param_id = type->child[0];
-				while (param_id.value != 0) {
-					ast_node *param_list = ast_get(pool, param_id);
-					ast_node *param = ast_get(pool, param_list->child[0]);
-					ASSERT(ctx->symbol_registers[param->symbol_id.value] == 0);
-					get_register(ctx, pool, param_list->child[0]);
-
-					param_id = param_list->child[1];
-					param_count++;
-				}
-
-				func->parameter_count = param_count;
-				if (body.value != 0) {
-					translate_node(ctx, pool, body, false);
-				}
-
-				func->stack_size = ctx->stack_size;
-				func->label_count = ctx->program->label_count;
-				func->instr_count = ctx->program->instr_count - func->instr_index;
-
-				u32 curr_register_count = ctx->program->register_count;
-				ctx->program->label_count = MAX(func->label_count, prev_label_count);
-				ctx->program->register_count = MAX(curr_register_count, prev_register_count);
-			} else {
-				// TODO: Initialize the variable
-			}
-		} else {
-			isize size = type_sizeof(node->type);
-			result = ir_emit_alloca(ctx, size);
-			ctx->symbol_registers[node->symbol_id.value] = result;
-
-			if (node->type->kind == TYPE_ARRAY) {
-				u32 addr = ir_emit_alloca(ctx, 8);
-				ir_emit2(ctx, IR_STORE, addr, result);
-				result = addr;
-			}
-
-			if (node->child[1].value != 0) {
-				ast_node *expr = ast_get(pool, node->child[1]);
-				if (expr->kind == AST_INIT_LIST) {
-					translate_initializer(ctx, pool, node->child[1], result);
-				} else {
-					u32 value = translate_node(ctx, pool, node->child[1], false);
-					ir_opcode store = IR_STORE;
-					if (node->type->kind == TYPE_FLOAT) {
-						store = IR_FSTORE;
-					}
-
-					ir_emit2_size(ctx, size, store, result, value);
-				}
-			}
-
-		}
-	}
-
-	if (sym->is_global) {
-		result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
-	}
-
-	//ASSERT(result != 4);
-	return result;
-}
-
-static u32
 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 {
 	u32 result = 0;
@@ -249,7 +154,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	ast_node *node = ast_get(pool, node_id);
 	switch (node->kind) {
 	case AST_INVALID:
-	case AST_INIT_LIST: // Should be handled by get_register
+	case AST_INIT_LIST: // Should be handled in DECL
 	case AST_STMT_IF2:
 	case AST_STMT_FOR2:
 	case AST_STMT_FOR3:
@@ -617,12 +522,99 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			result = get_register(ctx, pool, node_id);
+			ast_node *node = ast_get(pool, node_id);
+			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
+
+			symbol_id symbol_id = node->symbol_id;
+			symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
+			result = ctx->symbol_registers[node->symbol_id.value];
+			b32 is_initialized = (result != 0);
+			if (!is_initialized) {
+				if (sym->is_global) {
+					result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
+					ctx->symbol_registers[node->symbol_id.value] = symbol_id.value;
+
+					if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
+						ast_id body = node->child[1];
+						ast_node *type = ast_get(pool, node->child[0]);
+						ASSERT(type->kind == AST_TYPE_FUNC);
+
+						u32 prev_label_count = ctx->program->label_count;
+						u32 prev_register_count = ctx->program->register_count;
+						ctx->program->label_count = 1;
+						ctx->program->register_count = 0;
+						ctx->stack_size = 0;
+
+						ir_function *func = add_function(ctx, node->value.s, ctx->arena);
+						func->instr_index = ctx->program->instr_count;
+						ir_emit1(ctx, IR_LABEL, new_label(ctx));
+
+						i32 param_count = 0;
+						ast_id param_id = type->child[0];
+						while (param_id.value != 0) {
+							ast_node *param_list = ast_get(pool, param_id);
+							ast_node *param = ast_get(pool, param_list->child[0]);
+							ASSERT(ctx->symbol_registers[param->symbol_id.value] == 0);
+							translate_node(ctx, pool, param_list->child[0], false);
+
+							param_id = param_list->child[1];
+							param_count++;
+						}
+
+						func->parameter_count = param_count;
+						if (body.value != 0) {
+							translate_node(ctx, pool, body, false);
+						}
+
+						func->stack_size = ctx->stack_size;
+						func->label_count = ctx->program->label_count;
+						func->instr_count = ctx->program->instr_count - func->instr_index;
+
+						u32 curr_register_count = ctx->program->register_count;
+						ctx->program->label_count = MAX(func->label_count, prev_label_count);
+						ctx->program->register_count = MAX(curr_register_count, prev_register_count);
+					} else {
+						// TODO: Initialize the variable
+					}
+				} else {
+					isize size = type_sizeof(node->type);
+					result = ir_emit_alloca(ctx, size);
+					ctx->symbol_registers[node->symbol_id.value] = result;
+
+					if (node->type->kind == TYPE_ARRAY) {
+						u32 addr = ir_emit_alloca(ctx, 8);
+						ir_emit2(ctx, IR_STORE, addr, result);
+						result = addr;
+					}
+
+					if (node->child[1].value != 0) {
+						ast_node *expr = ast_get(pool, node->child[1]);
+						if (expr->kind == AST_INIT_LIST) {
+							translate_initializer(ctx, pool, node->child[1], result);
+						} else {
+							u32 value = translate_node(ctx, pool, node->child[1], false);
+							ir_opcode store = IR_STORE;
+							if (node->type->kind == TYPE_FLOAT) {
+								store = IR_FSTORE;
+							}
+
+							ir_emit2_size(ctx, size, store, result, value);
+						}
+					}
+				}
+			}
+
+			if (sym->is_global) {
+				result = ir_emit1_size(ctx, 8, IR_GLOBAL, symbol_id.value);
+			}
+
 			if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
 				u32 size = type_sizeof(node->type);
 				ir_opcode load = (node->type->kind == TYPE_FLOAT ? IR_FLOAD : IR_LOAD);
 				result = ir_emit1_size(ctx, size, load, result);
 			}
+
+			ASSERT(result != 0);
 		} break;
 	case AST_STMT_EMPTY:
 		break;
