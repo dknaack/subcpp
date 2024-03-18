@@ -88,23 +88,6 @@ add_function(ir_context *ctx, str name, arena *perm)
 	return *ptr;
 }
 
-static u32
-get_function(ir_context *ctx, str ident)
-{
-	u32 i = 0;
-
-	for (ir_function *f = ctx->program->function_list; f; f = f->next) {
-		if (str_equals(f->name, ident)) {
-			return i;
-		}
-
-		i++;
-	}
-
-	ASSERT(!"Function not defined");
-	return i;
-}
-
 static u32 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
