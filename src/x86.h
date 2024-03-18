@@ -35,6 +35,7 @@ typedef enum {
 	X86_AND,
 	X86_CALL,
 	X86_CMP,
+	X86_COMISS,
 	X86_DEC,
 	X86_DIVSS,
 	X86_IDIV,
@@ -110,6 +111,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_AND:   return "and";
 	case X86_CALL:  return "call";
 	case X86_CMP:   return "cmp";
+	case X86_COMISS: return "comiss";
 	case X86_DEC:   return "dec";
 	case X86_DIVSS: return "divss";
 	case X86_IDIV:  return "idiv";

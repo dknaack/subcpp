@@ -28,38 +28,23 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GLOBAL:
 		printf("\t%%%d =%s global %d\n", dst, type, op0);
 		break;
-	case IR_FVAR:
-		printf("\t%%%d =%s new freg\n", dst, type);
-		break;
 	case IR_VAR:
 		printf("\t%%%d =%s new vreg\n", dst, type);
 		break;
-	case IR_INT:
+	case IR_CONST:
 		printf("\t%%%d =%s %d\n", dst, type, op0);
 		break;
 	case IR_COPY:
 		printf("\t%%%d =%s %%%d (copy)\n", dst, type, op0);
 		break;
-	case IR_FMOV:
-		printf("\t%%%d =%s %%%d (fmov)\n", op0, type, op1);
-		break;
 	case IR_MOV:
 		printf("\t%%%d =%s %%%d (mov)\n", op0, type, op1);
-		break;
-	case IR_FLOAD:
-		printf("\t%%%d =%s fload %%%d\n", dst, type, op0);
 		break;
 	case IR_LOAD:
 		printf("\t%%%d =%s load %%%d\n", dst, type, op0);
 		break;
-	case IR_FSTORE:
-		printf("\tfstore %s %%%d, %%%d\n", type, op0, op1);
-		break;
 	case IR_STORE:
 		printf("\tstore %s %%%d, %%%d\n", type, op0, op1);
-		break;
-	case IR_FADD:
-		printf("\t%%%d =%s %%%d +. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_ADD:
 		printf("\t%%%d =%s %%%d + %%%d\n",  dst, type, op0, op1);
@@ -67,20 +52,11 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_AND:
 		printf("\t%%%d =%s %%%d & %%%d\n",  dst, type, op0, op1);
 		break;
-	case IR_FSUB:
-		printf("\t%%%d =%s %%%d -. %%%d\n",  dst, type, op0, op1);
-		break;
 	case IR_SUB:
 		printf("\t%%%d =%s %%%d - %%%d\n",  dst, type, op0, op1);
 		break;
-	case IR_FMUL:
-		printf("\t%%%d =%s %%%d *. %%%d\n",  dst, type, op0, op1);
-		break;
 	case IR_MUL:
 		printf("\t%%%d =%s %%%d * %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_FDIV:
-		printf("\t%%%d =%s %%%d /. %%%d\n",  dst, type, op0, op1);
 		break;
 	case IR_DIV:
 		printf("\t%%%d =%s %%%d / %%%d\n",  dst, type, op0, op1);
@@ -154,12 +130,6 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_LABEL:
 		printf("L%d:\n", op0);
 		break;
-	case IR_FLOAT:
-		{
-			f32 operand;
-			memcpy(&operand, &op0, sizeof(f32));
-			printf("\t%%%d =%s %f\n", dst, type, operand);
-		} break;
 	}
 }
 

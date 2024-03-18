@@ -167,7 +167,7 @@ x86_select_immediate(machine_program *out,
 {
 	machine_operand result;
 	u32 size = ir_sizeof(instr[instr_index].type);
-	if (instr[instr_index].opcode == IR_INT) {
+	if (instr[instr_index].opcode == IR_CONST) {
 		result = make_immediate(instr[instr_index].op0, size);
 	} else {
 		result = make_vreg(instr_index, size);
@@ -181,10 +181,12 @@ static void
 x86_select_instr(machine_program *out, ir_instr *instr,
 	u32 instr_index, machine_operand dst)
 {
-	u32 size = ir_sizeof(instr[instr_index].type);
+	ir_type type = instr[instr_index].type;
+	u32 size = ir_sizeof(type);
 	u32 op0 = instr[instr_index].op0;
 	u32 op1 = instr[instr_index].op1;
 	ir_opcode opcode = instr[instr_index].opcode;
+	b32 is_float = (type == IR_F32 || type == IR_F64);
 
 	switch (opcode) {
 	case IR_GLOBAL:
@@ -196,12 +198,21 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand src = make_vreg(instr_index, size);
 			src.size = size;
-			x86_select2(out, X86_MOV, dst, src);
+			if (type == IR_F32 || type == IR_F64) {
+				x86_select2(out, X86_MOVSS, dst, src);
+			} else {
+				x86_select2(out, X86_MOV, dst, src);
+			}
 		} break;
-	case IR_INT:
+	case IR_CONST:
 		{
-			machine_operand src = make_immediate(op0, size);
-			x86_select2(out, X86_MOV, dst, src);
+			if (type == IR_F32 || type == IR_F64) {
+				machine_operand src = make_float(op0);
+				x86_select2(out, X86_MOVSS, dst, src);
+			} else {
+				machine_operand src = make_immediate(op0, size);
+				x86_select2(out, X86_MOV, dst, src);
+			}
 		} break;
 	case IR_ALLOC:
 		{
@@ -219,34 +230,43 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_LOAD:
 		{
 			machine_operand src = make_vreg(op0, ir_sizeof(instr[op0].type));
+			b32 is_float = (type == IR_F32 || type == IR_F64);
+			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
+			if (is_float) {
+				dst.flags |= MOP_ISFLOAT;
+			}
+
 			ASSERT(!machine_operand_equals(src, dst));
 			if (instr[op0].opcode == IR_ALLOC) {
 				u32 addr = instr[op0].op1;
 				src = make_spill(addr);
 				src.size = size;
-				x86_select2(out, X86_MOV, dst, src);
+
+				x86_select2(out, x86_opcode, dst, src);
 			} else if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
-				&& instr[instr[op0].op1].opcode == IR_INT)
+				&& instr[instr[op0].op1].opcode == IR_CONST)
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
 				src = make_spill(base + offset);
 				src.size = size;
-				x86_select2(out, X86_MOV, dst, src);
+
+				x86_select2(out, x86_opcode, dst, src);
 			} else {
 				x86_select_instr(out, instr, op0, src);
 				src.size = dst.size = size;
 				src.flags |= MOP_INDIRECT;
-				x86_select2(out, X86_MOV, dst, src);
+				x86_select2(out, x86_opcode, dst, src);
 			}
 		} break;
 	case IR_STORE:
 		{
 			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
 
 			ASSERT(!machine_operand_equals(src, dst));
-			if (instr[op1].opcode != IR_INT) {
+			if (instr[op1].opcode != IR_CONST) {
 				x86_select_instr(out, instr, op1, src);
 			} else {
 				src = make_immediate(instr[op1].op0, size);
@@ -255,90 +275,125 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			src.size = ir_sizeof(instr[op1].type);
 			if (instr[op0].opcode == IR_ADD
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
-				&& instr[instr[op0].op1].opcode == IR_INT)
+				&& instr[instr[op0].op1].opcode == IR_CONST)
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
 				machine_operand addr = make_spill(base + offset);
 				addr.size = size;
-				x86_select2(out, X86_MOV, addr, src);
+				x86_select2(out, x86_opcode, addr, src);
 			} else if (instr[op0].opcode == IR_SUB
 				&& instr[instr[op0].op0].opcode == IR_ALLOC
-				&& instr[instr[op0].op1].opcode == IR_INT)
+				&& instr[instr[op0].op1].opcode == IR_CONST)
 			{
 				u32 base = instr[instr[op0].op0].op1;
 				u32 offset = instr[instr[op0].op1].op0;
 				machine_operand addr = make_spill(base - offset);
 				addr.size = size;
-				x86_select2(out, X86_MOV, addr, src);
+				x86_select2(out, x86_opcode, addr, src);
 			} else if (instr[op0].opcode == IR_ALLOC) {
 				u32 offset = instr[op0].op1;
 				machine_operand addr = make_spill(offset);
 				addr.size = size;
-				x86_select2(out, X86_MOV, addr, src);
+				x86_select2(out, x86_opcode, addr, src);
 			} else {
 				x86_select_instr(out, instr, op0, dst);
 				dst.flags |= MOP_INDIRECT;
 				dst.size = 8;
-				x86_select2(out, X86_MOV, dst, src);
+				x86_select2(out, x86_opcode, dst, src);
 			}
 		} break;
 	case IR_ADD:
-		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
-			x86_select_instr(out, instr, op0, dst);
-			x86_select1(out, X86_INC, dst);
-		} else if (instr[op1].opcode == IR_INT) {
-			x86_select_instr(out, instr, op0, dst);
-			op1 = instr[op1].op0;
-			x86_select2(out, X86_ADD, dst, make_immediate(op1, size));
-		} else if (instr[op0].opcode == IR_INT) {
-			x86_select_instr(out, instr, op1, dst);
-			op0 = instr[op0].op0;
-			x86_select2(out, X86_ADD, dst, make_immediate(op0, size));
-		} else {
-			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
-			x86_select_instr(out, instr, op0, dst);
-			x86_select_instr(out, instr, op1, src);
-			x86_select2(out, X86_ADD, dst, src);
+		{
+			if (is_float) {
+				machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+				src.flags |= MOP_ISFLOAT;
+				dst.flags |= MOP_ISFLOAT;
+
+				x86_select_instr(out, instr, op0, dst);
+				x86_select_instr(out, instr, op1, src);
+				x86_select2(out, X86_ADDSS, dst, src);
+			} else {
+				if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+					x86_select_instr(out, instr, op0, dst);
+					x86_select1(out, X86_INC, dst);
+				} else if (instr[op1].opcode == IR_CONST) {
+					x86_select_instr(out, instr, op0, dst);
+					op1 = instr[op1].op0;
+					x86_select2(out, X86_ADD, dst, make_immediate(op1, size));
+				} else if (instr[op0].opcode == IR_CONST) {
+					x86_select_instr(out, instr, op1, dst);
+					op0 = instr[op0].op0;
+					x86_select2(out, X86_ADD, dst, make_immediate(op0, size));
+				} else {
+					machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+					x86_select_instr(out, instr, op0, dst);
+					x86_select_instr(out, instr, op1, src);
+					x86_select2(out, X86_ADD, dst, src);
+				}
+			}
 		}
 		break;
 	case IR_SUB:
-		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
-			x86_select_instr(out, instr, op0, dst);
-			x86_select1(out, X86_DEC, dst);
-		} else if (instr[op0].opcode == IR_INT && instr[op0].op0 == 0) {
-			x86_select_instr(out, instr, op1, dst);
-			x86_select1(out, X86_NEG, dst);
-		} else if (instr[op1].opcode == IR_INT) {
-			op1 = instr[op1].op0;
-			x86_select_instr(out, instr, op0, dst);
-			x86_select2(out, X86_SUB, dst, make_immediate(op1, ir_sizeof(instr[op1].type)));
-		} else {
+		if (is_float) {
+			ASSERT(opcode != IR_MOD);
+
 			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
-			x86_select_instr(out, instr, op0, dst);
-			x86_select_instr(out, instr, op1, src);
-			x86_select2(out, X86_SUB, dst, src);
+			dst.flags |= MOP_ISFLOAT;
+			src.flags |= MOP_ISFLOAT;
+			x86_select2(out, X86_SUBSS, dst, src);
+		} else {
+			if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+				x86_select_instr(out, instr, op0, dst);
+				x86_select1(out, X86_DEC, dst);
+			} else if (instr[op0].opcode == IR_CONST && instr[op0].op0 == 0) {
+				x86_select_instr(out, instr, op1, dst);
+				x86_select1(out, X86_NEG, dst);
+			} else if (instr[op1].opcode == IR_CONST) {
+				op1 = instr[op1].op0;
+				x86_select_instr(out, instr, op0, dst);
+				x86_select2(out, X86_SUB, dst, make_immediate(op1, ir_sizeof(instr[op1].type)));
+			} else {
+				machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+				x86_select_instr(out, instr, op0, dst);
+				x86_select_instr(out, instr, op1, src);
+				x86_select2(out, X86_SUB, dst, src);
+			}
 		}
 		break;
 	case IR_MUL:
-		if (instr[op1].opcode == IR_INT && instr[op1].op0 == 1) {
-			x86_select_instr(out, instr, op0, dst);
-		} else if (instr[op1].opcode == IR_INT && instr[op1].op0 == 2) {
-			x86_select_instr(out, instr, op0, dst);
-			x86_select2(out, X86_ADD, dst, dst);
-		} else {
-			machine_operand rax = make_mreg(X86_RAX, ir_sizeof(instr[op0].type));
+		if (is_float) {
 			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+			dst.flags |= MOP_ISFLOAT;
+			src.flags |= MOP_ISFLOAT;
+			x86_select2(out, X86_MULSS, dst, src);
+		} else {
+			if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 1) {
+				x86_select_instr(out, instr, op0, dst);
+			} else if (instr[op1].opcode == IR_CONST && instr[op1].op0 == 2) {
+				x86_select_instr(out, instr, op0, dst);
+				x86_select2(out, X86_ADD, dst, dst);
+			} else {
+				machine_operand rax = make_mreg(X86_RAX, ir_sizeof(instr[op0].type));
+				machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
 
-			x86_select_instr(out, instr, op0, rax);
-			x86_select_instr(out, instr, op1, src);
-			x86_select1(out, X86_IMUL, src);
-			x86_select2(out, X86_MOV, dst, rax);
+				x86_select_instr(out, instr, op0, rax);
+				x86_select_instr(out, instr, op1, src);
+				x86_select1(out, X86_IMUL, src);
+				x86_select2(out, X86_MOV, dst, rax);
+			}
 		}
 		break;
 	case IR_DIV:
 	case IR_MOD:
-		{
+		if (is_float) {
+			ASSERT(opcode != IR_MOD);
+
+			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+			dst.flags |= MOP_ISFLOAT;
+			src.flags |= MOP_ISFLOAT;
+			x86_select2(out, X86_DIVSS, dst, src);
+		} else {
 			machine_operand rax = make_mreg(X86_RAX, ir_sizeof(instr[op0].type));
 			machine_operand rcx = make_mreg(X86_RCX, ir_sizeof(instr[op1].type));
 			machine_operand rdx = make_mreg(X86_RDX, dst.size);
@@ -360,13 +415,19 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_GEQU:
 	case IR_LEQU:
 		{
+			x86_opcode x86_opcode = is_float ? X86_COMISS : X86_CMP;
 			machine_operand dst_byte = dst;
-			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
 			dst_byte.size = 1;
+
+			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
+			if (is_float) {
+				dst.flags |= MOP_ISFLOAT;
+				src.flags |= MOP_ISFLOAT;
+			}
 
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
-			x86_select2(out, X86_CMP, dst, src);
+			x86_select2(out, x86_opcode, dst, src);
 			x86_select1(out, x86_get_setcc_opcode(opcode), dst_byte);
 			x86_select2(out, X86_MOVZX, dst, dst_byte);
 		} break;
@@ -388,11 +449,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				opcode == IR_AND ? X86_AND :
 				opcode == IR_OR ? X86_OR : X86_XOR;
 
-			if (instr[op1].opcode == IR_INT) {
+			if (instr[op1].opcode == IR_CONST) {
 				src = make_immediate(instr[op1].op0, src.size);
 				x86_select_instr(out, instr, op0, dst);
 				x86_select2(out, x86_opcode, dst, src);
-			} else if (instr[op0].opcode == IR_INT) {
+			} else if (instr[op0].opcode == IR_CONST) {
 				src = make_immediate(instr[op0].op0, src.size);
 				x86_select_instr(out, instr, op1, dst);
 				x86_select2(out, x86_opcode, dst, src);
@@ -409,14 +470,20 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	case IR_JNZ:
 		{
 			b32 is_jiz = opcode == IR_JIZ;
-			x86_opcode x86_opcode = is_jiz ? X86_JZ : X86_JNZ;
+			x86_opcode jcc = is_jiz ? X86_JZ : X86_JNZ;
 			if (is_comparison_opcode(instr[op0].opcode)) {
 				dst = make_vreg(instr[op0].op0, ir_sizeof(instr[op0].type));
 				x86_select_instr(out, instr, instr[op0].op0, dst);
 				machine_operand src = x86_select_immediate(out, instr, instr[op0].op1);
 				src.size = dst.size;
-				x86_select2(out, X86_CMP, dst, src);
-				x86_opcode = x86_get_jcc_opcode(instr[op0].opcode, is_jiz);
+				if (is_float) {
+					dst.flags |= MOP_ISFLOAT;
+					src.flags |= MOP_ISFLOAT;
+				}
+
+				x86_opcode cmp_opcode = (is_float ? X86_COMISS : X86_CMP);
+				x86_select2(out, cmp_opcode, dst, src);
+				jcc = x86_get_jcc_opcode(instr[op0].opcode, is_jiz);
 			} else if (instr[op0].opcode == IR_SUB) {
 				machine_operand src = {0};
 				x86_select_instr(out, instr, op0, src);
@@ -427,7 +494,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, X86_TEST, src, src);
 			}
 
-			x86_select1(out, x86_opcode, make_label(op1));
+			x86_select1(out, jcc, make_label(op1));
 		} break;
 	case IR_RET:
 		{
@@ -491,58 +558,6 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			x86_select2(out, X86_MOV, rax, zero);
 			x86_select2(out, X86_PRINT, rdi, rsi);
 		} break;
-	case IR_FLOAT:
-		{
-			dst.flags |= MOP_ISFLOAT;
-			x86_select2(out, X86_MOVSS, dst, make_float(op0));
-		} break;
-	case IR_FVAR:
-		{
-			machine_operand src = make_vreg(instr_index, size);
-			src.flags |= MOP_ISFLOAT;
-			src.size = size;
-			x86_select2(out, X86_MOVSS, dst, src);
-		} break;
-	case IR_FMOV:
-		{
-			dst.flags |= MOP_ISFLOAT;
-			x86_select_instr(out, instr, op1, dst);
-		} break;
-	case IR_FLOAD:
-		{
-			machine_operand src = make_vreg(op0, ir_sizeof(instr[op0].type));
-			src.flags |= MOP_ISFLOAT;
-			dst.flags |= MOP_ISFLOAT;
-			x86_select2(out, X86_MOVSS, dst, src);
-		} break;
-	case IR_FSTORE:
-		{
-			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
-			src.flags |= MOP_ISFLOAT;
-			dst.flags |= MOP_ISFLOAT;
-			x86_select2(out, X86_MOVSS, dst, src);
-		} break;
-	case IR_FADD:
-	case IR_FSUB:
-	case IR_FMUL:
-	case IR_FDIV:
-		{
-			x86_opcode x86_opcode;
-			switch (opcode) {
-			case IR_FADD: x86_opcode = X86_ADDSS; break;
-			case IR_FSUB: x86_opcode = X86_SUBSS; break;
-			case IR_FMUL: x86_opcode = X86_MULSS; break;
-			case IR_FDIV: x86_opcode = X86_DIVSS; break;
-			default:      x86_opcode = X86_NOP;   break;
-			}
-
-			machine_operand src = make_vreg(op1, ir_sizeof(instr[op1].type));
-			src.flags |= MOP_ISFLOAT;
-			dst.flags |= MOP_ISFLOAT;
-			x86_select_instr(out, instr, op0, dst);
-			x86_select_instr(out, instr, op1, src);
-			x86_select2(out, x86_opcode, dst, src);
-		} break;
 	case IR_LABEL:
 		{
 			x86_select1(out, X86_LABEL, make_immediate(op0, ir_sizeof(instr[op0].type)));
@@ -579,7 +594,9 @@ x86_select_instructions(ir_program program, arena *arena)
 
 		i32 float_count = 0;
 		for (u32 i = 0; i < ir_func->instr_count; i++) {
-			if (instr[i].opcode == IR_FLOAT) {
+			if (instr[i].opcode == IR_CONST
+				&& (instr[i].type == IR_F32 || instr[i].type == IR_F64))
+			{
 				float_count++;
 			}
 		}
@@ -587,7 +604,9 @@ x86_select_instructions(ir_program program, arena *arena)
 		f32 *floats = alloc(arena, 1, sizeof(*floats));
 		i32 j = 0;
 		for (u32 i = 0; i < ir_func->instr_count; i++) {
-			if (instr[i].opcode == IR_FLOAT) {
+			if (instr[i].opcode == IR_CONST
+				&& (instr[i].type == IR_F32 || instr[i].type == IR_F64))
+			{
 				floats[j] = instr[i].op0;
 				instr[i].op0 = j++;
 			}
@@ -626,6 +645,9 @@ x86_select_instructions(ir_program program, arena *arena)
 			machine_operand dst = make_vreg(i, ir_sizeof(instr[i].type));
 			if (instr[i].opcode == IR_MOV || instr[i].opcode == IR_STORE) {
 				dst = make_vreg(instr[i].op0, ir_sizeof(instr[instr[i].op0].type));
+				if (instr[i].type == IR_F32 || instr[i].type == IR_F64) {
+					dst.flags |= MOP_ISFLOAT;
+				}
 			}
 
 			if (is_toplevel[i]) {
@@ -887,7 +909,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 							stream_print(out, "\n");
 						}
 					}
-				} else if (opcode == X86_MOV) {
+				} else if (opcode == X86_MOV || opcode == X86_MOVSS) {
 					if  (machine_operand_equals(operands[0], operands[1])) {
 						continue;
 					}

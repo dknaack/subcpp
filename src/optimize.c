@@ -28,15 +28,14 @@ promote_stack_variables(ir_program program, arena *arena)
 		ir_instr *instrs = program.instrs + func->instr_index;
 		arena_temp temp = arena_temp_begin(arena);
 		b32 *addr_used = ALLOC(arena, func->instr_count, b32);
-		b32 *is_float = ALLOC(arena, func->instr_count, b32);
+		ir_type *types = ALLOC(arena, func->instr_count, b32);
 		for (u32 i = 0; i < func->instr_count; i++) {
 			u32 opcode = instrs[i].opcode;
 			u32 op0 = instrs[i].op0;
 			u32 op1 = instrs[i].op1;
 
 			ir_opcode_info info = get_opcode_info(opcode);
-			if (opcode != IR_LOAD && opcode != IR_FLOAD
-				&& info.op0 == IR_OPERAND_REG_SRC
+			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
 				&& instrs[op0].opcode == IR_ALLOC)
 			{
 				addr_used[op0] = true;
@@ -49,16 +48,17 @@ promote_stack_variables(ir_program program, arena *arena)
 
 		// Promote stack variables to registers
 		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instrs[i].opcode == IR_LOAD || instrs[i].opcode == IR_FLOAD) {
+			if (instrs[i].opcode == IR_LOAD) {
 				u32 op0 = instrs[i].op0;
 				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
 					instrs[i].opcode = IR_COPY;
 				}
-			} else if (instrs[i].opcode == IR_STORE || instrs[i].opcode == IR_FSTORE) {
+			} else if (instrs[i].opcode == IR_STORE) {
 				u32 op0 = instrs[i].op0;
 				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					is_float[op0] = (instrs[i].opcode == IR_FSTORE);
-					instrs[i].opcode = is_float[op0] ? IR_FMOV : IR_MOV;
+					u32 op1 = instrs[i].op1;
+					types[op0] = instrs[op1].type;
+					instrs[i].opcode = IR_MOV;
 				}
 			}
 		}
@@ -66,8 +66,8 @@ promote_stack_variables(ir_program program, arena *arena)
 		for (u32 i = 0; i < func->instr_count; i++) {
 			if (instrs[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
-					instrs[i].opcode = is_float[i] ? IR_FVAR : IR_VAR;
-					instrs[i].type = ir_typeof(instrs[i].op0, is_float[i]);
+					instrs[i].opcode = IR_VAR;
+					instrs[i].type = types[i];
 					// Can only turn scalars into registers, not arrays or structs
 					ASSERT(instrs[i].op0 <= 8);
 				}
@@ -106,13 +106,11 @@ remove_unused_registers(ir_program program, arena *arena)
 			ir_opcode_info info = get_opcode_info(instr.opcode);
 
 			switch (instr.opcode) {
-			case IR_FSTORE:
 			case IR_STORE:
 			case IR_PARAM:
 			case IR_CALL:
 			case IR_RET:
 			case IR_MOV:
-			case IR_FMOV:
 			case IR_PRINT:
 			case IR_JIZ:
 			case IR_JNZ:
@@ -159,20 +157,20 @@ optimize(ir_program program, arena *arena)
 
 			switch (instrs[i].opcode) {
 			case IR_ADD:
-				if (instrs[op0].opcode == IR_INT
-					&& instrs[op1].opcode == IR_INT)
+				if (instrs[op0].opcode == IR_CONST
+					&& instrs[op1].opcode == IR_CONST)
 				{
 					instrs[i].opcode = IR_ADD;
 					instrs[op1].opcode = IR_NOP;
 					instrs[op0].opcode = IR_NOP;
 					instrs[i].op0 = add(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op0].opcode == IR_INT
+				} else if (instrs[op0].opcode == IR_CONST
 					&& instrs[op0].op0 == 0)
 				{
 					instrs[op0].opcode = IR_NOP;
 					instrs[i].opcode = IR_MOV;
 					instrs[i].op0 = i;
-				} else if (instrs[op1].opcode == IR_INT
+				} else if (instrs[op1].opcode == IR_CONST
 					&& instrs[op1].op0 == 0)
 				{
 					instrs[op1].opcode = IR_NOP;
@@ -180,14 +178,14 @@ optimize(ir_program program, arena *arena)
 				}
 				break;
 			case IR_SUB:
-				if (instrs[op0].opcode == IR_INT
-					&& instrs[op1].opcode == IR_INT)
+				if (instrs[op0].opcode == IR_CONST
+					&& instrs[op1].opcode == IR_CONST)
 				{
-					instrs[i].opcode = IR_INT;
+					instrs[i].opcode = IR_CONST;
 					instrs[op1].opcode = IR_NOP;
 					instrs[op0].opcode = IR_NOP;
 					instrs[i].op0 = sub(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op1].opcode == IR_INT
+				} else if (instrs[op1].opcode == IR_CONST
 					&& instrs[op1].op0 == 0)
 				{
 					instrs[op1].opcode = IR_NOP;
@@ -195,19 +193,19 @@ optimize(ir_program program, arena *arena)
 				}
 				break;
 			case IR_MUL:
-				if (instrs[op0].opcode == IR_INT
-					&& instrs[op1].opcode == IR_INT) {
-					instrs[i].opcode = IR_INT;
+				if (instrs[op0].opcode == IR_CONST
+					&& instrs[op1].opcode == IR_CONST) {
+					instrs[i].opcode = IR_CONST;
 					instrs[op1].opcode = IR_NOP;
 					instrs[op0].opcode = IR_NOP;
 					/* TODO: evaluate depending on the target architecture */
 					instrs[i].op0 = multiply(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op0].opcode == IR_INT
+				} else if (instrs[op0].opcode == IR_CONST
 					&& instrs[op0].op0 == 1)
 				{
 					instrs[i].opcode = IR_MOV;
 					instrs[i].op0 = i;
-				} else if (instrs[op1].opcode == IR_INT
+				} else if (instrs[op1].opcode == IR_CONST
 					&& instrs[op1].op0 == 1)
 				{
 					instrs[i].opcode = IR_MOV;
@@ -216,7 +214,7 @@ optimize(ir_program program, arena *arena)
 				}
 				break;
 			case IR_JIZ:
-				if (instrs[op0].opcode == IR_INT
+				if (instrs[op0].opcode == IR_CONST
 					&& instrs[op0].op0 == 0)
 				{
 					instrs[op0].opcode = IR_NOP;

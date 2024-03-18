@@ -105,7 +105,7 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 				isize child_align = type_alignof(child->type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
-				u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_INT, offset);
+				u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
 				u32 addr = ir_emit2_type(ctx, IR_I64, IR_SUB, result, offset_reg);
 				translate_initializer(ctx, pool, node->child[0], addr);
 
@@ -144,7 +144,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *operand = ast_get(pool, node->child[0]);
 			ir_type type = ir_type_from(node->type);
 			u32 offset = type_offsetof(operand->type, node->value.s);
-			u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_INT, offset);
+			u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
 			u32 base_reg = translate_node(ctx, pool, node->child[0], true);
 			u32 addr = ir_emit2(ctx, IR_ADD, base_reg, offset_reg);
 			result = ir_emit1_type(ctx, type, IR_LOAD, addr);
@@ -154,55 +154,35 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			token_kind operator = node->value.op;
 			ir_opcode opcode = IR_NOP;
 
-			b32 is_float = (node->type->kind == TYPE_FLOAT);
-			if (is_float) {
-				switch (operator) {
-				case TOKEN_PLUS:          opcode = IR_FADD;   break;
-				case TOKEN_MINUS:         opcode = IR_FSUB;   break;
-				case TOKEN_STAR:          opcode = IR_FMUL;   break;
-				case TOKEN_SLASH:         opcode = IR_FDIV;   break;
-				case TOKEN_PLUS_EQUAL:    opcode = IR_FSTORE; break;
-				case TOKEN_MINUS_EQUAL:   opcode = IR_FSTORE; break;
-				case TOKEN_STAR_EQUAL:    opcode = IR_FSTORE; break;
-				case TOKEN_SLASH_EQUAL:   opcode = IR_FSTORE; break;
-				case TOKEN_PERCENT_EQUAL: opcode = IR_FSTORE; break;
-				case TOKEN_AMP_EQUAL:     opcode = IR_FSTORE; break;
-				case TOKEN_BAR_EQUAL:     opcode = IR_FSTORE; break;
-				case TOKEN_CARET_EQUAL:   opcode = IR_FSTORE; break;
-				case TOKEN_EQUAL:         opcode = IR_FSTORE; break;
-				default:                  ASSERT(!"Invalid operator");
-				}
-			} else {
-				switch (operator) {
-				case TOKEN_PLUS:          opcode = IR_ADD;   break;
-				case TOKEN_MINUS:         opcode = IR_SUB;   break;
-				case TOKEN_STAR:          opcode = IR_MUL;   break;
-				case TOKEN_SLASH:         opcode = IR_DIV;   break;
-				case TOKEN_PERCENT:       opcode = IR_MOD;   break;
-				case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
-				case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
-				case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
-				case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
-				case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
-				case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_EQUAL:         opcode = IR_STORE; break;
-				case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
-				case TOKEN_LESS:          opcode = IR_LT;    break;
-				case TOKEN_GREATER:       opcode = IR_GT;    break;
-				case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
-				case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
-				case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
-				case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
-				case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
-				case TOKEN_AMP:           opcode = IR_AND;   break;
-				case TOKEN_BAR:           opcode = IR_OR;    break;
-				case TOKEN_CARET:         opcode = IR_XOR;   break;
-				case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
-				case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
-				default:                  ASSERT(!"Invalid operator");
-				}
+			switch (operator) {
+			case TOKEN_PLUS:          opcode = IR_ADD;   break;
+			case TOKEN_MINUS:         opcode = IR_SUB;   break;
+			case TOKEN_STAR:          opcode = IR_MUL;   break;
+			case TOKEN_SLASH:         opcode = IR_DIV;   break;
+			case TOKEN_PERCENT:       opcode = IR_MOD;   break;
+			case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
+			case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
+			case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
+			case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
+			case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
+			case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
+			case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
+			case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
+			case TOKEN_EQUAL:         opcode = IR_STORE; break;
+			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
+			case TOKEN_LESS:          opcode = IR_LT;    break;
+			case TOKEN_GREATER:       opcode = IR_GT;    break;
+			case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
+			case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
+			case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
+			case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
+			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
+			case TOKEN_AMP:           opcode = IR_AND;   break;
+			case TOKEN_BAR:           opcode = IR_OR;    break;
+			case TOKEN_CARET:         opcode = IR_XOR;   break;
+			case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
+			case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
+			default:                  ASSERT(!"Invalid operator");
 			}
 
 			if (is_comparison_opcode(opcode) && (node->type->kind & TYPE_UNSIGNED)) {
@@ -222,12 +202,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				ir_emit2(ctx, IR_JIZ, rhs_reg, zero_label);
 
-				u32 one = ir_emit1_type(ctx, IR_I32, IR_INT, 1);
+				u32 one = ir_emit1_type(ctx, IR_I32, IR_CONST, 1);
 				ir_emit2(ctx, IR_MOV, result, one);
 				ir_emit1(ctx, IR_JMP, end_label);
 
 				ir_emit1(ctx, IR_LABEL, zero_label);
-				u32 zero = ir_emit1_type(ctx, IR_I32, IR_INT, 0);
+				u32 zero = ir_emit1_type(ctx, IR_I32, IR_CONST, 0);
 				ir_emit2(ctx, IR_MOV, result, zero);
 				ir_emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
@@ -241,37 +221,26 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				ir_emit2(ctx, IR_JNZ, rhs_reg, one_label);
 
-				u32 zero = ir_emit1_type(ctx, IR_I32, IR_INT, 0);
+				u32 zero = ir_emit1_type(ctx, IR_I32, IR_CONST, 0);
 				ir_emit2(ctx, IR_MOV, result, zero);
 				ir_emit1(ctx, IR_JMP, end_label);
 
 				ir_emit1(ctx, IR_LABEL, one_label);
-				u32 one = ir_emit1_type(ctx, IR_I32, IR_INT, 1);
+				u32 one = ir_emit1_type(ctx, IR_I32, IR_CONST, 1);
 				ir_emit2(ctx, IR_MOV, result, one);
 				ir_emit1(ctx, IR_LABEL, end_label);
-			} else if (opcode == IR_STORE || opcode == IR_FSTORE) {
-				if (is_float) {
-					switch (operator) {
-					case TOKEN_PLUS_EQUAL:  opcode = IR_FADD; break;
-					case TOKEN_MINUS_EQUAL: opcode = IR_FSUB; break;
-					case TOKEN_STAR_EQUAL:  opcode = IR_FMUL; break;
-					case TOKEN_SLASH_EQUAL: opcode = IR_FDIV; break;
-					case TOKEN_EQUAL:       opcode = IR_NOP; break;
-					default:                ASSERT(!"Invalid operator");
-					}
-				} else {
-					switch (operator) {
-					case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
-					case TOKEN_MINUS_EQUAL:   opcode = IR_SUB; break;
-					case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
-					case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
-					case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
-					case TOKEN_AMP_EQUAL:     opcode = IR_AND; break;
-					case TOKEN_BAR_EQUAL:     opcode = IR_OR;  break;
-					case TOKEN_CARET_EQUAL:   opcode = IR_XOR; break;
-					case TOKEN_EQUAL:         opcode = IR_NOP; break;
-					default:                  ASSERT(!"Invalid operator");
-					}
+			} else if (opcode == IR_STORE) {
+				switch (operator) {
+				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
+				case TOKEN_MINUS_EQUAL:   opcode = IR_SUB; break;
+				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
+				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
+				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
+				case TOKEN_AMP_EQUAL:     opcode = IR_AND; break;
+				case TOKEN_BAR_EQUAL:     opcode = IR_OR;  break;
+				case TOKEN_CARET_EQUAL:   opcode = IR_XOR; break;
+				case TOKEN_EQUAL:         opcode = IR_NOP; break;
+				default:                  ASSERT(!"Invalid operator");
 				}
 
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], true);
@@ -287,7 +256,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				isize size = type_sizeof(node->type);
-				u32 size_reg = ir_emit1_type(ctx, IR_I64, IR_INT, size);
+				u32 size_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, size);
 				rhs_reg = ir_emit2(ctx, IR_MUL, rhs_reg, size_reg);
 				result = ir_emit2(ctx, IR_ADD, lhs_reg, rhs_reg);
 				result = ir_emit1_type(ctx, type, IR_LOAD, result);
@@ -329,11 +298,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			union { float f; i32 i; } value;
 			value.f = node->value.f;
-			result = ir_emit1_type(ctx, IR_F32, IR_FLOAT, value.i);
+			result = ir_emit1_type(ctx, IR_F32, IR_CONST, value.i);
 		} break;
 	case AST_EXPR_INT:
 		{
-			result = ir_emit1_type(ctx, IR_I32, IR_INT, node->value.i);
+			result = ir_emit1_type(ctx, IR_I32, IR_CONST, node->value.i);
 		} break;
 	case AST_EXPR_UNARY:
 		{
@@ -350,14 +319,14 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_MINUS:
 				{
 					ir_type type = ir_type_from(node->type);
-					u32 zero = ir_emit1_type(ctx, type, IR_INT, 0);
+					u32 zero = ir_emit1_type(ctx, type, IR_CONST, 0);
 					result = translate_node(ctx, pool, node->child[0], false);
 					result = ir_emit2(ctx, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
 					ir_type type = ir_type_from(node->type);
-					u32 zero = ir_emit1_type(ctx, type, IR_INT, 0);
+					u32 zero = ir_emit1_type(ctx, type, IR_CONST, 0);
 					result = translate_node(ctx, pool, node->child[0], false);
 					result = ir_emit2(ctx, IR_EQL, result, zero);
 				} break;
@@ -380,7 +349,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ir_type type = ir_type_from(node->type);
 					u32 addr = translate_node(ctx, pool, node->child[0], true);
 					u32 value = ir_emit1_type(ctx, type, IR_LOAD, addr);
-					u32 one = ir_emit1_type(ctx, type, IR_INT, 1);
+					u32 one = ir_emit1_type(ctx, type, IR_CONST, 1);
 					result = ir_emit2(ctx, opcode, value, one);
 					ir_emit2(ctx, IR_STORE, addr, result);
 					if (is_lvalue) {
@@ -406,7 +375,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ir_type type = ir_type_from(node->type);
 					u32 addr = translate_node(ctx, pool, node->child[0], true);
 					result = ir_emit1_type(ctx, type, IR_LOAD, addr);
-					u32 one = ir_emit1_type(ctx, type, IR_INT, 1);
+					u32 one = ir_emit1_type(ctx, type, IR_CONST, 1);
 					u32 value = ir_emit2(ctx, opcode, result, one);
 					ir_emit2(ctx, IR_STORE, addr, value);
 					if (is_lvalue) {
@@ -713,22 +682,15 @@ get_opcode_info(ir_opcode opcode)
 	case IR_PRINT:
 	case IR_PARAM:
 	case IR_RET:
-	case IR_FLOAD:
 	case IR_LOAD:
 	case IR_COPY:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:
-	case IR_FMOV:
-	case IR_FSTORE:
 	case IR_STORE:
 		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
-	case IR_FADD:
-	case IR_FSUB:
-	case IR_FMUL:
-	case IR_FDIV:
 	case IR_ADD:
 	case IR_AND:
 	case IR_SUB:
@@ -760,8 +722,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op0 = IR_OPERAND_CONST;
 		info.op1 = IR_OPERAND_CONST;
 		break;
-	case IR_INT:
-	case IR_FLOAT:
+	case IR_CONST:
 		info.op0 = IR_OPERAND_CONST;
 		break;
 	case IR_CALL:
@@ -776,7 +737,6 @@ get_opcode_info(ir_opcode opcode)
 		break;
 	case IR_NOP:
 	case IR_VAR:
-	case IR_FVAR:
 		break;
 	}
 
