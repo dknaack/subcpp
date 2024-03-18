@@ -67,7 +67,7 @@ promote_stack_variables(ir_program program, arena *arena)
 			if (instrs[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
 					instrs[i].opcode = is_float[i] ? IR_FVAR : IR_VAR;
-					instrs[i].size = instrs[i].op0;
+					instrs[i].type = ir_typeof(instrs[i].op0, is_float[i]);
 					// Can only turn scalars into registers, not arrays or structs
 					ASSERT(instrs[i].op0 <= 8);
 				}

@@ -53,6 +53,16 @@ typedef enum {
 } ir_opcode;
 
 typedef enum {
+	IR_VOID,
+	IR_I8,
+	IR_I16,
+	IR_I32,
+	IR_I64,
+	IR_F32,
+	IR_F64,
+} ir_type;
+
+typedef enum {
 	IR_OPERAND_NONE,
 	IR_OPERAND_REG_SRC,
 	IR_OPERAND_REG_DST,
@@ -69,7 +79,7 @@ typedef struct {
 
 typedef struct {
 	ir_opcode opcode:24;
-	u32 size:8;
+	ir_type type:8;
 	u32 op0;
 	u32 op1;
 } ir_instr;
@@ -135,4 +145,86 @@ is_comparison_opcode(ir_opcode ir_opcode)
 	default:
 		return false;
 	}
+}
+
+static isize
+ir_sizeof(ir_type type)
+{
+	switch (type) {
+	case IR_I8:  return 1;
+	case IR_I16: return 2;
+	case IR_I32: return 4;
+	case IR_I64: return 8;
+	case IR_F32: return 4;
+	case IR_F64: return 8;
+	case IR_VOID:
+	}
+
+	return 0;
+}
+
+static ir_type
+ir_typeof(isize size, b32 is_float)
+{
+	ir_type type = IR_VOID;
+
+	if (is_float) {
+		if (size == 4) {
+			type = IR_F32;
+		} else if (size == 8) {
+			type = IR_F64;
+		}
+	} else {
+		if (size == 1) {
+			type = IR_I8;
+		} else if (size == 2) {
+			type = IR_I16;
+		} else if (size == 4) {
+			type = IR_I32;
+		} else if (size == 8) {
+			type = IR_I64;
+		}
+	}
+
+	ASSERT(type != IR_VOID);
+	return type;
+}
+
+// TODO: This depends on the underlying system. For example, a long can either
+// be 4 bytes or 8 bytes.
+static ir_type
+ir_type_from(type *type)
+{
+	switch (type->kind) {
+	case TYPE_VOID:
+		return IR_VOID;
+	case TYPE_CHAR:
+	case TYPE_CHAR_UNSIGNED:
+		return IR_I8;
+	case TYPE_SHORT:
+	case TYPE_SHORT_UNSIGNED:
+		return IR_I16;
+	case TYPE_INT:
+	case TYPE_INT_UNSIGNED:
+		return IR_I32;
+	case TYPE_LONG:
+	case TYPE_LONG_UNSIGNED:
+		return IR_I32;
+	case TYPE_LLONG:
+	case TYPE_LLONG_UNSIGNED:
+		return IR_I64;
+	case TYPE_FLOAT:
+		return IR_F32;
+	case TYPE_DOUBLE:
+		return IR_F64;
+	case TYPE_POINTER:
+	case TYPE_ARRAY:
+		return IR_I64;
+	case TYPE_FUNCTION:
+		return IR_I64;
+	default:
+		ASSERT(!"Invalid type");
+	}
+
+	return IR_VOID;
 }
