@@ -43,7 +43,7 @@ typedef struct {
 typedef struct {
 	u32 *volatile_registers;
 	u32 volatile_register_count;
-	u32 float_register_count;
+	u32 int_register_count;
 	u32 register_count;
 } machine_register_info;
 

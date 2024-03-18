@@ -22,8 +22,10 @@ typedef enum {
 	X86_XMM5,
 	X86_XMM6,
 	X86_XMM7,
-	X86_REGISTER_COUNT,
 	X86_RSP,
+
+	X86_REGISTER_COUNT = X86_RSP,
+	X86_INT_REGISTER_COUNT = X86_XMM0,
 } x86_register;
 
 typedef enum {
@@ -176,7 +178,7 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RDI: return "dil";
 		case X86_RSP: return "spl";
 		case X86_RBP: return "bpl";
-		default:      return "(invalid)";
+		default:      return "(invalid register with size 1)";
 		}
 	case 2:
 		switch (reg) {
@@ -196,7 +198,7 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RDI: return "di";
 		case X86_RSP: return "sp";
 		case X86_RBP: return "bp";
-		default:      return "(invalid)";
+		default:      return "(invalid register with size 2)";
 		}
 	case 4:
 		switch (reg) {
@@ -216,7 +218,15 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RDI: return "edi";
 		case X86_RSP: return "esp";
 		case X86_RBP: return "ebp";
-		default:      return "(invalid)";
+		case X86_XMM0: return "xmm0";
+		case X86_XMM1: return "xmm1";
+		case X86_XMM2: return "xmm2";
+		case X86_XMM3: return "xmm3";
+		case X86_XMM4: return "xmm4";
+		case X86_XMM5: return "xmm5";
+		case X86_XMM6: return "xmm6";
+		case X86_XMM7: return "xmm7";
+		default:      return "(invalid register with size 4)";
 		}
 	case 8:
 	case 0:
@@ -237,7 +247,15 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RDI: return "rdi";
 		case X86_RSP: return "rsp";
 		case X86_RBP: return "rbp";
-		default:      return "(invalid)";
+		case X86_XMM0: return "xmm0";
+		case X86_XMM1: return "xmm1";
+		case X86_XMM2: return "xmm2";
+		case X86_XMM3: return "xmm3";
+		case X86_XMM4: return "xmm4";
+		case X86_XMM5: return "xmm5";
+		case X86_XMM6: return "xmm6";
+		case X86_XMM7: return "xmm7";
+		default:      return "(invalid register with size 8)";
 		}
 	}
 

@@ -28,13 +28,15 @@ promote_stack_variables(ir_program program, arena *arena)
 		ir_instr *instrs = program.instrs + func->instr_index;
 		arena_temp temp = arena_temp_begin(arena);
 		b32 *addr_used = ALLOC(arena, func->instr_count, b32);
+		b32 *is_float = ALLOC(arena, func->instr_count, b32);
 		for (u32 i = 0; i < func->instr_count; i++) {
 			u32 opcode = instrs[i].opcode;
 			u32 op0 = instrs[i].op0;
 			u32 op1 = instrs[i].op1;
 
 			ir_opcode_info info = get_opcode_info(opcode);
-			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
+			if (opcode != IR_LOAD && opcode != IR_FLOAD
+				&& info.op0 == IR_OPERAND_REG_SRC
 				&& instrs[op0].opcode == IR_ALLOC)
 			{
 				addr_used[op0] = true;
@@ -47,15 +49,16 @@ promote_stack_variables(ir_program program, arena *arena)
 
 		// Promote stack variables to registers
 		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instrs[i].opcode == IR_LOAD) {
+			if (instrs[i].opcode == IR_LOAD || instrs[i].opcode == IR_FLOAD) {
 				u32 op0 = instrs[i].op0;
 				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
 					instrs[i].opcode = IR_COPY;
 				}
-			} else if (instrs[i].opcode == IR_STORE) {
+			} else if (instrs[i].opcode == IR_STORE || instrs[i].opcode == IR_FSTORE) {
 				u32 op0 = instrs[i].op0;
 				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					instrs[i].opcode = IR_MOV;
+					is_float[op0] = (instrs[i].opcode == IR_FSTORE);
+					instrs[i].opcode = is_float[op0] ? IR_FMOV : IR_MOV;
 				}
 			}
 		}
@@ -63,7 +66,7 @@ promote_stack_variables(ir_program program, arena *arena)
 		for (u32 i = 0; i < func->instr_count; i++) {
 			if (instrs[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
-					instrs[i].opcode = IR_VAR;
+					instrs[i].opcode = is_float[i] ? IR_FVAR : IR_VAR;
 					instrs[i].size = instrs[i].op0;
 					// Can only turn scalars into registers, not arrays or structs
 					ASSERT(instrs[i].op0 <= 8);
@@ -103,11 +106,13 @@ remove_unused_registers(ir_program program, arena *arena)
 			ir_opcode_info info = get_opcode_info(instr.opcode);
 
 			switch (instr.opcode) {
+			case IR_FSTORE:
 			case IR_STORE:
 			case IR_PARAM:
 			case IR_CALL:
 			case IR_RET:
 			case IR_MOV:
+			case IR_FMOV:
 			case IR_PRINT:
 			case IR_JIZ:
 			case IR_JNZ:

@@ -493,16 +493,33 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_FLOAT:
 		{
+			dst.flags |= MOP_ISFLOAT;
 			x86_select2(out, X86_MOVSS, dst, make_float(op0));
+		} break;
+	case IR_FVAR:
+		{
+			machine_operand src = make_vreg(instr_index, size);
+			src.flags |= MOP_ISFLOAT;
+			src.size = size;
+			x86_select2(out, X86_MOVSS, dst, src);
+		} break;
+	case IR_FMOV:
+		{
+			dst.flags |= MOP_ISFLOAT;
+			x86_select_instr(out, instr, op1, dst);
 		} break;
 	case IR_FLOAD:
 		{
 			machine_operand src = make_vreg(op0, instr[op0].size);
+			src.flags |= MOP_ISFLOAT;
+			dst.flags |= MOP_ISFLOAT;
 			x86_select2(out, X86_MOVSS, dst, src);
 		} break;
 	case IR_FSTORE:
 		{
 			machine_operand src = make_vreg(op1, instr[op1].size);
+			src.flags |= MOP_ISFLOAT;
+			dst.flags |= MOP_ISFLOAT;
 			x86_select2(out, X86_MOVSS, dst, src);
 		} break;
 	case IR_FADD:
@@ -520,6 +537,8 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			}
 
 			machine_operand src = make_vreg(op1, instr[op1].size);
+			src.flags |= MOP_ISFLOAT;
+			dst.flags |= MOP_ISFLOAT;
 			x86_select_instr(out, instr, op0, dst);
 			x86_select_instr(out, instr, op1, src);
 			x86_select2(out, x86_opcode, dst, src);
@@ -543,6 +562,7 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
 	out.register_info.register_count = X86_REGISTER_COUNT;
+	out.register_info.int_register_count = X86_INT_REGISTER_COUNT;
 	out.register_info.volatile_registers = x86_temp_regs;
 	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
 
@@ -722,8 +742,9 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		stream_printu(out, operand.value);
 		break;
 	case MOP_FLOAT:
-		stream_print(out, "float#");
+		stream_print(out, "[float#");
 		stream_printu(out, operand.value);
+		stream_print(out, "]");
 		break;
 	case MOP_FUNC:
 		stream_prints(out, symtab->symbols[operand.value].name);

@@ -11,6 +11,9 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_GLOBAL:
 		printf("\t%%%d = global %d\n", dst, op0);
 		break;
+	case IR_FVAR:
+		printf("\t%%%d = new freg\n", dst);
+		break;
 	case IR_VAR:
 		printf("\t%%%d = new vreg\n", dst);
 		break;
@@ -20,18 +23,27 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_COPY:
 		printf("\t%%%d = %%%d (copy)\n", dst, op0);
 		break;
+	case IR_FMOV:
+		printf("\t%%%d = %%%d (fmov)\n", op0, op1);
+		break;
 	case IR_MOV:
 		printf("\t%%%d = %%%d (mov)\n", op0, op1);
 		break;
 	case IR_FLOAD:
+		printf("\t%%%d = fload %%%d\n", dst, op0);
+		break;
 	case IR_LOAD:
 		printf("\t%%%d = load %%%d\n", dst, op0);
 		break;
 	case IR_FSTORE:
+		printf("\tfstore %%%d, %%%d\n", op0, op1);
+		break;
 	case IR_STORE:
 		printf("\tstore %%%d, %%%d\n", op0, op1);
 		break;
 	case IR_FADD:
+		printf("\t%%%d = %%%d +. %%%d\n",  dst, op0, op1);
+		break;
 	case IR_ADD:
 		printf("\t%%%d = %%%d + %%%d\n",  dst, op0, op1);
 		break;
@@ -39,14 +51,20 @@ print_ir_instr(ir_instr instr, u32 i)
 		printf("\t%%%d = %%%d & %%%d\n",  dst, op0, op1);
 		break;
 	case IR_FSUB:
+		printf("\t%%%d = %%%d -. %%%d\n",  dst, op0, op1);
+		break;
 	case IR_SUB:
 		printf("\t%%%d = %%%d - %%%d\n",  dst, op0, op1);
 		break;
 	case IR_FMUL:
+		printf("\t%%%d = %%%d *. %%%d\n",  dst, op0, op1);
+		break;
 	case IR_MUL:
 		printf("\t%%%d = %%%d * %%%d\n",  dst, op0, op1);
 		break;
 	case IR_FDIV:
+		printf("\t%%%d = %%%d /. %%%d\n",  dst, op0, op1);
+		break;
 	case IR_DIV:
 		printf("\t%%%d = %%%d / %%%d\n",  dst, op0, op1);
 		break;

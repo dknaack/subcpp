@@ -42,6 +42,8 @@ typedef enum {
 
 	// Floating point instructions
 	IR_FLOAT,
+	IR_FVAR,
+	IR_FMOV,
 	IR_FLOAD,
 	IR_FSTORE,
 	IR_FADD,

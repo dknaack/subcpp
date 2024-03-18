@@ -115,8 +115,8 @@ main(int argc, char *argv[])
 
 	if (!error) {
 		ir_program ir_program = translate(&pool, &symbol_table, arena);
-		print_ir_program(ir_program);
 		optimize(ir_program, arena);
+		print_ir_program(ir_program);
 
 		machine_program machine_program = x86_select_instructions(ir_program, arena);
 		machine_program.symtab = &symbol_table;

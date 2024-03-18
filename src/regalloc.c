@@ -138,23 +138,24 @@ get_live_matrix(void *code, machine_function func,
 			}
 
 			for (u32 j = 0; j < instr->operand_count; j++) {
+				u32 value = operands[j].value;
 				switch (operands[j].kind) {
 				case MOP_VREG:
 					if (operands[j].flags & MOP_DEF) {
-						clear_bit(live_matrix, i, operands[j].value);
+						clear_bit(live_matrix, i, value);
 					}
 
 					if (operands[j].flags & MOP_USE) {
-						set_bit(live_matrix, i, operands[j].value);
+						set_bit(live_matrix, i, value);
 					}
 					break;
 				case MOP_MREG:
 					if (operands[j].flags & MOP_DEF) {
-						clear_bit(live_matrix, i, live_matrix.width - 1 - operands[j].value);
+						clear_bit(live_matrix, i, live_matrix.width - 1 - value);
 					}
 
 					if (operands[j].flags & MOP_USE) {
-						set_bit(live_matrix, i, live_matrix.width - 1 - operands[j].value);
+						set_bit(live_matrix, i, live_matrix.width - 1 - value);
 					}
 					break;
 				case MOP_SPILL:
@@ -208,7 +209,7 @@ get_interval_end(bit_matrix live_matrix, u32 reg)
 static u32 *
 sort_intervals_by_start(live_interval *intervals, u32 count, arena *arena)
 {
-	u32 *index = ALLOC(arena, interval_count, u32);
+	u32 *index = ALLOC(arena, count, u32);
 	for (u32 i = 0; i < count; i++) {
 		index[i] = i;
 	}
@@ -272,6 +273,26 @@ allocate_function_registers(machine_function func, void *code,
 	u32 *sorted = sort_intervals_by_start(intervals, func.register_count, arena);
 	machine_operand *mreg_map = ALLOC(arena, func.register_count, machine_operand);
 
+	// Determine floating-pointer registers
+	b32 *is_int_vreg = ALLOC(arena, func.register_count, b32);
+	for (u32 i = 0; i < func.register_count; i++) {
+		is_int_vreg[i] = true;
+	}
+
+	for (u32 i = 0; i < func.instr_count; i++) {
+		machine_instr *instr = get_instr(code, func.instr_offsets, i);
+		u32 operand_count = instr->operand_count;
+
+		machine_operand *operands = (machine_operand *)(instr + 1);
+		for (u32 j = 0; j < operand_count; j++) {
+			b32 is_vreg = (operands[j].kind == MOP_VREG);
+			if (is_vreg && (operands[j].flags & MOP_ISFLOAT)) {
+				u32 reg = operands[j].value;
+				is_int_vreg[reg] = false;
+			}
+		}
+	}
+
 	/*
 	 * NOTE: the register pool is only valid after active_count. In the active
 	 * part of the array, there can be multiple registers with the same value.
@@ -284,6 +305,7 @@ allocate_function_registers(machine_function func, void *code,
 		u32 curr_end = intervals[curr_reg].end;
 		b32 is_empty = (curr_start > curr_end);
 
+		// Free all registers whose interval has ended
 		u32 active_end = active_start + active_count;
 		for (u32 j = active_start; j < active_end; j++) {
 			u32 inactive_reg = sorted[j];
@@ -310,14 +332,20 @@ allocate_function_registers(machine_function func, void *code,
 			sorted[active_start++] = inactive_reg;
 		}
 
+		// Find a valid machine register that doesn't overlap with curr_reg
 		ASSERT(curr_reg < func.register_count);
 		b32 should_spill = (active_count >= reg_info.register_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
 			for (u32 i = active_count; i < reg_info.register_count; i++) {
-				u32 j = pool[i];
-				live_interval interval = intervals[reg_count - 1 - j];
-				if (!overlaps(interval, intervals[curr_reg])) {
+				u32 mreg = pool[i];
+				b32 is_int_mreg = pool[i] < reg_info.int_register_count;
+				if (is_int_mreg != is_int_vreg[curr_reg]) {
+					continue;
+				}
+
+				live_interval mreg_interval = intervals[reg_count - 1 - mreg];
+				if (!overlaps(mreg_interval, intervals[curr_reg])) {
 					swap_u32(pool + active_count, pool + i);
 					found_mreg = true;
 					break;
