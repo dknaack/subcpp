@@ -5,57 +5,51 @@ struct scope_entry {
 	b8 is_type;
 
 	i32 depth;
-	scope_entry *child[4];
+	scope_entry *next;
 };
 
-typedef struct {
+typedef struct scope scope;
+struct scope {
+	scope *parent;
+	isize *count;
 	scope_entry *idents;
 	scope_entry *tags;
-	isize depth;
-	isize *count;
-} scope;
+};
 
-static scope *
-new_scope(scope *parent, arena *perm)
+static scope
+new_scope(scope *parent)
 {
-	scope *s = ALLOC(perm, 1, scope);
+	scope s = {0};
 	if (parent) {
-		memcpy(s, parent, sizeof(*s));
-		s->depth++;
+		s.parent = parent;
+		s.count = parent->count;
 	}
-
 	return s;
 }
 
 static ast_id *
-scope_upsert(scope *s, str key, arena *perm)
+scope_upsert_ident(scope *s, str key, arena *perm)
 {
-	scope_entry **m = &s->idents;
-	isize depth = s->depth;
-
-	for (u64 h = hash(key); *m; h <<= 2) {
-		// TODO: This will not work if we insert a node with different depth
-		if (str_equals((*m)->key, key)) {
-			return &(*m)->value;
-		}
-
-		if ((*m)->depth != depth) {
-			scope_entry *tmp = ALLOC(perm, 1, scope_entry);
-			*m = memcpy(tmp, *m, sizeof(**m));
-			(*m)->depth = depth;
-		}
-
-		m = &(*m)->child[h >> 62];
-	}
-
-	if (!perm) {
+	if (!s) {
 		return NULL;
 	}
 
-	*m = ALLOC(perm, 1, scope_entry);
-	(*m)->key = key;
-	(*m)->depth = depth;
-	return &(*m)->value;
+	scope_entry *e = NULL;
+	for (e = s->idents; e; e = e->next) {
+		if (str_equals(key, e->key)) {
+			return &e->value;
+		}
+	}
+
+	if (!perm) {
+		return scope_upsert_ident(s->parent, key, NULL);
+	}
+
+	e = ALLOC(perm, 1, scope_entry);
+	e->next = s->idents;
+	e->key = key;
+	s->idents = e;
+	return &e->value;
 }
 
 static b32
@@ -118,12 +112,11 @@ is_pointer(type *type)
 }
 
 static void
-merge_identifiers(ast_pool *pool, ast_id node_id, scope *s, arena *perm, b32 *error)
+check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 {
-	scope *orig = NULL;
-	arena temp = {0};
+	scope tmp = {0};
 
-	ast_node *node = ast_get(pool, node_id);
+	ast_node *node = ast_get(pool, *node_id);
 	if (*error || node->kind == AST_TYPE_STRUCT_DEF) {
 		return;
 	}
@@ -133,47 +126,36 @@ merge_identifiers(ast_pool *pool, ast_id node_id, scope *s, arena *perm, b32 *er
 	// accessible from the parameters themselves. In a definition, the
 	// parameters should be accessible from within the function.
 	if (node->kind == AST_STMT_LIST || node->kind == AST_STMT_FOR1) {
-		orig = s;
-		temp = *perm;
-		perm = &temp;
-		s = new_scope(orig, perm);
+		tmp = new_scope(s);
+		s = &tmp;
 	}
 
-	for (;;) {
-		for (i32 i = 0; i < 2; i++) {
-			if (node->child[i].value == 0) {
-				continue;
+	ast_id *child = node_id;
+	while (child->value != 0) {
+		ast_node *node = ast_get(pool, *child);
+		if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF) {
+			node->symbol_id.value = (*s->count)++;
+			*scope_upsert_ident(s, node->value.s, perm) = *child;
+		} else if (node->kind == AST_EXPR_IDENT) {
+			ast_id *resolved = scope_upsert_ident(s, node->value.s, NULL);
+			if (!resolved) {
+				errorf(node->loc, "Variable was never declared");
+				*error = true;
+			} else {
+				*child = *resolved;
 			}
+		}
 
-			ast_node *child = ast_get(pool, node->child[i]);
-			if ((child->kind == AST_DECL || child->kind == AST_EXTERN_DEF)
-				&& (child->symbol_id.value == 0)) {
-				ASSERT(child->symbol_id.value == 0);
-				child->symbol_id.value = (*s->count)++;
-				ASSERT(child->symbol_id.value != 0);
-				*scope_upsert(s, child->value.s, perm) = node->child[i];
-			} else if (child->kind == AST_EXPR_IDENT) {
-				ast_id *resolved = scope_upsert(s, child->value.s, NULL);
-				if (resolved) {
-					ASSERT(ast_get(pool, *resolved)->symbol_id.value != 0);
-					node->child[i] = *resolved;
-				} else {
-					errorf(node->loc, "Variable was never declared");
-					*error = true;
-				}
-			}
-
+		if (node->kind == AST_EXTERN_DEF) {
+			tmp = new_scope(s);
+			s = &tmp;
 		}
 
 		if (node->child[0].value != 0) {
-			merge_identifiers(pool, node->child[0], s, perm, error);
+			check_decls(pool, &node->child[0], s, perm, error);
 		}
 
-		if (node->child[1].value == 0) {
-			break;
-		}
-
-		node = ast_get(pool, node->child[1]);
+		child = &node->child[1];
 	}
 }
 
@@ -354,7 +336,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ASSERT(!"This node should have been eliminated by merge_identifiers");
+			ASSERT(!"This node should have been eliminated by check_decls");
 		} break;
 	case AST_EXPR_FLOAT:
 		{
@@ -521,14 +503,16 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 
 			// TODO: Collect the members of the struct
 			member **ptr = &node->type->members;
-			ast_node *decls = ast_get(pool, node->child[0]);
-			ASSERT(decls->kind == AST_DECL_LIST);
-			while (decls != AST_NIL) {
+			ast_id decl_id = node->child[0];
+			while (decl_id.value != 0) {
+				ast_node *decl_node = ast_get(pool, decl_id);
+				decl_id = decl_node->child[1];
+
+				ASSERT(decl_node->kind == AST_DECL_LIST);
 				*ptr = ALLOC(arena, 1, member);
-				(*ptr)->name = ast_get(pool, decls->child[0])->value.s;
-				(*ptr)->type = ast_get(pool, decls->child[0])->type;
+				(*ptr)->name = ast_get(pool, decl_node->child[0])->value.s;
+				(*ptr)->type = ast_get(pool, decl_node->child[0])->type;
 				ptr = &(*ptr)->next;
-				decls = ast_get(pool, decls->child[1]);
 			}
 		} break;
 	}
@@ -565,17 +549,17 @@ add_global_symbols(ast_pool *pool, ast_id node_id, symbol_table symtab)
 }
 
 static symbol_table
-analyze(ast_pool *pool, arena *perm, b32 *error)
+check(ast_pool *pool, arena *perm, b32 *error)
 {
 	symbol_table symtab = {0};
-	scope *s = new_scope(NULL, perm);
-	s->count = &symtab.count;
+	scope s = new_scope(NULL);
+	s.count = &symtab.count;
 	// NOTE: Reserve the first symbol as a NIL symbol
 	symtab.count++;
 
-	merge_identifiers(pool, pool->root, s, perm, error);
-	symtab.symbols = ALLOC(perm, symtab.count, symbol);
+	check_decls(pool, &pool->root, &s, perm, error);
 	if (!*error) {
+		symtab.symbols = ALLOC(perm, symtab.count, symbol);
 		check_type(pool, pool->root, perm, error);
 		add_global_symbols(pool, pool->root, symtab);
 	}
