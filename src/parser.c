@@ -122,6 +122,8 @@ errorf(location loc, char *fmt, ...)
 	va_start(ap, fmt);
 	verrorf(loc, fmt, ap);
 	va_end(ap);
+
+	ASSERT(false);
 }
 
 static void
@@ -646,16 +648,11 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 			}
 
 			if (accept(tokenizer, TOKEN_LBRACE)) {
-				type_specifier.kind = AST_TYPE_STRUCT_DEF;
-
-				ast_list params = {0};
-				// TODO: set correct flags for parsing struct members, i.e.
-				// declarations are allowed to have bitfields.
+				ast_list members = {0};
 				while (!tokenizer->error && !accept(tokenizer, TOKEN_RBRACE)) {
 					ast_list decl = parse_decl(tokenizer, PARSE_STRUCT_MEMBER, pool);
 					if (decl.first.value != 0) {
-						// TODO: Walk to the end of the declaration
-						ast_concat(pool, &params, decl);
+						ast_concat(pool, &members, decl);
 					} else {
 						tokenizer->error = true;
 					}
@@ -663,6 +660,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 					expect(tokenizer, TOKEN_SEMICOLON);
 				}
 
+				type_specifier.child[0] = members.first;
 			}
 			break;
 		default:
