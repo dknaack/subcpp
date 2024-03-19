@@ -373,7 +373,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, pool, node->child[0], false);
-					if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
+					if (!is_lvalue
+						&& node->type->kind != TYPE_STRUCT
+						&& node->type->kind != TYPE_FUNCTION)
+					{
 						ir_type type = ir_type_from(node->type);
 						result = ir_emit1_type(ctx, type, IR_LOAD, result);
 					}
