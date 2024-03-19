@@ -309,8 +309,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			while (param_id.value != 0) {
 				ASSERT(param_count < 128);
 				ast_node *param_list = ast_get(pool, param_id);
-				param_register[param_count++ & 127] =
-					translate_node(ctx, pool, param_list->child[0], false);
+				u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
+				ast_node *param_node = ast_get(pool, param_list->child[0]);
+				if (param_node->type->kind == TYPE_STRUCT) {
+					isize size = type_sizeof(param_node->type);
+					u32 copy = ir_emit_alloca(ctx, size);
+					ir_memcpy(ctx, copy, param_reg, size);
+					param_reg = copy;
+				}
+
+				param_register[param_count++ & 127] = param_reg;
 				param_id = param_list->child[1];
 			}
 
