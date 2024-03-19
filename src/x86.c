@@ -744,7 +744,7 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		stream_print(out, "]");
 		break;
 	case MOP_LABEL:
-		stream_print(out, "L#");
+		stream_print(out, ".L");
 		stream_printu(out, operand.value);
 		break;
 	case MOP_MREG:
@@ -889,27 +889,13 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					"\tmov rdi, fmt\n"
 					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
-				stream_print(out, "L#");
+				stream_print(out, ".L");
 				x86_emit_operand(out, operands[0], program.symtab);
 				stream_print(out, ":\n");
+			} else if (opcode == X86_RET) {
+				stream_print(out, "\tjmp .exit\n");
 			} else {
-				if (opcode == X86_RET) {
-					if (stack_size > 0) {
-						stream_print(out, "\tadd rsp, ");
-						stream_printu(out, stack_size);
-						stream_print(out, "\n");
-					}
-
-					u32 j = LENGTH(x86_preserved_regs);
-					while (j-- > 0) {
-						u32 mreg = x86_preserved_regs[j];
-						if (info[function_index].used[mreg]) {
-							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_mreg(mreg, 8), program.symtab);
-							stream_print(out, "\n");
-						}
-					}
-				} else if (opcode == X86_MOV || opcode == X86_MOVSS) {
+				if (opcode == X86_MOV || opcode == X86_MOVSS) {
 					if  (machine_operand_equals(operands[0], operands[1])) {
 						continue;
 					}
@@ -942,5 +928,24 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				stream_print(out, "\n");
 			}
 		}
+
+		stream_print(out, ".exit:\n");
+		if (stack_size > 0) {
+			stream_print(out, "\tadd rsp, ");
+			stream_printu(out, stack_size);
+			stream_print(out, "\n");
+		}
+
+		u32 j = LENGTH(x86_preserved_regs);
+		while (j-- > 0) {
+			u32 mreg = x86_preserved_regs[j];
+			if (info[function_index].used[mreg]) {
+				stream_print(out, "\tpop ");
+				x86_emit_operand(out, make_mreg(mreg, 8), program.symtab);
+				stream_print(out, "\n");
+			}
+		}
+
+		stream_print(out, "\tret\n\n");
 	}
 }
