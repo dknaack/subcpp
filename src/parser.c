@@ -639,12 +639,11 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 			} break;
 		case TOKEN_STRUCT:
 			get_token(tokenizer);
-			accept(tokenizer, TOKEN_IDENT);
-
 			type_specifier = ast_make_node(AST_TYPE_STRUCT, tokenizer->loc);
 			token = peek_token(tokenizer);
 			if (token.kind == TOKEN_IDENT) {
 				type_specifier.value.s = token.value;
+				get_token(tokenizer);
 			}
 
 			if (accept(tokenizer, TOKEN_LBRACE)) {
