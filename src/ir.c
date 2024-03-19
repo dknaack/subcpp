@@ -579,7 +579,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, symbol_id.value);
 			}
 
-			if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
+			if (!is_lvalue
+				&& node->type->kind != TYPE_FUNCTION
+				&& node->type->kind != TYPE_STRUCT)
+			{
 				ir_type type = ir_type_from(node->type);
 				result = ir_emit1_type(ctx, type, IR_LOAD, result);
 			}
