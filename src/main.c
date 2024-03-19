@@ -107,11 +107,11 @@ main(int argc, char *argv[])
 	}
 
 	b32 error = false;
-	arena *arena = new_arena(1000 * 1000);
+	arena *arena = new_arena(5 * 1024 * 1024);
 	ast_pool pool = {0};
 	tokenizer tokenizer = tokenize(argv[1], arena);
 	parse(&tokenizer, &pool);
-	symbol_table symbol_table = analyze(&pool, arena, &error);
+	symbol_table symbol_table = check(&pool, arena, &error);
 
 	if (!error) {
 		ir_program ir_program = translate(&pool, &symbol_table, arena);
@@ -121,7 +121,7 @@ main(int argc, char *argv[])
 		machine_program machine_program = x86_select_instructions(ir_program, arena);
 		machine_program.symtab = &symbol_table;
 		allocation_info *info = allocate_registers(machine_program, arena);
-		stream out = stream_open("/tmp/out.s", 1024, arena);
+		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
 		x86_generate(&out, machine_program, info);
 		stream_close(&out);
 
