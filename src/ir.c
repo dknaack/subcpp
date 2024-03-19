@@ -89,6 +89,33 @@ add_function(ir_context *ctx, str name, arena *perm)
 
 static u32 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue);
 
+static void
+ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
+{
+	u32 continue_label = new_label(ctx);
+	u32 break_label = new_label(ctx);
+
+	u32 counter_reg = ir_emit0_type(ctx, IR_I64, IR_VAR);
+	u32 zero = ir_emit1_type(ctx, IR_I64, IR_CONST, 0);
+	u32 one = ir_emit1_type(ctx, IR_I64, IR_CONST, 1);
+	ir_emit2(ctx, IR_MOV, counter_reg, zero);
+
+	ir_emit1(ctx, IR_LABEL, continue_label);
+	u32 size_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, size);
+	u32 comparison = ir_emit2(ctx, IR_LT, counter_reg, size_reg);
+	ir_emit2(ctx, IR_JIZ, comparison, break_label);
+
+	u32 dst_ptr = ir_emit2(ctx, IR_ADD, dst, counter_reg);
+	u32 src_ptr = ir_emit2(ctx, IR_ADD, src, counter_reg);
+	u32 src_byte = ir_emit1_type(ctx, IR_I8, IR_LOAD, src_ptr);
+	ir_emit2_type(ctx, IR_I8, IR_STORE, dst_ptr, src_byte);
+
+	u32 next = ir_emit2(ctx, IR_ADD, counter_reg, one);
+	ir_emit2(ctx, IR_MOV, counter_reg, next);
+	ir_emit1(ctx, IR_JMP, continue_label);
+	ir_emit1(ctx, IR_LABEL, break_label);
+}
+
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
@@ -192,7 +219,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				opcode += IR_LTU - IR_LT;
 			}
 
-			ir_type type = ir_type_from(node->type);
 			if (operator == TOKEN_AMP_AMP) {
 				u32 end_label = new_label(ctx);
 				u32 zero_label = new_label(ctx);
@@ -248,9 +274,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], true);
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				if (operator != TOKEN_EQUAL) {
+					ir_type type = ir_type_from(node->type);
 					u32 value = ir_emit1_type(ctx, type, IR_LOAD, lhs_reg);
 					result = ir_emit2(ctx, opcode, value, rhs_reg);
 					ir_emit2(ctx, IR_STORE, lhs_reg, result);
+				} else if (node->type->kind == TYPE_STRUCT) {
+					ir_memcpy(ctx, lhs_reg, rhs_reg, type_sizeof(node->type));
 				} else {
 					ir_emit2(ctx, IR_STORE, lhs_reg, rhs_reg);
 				}
@@ -261,6 +290,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 size_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, size);
 				rhs_reg = ir_emit2(ctx, IR_MUL, rhs_reg, size_reg);
 				result = ir_emit2(ctx, IR_ADD, lhs_reg, rhs_reg);
+				ir_type type = ir_type_from(node->type);
 				result = ir_emit1_type(ctx, type, IR_LOAD, result);
 			} else {
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
