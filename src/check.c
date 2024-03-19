@@ -52,6 +52,31 @@ scope_upsert_ident(scope *s, str key, arena *perm)
 	return &e->value;
 }
 
+static ast_id *
+scope_upsert_tag(scope *s, str key, arena *perm)
+{
+	if (!s) {
+		return NULL;
+	}
+
+	scope_entry *e = NULL;
+	for (e = s->tags; e; e = e->next) {
+		if (str_equals(key, e->key)) {
+			return &e->value;
+		}
+	}
+
+	if (!perm) {
+		return scope_upsert_tag(s->parent, key, NULL);
+	}
+
+	e = ALLOC(perm, 1, scope_entry);
+	e->next = s->idents;
+	e->key = key;
+	s->tags = e;
+	return &e->value;
+}
+
 static b32
 type_equals(type *lhs, type *rhs)
 {
@@ -129,7 +154,18 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 	ast_id *child = node_id;
 	while (child->value != 0) {
 		ast_node *node = ast_get(pool, *child);
-		if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF) {
+		if (node->kind == AST_TYPE_STRUCT && node->value.s.at) {
+			if (node->child[0].value != 0) {
+				node->symbol_id.value = (*s->count)++;
+				*scope_upsert_tag(s, node->value.s, perm) = *child;
+			} else {
+				// TODO: Opaque struct declarations
+				ast_id *resolved = scope_upsert_tag(s, node->value.s, NULL);
+				if (resolved) {
+					*child = *resolved;
+				}
+			}
+		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF) {
 			node->symbol_id.value = (*s->count)++;
 			*scope_upsert_ident(s, node->value.s, perm) = *child;
 		} else if (node->kind == AST_EXPR_IDENT) {
@@ -142,13 +178,13 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 			}
 		}
 
+		if (node->child[0].value != 0) {
+			check_decls(pool, &node->child[0], s, perm, error);
+		}
+
 		if (node->kind == AST_EXTERN_DEF) {
 			tmp = new_scope(s);
 			s = &tmp;
-		}
-
-		if (node->child[0].value != 0) {
-			check_decls(pool, &node->child[0], s, perm, error);
 		}
 
 		child = &node->child[1];
