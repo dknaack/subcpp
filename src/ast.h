@@ -42,17 +42,16 @@ typedef enum {
 	AST_STMT_WHILE,    // {cond, body}
 
 	// types
-	AST_TYPE_ARRAY,      // {size_expr, type}
-	AST_TYPE_BITFIELD,   // {expr, type}
-	AST_TYPE_CHAR,       // {}
-	AST_TYPE_FLOAT,      // {}
-	AST_TYPE_FUNC,       // {param_list, return_type}
-	AST_TYPE_INT,        // {}
-	AST_TYPE_POINTER,    // {_, type}
-	AST_TYPE_STRUCT,     // {}
-	AST_TYPE_STRUCT_DEF, // {...declarations}
-	AST_TYPE_ENUM,       // {...members}
-	AST_TYPE_VOID,       // {}
+	AST_TYPE_ARRAY,    // {size_expr, type}
+	AST_TYPE_BITFIELD, // {expr, type}
+	AST_TYPE_CHAR,     // {}
+	AST_TYPE_FLOAT,    // {}
+	AST_TYPE_FUNC,     // {param_list, return_type}
+	AST_TYPE_INT,      // {}
+	AST_TYPE_POINTER,  // {_, type}
+	AST_TYPE_STRUCT,   // {}
+	AST_TYPE_ENUM,     // {...members}
+	AST_TYPE_VOID,     // {}
 } ast_node_kind;
 
 typedef enum {

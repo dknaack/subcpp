@@ -117,14 +117,10 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 	scope tmp = {0};
 
 	ast_node *node = ast_get(pool, *node_id);
-	if (*error || node->kind == AST_TYPE_STRUCT_DEF) {
+	if (*error) {
 		return;
 	}
 
-	// TODO: Ensure that this works for function declarators but also function
-	// definitions. For function declarations the parameters should be only
-	// accessible from the parameters themselves. In a definition, the
-	// parameters should be accessible from within the function.
 	if (node->kind == AST_STMT_LIST || node->kind == AST_STMT_FOR1) {
 		tmp = new_scope(s);
 		s = &tmp;
@@ -492,10 +488,6 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			ASSERT(!"TODO");
 		} break;
 	case AST_TYPE_STRUCT:
-		{
-			// TODO
-		} break;
-	case AST_TYPE_STRUCT_DEF:
 		{
 			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
