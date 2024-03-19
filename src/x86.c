@@ -299,7 +299,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			} else {
 				x86_select_instr(out, instr, op0, dst);
 				dst.flags |= MOP_INDIRECT;
-				dst.size = 8;
+				dst.size = src.size;
 				x86_select2(out, x86_opcode, dst, src);
 			}
 		} break;
