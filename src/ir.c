@@ -305,6 +305,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			i32 param_count = 0;
 			u32 param_register[128] = {0};
+			type *return_type = called->type->children;
+			ir_type result_type = IR_I64;
+			if (return_type->kind == TYPE_STRUCT) {
+				isize size = type_sizeof(return_type);
+				param_register[param_count++] = ir_emit_alloca(ctx, size);
+			} else {
+				result_type = ir_type_from(return_type);
+			}
+
 			ast_id param_id = node->child[1];
 			while (param_id.value != 0) {
 				ASSERT(param_count < 128);
@@ -326,9 +335,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ir_emit1(ctx, IR_PARAM, param_register[i]);
 			}
 
-			type *return_type = called->type->children;
-			ir_type result_type = ir_type_from(return_type);
-			result = ir_emit2_type(ctx, result_type, IR_CALL, called_reg, param_count);
+			u32 return_reg = ir_emit2_type(ctx, result_type, IR_CALL, called_reg, param_count);
+			result = ir_emit0_type(ctx, result_type, IR_VAR);
+			ir_emit2(ctx, IR_MOV, result, return_reg);
 		} break;
 	case AST_EXPR_IDENT:
 		{
@@ -511,8 +520,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
 						ast_id body = node->child[1];
-						ast_node *type = ast_get(pool, node->child[0]);
-						ASSERT(type->kind == AST_TYPE_FUNC);
+						ast_node *type_node = ast_get(pool, node->child[0]);
+						ASSERT(type_node->kind == AST_TYPE_FUNC);
 
 						u32 prev_label_count = ctx->program->label_count;
 						u32 prev_register_count = ctx->program->register_count;
@@ -525,7 +534,14 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ir_emit1(ctx, IR_LABEL, new_label(ctx));
 
 						i32 param_count = 0;
-						ast_id param_id = type->child[0];
+						type *return_type = node->type->children;
+						if (return_type->kind == TYPE_STRUCT) {
+							isize size = type_sizeof(return_type);
+							ir_emit_alloca(ctx, size);
+							param_count++;
+						}
+
+						ast_id param_id = type_node->child[0];
 						while (param_id.value != 0) {
 							ast_node *param_list = ast_get(pool, param_id);
 							ast_node *param = ast_get(pool, param_list->child[0]);
@@ -566,6 +582,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ast_node *expr = ast_get(pool, node->child[1]);
 						if (expr->kind == AST_INIT_LIST) {
 							translate_initializer(ctx, pool, node->child[1], result);
+						} else if (node->type->kind == TYPE_STRUCT) {
+							u32 value = translate_node(ctx, pool, node->child[1], false);
+							ir_memcpy(ctx, result, value, size);
 						} else {
 							u32 value = translate_node(ctx, pool, node->child[1], false);
 							ir_type type = ir_type_from(node->type);
@@ -667,8 +686,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_RETURN:
 		{
 			u32 value = 0;
+			b32 returns_struct = false;
+			isize struct_size = 0;
 			if (node->child[0].value != 0) {
 				value = translate_node(ctx, pool, node->child[0], false);
+				ast_node *value_node = ast_get(pool, node->child[0]);
+				returns_struct = (value_node->type->kind == TYPE_STRUCT);
+				struct_size = type_sizeof(value_node->type);
+			}
+
+			if (returns_struct) {
+				ir_memcpy(ctx, 1, value, struct_size);
 			}
 
 			ir_emit1(ctx, IR_RET, value);
