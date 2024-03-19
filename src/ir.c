@@ -146,8 +146,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 offset = type_offsetof(operand->type, node->value.s);
 			u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
 			u32 base_reg = translate_node(ctx, pool, node->child[0], true);
-			u32 addr = ir_emit2(ctx, IR_ADD, base_reg, offset_reg);
-			result = ir_emit1_type(ctx, type, IR_LOAD, addr);
+			result = ir_emit2(ctx, IR_ADD, base_reg, offset_reg);
+			if (!is_lvalue) {
+				result = ir_emit1_type(ctx, type, IR_LOAD, result);
+			}
 		} break;
 	case AST_EXPR_BINARY:
 		{
