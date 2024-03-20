@@ -346,6 +346,25 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			result = ir_emit0_type(ctx, result_type, IR_VAR);
 			ir_emit2(ctx, IR_MOV, result, return_reg);
 		} break;
+	case AST_EXPR_CAST:
+		{
+			ast_node *cast_node = ast_get(pool, node->child[0]);
+			ast_node *expr_node = ast_get(pool, node->child[1]);
+			isize cast_size = type_sizeof(cast_node->type);
+			isize expr_size = type_sizeof(expr_node->type);
+
+			result = translate_node(ctx, pool, node->child[1], false);
+			ir_type type = ir_type_from(cast_node->type);
+			if (cast_size < expr_size) {
+				result = ir_emit1_type(ctx, type, IR_TRUNC, result);
+			} else if (cast_size > expr_size) {
+				if (expr_node->type->kind & TYPE_UNSIGNED) {
+					result = ir_emit1_type(ctx, type, IR_ZEXT, result);
+				} else {
+					result = ir_emit1_type(ctx, type, IR_SEXT, result);
+				}
+			}
+		} break;
 	case AST_EXPR_IDENT:
 		{
 			ASSERT(!"Should have been removed by merge_identifiers");
@@ -764,6 +783,9 @@ get_opcode_info(ir_opcode opcode)
 	case IR_RET:
 	case IR_LOAD:
 	case IR_COPY:
+	case IR_TRUNC:
+	case IR_SEXT:
+	case IR_ZEXT:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:

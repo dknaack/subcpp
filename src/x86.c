@@ -503,6 +503,27 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			rax.flags |= MOP_IMPLICIT;
 			x86_select1(out, X86_RET, rax);
 		} break;
+	case IR_SEXT:
+		{
+			machine_operand src = make_vreg(op0, ir_sizeof(instr[op0].type));
+			ASSERT(src.size < dst.size);
+
+			x86_select_instr(out, instr, op0, src);
+			x86_select2(out, X86_MOVSX, dst, src);
+		} break;
+	case IR_ZEXT:
+		{
+			machine_operand src = make_vreg(op0, ir_sizeof(instr[op0].type));
+			ASSERT(src.size < dst.size);
+
+			x86_select_instr(out, instr, op0, src);
+			x86_select2(out, X86_MOVZX, dst, src);
+		} break;
+	case IR_TRUNC:
+		{
+			dst.size = ir_sizeof(instr[op0].type);
+			x86_select_instr(out, instr, op0, dst);
+		} break;
 	case IR_CALL:
 		{
 			machine_operand called = make_vreg(op0, 8);

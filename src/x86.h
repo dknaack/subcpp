@@ -55,6 +55,7 @@ typedef enum {
 	X86_LEA,
 	X86_MOV,
 	X86_MOVSS,
+	X86_MOVSX,
 	X86_MOVZX,
 	X86_MULSS,
 	X86_NEG,
@@ -131,6 +132,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
 	case X86_MOVSS: return "movss";
+	case X86_MOVSX: return "movsx";
 	case X86_MOVZX: return "movzx";
 	case X86_MULSS: return "mulss";
 	case X86_NEG:   return "neg";

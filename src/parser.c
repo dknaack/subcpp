@@ -263,7 +263,20 @@ is_postfix_operator(token_kind token)
 	}
 }
 
+typedef enum {
+	PARSE_SINGLE_DECL    = 1 << 0,
+	PARSE_BITFIELD       = 1 << 1,
+	PARSE_NO_INITIALIZER = 1 << 2,
+	PARSE_NO_IDENT       = 1 << 3,
+
+	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
+	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
+	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
+	PARSE_EXTERNAL_DECL = 0,
+} parse_decl_flags;
+
 static ast_id parse_assign_expr(tokenizer *tokenizer, ast_pool *pool);
+static ast_list parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool);
 
 static ast_id
 parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
@@ -329,15 +342,33 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 			expr = ast_push(pool, literal);
 		} break;
 	case TOKEN_LPAREN:
-		get_token(tokenizer);
-		expr = parse_expr(tokenizer, 0, pool);
-		if (expr.value == 0) {
-			syntax_error(tokenizer, "Expected expression");
-			return expr;
-		}
+		{
+			get_token(tokenizer);
 
-		expect(tokenizer, TOKEN_RPAREN);
-		break;
+			ast_list decl = parse_decl(tokenizer, PARSE_CAST, pool);
+			if (decl.first.value != 0) {
+				expect(tokenizer, TOKEN_RPAREN);
+				if (tokenizer->peek[0].kind == TOKEN_LBRACE) {
+					ASSERT(!"TODO: Parse initializer");
+				} else {
+					ast_node *decl_node = ast_get(pool, decl.first);
+					ast_id type = decl_node->child[0];
+
+					ast_node node = ast_make_node(AST_EXPR_CAST, tokenizer->loc);
+					node.child[0] = type;
+					node.child[1] = parse_expr(tokenizer, PREC_PRIMARY, pool);
+					expr = ast_push(pool, node);
+				}
+			} else {
+				expr = parse_expr(tokenizer, 0, pool);
+				if (expr.value == 0) {
+					syntax_error(tokenizer, "Expected expression");
+					return expr;
+				}
+
+				expect(tokenizer, TOKEN_RPAREN);
+			}
+		} break;
 	case TOKEN_STAR:
 	case TOKEN_AMP:
 	case TOKEN_PLUS:
@@ -470,18 +501,6 @@ parse_initializer(tokenizer *t, ast_pool *pool)
 	return list.first;
 }
 
-typedef enum {
-	PARSE_SINGLE_DECL    = 1 << 0,
-	PARSE_BITFIELD       = 1 << 1,
-	PARSE_NO_INITIALIZER = 1 << 2,
-
-	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
-	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
-	PARSE_EXTERNAL_DECL = 0,
-} parse_decl_flags;
-
-static ast_list parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool);
-
 static ast_node_flags
 get_qualifier(token_kind token)
 {
@@ -516,7 +535,7 @@ get_qualifier(token_kind token)
 }
 
 static ast_list
-parse_declarator(tokenizer *tokenizer, ast_pool *pool)
+parse_declarator(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 {
 	ast_list declarator = {0};
 	ast_list pointer_declarator = {0};
@@ -540,9 +559,9 @@ parse_declarator(tokenizer *tokenizer, ast_pool *pool)
 
 	token token = {0};
 	if (accept(tokenizer, TOKEN_LPAREN)) {
-		declarator = parse_declarator(tokenizer, pool);
+		declarator = parse_declarator(tokenizer, flags, pool);
 		expect(tokenizer, TOKEN_RPAREN);
-	} else {
+	} else if (!(flags & PARSE_NO_IDENT)) {
 		token = tokenizer->peek[0];
 		if (token.kind != TOKEN_IDENT) {
 			syntax_error(tokenizer, "Expected identifier, but found %s",
@@ -722,9 +741,9 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 
 	do {
 		ast_node node = ast_make_node(AST_DECL_LIST, tokenizer->loc);
-		ast_list decl = parse_declarator(tokenizer, pool);
-		ASSERT(decl.first.value != 0);
-		ASSERT(decl.last.value != 0);
+		ast_list decl = parse_declarator(tokenizer, flags, pool);
+		ASSERT((flags & PARSE_NO_IDENT) || decl.first.value != 0);
+		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
 		ast_append(pool, &decl, type_specifier);
 
 		ast_node *decl_node = ast_get(pool, decl.first);

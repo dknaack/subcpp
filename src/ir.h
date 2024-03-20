@@ -29,12 +29,15 @@ typedef enum {
 	IR_PARAM,
 	IR_PRINT,
 	IR_RET,
+	IR_SEXT,
 	IR_SHL,
 	IR_SHR,
 	IR_STORE,
 	IR_SUB,
+	IR_TRUNC,
 	IR_VAR,
 	IR_XOR,
+	IR_ZEXT,
 } ir_opcode;
 
 typedef enum {

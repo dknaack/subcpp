@@ -13,6 +13,7 @@ typedef enum {
 	// expressions
 	AST_EXPR_BINARY,   // {lhs, rhs}
 	AST_EXPR_CALL,     // {called: expr, params: expr_list}
+	AST_EXPR_CAST,     // {type, expr}
 	AST_EXPR_IDENT,    // value.s
 	AST_EXPR_INT,      // value.i
 	AST_EXPR_FLOAT,    // value.f

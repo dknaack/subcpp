@@ -115,6 +115,15 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_RET:
 		printf("\tret %%%d\n", op0);
 		break;
+	case IR_TRUNC:
+		printf("\t%%%d =%s trunc %%%d\n", dst, type, op0);
+		break;
+	case IR_SEXT:
+		printf("\t%%%d =%s sext %%%d\n", dst, type, op0);
+		break;
+	case IR_ZEXT:
+		printf("\t%%%d =%s zext %%%d\n", dst, type, op0);
+		break;
 	case IR_CALL:
 		printf("\t%%%d =%s call L%d, %d\n", dst, type, op0, op1);
 		break;

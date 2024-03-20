@@ -377,6 +377,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			type *return_type = called->type->children;
 			node->type = return_type;
 		} break;
+	case AST_EXPR_CAST:
+		{
+			ast_node *cast_node = ast_get(pool, node->child[0]);
+			node->type = cast_node->type;
+
+			// TODO: Ensure that this cast is valid.
+		} break;
 	case AST_EXPR_IDENT:
 		{
 			ASSERT(!"This node should have been eliminated by check_decls");
