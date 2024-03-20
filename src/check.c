@@ -193,6 +193,59 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 	}
 }
 
+static i64
+eval_ast(ast_pool *pool, ast_id node_id)
+{
+	i64 result = 0;
+	ast_node *node = ast_get(pool, node_id);
+	switch (node->kind) {
+	case AST_EXPR_INT:
+		{
+			result = node->value.i;
+		} break;
+	case AST_EXPR_BINARY:
+		{
+			i64 lhs = eval_ast(pool, node->child[0]);
+			i64 rhs = eval_ast(pool, node->child[1]);
+			switch (node->value.op) {
+			case TOKEN_PLUS:          result = lhs +  rhs; break;
+			case TOKEN_MINUS:         result = lhs -  rhs; break;
+			case TOKEN_STAR:          result = lhs *  rhs; break;
+			case TOKEN_SLASH:         result = lhs /  rhs; break;
+			case TOKEN_PERCENT:       result = lhs %  rhs; break;
+			case TOKEN_EQUAL_EQUAL:   result = lhs == rhs; break;
+			case TOKEN_LESS:          result = lhs <  rhs; break;
+			case TOKEN_GREATER:       result = lhs >  rhs; break;
+			case TOKEN_RSHIFT:        result = lhs << rhs; break;
+			case TOKEN_LSHIFT:        result = lhs >> rhs; break;
+			case TOKEN_LESS_EQUAL:    result = lhs <= rhs; break;
+			case TOKEN_GREATER_EQUAL: result = lhs >= rhs; break;
+			case TOKEN_AMP:           result = lhs &  rhs; break;
+			case TOKEN_BAR:           result = lhs |  rhs; break;
+			case TOKEN_CARET:         result = lhs ^  rhs; break;
+			case TOKEN_AMP_AMP:       result = lhs && rhs; break;
+			case TOKEN_BAR_BAR:       result = lhs || rhs; break;
+			default:                  ASSERT(!"Invalid operator");
+			}
+		} break;
+	case AST_EXPR_UNARY:
+		{
+			switch (node->value.op) {
+			case TOKEN_MINUS: result = -result; break;
+			case TOKEN_BANG:  result = !result; break;
+			case TOKEN_PLUS:
+				break;
+			default:
+				ASSERT(!"Invalid operator");
+			}
+		} break;
+	default:
+		ASSERT(!"Invalid node");
+	}
+
+	return result;
+}
+
 static void
 check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 {
@@ -552,14 +605,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			i32 value = 0;
 			while (enum_id.value != 0) {
 				ast_node *enum_node = ast_get(pool, enum_id);
-				ast_node *enum_value = NULL;
 				if (enum_node->child[0].value != 0) {
-					enum_value = ast_get(pool, enum_node->child[0]);
-					if (enum_value->kind == AST_EXPR_INT) {
-						value = enum_value->value.i;
-					}
+					value = eval_ast(pool, enum_node->child[0]);
 				}
 
+				// TODO: Should we replace the whole enumerator or just the
+				// underlying value. Modifying just the value would likely be
+				// easier for error handling...
 				enum_node->kind = AST_EXPR_INT;
 				enum_node->value.i = value++;
 				enum_node->type = &type_int;
