@@ -127,7 +127,8 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 		{
 			usize offset = 0;
 
-			while (node != AST_NIL) {
+			while (node_id.value != 0) {
+				ast_node *node = ast_get(pool, node_id);
 				ast_node *child = ast_get(pool, node->child[0]);
 				isize child_align = type_alignof(child->type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
@@ -138,7 +139,7 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 
 				isize child_size = type_sizeof(child->type);
 				offset += child_size;
-				node = ast_get(pool, node->child[1]);
+				node_id = node->child[1];
 			}
 		} break;
 	default:

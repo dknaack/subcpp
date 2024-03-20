@@ -248,23 +248,24 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 
 			// TODO: Check the type of each field in the initializer
 			if (node->type->kind == TYPE_STRUCT) {
-				while (member && node != AST_NIL) {
-					ast_node *value = ast_get(pool, node->child[0]);
+				while (member && node_id.value != 0) {
+					ast_node *list_node = ast_get(pool, node_id);
+					ast_node *value = ast_get(pool, list_node->child[0]);
 					if (value->kind == AST_INIT_LIST) {
 						value->type = member->type;
 					}
 
-					check_type(pool, node->child[0], arena, error);
+					check_type(pool, list_node->child[0], arena, error);
 					// TODO: Type conversion
 					if (!type_equals(member->type, value->type)) {
-						//errorf(node->loc, "Invalid type");
+						//errorf(list_node->loc, "Invalid type");
 					}
 
 					member = member->next;
-					node = ast_get(pool, node->child[1]);
+					node_id = list_node->child[1];
 				}
 
-				if (!member && node != AST_NIL) {
+				if (member == NULL && node_id.value != 0) {
 					errorf(node->loc, "Too many fields in the initializer");
 				}
 			} else if (node->type->kind == TYPE_ARRAY) {
