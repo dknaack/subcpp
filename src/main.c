@@ -115,6 +115,7 @@ main(int argc, char *argv[])
 
 	if (!error) {
 		ir_program ir_program = translate(&pool, &symbol_table, arena);
+		print_ir_program(ir_program);
 		optimize(ir_program, arena);
 		print_ir_program(ir_program);
 

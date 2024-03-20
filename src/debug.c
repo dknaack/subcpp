@@ -25,6 +25,12 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_NOP:
 		printf("\tnop\n");
 		break;
+	case IR_CAST:
+		printf("\t%%%d =%s cast %%%d\n", dst, type, op0);
+		break;
+	case IR_CASTU:
+		printf("\t%%%d =%s castu %%%d\n", dst, type, op0);
+		break;
 	case IR_GLOBAL:
 		printf("\t%%%d =%s global %d\n", dst, type, op0);
 		break;

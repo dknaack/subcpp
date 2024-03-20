@@ -72,7 +72,6 @@ x86_select2(machine_program *out, x86_opcode opcode,
 
 	switch (opcode) {
 	case X86_MOV:
-		ASSERT(dst.size == src.size);
 		if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
 			if (dst.flags & MOP_INDIRECT) {
@@ -203,6 +202,28 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, X86_MOVSS, dst, src);
 			} else {
 				x86_select2(out, X86_MOV, dst, src);
+			}
+		} break;
+	case IR_CAST:
+	case IR_CASTU:
+		{
+			ir_type op0_type = instr[op0].type;
+			machine_operand src = make_vreg(op0, ir_sizeof(op0_type));
+
+			x86_select_instr(out, instr, op0, src);
+			if (type == IR_F32) {
+				x86_select2(out, X86_CVTSI2SS, dst, src);
+			} else if (type == IR_F64) {
+				x86_select2(out, X86_CVTSI2SD, dst, src);
+			} else if (op0_type == IR_F32) {
+				src.size = 8;
+				x86_select2(out, X86_CVTTSS2SI, dst, src);
+			} else if (op0_type == IR_F64) {
+				src.size = 8;
+				x86_select2(out, X86_CVTTSD2SI, dst, src);
+			}
+
+			if (type == IR_I8) {
 			}
 		} break;
 	case IR_CONST:

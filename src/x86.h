@@ -36,6 +36,10 @@ typedef enum {
 	X86_CALL,
 	X86_CMP,
 	X86_COMISS,
+	X86_CVTSI2SS,
+	X86_CVTSI2SD,
+	X86_CVTTSS2SI,
+	X86_CVTTSD2SI,
 	X86_DEC,
 	X86_DIVSS,
 	X86_IDIV,
@@ -106,13 +110,16 @@ static char *
 x86_get_opcode_name(x86_opcode opcode)
 {
 	switch (opcode) {
-	case X86_NOP:   return "nop";
 	case X86_ADD:   return "add";
 	case X86_ADDSS: return "addss";
 	case X86_AND:   return "and";
 	case X86_CALL:  return "call";
 	case X86_CMP:   return "cmp";
 	case X86_COMISS: return "comiss";
+	case X86_CVTSI2SD: return "cvtsi2sd";
+	case X86_CVTSI2SS: return "cvtsi2ss";
+	case X86_CVTTSD2SI: return "cvttsd2si";
+	case X86_CVTTSS2SI: return "cvttss2si";
 	case X86_DEC:   return "dec";
 	case X86_DIVSS: return "divss";
 	case X86_IDIV:  return "idiv";
@@ -129,6 +136,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_JMP:   return "jmp";
 	case X86_JNZ:   return "jnz";
 	case X86_JZ:    return "jz";
+	case X86_LABEL: return "label";
 	case X86_LEA:   return "lea";
 	case X86_MOV:   return "mov";
 	case X86_MOVSS: return "movss";
@@ -136,7 +144,9 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_MOVZX: return "movzx";
 	case X86_MULSS: return "mulss";
 	case X86_NEG:   return "neg";
+	case X86_NOP:   return "nop";
 	case X86_OR:    return "or";
+	case X86_PRINT: return "print";
 	case X86_RET:   return "ret";
 	case X86_SETA:  return "seta";
 	case X86_SETAE: return "setae";
@@ -153,8 +163,6 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_SUBSS: return "subss";
 	case X86_TEST:  return "test";
 	case X86_XOR:   return "xor";
-	case X86_LABEL: return "label";
-	case X86_PRINT: return "print";
 	}
 
 	return "(invalid)";

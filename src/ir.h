@@ -4,6 +4,8 @@ typedef enum {
 	IR_ALLOC,
 	IR_AND,
 	IR_CALL,
+	IR_CAST,
+	IR_CASTU,
 	IR_CONST,
 	IR_COPY,
 	IR_DIV,

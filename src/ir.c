@@ -134,7 +134,7 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
 				u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
-				u32 addr = ir_emit2_type(ctx, IR_I64, IR_SUB, result, offset_reg);
+				u32 addr = ir_emit2_type(ctx, IR_I64, IR_ADD, result, offset_reg);
 				translate_initializer(ctx, pool, node->child[0], addr);
 
 				isize child_size = type_sizeof(child->type);
@@ -355,14 +355,22 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			isize expr_size = type_sizeof(expr_node->type);
 
 			result = translate_node(ctx, pool, node->child[1], false);
-			ir_type type = ir_type_from(cast_node->type);
-			if (cast_size < expr_size) {
-				result = ir_emit1_type(ctx, type, IR_TRUNC, result);
-			} else if (cast_size > expr_size) {
-				if (expr_node->type->kind & TYPE_UNSIGNED) {
-					result = ir_emit1_type(ctx, type, IR_ZEXT, result);
-				} else {
-					result = ir_emit1_type(ctx, type, IR_SEXT, result);
+			ir_type cast_type = ir_type_from(cast_node->type);
+			ir_type expr_type = ir_type_from(expr_node->type);
+			if (expr_type != cast_type) {
+				if (cast_type == IR_F32 || cast_type == IR_F64
+					|| expr_type == IR_F32 || expr_type == IR_F64)
+				{
+					// TODO: Unsigned conversion
+					result = ir_emit1_type(ctx, cast_type, IR_CAST, result);
+				} else if (cast_size < expr_size) {
+					result = ir_emit1_type(ctx, cast_type, IR_TRUNC, result);
+				} else if (cast_size > expr_size) {
+					if (expr_node->type->kind & TYPE_UNSIGNED) {
+						result = ir_emit1_type(ctx, cast_type, IR_ZEXT, result);
+					} else {
+						result = ir_emit1_type(ctx, cast_type, IR_SEXT, result);
+					}
 				}
 			}
 		} break;
@@ -779,6 +787,8 @@ get_opcode_info(ir_opcode opcode)
 	case IR_JMP:
 		info.op0 = IR_OPERAND_LABEL;
 		break;
+	case IR_CAST:
+	case IR_CASTU:
 	case IR_PRINT:
 	case IR_PARAM:
 	case IR_RET:
@@ -899,7 +909,9 @@ translate(ast_pool *pool, symbol_table *symbol_table, arena *arena)
 	for (ir_function *func = program.function_list; func; func = func->next) {
 		ir_instr *instr = program.instrs + func->instr_index;
 		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instr[i].type != IR_VOID) {
+			if (instr[i].type != IR_VOID || instr[i].opcode == IR_CAST
+				|| instr[i].opcode == IR_CASTU)
+			{
 				continue;
 			}
 
