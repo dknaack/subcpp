@@ -648,17 +648,24 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 				accept(tokenizer, TOKEN_IDENT);
 				expect(tokenizer, TOKEN_LBRACE);
 
+				ast_list enumerators = {0};
 				while (!tokenizer->error && tokenizer->peek[0].kind != TOKEN_RBRACE) {
+					ast_node node = ast_make_node(AST_ENUMERATOR, tokenizer->loc);
+					node.value.s = tokenizer->peek[0].value;
 					expect(tokenizer, TOKEN_IDENT);
+
 					if (accept(tokenizer, TOKEN_EQUAL)) {
-						parse_assign_expr(tokenizer, pool);
+						node.child[0] = parse_assign_expr(tokenizer, pool);
 					}
 
 					if (!accept(tokenizer, TOKEN_COMMA)) {
 						break;
 					}
+
+					ast_append(pool, &enumerators, node);
 				}
 
+				type_specifier.child[0] = enumerators.first;
 				expect(tokenizer, TOKEN_RBRACE);
 			} break;
 		case TOKEN_STRUCT:

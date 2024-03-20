@@ -165,7 +165,9 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 					*child = *resolved;
 				}
 			}
-		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF) {
+		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF
+			|| node->kind == AST_ENUMERATOR)
+		{
 			node->symbol_id.value = (*s->count)++;
 			*scope_upsert_ident(s, node->value.s, perm) = *child;
 		} else if (node->kind == AST_EXPR_IDENT) {
@@ -538,9 +540,31 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 
 			node->type->children = return_type->type;
 		} break;
+	case AST_ENUMERATOR:
+		{
+			node->type = &type_int;
+		} break;
 	case AST_TYPE_ENUM:
 		{
-			ASSERT(!"TODO");
+			node->type = &type_int;
+
+			ast_id enum_id = node->child[0];
+			i32 value = 0;
+			while (enum_id.value != 0) {
+				ast_node *enum_node = ast_get(pool, enum_id);
+				ast_node *enum_value = NULL;
+				if (enum_node->child[0].value != 0) {
+					enum_value = ast_get(pool, enum_node->child[0]);
+					if (enum_value->kind == AST_EXPR_INT) {
+						value = enum_value->value.i;
+					}
+				}
+
+				enum_node->kind = AST_EXPR_INT;
+				enum_node->value.i = value++;
+				enum_node->type = &type_int;
+				enum_id = enum_node->child[1];
+			}
 		} break;
 	case AST_TYPE_STRUCT:
 		{

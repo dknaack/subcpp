@@ -762,6 +762,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 value = translate_node(ctx, pool, node->child[0], false);
 			ir_emit1(ctx, IR_PRINT, value);
 		} break;
+	case AST_ENUMERATOR:
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
 	case AST_TYPE_INT:
