@@ -383,12 +383,17 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 			node.child[0] = called;
 			node.child[1] = params.first;
 			expr = ast_push(pool, node);
-		} else if (token.kind == TOKEN_DOT) {
+		} else if (token.kind == TOKEN_DOT || token.kind == TOKEN_ARROW) {
+			ast_node_kind kind = AST_EXPR_MEMBER;
+			if (token.kind == TOKEN_ARROW) {
+				kind = AST_EXPR_MEMBER_PTR;
+			}
+
 			get_token(tokenizer);
 			token = peek_token(tokenizer);
 			expect(tokenizer, TOKEN_IDENT);
 
-			ast_node node = ast_make_node(AST_EXPR_MEMBER, tokenizer->loc);
+			ast_node node = ast_make_node(kind, tokenizer->loc);
 			node.child[0] = expr;
 			node.value.s = token.value;
 			expr = ast_push(pool, node);

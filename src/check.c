@@ -280,14 +280,25 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			}
 		} break;
 	case AST_EXPR_MEMBER:
+	case AST_EXPR_MEMBER_PTR:
 		{
 			ast_node *operand = ast_get(pool, node->child[0]);
-			if (operand->type->kind != TYPE_STRUCT) {
+			type *operand_type = operand->type;
+			if (node->kind == AST_EXPR_MEMBER_PTR) {
+				if (operand_type->kind != TYPE_POINTER) {
+					errorf(node->loc, "Left-hand side is not a pointer");
+					*error = true;
+				}
+
+				operand_type = operand_type->children;
+			}
+
+			if (operand_type->kind != TYPE_STRUCT) {
 				errorf(node->loc, "Left-hand side is not a struct");
 				*error = true;
 			}
 
-			member *s = get_member(operand->type->members, node->value.s);
+			member *s = get_member(operand_type->members, node->value.s);
 			if (s) {
 				node->type = s->type;
 			} else {

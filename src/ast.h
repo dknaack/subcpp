@@ -18,6 +18,7 @@ typedef enum {
 	AST_EXPR_FLOAT,    // value.f
 	AST_EXPR_LIST,     // {expr, list}
 	AST_EXPR_MEMBER,   // {operand}
+	AST_EXPR_MEMBER_PTR, // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
 	AST_EXPR_UNARY,    // {operand}
 

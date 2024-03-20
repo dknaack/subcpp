@@ -128,6 +128,9 @@ get_raw_token(tokenizer *tokenizer)
 			if (tokenizer->at[1] == '-') {
 				token.kind = TOKEN_MINUS_MINUS;
 				advance(tokenizer);
+			} else if (tokenizer->at[1] == '>') {
+				token.kind = TOKEN_ARROW;
+				advance(tokenizer);
 			} else if (tokenizer->at[1] == '=') {
 				token.kind = TOKEN_MINUS_EQUAL;
 				advance(tokenizer);
