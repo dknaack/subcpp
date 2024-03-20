@@ -643,33 +643,29 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 }
 
 static void
-add_global_symbols(ast_pool *pool, ast_id node_id, symbol_table symtab)
+add_global_symbols(ast_pool *pool, symbol_table symtab)
 {
-	ast_node *node = ast_get(pool, node_id);
-	for (i32 i = 0; i < 2; i++) {
-		if (node->child[i].value != 0) {
-			add_global_symbols(pool, node->child[i], symtab);
+	for (isize i = 0; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		if (node->kind == AST_EXTERN_DEF) {
+			symbol_id symbol_id = pool->symbol_ids[i];
+			ASSERT(symbol_id.value != 0);
+			ASSERT(node->type);
+
+			symbol *sym = &symtab.symbols[symbol_id.value];
+			sym->name = node->value.s;
+			sym->type = node->type;
+			sym->is_global = true;
+			sym->is_function = (node->type->kind == TYPE_FUNCTION);
+			sym->definition = node->child[1];
+
+			sym->linkage = LINK_DEFAULT;
+			if (node->flags & AST_EXTERN) {
+				sym->linkage = LINK_EXTERN;
+			} else if (node->flags & AST_STATIC) {
+				sym->linkage = LINK_STATIC;
+			}
 		}
-	}
-
-	if (node->kind == AST_EXTERN_DEF) {
-		symbol_id symbol_id = pool->symbol_ids[node_id.value];
-		ASSERT(symbol_id.value != 0);
-		symbol *sym = &symtab.symbols[symbol_id.value];
-		sym->name = node->value.s;
-		sym->type = node->type;
-		ASSERT(node->type);
-
-		sym->linkage = LINK_DEFAULT;
-		if (node->flags & AST_EXTERN) {
-			sym->linkage = LINK_EXTERN;
-		} else if (node->flags & AST_STATIC) {
-			sym->linkage = LINK_STATIC;
-		}
-
-		sym->is_global = true;
-		sym->is_function = (node->type->kind == TYPE_FUNCTION);
-		sym->definition = node->child[1];
 	}
 }
 
@@ -687,7 +683,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	if (!*error) {
 		symtab.symbols = ALLOC(perm, symtab.count, symbol);
 		check_type(pool, pool->root, perm, error);
-		add_global_symbols(pool, pool->root, symtab);
+		add_global_symbols(pool, symtab);
 	}
 
 	return symtab;
