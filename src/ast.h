@@ -83,7 +83,6 @@ struct ast_node {
 	ast_id child[2];
 	location loc;
 	type *type;
-	symbol_id symbol_id;
 
 	union {
 		token_kind op;
@@ -95,6 +94,7 @@ struct ast_node {
 
 typedef struct {
 	ast_node *nodes;
+	symbol_id *symbol_ids;
 	ast_id root;
 	isize cap;
 	isize size;

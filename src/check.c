@@ -154,9 +154,10 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 	ast_id *child = node_id;
 	while (child->value != 0) {
 		ast_node *node = ast_get(pool, *child);
+		symbol_id *symbol_id = &pool->symbol_ids[child->value];
 		if (node->kind == AST_TYPE_STRUCT && node->value.s.at) {
 			if (node->child[0].value != 0) {
-				node->symbol_id.value = (*s->count)++;
+				symbol_id->value = (*s->count)++;
 				*scope_upsert_tag(s, node->value.s, perm) = *child;
 			} else {
 				// TODO: Opaque struct declarations
@@ -168,7 +169,7 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF
 			|| node->kind == AST_ENUMERATOR)
 		{
-			node->symbol_id.value = (*s->count)++;
+			symbol_id->value = (*s->count)++;
 			*scope_upsert_ident(s, node->value.s, perm) = *child;
 		} else if (node->kind == AST_EXPR_IDENT) {
 			ast_id *resolved = scope_upsert_ident(s, node->value.s, NULL);
@@ -557,7 +558,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			ast_node *type = ast_get(pool, node->child[1]);
 			node->type = type_create(TYPE_ARRAY, arena);
 			// TODO: Evaluate the size of the array
-			node->type->size = 1;
+			node->type->size = eval_ast(pool, node->child[0]);
 			node->type->children = type->type;
 		} break;
 	case AST_TYPE_BITFIELD:
@@ -652,8 +653,9 @@ add_global_symbols(ast_pool *pool, ast_id node_id, symbol_table symtab)
 	}
 
 	if (node->kind == AST_EXTERN_DEF) {
-		ASSERT(node->symbol_id.value != 0);
-		symbol *sym = &symtab.symbols[node->symbol_id.value];
+		symbol_id symbol_id = pool->symbol_ids[node_id.value];
+		ASSERT(symbol_id.value != 0);
+		symbol *sym = &symtab.symbols[symbol_id.value];
 		sym->name = node->value.s;
 		sym->type = node->type;
 		ASSERT(node->type);
@@ -680,6 +682,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	// NOTE: Reserve the first symbol as a NIL symbol
 	symtab.count++;
 
+	pool->symbol_ids = ALLOC(perm, pool->size, symbol_id);
 	check_decls(pool, &pool->root, &s, perm, error);
 	if (!*error) {
 		symtab.symbols = ALLOC(perm, symtab.count, symbol);

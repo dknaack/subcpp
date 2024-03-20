@@ -544,14 +544,14 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *node = ast_get(pool, node_id);
 			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
-			symbol_id symbol_id = node->symbol_id;
-			symbol *sym = &ctx->symbol_table->symbols[symbol_id.value];
-			result = ctx->symbol_registers[node->symbol_id.value];
+			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			symbol *sym = &ctx->symbol_table->symbols[sym_id.value];
+			result = ctx->symbol_registers[sym_id.value];
 			b32 is_initialized = (result != 0);
 			if (!is_initialized) {
 				if (sym->is_global) {
-					result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, symbol_id.value);
-					ctx->symbol_registers[node->symbol_id.value] = symbol_id.value;
+					result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, sym_id.value);
+					ctx->symbol_registers[sym_id.value] = sym_id.value;
 
 					if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
 						ast_id body = node->child[1];
@@ -579,8 +579,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ast_id param_id = type_node->child[0];
 						while (param_id.value != 0) {
 							ast_node *param_list = ast_get(pool, param_id);
-							ast_node *param = ast_get(pool, param_list->child[0]);
-							ASSERT(ctx->symbol_registers[param->symbol_id.value] == 0);
+							symbol_id param_symbol = pool->symbol_ids[param_list->child[0].value];
+							ASSERT(ctx->symbol_registers[param_symbol.value] == 0);
 							translate_node(ctx, pool, param_list->child[0], false);
 
 							param_id = param_list->child[1];
@@ -605,7 +605,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				} else {
 					isize size = type_sizeof(node->type);
 					result = ir_emit_alloca(ctx, size);
-					ctx->symbol_registers[node->symbol_id.value] = result;
+					ctx->symbol_registers[sym_id.value] = result;
 
 					if (node->type->kind == TYPE_ARRAY) {
 						u32 addr = ir_emit_alloca(ctx, 8);
@@ -630,7 +630,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (sym->is_global) {
-				result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, symbol_id.value);
+				result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, sym_id.value);
 			}
 
 			if (!is_lvalue
