@@ -72,6 +72,7 @@ x86_select2(machine_program *out, x86_opcode opcode,
 
 	switch (opcode) {
 	case X86_MOV:
+		ASSERT(dst.size == src.size);
 		if (!machine_operand_equals(dst, src)) {
 			push_instr(out, opcode, 2);
 			if (dst.flags & MOP_INDIRECT) {

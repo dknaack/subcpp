@@ -51,6 +51,7 @@ promote_stack_variables(ir_program program, arena *arena)
 			if (instrs[i].opcode == IR_LOAD) {
 				u32 op0 = instrs[i].op0;
 				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+					types[op0] = instrs[i].type;
 					instrs[i].opcode = IR_COPY;
 				}
 			} else if (instrs[i].opcode == IR_STORE) {
@@ -68,6 +69,7 @@ promote_stack_variables(ir_program program, arena *arena)
 				if (!addr_used[i]) {
 					instrs[i].opcode = IR_VAR;
 					instrs[i].type = types[i];
+					ASSERT(instrs[i].type != IR_VOID);
 					// Can only turn scalars into registers, not arrays or structs
 					ASSERT(instrs[i].op0 <= 8);
 				}
