@@ -11,7 +11,6 @@ struct scope_entry {
 typedef struct scope scope;
 struct scope {
 	scope *parent;
-	isize *count;
 	scope_entry *idents;
 	scope_entry *tags;
 };
@@ -20,10 +19,7 @@ static scope
 new_scope(scope *parent)
 {
 	scope s = {0};
-	if (parent) {
-		s.parent = parent;
-		s.count = parent->count;
-	}
+	s.parent = parent;
 	return s;
 }
 
@@ -154,10 +150,8 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 	ast_id *child = node_id;
 	while (child->value != 0) {
 		ast_node *node = ast_get(pool, *child);
-		symbol_id *symbol_id = &pool->symbol_ids[child->value];
 		if (node->kind == AST_TYPE_STRUCT && node->value.s.at) {
 			if (node->child[0].value != 0) {
-				symbol_id->value = (*s->count)++;
 				*scope_upsert_tag(s, node->value.s, perm) = *child;
 			} else {
 				// TODO: Opaque struct declarations
@@ -169,7 +163,6 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF
 			|| node->kind == AST_ENUMERATOR)
 		{
-			symbol_id->value = (*s->count)++;
 			*scope_upsert_ident(s, node->value.s, perm) = *child;
 		} else if (node->kind == AST_EXPR_IDENT) {
 			ast_id *resolved = scope_upsert_ident(s, node->value.s, NULL);
@@ -652,7 +645,7 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 			ASSERT(symbol_id.value != 0);
 			ASSERT(node->type);
 
-			symbol *sym = &symtab.symbols[symbol_id.value];
+			decl_symbol *sym = get_decl_symbol(symtab, symbol_id);
 			sym->name = node->value.s;
 			sym->type = node->type;
 			sym->is_global = true;
@@ -672,16 +665,40 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 static symbol_table
 check(ast_pool *pool, arena *perm, b32 *error)
 {
-	symbol_table symtab = {0};
 	scope s = new_scope(NULL);
-	s.count = &symtab.count;
-	// NOTE: Reserve the first symbol as a NIL symbol
-	symtab.count++;
-
 	pool->symbol_ids = ALLOC(perm, pool->size, symbol_id);
+
+	isize switch_count = 0;
+	isize decl_count = 1;
+	for (isize i = 0; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		switch (node->kind) {
+		case AST_STMT_SWITCH:
+			pool->symbol_ids[i].value = switch_count++;
+			break;
+		case AST_TYPE_STRUCT:
+			if (node->value.s.at == NULL || node->child[0].value == 0) {
+				break;
+			}
+
+			/* fallthrough */
+		case AST_EXTERN_DEF:
+		case AST_ENUMERATOR:
+		case AST_DECL:
+			pool->symbol_ids[i].value = decl_count++;
+			break;
+		default:
+		}
+	}
+
+	symbol_table symtab = {0};
+	symtab.decl_count = decl_count;
+	symtab.switch_count = switch_count;
+	symtab.switches = ALLOC(perm, switch_count, switch_symbol);
+	symtab.decls = ALLOC(perm, decl_count, decl_symbol);
+
 	check_decls(pool, &pool->root, &s, perm, error);
 	if (!*error) {
-		symtab.symbols = ALLOC(perm, symtab.count, symbol);
 		check_type(pool, pool->root, perm, error);
 		add_global_symbols(pool, symtab);
 	}

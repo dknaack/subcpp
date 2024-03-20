@@ -779,8 +779,11 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 
 	switch (operand.kind) {
 	case MOP_GLOBAL:
-		stream_prints(out, symtab->symbols[operand.value].name);
-		break;
+		{
+			symbol_id sym_id = {operand.value};
+			decl_symbol *sym = get_decl_symbol(*symtab, sym_id);
+			stream_prints(out, sym->name);
+		} break;
 	case MOP_SPILL:
 		stream_print(out, "[rsp+");
 		stream_printu(out, operand.value);
@@ -812,8 +815,11 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		stream_print(out, "]");
 		break;
 	case MOP_FUNC:
-		stream_prints(out, symtab->symbols[operand.value].name);
-		break;
+		{
+			symbol_id sym_id = {operand.value};
+			decl_symbol *sym = get_decl_symbol(*symtab, sym_id);
+			stream_prints(out, sym->name);
+		} break;
 	case MOP_VREG:
 		stream_print(out, "v");
 		stream_printu(out, operand.value);
@@ -846,8 +852,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 	stream_print(out, "\n");
 
-	for (u32 i = 0; i < program.symtab->count; i++) {
-		symbol *sym = &program.symtab->symbols[i];
+	for (u32 i = 0; i < program.symtab->decl_count; i++) {
+		decl_symbol *sym = &program.symtab->decls[i];
 		if (sym->is_function) {
 			if (sym->linkage == LINK_EXTERN) {
 				stream_print(out, "extern ");
@@ -861,8 +867,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 	}
 
 	stream_print(out, "\nsection .bss\n");
-	for (u32 i = 0; i < program.symtab->count; i++) {
-		symbol *sym = &program.symtab->symbols[i];
+	for (u32 i = 0; i < program.symtab->decl_count; i++) {
+		decl_symbol *sym = &program.symtab->decls[i];
 		if (sym->is_global && !sym->is_function) {
 			stream_print(out, "\t");
 			stream_prints(out, sym->name);

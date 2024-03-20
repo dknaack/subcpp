@@ -14,6 +14,12 @@ typedef struct symbol_id {
 	i32 value;
 } symbol_id;
 
+typedef struct switch_symbol switch_symbol;
+struct switch_symbol {
+	switch_symbol *next_case;
+	ast_id case_id;
+};
+
 typedef struct {
 	str name;
 	type *type;
@@ -21,11 +27,13 @@ typedef struct {
 	linkage linkage;
 	b8 is_global;
 	b8 is_function;
-} symbol;
+} decl_symbol;
 
 typedef struct {
-	isize count;
-	symbol *symbols;
+	isize decl_count;
+	isize switch_count;
+	decl_symbol *decls;
+	switch_symbol *switches;
 } symbol_table;
 
 typedef enum {
@@ -256,4 +264,20 @@ get_member(member *list, str key)
 	}
 
 	return NULL;
+}
+
+static decl_symbol *
+get_decl_symbol(symbol_table symtab, symbol_id id)
+{
+	ASSERT(id.value < symtab.decl_count);
+	decl_symbol *symbol = &symtab.decls[id.value];
+	return symbol;
+}
+
+static switch_symbol *
+get_switch_symbol(symbol_table symtab, symbol_id id)
+{
+	ASSERT(id.value < symtab.switch_count);
+	switch_symbol *symbol = &symtab.switches[id.value];
+	return symbol;
 }

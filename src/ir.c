@@ -545,7 +545,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
 			symbol_id sym_id = pool->symbol_ids[node_id.value];
-			symbol *sym = &ctx->symbol_table->symbols[sym_id.value];
+			decl_symbol *sym = get_decl_symbol(*ctx->symtab, sym_id);
 			result = ctx->symbol_registers[sym_id.value];
 			b32 is_initialized = (result != 0);
 			if (!is_initialized) {
@@ -891,7 +891,7 @@ get_toplevel_instructions(ir_function *func, ir_instr *instrs, arena *arena)
 }
 
 static ir_program
-translate(ast_pool *pool, symbol_table *symbol_table, arena *arena)
+translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 {
 	ir_program program = {0};
 	program.instrs = ALLOC(arena, 1024, ir_instr);
@@ -902,8 +902,8 @@ translate(ast_pool *pool, symbol_table *symbol_table, arena *arena)
 	ctx.program = &program;
 	ctx.max_instr_count = 1024;
 	ctx.arena = arena;
-	ctx.symbol_registers = ALLOC(arena, symbol_table->count, u32);
-	ctx.symbol_table = symbol_table;
+	ctx.symbol_registers = ALLOC(arena, symtab->decl_count, u32);
+	ctx.symtab = symtab;
 
 	translate_node(&ctx, pool, pool->root, false);
 

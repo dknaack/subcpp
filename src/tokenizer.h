@@ -4,7 +4,7 @@ typedef enum {
 	TOKEN_NEWLINE,
 	TOKEN_WHITESPACE,
 
-	// symbols
+	// decl_symbols
 	TOKEN_AMP,
 	TOKEN_AMP_AMP,
 	TOKEN_AMP_EQUAL,
