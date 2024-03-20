@@ -14,11 +14,17 @@ typedef struct symbol_id {
 	i32 value;
 } symbol_id;
 
-typedef struct switch_symbol switch_symbol;
-struct switch_symbol {
-	switch_symbol *next_case;
+typedef struct switch_case switch_case;
+struct switch_case {
+	switch_case *next;
 	ast_id case_id;
 };
+
+typedef struct {
+	switch_case *first;
+	switch_case *last;
+	ast_id default_case;
+} switch_symbol;
 
 typedef struct {
 	str name;

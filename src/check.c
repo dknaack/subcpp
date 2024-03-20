@@ -662,13 +662,72 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 	}
 }
 
+static void
+check_switch_stmt(ast_pool *pool, ast_id node_id,
+	switch_symbol *switches, symbol_id switch_id, arena *perm)
+{
+	if (node_id.value == 0) {
+		return;
+	}
+
+	ast_node *node = ast_get(pool, node_id);
+	switch (node->kind) {
+	case AST_STMT_DO_WHILE:
+	case AST_STMT_FOR1:
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
+	case AST_STMT_IF1:
+	case AST_STMT_IF2:
+	case AST_STMT_LIST:
+	case AST_STMT_WHILE:
+	case AST_DECL_LIST:
+	case AST_EXTERN_DEF:
+		check_switch_stmt(pool, node->child[0], switches, switch_id, perm);
+		check_switch_stmt(pool, node->child[1], switches, switch_id, perm);
+		break;
+	case AST_STMT_SWITCH:
+		switch_id = pool->symbol_ids[node_id.value];
+		check_switch_stmt(pool, node->child[1], switches, switch_id, perm);
+		break;
+	case AST_STMT_CASE:
+		if (switch_id.value == 0) {
+			errorf(node->loc, "case outside switch");
+		} else {
+			switch_symbol *switch_sym = &switches[switch_id.value];
+			switch_case *case_sym = ALLOC(perm, 1, switch_case);
+			case_sym->case_id = node_id;
+
+			if (switch_sym->last) {
+				switch_sym->last = switch_sym->last->next = case_sym;
+			} else {
+				switch_sym->first = switch_sym->last = case_sym;
+			}
+
+			check_switch_stmt(pool, node->child[1], switches, switch_id, perm);
+		} break;
+	case AST_STMT_DEFAULT:
+		if (switch_id.value == 0) {
+			errorf(node->loc, "default outside switch");
+		} else {
+			switch_symbol *switch_sym = &switches[switch_id.value];
+			if (switch_sym->default_case.value != 0) {
+				errorf(node->loc, "Duplicate default label");
+			}
+
+			switch_sym->default_case = node_id;
+			check_switch_stmt(pool, node->child[0], switches, switch_id, perm);
+		} break;
+	default:
+	}
+}
+
 static symbol_table
 check(ast_pool *pool, arena *perm, b32 *error)
 {
 	scope s = new_scope(NULL);
 	pool->symbol_ids = ALLOC(perm, pool->size, symbol_id);
 
-	isize switch_count = 0;
+	isize switch_count = 1;
 	isize decl_count = 1;
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
@@ -697,6 +756,8 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	symtab.switches = ALLOC(perm, switch_count, switch_symbol);
 	symtab.decls = ALLOC(perm, decl_count, decl_symbol);
 
+	symbol_id nil_sym = {0};
+	check_switch_stmt(pool, pool->root, symtab.switches, nil_sym, perm);
 	check_decls(pool, &pool->root, &s, perm, error);
 	if (!*error) {
 		check_type(pool, pool->root, perm, error);
