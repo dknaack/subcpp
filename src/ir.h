@@ -96,13 +96,6 @@ typedef struct {
 	u32 label_count;
 } ir_program;
 
-typedef struct variable variable;
-struct variable {
-	variable *next;
-	str name;
-	u32 vreg;
-};
-
 typedef struct {
 	ir_program *program;
 	symbol_table *symtab;
