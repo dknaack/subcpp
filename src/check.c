@@ -771,59 +771,42 @@ check(ast_pool *pool, arena *perm, b32 *error)
 
 	// NOTE: Check labels, ensure that no label is defined twice and merge
 	// gotos with their corresponding label.
-	{
+	if (label_count > 0) {
 		arena_temp temp = arena_temp_begin(perm);
-
-		// TODO: Using a hash map here is probably overkill for just a few
-		// labels. Consider swapping this with a linked list or array and
-		// just do a linear search instead.
-		str *label_names = ALLOC(perm, 2 * label_count, str);
-		u32 *label_generation = ALLOC(perm, 2 * label_count, u32);
-		symbol_id *label_map = ALLOC(perm, 2 * label_count, symbol_id);
-		u32 generation = 1;
+		ast_id *label_id = ALLOC(perm, label_count, ast_id);
 		for (isize i = 1; i < pool->size; i++) {
-			ast_node *node = &pool->nodes[i];
-			if (node->kind == AST_EXTERN_DEF) {
-				generation++;
-			} else if (node->kind == AST_STMT_LABEL) {
-				str name = node->value.s;
-				isize h = hash(name);
-				for (isize j = 0; j < 2 * label_count; j++) {
-					isize k = (h + j) % (2 * label_count);
-					if (label_generation[k] == 0)
-					{
-						label_generation[k] = generation;
-						label_names[k] = name;
-						label_map[k] = symbols[i];
-					} else if (label_generation[k] == generation
-						&& str_equals(name, label_names[k]))
-					{
-						errorf(node->loc, "Label was already defined");
+			isize j = i;
+			isize l = 0;
+			for (; i < pool->size; i++) {
+				ast_node *node = &pool->nodes[i];
+				if (node->kind == AST_EXTERN_DEF) {
+					break;
+				} else if (node->kind == AST_STMT_LABEL) {
+					label_id[l++].value = i;
+					for (isize k = 0; k < l; k++) {
+						ast_node *label_node = &pool->nodes[label_id[k].value];
+						if (str_equals(label_node->value.s, node->value.s)) {
+							errorf(node->loc, "Label was already defined");
+						}
 					}
 				}
 			}
-		}
 
-		generation = 1;
-		for (isize i = 1; i < pool->size; i++) {
-			ast_node *node = &pool->nodes[i];
-			if (node->kind == AST_EXTERN_DEF) {
-				generation++;
-			} else if (node->kind == AST_STMT_GOTO) {
-				str name = node->value.s;
-				isize h = hash(name);
-				for (isize j = 0; j < 2 * label_count; j++) {
-					isize k = (h + j) % (2 * label_count);
-					if (label_generation[k] == 0) {
+			for (; j < i; j++) {
+				ast_node *node = &pool->nodes[j];
+				if (node->kind != AST_STMT_GOTO) {
+					continue;
+				}
+
+				for (isize k = 0; k < l; k++) {
+					ast_node *label_node = &pool->nodes[label_id[k].value];
+					if (str_equals(label_node->value.s, node->value.s)) {
+						symbols[j] = symbols[label_id[k].value];
 						break;
-					} else if (label_generation[k] == generation
-						&& str_equals(label_names[k], name))
-					{
-						symbols[i] = label_map[k];
 					}
 				}
 
-				if (symbols[i].value == 0) {
+				if (symbols[j].value == 0) {
 					errorf(node->loc, "No label was found");
 				}
 			}
