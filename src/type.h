@@ -40,6 +40,7 @@ typedef struct {
 	isize decl_count;
 	isize switch_count;
 	isize case_count;
+	symbol_id *symbols;
 	decl_symbol *decls;
 	case_symbol *cases;
 	switch_symbol *switches;

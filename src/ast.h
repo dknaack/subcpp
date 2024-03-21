@@ -94,7 +94,6 @@ struct ast_node {
 
 typedef struct {
 	ast_node *nodes;
-	symbol_id *symbol_ids;
 	ast_id root;
 	isize cap;
 	isize size;

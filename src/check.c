@@ -641,7 +641,7 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXTERN_DEF) {
-			symbol_id symbol_id = pool->symbol_ids[i];
+			symbol_id symbol_id = symtab.symbols[i];
 			ASSERT(symbol_id.value != 0);
 			ASSERT(node->type);
 
@@ -685,7 +685,7 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, symbol_id
 		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
 		break;
 	case AST_STMT_SWITCH:
-		switch_id = pool->symbol_ids[node_id.value];
+		switch_id = symtab.symbols[node_id.value];
 		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
 		break;
 	case AST_STMT_CASE:
@@ -693,7 +693,7 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, symbol_id
 			errorf(node->loc, "case outside switch");
 		} else {
 			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
-			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			symbol_id sym_id = symtab.symbols[node_id.value];
 			case_symbol *case_sym = get_case_symbol(symtab, sym_id);
 			case_sym->case_id = node_id;
 
@@ -725,7 +725,7 @@ static symbol_table
 check(ast_pool *pool, arena *perm, b32 *error)
 {
 	scope s = new_scope(NULL);
-	pool->symbol_ids = ALLOC(perm, pool->size, symbol_id);
+	symbol_id *symbols = ALLOC(perm, pool->size, symbol_id);
 
 	isize switch_count = 1;
 	isize decl_count = 1;
@@ -734,10 +734,10 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		ast_node *node = &pool->nodes[i];
 		switch (node->kind) {
 		case AST_STMT_SWITCH:
-			pool->symbol_ids[i].value = switch_count++;
+			symbols[i].value = switch_count++;
 			break;
 		case AST_STMT_CASE:
-			pool->symbol_ids[i].value = case_count++;
+			symbols[i].value = case_count++;
 			break;
 		case AST_TYPE_STRUCT:
 			if (node->value.s.at == NULL || node->child[0].value == 0) {
@@ -748,7 +748,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		case AST_EXTERN_DEF:
 		case AST_ENUMERATOR:
 		case AST_DECL:
-			pool->symbol_ids[i].value = decl_count++;
+			symbols[i].value = decl_count++;
 			break;
 		default:
 		}
@@ -758,6 +758,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	symtab.decl_count = decl_count;
 	symtab.switch_count = switch_count;
 	symtab.case_count = case_count;
+	symtab.symbols = symbols;
 	symtab.cases = ALLOC(perm, case_count, case_symbol);
 	symtab.switches = ALLOC(perm, switch_count, switch_symbol);
 	symtab.decls = ALLOC(perm, decl_count, decl_symbol);

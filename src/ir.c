@@ -489,7 +489,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
 			case_symbol *case_sym = get_case_symbol(*ctx->symtab, sym_id);
 			ir_emit1(ctx, IR_LABEL, case_sym->label);
 			translate_node(ctx, pool, node->child[1], false);
@@ -525,7 +525,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *node = ast_get(pool, node_id);
 			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
-			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
 			decl_symbol *sym = get_decl_symbol(*ctx->symtab, sym_id);
 			result = ctx->symbol_registers[sym_id.value];
 			b32 is_initialized = (result != 0);
@@ -560,7 +560,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ast_id param_id = type_node->child[0];
 						while (param_id.value != 0) {
 							ast_node *param_list = ast_get(pool, param_id);
-							symbol_id param_symbol = pool->symbol_ids[param_list->child[0].value];
+							symbol_id param_symbol = ctx->symtab->symbols[param_list->child[0].value];
 							ASSERT(ctx->symbol_registers[param_symbol.value] == 0);
 							translate_node(ctx, pool, param_list->child[0], false);
 
@@ -727,7 +727,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 switch_reg = translate_node(ctx, pool, node->child[0], false);
 			ctx->break_label = new_label(ctx);
 
-			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
 			switch_symbol *switch_sym = get_switch_symbol(*ctx->symtab, sym_id);
 			for (case_symbol *case_sym = switch_sym->first; case_sym; case_sym = case_sym->next) {
 				case_sym->label = new_label(ctx);
