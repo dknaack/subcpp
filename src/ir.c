@@ -489,26 +489,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			// NOTE: Jump over the case check if coming from a different case.
-			u32 stmt_label = new_label(ctx);
-			ir_emit1(ctx, IR_LABEL, ctx->case_label);
-			ctx->case_label = new_label(ctx);
-
-			while (node != AST_NIL) {
-				u32 value = translate_node(ctx, pool, node->child[0], false);
-				u32 result = ir_emit2_type(ctx, IR_I32, IR_EQL, ctx->switch_value, value);
-
-				node = ast_get(pool, node->child[1]);
-				if (node->kind == AST_STMT_CASE) {
-					ir_emit2(ctx, IR_JNZ, result, stmt_label);
-				} else {
-					ir_emit2(ctx, IR_JIZ, result, ctx->case_label);
-					break;
-				}
-			}
-
-			ir_emit1(ctx, IR_LABEL, stmt_label);
-			translate_node(ctx, pool, ast_get_id(pool, node), false);
+			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			case_symbol *case_sym = get_case_symbol(*ctx->symtab, sym_id);
+			ir_emit1(ctx, IR_LABEL, case_sym->label);
+			translate_node(ctx, pool, node->child[1], false);
 		} break;
 	case AST_STMT_CONTINUE:
 		{
@@ -516,10 +500,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_DEFAULT:
 		{
-			ctx->default_label = new_label(ctx);
-			ir_emit1(ctx, IR_LABEL, ctx->default_label);
-			translate_node(ctx, pool, node->child[0], false);
-			ir_emit1(ctx, IR_JMP, ctx->break_label);
+			// NOTE: Handled by switch statement
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
@@ -743,18 +724,27 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_context new_ctx = ir_push_context(ctx);
 			ctx = &new_ctx;
 
-			ctx->case_label = new_label(ctx);
+			u32 switch_reg = translate_node(ctx, pool, node->child[0], false);
 			ctx->break_label = new_label(ctx);
-			ctx->default_label = 0;
-			ctx->switch_value = translate_node(ctx, pool, node->child[0], false);
 
-			ir_emit1(ctx, IR_JMP, ctx->case_label);
-			translate_node(ctx, pool, node->child[1], false);
-			ir_emit1(ctx, IR_LABEL, ctx->case_label);
-			if (ctx->default_label != 0) {
-				ir_emit1(ctx, IR_JMP, ctx->default_label);
+			symbol_id sym_id = pool->symbol_ids[node_id.value];
+			switch_symbol *switch_sym = get_switch_symbol(*ctx->symtab, sym_id);
+			for (case_symbol *case_sym = switch_sym->first; case_sym; case_sym = case_sym->next) {
+				case_sym->label = new_label(ctx);
+
+				ast_node *case_node = ast_get(pool, case_sym->case_id);
+				u32 case_reg = translate_node(ctx, pool, case_node->child[0], false);
+				u32 cond_reg = ir_emit2(ctx, IR_EQL, switch_reg, case_reg);
+				ir_emit2(ctx, IR_JNZ, cond_reg, case_sym->label);
 			}
-			ir_emit1(ctx, IR_NOP, 0);
+
+			if (switch_sym->default_case.value != 0) {
+				ast_node *default_node = ast_get(pool, switch_sym->default_case);
+				translate_node(ctx, pool, default_node->child[0], false);
+			}
+
+			ir_emit1(ctx, IR_JMP, ctx->break_label);
+			translate_node(ctx, pool, node->child[1], false);
 			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_PRINT:

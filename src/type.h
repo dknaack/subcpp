@@ -14,15 +14,16 @@ typedef struct symbol_id {
 	i32 value;
 } symbol_id;
 
-typedef struct switch_case switch_case;
-struct switch_case {
-	switch_case *next;
+typedef struct case_symbol case_symbol;
+struct case_symbol {
+	case_symbol *next;
 	ast_id case_id;
+	u32 label;
 };
 
 typedef struct {
-	switch_case *first;
-	switch_case *last;
+	case_symbol *first;
+	case_symbol *last;
 	ast_id default_case;
 } switch_symbol;
 
@@ -38,7 +39,9 @@ typedef struct {
 typedef struct {
 	isize decl_count;
 	isize switch_count;
+	isize case_count;
 	decl_symbol *decls;
+	case_symbol *cases;
 	switch_symbol *switches;
 } symbol_table;
 
@@ -285,5 +288,13 @@ get_switch_symbol(symbol_table symtab, symbol_id id)
 {
 	ASSERT(id.value < symtab.switch_count);
 	switch_symbol *symbol = &symtab.switches[id.value];
+	return symbol;
+}
+
+static case_symbol *
+get_case_symbol(symbol_table symtab, symbol_id id)
+{
+	ASSERT(id.value < symtab.case_count);
+	case_symbol *symbol = &symtab.cases[id.value];
 	return symbol;
 }
