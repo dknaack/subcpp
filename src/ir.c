@@ -652,8 +652,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_STMT_GOTO:
+	case AST_STMT_LABEL:
 		{
-			ASSERT(!"TODO");
+			ir_opcode opcode = node->kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
+			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
+			u32 *label = &ctx->symtab->labels[sym_id.value];
+			if (!*label) {
+				*label = new_label(ctx);
+			}
+
+			ir_emit1(ctx, opcode, *label);
+			if (node->child[0].value != 0) {
+				translate_node(ctx, pool, node->child[0], false);
+			}
 		} break;
 	case AST_STMT_IF1:
 		{
@@ -676,10 +687,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			ir_emit1(ctx, IR_LABEL, endif_label);
-		} break;
-	case AST_STMT_LABEL:
-		{
-			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_WHILE:
 		{
