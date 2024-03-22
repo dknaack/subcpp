@@ -215,7 +215,10 @@ get_raw_token(tokenizer *tokenizer)
 		} break;
 	case '"':
 		{
-			while (tokenizer->at[1] != '"' && tokenizer->at[1] != '\n') {
+			while (tokenizer->at[1] != '"'
+				&& tokenizer->at[1] != '\n'
+				&& tokenizer->at[1] != '\0')
+			{
 				if (tokenizer->at[1] == '\\') {
 					advance(tokenizer);
 				}
