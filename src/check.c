@@ -227,6 +227,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 			switch (node->value.op) {
 			case TOKEN_MINUS: result = -result; break;
 			case TOKEN_BANG:  result = !result; break;
+			case TOKEN_TILDE: result = ~result; break;
 			case TOKEN_PLUS:
 				break;
 			default:
@@ -474,6 +475,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			case TOKEN_BANG:
 			case TOKEN_PLUS:
 			case TOKEN_MINUS:
+			case TOKEN_TILDE:
 				// TODO: ensure that type is integer
 				node->type = operand->type;
 				break;

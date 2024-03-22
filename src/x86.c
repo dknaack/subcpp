@@ -485,6 +485,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				x86_select2(out, x86_opcode, dst, src);
 			}
 		} break;
+	case IR_NOT:
+		{
+			x86_select_instr(out, instr, op0, dst);
+			x86_select1(out, X86_NOT, dst);
+		} break;
 	case IR_JMP:
 		x86_select1(out, X86_JMP, make_label(op0));
 		break;

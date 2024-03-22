@@ -78,6 +78,7 @@ get_raw_token(tokenizer *tokenizer)
 	case ',':  token.kind = TOKEN_COMMA;     break;
 	case ':':  token.kind = TOKEN_COLON;     break;
 	case ';':  token.kind = TOKEN_SEMICOLON; break;
+	case '~':  token.kind = TOKEN_TILDE;     break;
 	case '^':  token.kind = TOKEN_CARET;     break;
 	case '!':  token.kind = TOKEN_BANG;      break;
 	case '\\': token.kind = TOKEN_BACKSLASH; break;

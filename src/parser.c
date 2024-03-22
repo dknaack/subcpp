@@ -378,6 +378,7 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 	case TOKEN_AMP:
 	case TOKEN_PLUS:
 	case TOKEN_BANG:
+	case TOKEN_TILDE:
 	case TOKEN_MINUS:
 	case TOKEN_PLUS_PLUS:
 	case TOKEN_MINUS_MINUS:

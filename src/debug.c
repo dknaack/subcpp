@@ -123,6 +123,9 @@ print_ir_instr(ir_instr instr, u32 i)
 	case IR_SHR:
 		printf("\t%%%d =%s %%%d >> %%%d\n",  dst, type, op0, op1);
 		break;
+	case IR_NOT:
+		printf("\t%%%d =%s ~%%%d\n",  dst, type, op0);
+		break;
 	case IR_XOR:
 		printf("\t%%%d =%s %%%d ^ %%%d\n",  dst, type, op0, op1);
 		break;

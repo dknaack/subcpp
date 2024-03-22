@@ -409,6 +409,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				{
 					result = translate_node(ctx, pool, node->child[0], true);
 				} break;
+			case TOKEN_TILDE:
+				{
+					result = translate_node(ctx, pool, node->child[0], false);
+					result = ir_emit1(ctx, IR_NOT, result);
+				} break;
 			case TOKEN_PLUS:
 				{
 					result = translate_node(ctx, pool, node->child[0], false);
@@ -800,6 +805,7 @@ get_opcode_info(ir_opcode opcode)
 	case IR_TRUNC:
 	case IR_SEXT:
 	case IR_ZEXT:
+	case IR_NOT:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:

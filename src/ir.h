@@ -28,6 +28,7 @@ typedef enum {
 	IR_MOD,
 	IR_MOV,
 	IR_MUL,
+	IR_NOT,
 	IR_OR,
 	IR_PARAM,
 	IR_RET,
