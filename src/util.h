@@ -34,7 +34,7 @@ make_str(char *cstr)
 }
 
 static b32
-str_equals(str a, str b)
+equals(str a, str b)
 {
 	if (a.length != b.length) {
 		return false;

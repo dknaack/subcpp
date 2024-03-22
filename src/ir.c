@@ -70,7 +70,7 @@ add_function(ir_context *ctx, str name, arena *perm)
 {
 	ir_function **ptr = &ctx->program->function_list;
 	while (*ptr) {
-		if (str_equals((*ptr)->name, name)) {
+		if (equals((*ptr)->name, name)) {
 			return *ptr;
 		}
 
@@ -312,7 +312,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_opcode opcode = IR_CALL;
 			u32 called_reg = 0;
 			if (called->kind == AST_EXTERN_DEF
-				&& str_equals(called->value.s, S("__builtin_popcount")))
+				&& equals(called->value.s, S("__builtin_popcount")))
 			{
 				called_reg = BUILTIN_POPCOUNT;
 				opcode = IR_CALL_BUILTIN;

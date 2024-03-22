@@ -435,7 +435,7 @@ get_token(lexer *lexer)
 		if (at_line_start && token.kind == TOKEN_HASH) {
 			token = get_raw_token(lexer);
 			if (token.kind == TOKEN_IDENT) {
-				if (str_equals(token.value, S("include"))) {
+				if (equals(token.value, S("include"))) {
 					eat_whitespace(lexer);
 
 					str filename = {0};
@@ -502,7 +502,7 @@ get_token(lexer *lexer)
 			eat_whitespace(lexer);
 		} else if (token.kind == TOKEN_IDENT) {
 			for (usize i = 0; i < LENGTH(keywords); i++) {
-				if (str_equals(token.value, keywords[i].str)) {
+				if (equals(token.value, keywords[i].str)) {
 					token.kind = keywords[i].token;
 					break;
 				}

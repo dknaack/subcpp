@@ -32,7 +32,7 @@ scope_upsert_ident(scope *s, str key, arena *perm)
 
 	scope_entry *e = NULL;
 	for (e = s->idents; e; e = e->next) {
-		if (str_equals(key, e->key)) {
+		if (equals(key, e->key)) {
 			return &e->value;
 		}
 	}
@@ -57,7 +57,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 
 	scope_entry *e = NULL;
 	for (e = s->tags; e; e = e->next) {
-		if (str_equals(key, e->key)) {
+		if (equals(key, e->key)) {
 			return &e->value;
 		}
 	}
@@ -806,7 +806,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 					label_id[l++].value = i;
 					for (isize k = 0; k < l; k++) {
 						ast_node *label_node = &pool->nodes[label_id[k].value];
-						if (str_equals(label_node->value.s, node->value.s)) {
+						if (equals(label_node->value.s, node->value.s)) {
 							errorf(node->loc, "Label was already defined");
 						}
 					}
@@ -821,7 +821,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 
 				for (isize k = 0; k < l; k++) {
 					ast_node *label_node = &pool->nodes[label_id[k].value];
-					if (str_equals(label_node->value.s, node->value.s)) {
+					if (equals(label_node->value.s, node->value.s)) {
 						symtab.symbols[j] = symtab.symbols[label_id[k].value];
 						break;
 					}

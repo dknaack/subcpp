@@ -242,7 +242,7 @@ type_offsetof(type *type, str member_name)
 		for (member *s = type->members; s; s = s->next) {
 			u32 align = type_alignof(s->type);
 			offset = (offset + align - 1) & ~(align - 1);
-			if (str_equals(member_name, s->name)) {
+			if (equals(member_name, s->name)) {
 				break;
 			}
 
@@ -285,7 +285,7 @@ static member *
 get_member(member *list, str key)
 {
 	for (member *m = list; m; m = m->next) {
-		if (str_equals(m->name, key)) {
+		if (equals(m->name, key)) {
 			return m;
 		}
 	}
