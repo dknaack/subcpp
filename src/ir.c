@@ -309,7 +309,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_CALL:
 		{
 			ast_node *called = ast_get(pool, node->child[0]);
-			u32 called_reg = translate_node(ctx, pool, node->child[0], false);
+			ir_opcode opcode = IR_CALL;
+			u32 called_reg = 0;
+			if (called->kind == AST_EXTERN_DEF
+				&& str_equals(called->value.s, S("__builtin_popcount")))
+			{
+				called_reg = BUILTIN_POPCOUNT;
+				opcode = IR_CALL_BUILTIN;
+			} else {
+				called_reg = translate_node(ctx, pool, node->child[0], false);
+			}
 
 			i32 param_count = 0;
 			u32 param_register[128] = {0};
@@ -343,7 +352,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ir_emit1(ctx, IR_PARAM, param_register[i]);
 			}
 
-			u32 return_reg = ir_emit2_type(ctx, result_type, IR_CALL, called_reg, param_count);
+			u32 return_reg = ir_emit2_type(ctx, result_type, opcode, called_reg, param_count);
 			result = ir_emit0_type(ctx, result_type, IR_VAR);
 			ir_emit2(ctx, IR_MOV, result, return_reg);
 		} break;
@@ -836,9 +845,13 @@ get_opcode_info(ir_opcode opcode)
 	case IR_CONST:
 		info.op0 = IR_OPERAND_CONST;
 		break;
+	case IR_CALL_BUILTIN:
+		info.op0 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_CONST;
+		break;
 	case IR_CALL:
-		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_FUNC;
+		info.op0 = IR_OPERAND_CONST;
 		break;
 	case IR_GLOBAL:
 		info.op0 = IR_OPERAND_GLOBAL;

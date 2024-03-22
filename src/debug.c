@@ -1,4 +1,15 @@
 static char *
+get_builtin_str(ir_builtin builtin)
+{
+	switch (builtin) {
+	case BUILTIN_POPCOUNT:
+		return "popcount";
+	}
+
+	return "(invalid builtin)";
+}
+
+static char *
 get_ir_type_str(ir_type type)
 {
 	switch (type) {
@@ -129,6 +140,9 @@ print_ir_instr(ir_instr instr, u32 i)
 		break;
 	case IR_ZEXT:
 		printf("\t%%%d =%s zext %%%d\n", dst, type, op0);
+		break;
+	case IR_CALL_BUILTIN:
+		printf("\t%%%d =%s call_builtin %s\n", dst, type, get_builtin_str(op0));
 		break;
 	case IR_CALL:
 		printf("\t%%%d =%s call L%d, %d\n", dst, type, op0, op1);

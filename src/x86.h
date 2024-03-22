@@ -63,6 +63,7 @@ typedef enum {
 	X86_MOVZX,
 	X86_MULSS,
 	X86_NEG,
+	X86_POPCNT,
 	X86_OR,
 	X86_RET,
 	X86_SETA,
@@ -145,6 +146,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_MULSS: return "mulss";
 	case X86_NEG:   return "neg";
 	case X86_NOP:   return "nop";
+	case X86_POPCNT: return "popcnt";
 	case X86_OR:    return "or";
 	case X86_PRINT: return "print";
 	case X86_RET:   return "ret";

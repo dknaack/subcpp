@@ -546,6 +546,17 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			dst.size = ir_sizeof(instr[op0].type);
 			x86_select_instr(out, instr, op0, dst);
 		} break;
+	case IR_CALL_BUILTIN:
+		{
+			ir_builtin builtin = op0;
+			switch (builtin) {
+			case BUILTIN_POPCOUNT:
+				{
+					machine_operand src = make_vreg(instr[instr_index - 1].op0, size);
+					x86_select2(out, X86_POPCNT, dst, src);
+				} break;
+			}
+		} break;
 	case IR_CALL:
 		{
 			machine_operand called = make_vreg(op0, 8);

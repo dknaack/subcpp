@@ -4,6 +4,7 @@ typedef enum {
 	IR_ALLOC,
 	IR_AND,
 	IR_CALL,
+	IR_CALL_BUILTIN,
 	IR_CAST,
 	IR_CASTU,
 	IR_CONST,
@@ -95,6 +96,10 @@ typedef struct {
 	u32 instr_count;
 	u32 label_count;
 } ir_program;
+
+typedef enum {
+	BUILTIN_POPCOUNT,
+} ir_builtin;
 
 typedef struct {
 	ir_program *program;
