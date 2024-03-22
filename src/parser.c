@@ -1065,5 +1065,10 @@ parse(tokenizer *tokenizer, ast_pool *pool)
 
 	pool->root = list.first;
 	ast_shrink(pool);
+
+	if (pool->root.value == 0) {
+		tokenizer->error = true;
+	}
+
 	return tokenizer->error;
 }
