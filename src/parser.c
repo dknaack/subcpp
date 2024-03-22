@@ -1014,6 +1014,7 @@ parse_external_decl(tokenizer *tokenizer, ast_pool *pool)
 {
 	ast_list list = parse_decl(tokenizer, PARSE_EXTERNAL_DECL, pool);
 	if (list.first.value == 0) {
+		syntax_error(tokenizer, "Expected declaration");
 		return list;
 	}
 
