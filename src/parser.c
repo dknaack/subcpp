@@ -10,14 +10,6 @@ ast_make_node(ast_node_kind kind, location loc)
 }
 
 static ast_id
-ast_get_id(ast_pool *pool, ast_node *node)
-{
-	ast_id id;
-	id.value = node - pool->nodes;
-	return id;
-}
-
-static ast_id
 ast_push(ast_pool *p, ast_node node)
 {
 	if (p->size + 1 >= p->cap) {
