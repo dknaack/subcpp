@@ -60,40 +60,6 @@ union_rows(bit_matrix matrix, u32 dst_y, u32 src_y)
 	}
 }
 
-static void
-print_row(bit_matrix matrix, u32 y)
-{
-	printf("{");
-	b32 first = true;
-	for (u32 x = 0; x < matrix.width; x++) {
-		if (matrix.bits[y * matrix.width + x]) {
-			if (first) {
-				first = false;
-			} else {
-				printf(", ");
-			}
-
-			u32 mreg = matrix.width - 1 - x;
-			if (mreg < X86_REGISTER_COUNT) {
-				printf("%s", x86_get_register_name(mreg, 8));
-			} else {
-				printf("r%d", x);
-			}
-		}
-	}
-
-	printf("}\n");
-}
-
-static void
-print_matrix(bit_matrix matrix)
-{
-	for (u32 y = 0; y < matrix.height; y++) {
-		printf("live[%d] = ", y);
-		print_row(matrix, y);
-	}
-}
-
 static bit_matrix
 get_live_matrix(void *code, machine_function func,
 	machine_register_info reg_info, arena *arena)

@@ -6,7 +6,6 @@
 
 #include "main.h"
 
-#include "debug.c"
 #include "lexer.c"
 #include "parser.c"
 #include "check.c"
@@ -15,6 +14,7 @@
 #include "regalloc.c"
 #include "stream.c"
 #include "x86.c"
+#include "debug.c"
 
 static void
 run_command(char **args)
