@@ -309,9 +309,9 @@ concat_paths(str a, str b, arena *perm)
 	result.at = ALLOC(perm, a.length + b.length + 2, char);
 	result.length = a.length + b.length + 1;
 
-	str_copy(substr(result, 0, a.length), a);
+	copy(substr(result, 0, a.length), a);
 	result.at[a.length] = '/';
-	str_copy(substr(result, a.length + 1, -1), b);
+	copy(substr(result, a.length + 1, -1), b);
 	return result;
 }
 

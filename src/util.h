@@ -74,7 +74,7 @@ substr(str s, isize start, isize end)
 }
 
 static void
-str_copy(str dst, str src)
+copy(str dst, str src)
 {
 	for (isize i = 0; i < MIN(dst.length, src.length); i++) {
 		dst.at[i] = src.at[i];
