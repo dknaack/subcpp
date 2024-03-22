@@ -18,73 +18,67 @@ ast_get_id(ast_pool *pool, ast_node *node)
 }
 
 static ast_id
-ast_push(ast_pool *pool, ast_node node)
+ast_push(ast_pool *p, ast_node node)
 {
-	ast_id id = {0};
+	if (p->size + 1 >= p->cap) {
+		if (!p->cap) {
+			p->cap = 1024;
+			p->size = 1;
+		}
 
-	if (!pool->cap) {
-		pool->cap = 1024;
-		pool->size = 1;
-		pool->nodes = calloc(pool->cap, sizeof(*pool->nodes));
-	} else if (pool->size + 1 >= pool->cap) {
-		pool->cap *= 2;
-		pool->nodes = realloc(pool->nodes, pool->cap * sizeof(*pool->nodes));
+		p->cap *= 2;
+		p->nodes = realloc(p->nodes, p->cap * sizeof(*p->nodes));
 	}
 
-	if (!pool->nodes) {
+	ast_id id = {0};
+	if (!p->nodes) {
 		return id;
 	}
 
-	id.value = pool->size++;
-	memcpy(&pool->nodes[id.value], &node, sizeof(node));
+	id.value = p->size++;
+	memcpy(&p->nodes[id.value], &node, sizeof(node));
 	return id;
 }
 
 static ast_node *
-ast_get(ast_pool *pool, ast_id id)
+ast_get(ast_pool *p, ast_id id)
 {
-	ast_node *node = NULL;
+	if (0 < id.value && id.value < p->size) {
+		return p->nodes + id.value;
+	}
 
-	if (0 < id.value && id.value < pool->size) {
-		node = pool->nodes + id.value;
+	ASSERT(!"ID is out of bounds");
+	return NULL;
+}
+
+static void
+ast_append(ast_pool *p, ast_list *l, ast_node node)
+{
+	ast_id node_id = ast_push(p, node);
+	if (l->last.value != 0) {
+		ast_node *last = ast_get(p, l->last);
+		l->last = last->child[1] = node_id;
 	} else {
-		ASSERT(!"ID is out of bounds");
+		l->last = l->first = node_id;
 	}
-
-	return node;
 }
 
 static void
-ast_append(ast_pool *pool, ast_list *list, ast_node node)
+ast_prepend(ast_pool *p, ast_list *l, ast_node node)
 {
-	ast_id node_id = ast_push(pool, node);
-
-	if (list->last.value != 0) {
-		ast_node *last_node = ast_get(pool, list->last);
-		last_node->child[1] = node_id;
-	} else {
-		list->first = node_id;
-	}
-
-	list->last = node_id;
-}
-
-static void
-ast_prepend(ast_pool *pool, ast_list *list, ast_node node)
-{
-	node.child[1] = list->first;
-	list->first = ast_push(pool, node);
-	if (list->last.value == 0) {
-		list->last = list->first;
+	node.child[1] = l->first;
+	l->first = ast_push(p, node);
+	if (l->last.value == 0) {
+		l->last = l->first;
 	}
 }
 
 static void
-ast_concat(ast_pool *pool, ast_list *a, ast_list b)
+ast_concat(ast_pool *p, ast_list *a, ast_list b)
 {
 	if (b.first.value != 0) {
 		if (a->last.value != 0) {
-			ast_node *last =  ast_get(pool, a->last);
+			ast_node *last = ast_get(p, a->last);
 			last->child[1] = b.first;
 			a->last = b.last;
 		} else {
@@ -94,12 +88,12 @@ ast_concat(ast_pool *pool, ast_list *a, ast_list b)
 }
 
 static void
-ast_shrink(ast_pool *pool)
+ast_shrink(ast_pool *p)
 {
-	ast_node *nodes = realloc(pool->nodes, pool->size * sizeof(*pool->nodes));
+	ast_node *nodes = realloc(p->nodes, p->size * sizeof(*nodes));
 	if (nodes) {
-		pool->nodes = nodes;
-		pool->cap = pool->size;
+		p->nodes = nodes;
+		p->cap = p->size;
 	}
 }
 
@@ -163,7 +157,7 @@ expect(tokenizer *tokenizer, token_kind expected_token)
 	if (!accept(tokenizer, expected_token)) {
 		token found_token = tokenizer->peek[0];
 		syntax_error(tokenizer, "Expected %s, but found %s",
-		    get_token_name(expected_token), get_token_name(found_token.kind));
+			get_token_name(expected_token), get_token_name(found_token.kind));
 	}
 }
 
@@ -397,8 +391,9 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 	for (;;) {
 		token = peek_token(tokenizer);
 		if (token.kind == TOKEN_EOF
-		    || token.kind == TOKEN_SEMICOLON
-		    || token.kind == TOKEN_RPAREN) {
+			|| token.kind == TOKEN_SEMICOLON
+			|| token.kind == TOKEN_RPAREN)
+		{
 			break;
 		}
 
@@ -543,9 +538,7 @@ get_qualifier(token_kind token)
 static ast_list
 parse_declarator(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 {
-	ast_list declarator = {0};
 	ast_list pointer_declarator = {0};
-
 	while (accept(tokenizer, TOKEN_STAR)) {
 		ast_node node = ast_make_node(AST_TYPE_POINTER, tokenizer->loc);
 		token_kind qualifier_token = tokenizer->peek[0].kind;
@@ -563,12 +556,12 @@ parse_declarator(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 		ast_prepend(pool, &pointer_declarator, node);
 	}
 
-	token token = {0};
+	ast_list declarator = {0};
 	if (accept(tokenizer, TOKEN_LPAREN)) {
 		declarator = parse_declarator(tokenizer, flags, pool);
 		expect(tokenizer, TOKEN_RPAREN);
 	} else if (!(flags & PARSE_NO_IDENT)) {
-		token = tokenizer->peek[0];
+		token token = tokenizer->peek[0];
 		if (token.kind != TOKEN_IDENT) {
 			syntax_error(tokenizer, "Expected identifier, but found %s",
 				get_token_name(token.kind));
@@ -590,7 +583,6 @@ parse_declarator(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 			expect(tokenizer, TOKEN_RBRACKET);
 		} else if (accept(tokenizer, TOKEN_LPAREN)) {
 			ast_node node = ast_make_node(AST_TYPE_FUNC, tokenizer->loc);
-
 			if (tokenizer->peek[0].kind == TOKEN_RPAREN) {
 				get_token(tokenizer);
 			} else if (tokenizer->peek[0].kind == TOKEN_VOID
@@ -796,8 +788,8 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 		node.child[0] = decl.first;
 		ast_append(pool, &list, node);
 	} while (!tokenizer->error
-	    && !(flags & PARSE_SINGLE_DECL)
-	    && accept(tokenizer, TOKEN_COMMA));
+		&& !(flags & PARSE_SINGLE_DECL)
+		&& accept(tokenizer, TOKEN_COMMA));
 
 	return list;
 }
@@ -1007,7 +999,8 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 	if (tokenizer->error) {
 		tokenizer->error = false;
 		while (!accept(tokenizer, TOKEN_SEMICOLON)
-		    && !accept(tokenizer, TOKEN_RBRACE)) {
+			&& !accept(tokenizer, TOKEN_RBRACE))
+		{
 			get_token(tokenizer);
 		}
 	}
