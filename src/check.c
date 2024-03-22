@@ -649,11 +649,10 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXTERN_DEF) {
-			symbol_id symbol_id = symtab.symbols[i];
-			ASSERT(symbol_id.value != 0);
+			ast_id node_id = {i};
 			ASSERT(node->type);
 
-			decl_symbol *sym = get_decl_symbol(symtab, symbol_id);
+			decl_symbol *sym = get_decl_symbol(symtab, node_id);
 			sym->name = node->value.s;
 			sym->type = node->type;
 			sym->is_global = true;
@@ -671,7 +670,7 @@ add_global_symbols(ast_pool *pool, symbol_table symtab)
 }
 
 static void
-check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, symbol_id switch_id, arena *perm)
+check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id switch_id, arena *perm)
 {
 	if (node_id.value == 0) {
 		return;
@@ -693,16 +692,14 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, symbol_id
 		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
 		break;
 	case AST_STMT_SWITCH:
-		switch_id = symtab.symbols[node_id.value];
-		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
+		check_switch_stmt(pool, node->child[1], symtab, node_id, perm);
 		break;
 	case AST_STMT_CASE:
 		if (switch_id.value == 0) {
 			errorf(node->loc, "case outside switch");
 		} else {
 			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
-			symbol_id sym_id = symtab.symbols[node_id.value];
-			case_symbol *case_sym = get_case_symbol(symtab, sym_id);
+			case_symbol *case_sym = get_case_symbol(symtab, node_id);
 			case_sym->case_id = node_id;
 
 			if (switch_sym->last) {
@@ -776,6 +773,12 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		}
 	}
 
+	symtab.labels   = ALLOC(perm, symtab.label_count, u32);
+	symtab.strings  = ALLOC(perm, symtab.string_count, str);
+	symtab.decls    = ALLOC(perm, symtab.decl_count, decl_symbol);
+	symtab.cases    = ALLOC(perm, symtab.case_count, case_symbol);
+	symtab.switches = ALLOC(perm, symtab.switch_count, switch_symbol);
+
 	// NOTE: Check labels, ensure that no label is defined twice and merge
 	// gotos with their corresponding label.
 	if (symtab.label_count > 1) {
@@ -825,13 +828,47 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXPR_STRING) {
-			str *sym = get_string_symbol(symtab, symtab.symbols[i]);
-			*sym = node->value.s;
+			str escaped = node->value.s;
+			str unescaped = {0};
+			unescaped.at = ALLOC(perm, escaped.length, char);
+			for (isize i = 1; i < escaped.length - 1; i++) {
+				char c = escaped.at[i];
+				if (c == '\\') {
+					c = escaped.at[++i];
+					switch (c) {
+					case '"':
+						unescaped.at[unescaped.length++] = c;
+						break;
+					case 'n':
+						unescaped.at[unescaped.length++] = '\n';
+						break;
+					case 't':
+						unescaped.at[unescaped.length++] = '\t';
+						break;
+					case 'v':
+						unescaped.at[unescaped.length++] = '\v';
+						break;
+					case 'r':
+						unescaped.at[unescaped.length++] = '\r';
+						break;
+					case 'f':
+						unescaped.at[unescaped.length++] = '\f';
+						break;
+					default:
+						ASSERT(!"Invalid escape sequence");
+					}
+				} else {
+					unescaped.at[unescaped.length++] = c;
+				}
+			}
+
+			ast_id node_id = {i};
+			str *sym = get_string_symbol(symtab, node_id);
+			*sym = unescaped;
 		}
 	}
 
-	symbol_id nil_sym = {0};
-	check_switch_stmt(pool, pool->root, symtab, nil_sym, perm);
+	check_switch_stmt(pool, pool->root, symtab, ast_id_nil, perm);
 
 	scope s = new_scope(NULL);
 	check_decls(pool, &pool->root, &s, perm, error);

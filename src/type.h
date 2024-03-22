@@ -294,36 +294,45 @@ get_member(member *list, str key)
 }
 
 static decl_symbol *
-get_decl_symbol(symbol_table symtab, symbol_id id)
+get_decl_symbol(symbol_table symtab, ast_id node_id)
 {
-	ASSERT(id.value < symtab.decl_count);
-	decl_symbol *symbol = &symtab.decls[id.value];
+	ASSERT(symtab.kind[node_id.value] == SYM_DECL);
+	symbol_id sym_id = symtab.symbols[node_id.value];
+
+	ASSERT(sym_id.value < symtab.decl_count);
+	decl_symbol *symbol = &symtab.decls[sym_id.value];
 	return symbol;
 }
 
 static switch_symbol *
-get_switch_symbol(symbol_table symtab, symbol_id id)
+get_switch_symbol(symbol_table symtab, ast_id node_id)
 {
-	ASSERT(id.value < symtab.switch_count);
-	ASSERT(symtab.kind[id.value] == SYM_SWITCH);
-	switch_symbol *symbol = &symtab.switches[id.value];
+	ASSERT(symtab.kind[node_id.value] == SYM_SWITCH);
+	symbol_id sym_id = symtab.symbols[node_id.value];
+
+	ASSERT(sym_id.value < symtab.switch_count);
+	switch_symbol *symbol = &symtab.switches[sym_id.value];
 	return symbol;
 }
 
 static case_symbol *
-get_case_symbol(symbol_table symtab, symbol_id id)
+get_case_symbol(symbol_table symtab, ast_id node_id)
 {
-	ASSERT(id.value < symtab.case_count);
-	ASSERT(symtab.kind[id.value] == SYM_CASE);
-	case_symbol *symbol = &symtab.cases[id.value];
+	ASSERT(symtab.kind[node_id.value] == SYM_CASE);
+	symbol_id sym_id = symtab.symbols[node_id.value];
+
+	ASSERT(sym_id.value < symtab.case_count);
+	case_symbol *symbol = &symtab.cases[sym_id.value];
 	return symbol;
 }
 
 static str *
-get_string_symbol(symbol_table symtab, symbol_id id)
+get_string_symbol(symbol_table symtab, ast_id node_id)
 {
-	ASSERT(id.value < symtab.string_count);
-	ASSERT(symtab.kind[id.value] == SYM_STRING);
-	str *symbol = &symtab.strings[id.value];
+	ASSERT(symtab.kind[node_id.value] == SYM_STRING);
+	symbol_id sym_id = symtab.symbols[node_id.value];
+
+	ASSERT(sym_id.value < symtab.string_count);
+	str *symbol = &symtab.strings[sym_id.value];
 	return symbol;
 }

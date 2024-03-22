@@ -555,46 +555,56 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 					machine_operand src = make_vreg(instr[instr_index - 1].op0, size);
 					x86_select2(out, X86_POPCNT, dst, src);
 				} break;
+			case BUILTIN_VA_START:
+			case BUILTIN_VA_END:
+			case BUILTIN_VA_ARG:
+				{
+					ASSERT(!"TODO");
+				} break;
 			}
 		} break;
 	case IR_CALL:
 		{
 			machine_operand called = make_vreg(op0, 8);
 			if (instr[op0].opcode == IR_GLOBAL) {
-				called = make_func(instr[op0].op0);
+				called = make_global(instr[op0].op0, 8);
 			} else {
 				x86_select_instr(out, instr, op0, called);
 			}
 
-			for (u32 i = 1; i <= op1; i++) {
-				ASSERT(instr[instr_index - i].opcode == IR_PARAM);
-				machine_operand src = make_vreg(instr[instr_index - i].op0, size);
-				u32 parameter_index = i - 1;
-				switch (parameter_index) {
+			i32 param_offset = op1;
+			while (param_offset > 0) {
+				ASSERT(instr[instr_index - param_offset].opcode == IR_PARAM);
+				ir_instr param_instr = instr[instr_index - param_offset];
+				isize param_size = ir_sizeof(param_instr.type);
+				i32 param_index = op1 - param_offset;
+				switch (param_index) {
 				case 0:
 					{
-						machine_operand rdi = make_mreg(X86_RDI, src.size);
-						x86_select_instr(out, instr, src.value, rdi);
+						machine_operand rdi = make_mreg(X86_RDI, param_size);
+						x86_select_instr(out, instr, param_instr.op0, rdi);
 					} break;
 				case 1:
 					{
-						machine_operand rsi = make_mreg(X86_RSI, src.size);
-						x86_select_instr(out, instr, src.value, rsi);
+						machine_operand rsi = make_mreg(X86_RSI, param_size);
+						x86_select_instr(out, instr, param_instr.op0, rsi);
 					} break;
 				case 2:
 					{
-						machine_operand rdx = make_mreg(X86_RDX, src.size);
-						x86_select_instr(out, instr, src.value, rdx);
+						machine_operand rdx = make_mreg(X86_RDX, param_size);
+						x86_select_instr(out, instr, param_instr.op0, rdx);
 					} break;
 				case 3:
 					{
-						machine_operand rcx = make_mreg(X86_RCX, src.size);
-						x86_select_instr(out, instr, src.value, rcx);
+						machine_operand rcx = make_mreg(X86_RCX, param_size);
+						x86_select_instr(out, instr, param_instr.op0, rcx);
 					} break;
 				default:
 					ASSERT(!"Too many arguments");
 					break;
 				}
+
+				param_offset--;
 			}
 
 			machine_operand rax = make_mreg(X86_RAX, size);
@@ -791,9 +801,22 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 	switch (operand.kind) {
 	case MOP_GLOBAL:
 		{
-			symbol_id sym_id = {operand.value};
-			decl_symbol *sym = get_decl_symbol(*symtab, sym_id);
-			stream_prints(out, sym->name);
+			ast_id node_id = {operand.value};
+			switch (symtab->kind[node_id.value]) {
+			case SYM_DECL:
+				{
+					decl_symbol *sym = get_decl_symbol(*symtab, node_id);
+					stream_prints(out, sym->name);
+				} break;
+			case SYM_STRING:
+				{
+					stream_print(out, "str#");
+					symbol_id sym_id = symtab->symbols[node_id.value];
+					stream_printu(out, sym_id.value);
+				} break;
+			default:
+				ASSERT(!"Invalid symbol");
+			}
 		} break;
 	case MOP_SPILL:
 		stream_print(out, "[rsp+");
@@ -827,8 +850,8 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		break;
 	case MOP_FUNC:
 		{
-			symbol_id sym_id = {operand.value};
-			decl_symbol *sym = get_decl_symbol(*symtab, sym_id);
+			ast_id node_id = {operand.value};
+			decl_symbol *sym = get_decl_symbol(*symtab, node_id);
 			stream_prints(out, sym->name);
 		} break;
 	case MOP_VREG:
@@ -846,7 +869,6 @@ static void
 x86_generate(stream *out, machine_program program, allocation_info *info)
 {
 	stream_print(out,
-		"extern printf\n\n"
 		"section .data\n"
 		"fmt: db \"%d\", 0x0A, 0\n");
 
@@ -875,6 +897,25 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			stream_prints(out, sym->name);
 			stream_print(out, "\n");
 		}
+	}
+
+	for (u32 i = 1; i < program.symtab->string_count; i++) {
+		str sym = program.symtab->strings[i];
+		stream_print(out, "str#");
+		stream_printu(out, i);
+		stream_print(out, ": db \"");
+		for (isize j = 0; j < sym.length; j++) {
+			b32 is_printable = (0x20 <= sym.at[j] && sym.at[j] < 0x7F);
+			if (is_printable) {
+				stream_write(out, sym.at[j]);
+			} else {
+				stream_print(out, "\", ");
+				stream_print_hex(out, sym.at[j]);
+				stream_print(out, ", \"");
+			}
+		}
+
+		stream_print(out, "\", 0x0");
 	}
 
 	stream_print(out, "\nsection .bss\n");
@@ -911,9 +952,9 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		stack_size += 8 * info[function_index].spill_count;
 
 		u32 total_stack_size = (stack_size + 8 * used_volatile_register_count);
-		b32 stack_is_aligned = ((total_stack_size & 15) == 0);
+		b32 stack_is_aligned = ((total_stack_size & 15) == 8);
 		if (!stack_is_aligned) {
-			stack_size += (total_stack_size & 15);
+			stack_size += 24 - (total_stack_size & 15);
 		}
 
 		if (stack_size > 0) {

@@ -393,6 +393,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			value.f = node->value.f;
 			result = ir_emit1_type(ctx, IR_F32, IR_CONST, value.i);
 		} break;
+	case AST_EXPR_STRING:
+		{
+			result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
+		} break;
 	case AST_EXPR_INT:
 		{
 			result = ir_emit1_type(ctx, IR_I32, IR_CONST, node->value.i);
@@ -498,8 +502,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
-			case_symbol *case_sym = get_case_symbol(*ctx->symtab, sym_id);
+			case_symbol *case_sym = get_case_symbol(*ctx->symtab, node_id);
 			ir_emit1(ctx, IR_LABEL, case_sym->label);
 			translate_node(ctx, pool, node->child[1], false);
 		} break;
@@ -534,13 +537,13 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *node = ast_get(pool, node_id);
 			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
 
+			decl_symbol *sym = get_decl_symbol(*ctx->symtab, node_id);
 			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
-			decl_symbol *sym = get_decl_symbol(*ctx->symtab, sym_id);
 			result = ctx->symbol_registers[sym_id.value];
 			b32 is_initialized = (result != 0);
 			if (!is_initialized) {
 				if (sym->is_global) {
-					result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, sym_id.value);
+					result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
 					ctx->symbol_registers[sym_id.value] = sym_id.value;
 
 					if (node->type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
@@ -620,7 +623,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (sym->is_global) {
-				result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, sym_id.value);
+				result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
 			}
 
 			if (!is_lvalue
@@ -743,8 +746,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 switch_reg = translate_node(ctx, pool, node->child[0], false);
 			ctx->break_label = new_label(ctx);
 
-			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
-			switch_symbol *switch_sym = get_switch_symbol(*ctx->symtab, sym_id);
+			switch_symbol *switch_sym = get_switch_symbol(*ctx->symtab, node_id);
 			for (case_symbol *case_sym = switch_sym->first; case_sym; case_sym = case_sym->next) {
 				case_sym->label = new_label(ctx);
 
@@ -850,8 +852,8 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_CALL:
-		info.op1 = IR_OPERAND_FUNC;
-		info.op0 = IR_OPERAND_CONST;
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_GLOBAL:
 		info.op0 = IR_OPERAND_GLOBAL;

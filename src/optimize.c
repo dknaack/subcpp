@@ -105,8 +105,6 @@ remove_unused_registers(ir_program program, arena *arena)
 		for (u32 j = 0; j < func->instr_count; j++) {
 			u32 i = func->instr_count - 1 - j;
 			ir_instr instr = instrs[i];
-			ir_opcode_info info = get_opcode_info(instr.opcode);
-
 			switch (instr.opcode) {
 			case IR_STORE:
 			case IR_PARAM:
@@ -119,14 +117,12 @@ remove_unused_registers(ir_program program, arena *arena)
 			case IR_JMP:
 			case IR_LABEL: // TODO: Removal of unused labels
 				used[i] = true;
-			default:
 				break;
-			}
-
-			if (!used[i]) {
+			default:
 				continue;
 			}
 
+			ir_opcode_info info = get_opcode_info(instr.opcode);
 			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
 				used[instr.op0] = true;
 			}

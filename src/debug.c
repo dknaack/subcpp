@@ -145,7 +145,7 @@ print_ir_instr(ir_instr instr, u32 i)
 		printf("\t%%%d =%s call_builtin %s\n", dst, type, get_builtin_str(op0));
 		break;
 	case IR_CALL:
-		printf("\t%%%d =%s call L%d, %d\n", dst, type, op0, op1);
+		printf("\t%%%d =%s call %%%d, %d\n", dst, type, op0, op1);
 		break;
 	case IR_PRINT:
 		printf("\tprint %s %%%d\n", type, op0);

@@ -292,6 +292,13 @@ parse_expr(tokenizer *tokenizer, precedence prev_prec, ast_pool *pool)
 			ident.value.s = token.value;
 			expr = ast_push(pool, ident);
 		} break;
+	case TOKEN_LITERAL_STRING:
+		{
+			get_token(tokenizer);
+			ast_node literal = ast_make_node(AST_EXPR_STRING, tokenizer->loc);
+			literal.value.s = token.value;
+			expr = ast_push(pool, literal);
+		} break;
 	case TOKEN_LITERAL_FLOAT:
 		{
 			get_token(tokenizer);

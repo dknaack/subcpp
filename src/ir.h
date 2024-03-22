@@ -99,6 +99,9 @@ typedef struct {
 
 typedef enum {
 	BUILTIN_POPCOUNT,
+	BUILTIN_VA_START,
+	BUILTIN_VA_ARG,
+	BUILTIN_VA_END,
 } ir_builtin;
 
 typedef struct {

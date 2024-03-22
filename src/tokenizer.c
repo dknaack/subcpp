@@ -212,6 +212,21 @@ get_raw_token(tokenizer *tokenizer)
 				advance(tokenizer);
 			}
 		} break;
+	case '"':
+		{
+			while (tokenizer->at[1] != '"' && tokenizer->at[1] != '\n') {
+				if (tokenizer->at[1] == '\\') {
+					advance(tokenizer);
+				}
+
+				advance(tokenizer);
+			}
+
+			if (tokenizer->at[1] == '"') {
+				token.kind = TOKEN_LITERAL_STRING;
+				advance(tokenizer);
+			}
+		} break;
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 		{
