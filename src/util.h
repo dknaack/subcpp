@@ -50,7 +50,7 @@ equals(str a, str b)
 }
 
 static char *
-str_cstr(str s, arena *perm)
+cstr(str s, arena *perm)
 {
 	char *c = ALLOC(perm, 1 + s.length, char);
 
