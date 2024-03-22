@@ -14,6 +14,14 @@ typedef struct symbol_id {
 	i32 value;
 } symbol_id;
 
+typedef enum {
+	SYM_NONE,
+	SYM_CASE,
+	SYM_DECL,
+	SYM_LABEL,
+	SYM_SWITCH,
+} symbol_kind;
+
 typedef struct case_symbol case_symbol;
 struct case_symbol {
 	case_symbol *next;
@@ -42,6 +50,7 @@ typedef struct {
 	isize case_count;
 	isize label_count;
 	symbol_id *symbols;
+	symbol_kind *kind;
 	u32 *labels;
 	decl_symbol *decls;
 	case_symbol *cases;
@@ -290,6 +299,7 @@ static switch_symbol *
 get_switch_symbol(symbol_table symtab, symbol_id id)
 {
 	ASSERT(id.value < symtab.switch_count);
+	ASSERT(symtab.kind[id.value] == SYM_SWITCH);
 	switch_symbol *symbol = &symtab.switches[id.value];
 	return symbol;
 }
@@ -298,6 +308,7 @@ static case_symbol *
 get_case_symbol(symbol_table symtab, symbol_id id)
 {
 	ASSERT(id.value < symtab.case_count);
+	ASSERT(symtab.kind[id.value] == SYM_CASE);
 	case_symbol *symbol = &symtab.cases[id.value];
 	return symbol;
 }

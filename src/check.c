@@ -726,6 +726,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 {
 	scope s = new_scope(NULL);
 	symbol_id *symbols = ALLOC(perm, pool->size, symbol_id);
+	symbol_kind *kind = ALLOC(perm, pool->size, symbol_kind);
 
 	isize switch_count = 1;
 	isize decl_count = 1;
@@ -736,12 +737,15 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		switch (node->kind) {
 		case AST_STMT_SWITCH:
 			symbols[i].value = switch_count++;
+			kind[i] = SYM_SWITCH;
 			break;
 		case AST_STMT_CASE:
 			symbols[i].value = case_count++;
+			kind[i] = SYM_CASE;
 			break;
 		case AST_STMT_LABEL:
 			symbols[i].value = label_count++;
+			kind[i] = SYM_LABEL;
 			break;
 		case AST_TYPE_STRUCT:
 			if (node->value.s.at == NULL || node->child[0].value == 0) {
@@ -753,6 +757,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		case AST_ENUMERATOR:
 		case AST_DECL:
 			symbols[i].value = decl_count++;
+			kind[i] = SYM_DECL;
 			break;
 		default:
 		}
@@ -764,6 +769,7 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	symtab.case_count = case_count;
 	symtab.label_count = label_count;
 	symtab.symbols = symbols;
+	symtab.kind = kind;
 	symtab.labels = ALLOC(perm, label_count, u32);
 	symtab.cases = ALLOC(perm, case_count, case_symbol);
 	symtab.switches = ALLOC(perm, switch_count, switch_symbol);
