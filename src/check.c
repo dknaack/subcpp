@@ -559,8 +559,11 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 		{
 			ast_node *type = ast_get(pool, node->child[1]);
 			node->type = type_create(TYPE_ARRAY, arena);
-			// TODO: Evaluate the size of the array
-			node->type->size = eval_ast(pool, node->child[0]);
+			if (node->child[0].value != 0) {
+				node->type->size = eval_ast(pool, node->child[0]);
+			} else {
+				// TODO: Evaluate the size based on the expression or error.
+			}
 			node->type->children = type->type;
 		} break;
 	case AST_TYPE_BITFIELD:
