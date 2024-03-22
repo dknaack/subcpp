@@ -407,22 +407,26 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 				break;
 			}
 
-			if (node->child[1].value != 0) {
-				ast_node *param_list = ast_get(pool, node->child[1]);
-				member *param_member = called->type->members;
-				for (;;) {
-					ast_node *param = ast_get(pool, param_list->child[0]);
-					if (!type_equals(param_member->type, param->type)) {
-						errorf(param->loc, "Invalid parameter type");
-					}
-
-					if (param_list->child[1].value == 0) {
-						break;
-					}
-
-					param_list = ast_get(pool, param_list->child[1]);
+			member *param_member = called->type->members;
+			ast_id param_id = node->child[1];
+			while (param_member && param_id.value != 0) {
+				ast_node *param_list = ast_get(pool, param_id);
+				ast_node *param = ast_get(pool, param_list->child[0]);
+				if (!type_equals(param_member->type, param->type)) {
+					errorf(param->loc, "Invalid parameter type");
 				}
+
+				param_member = param_member->next;
+				param_id = param_list->child[1];
 			}
+
+#if 0
+			if (param_member && param_id.value == 0) {
+				errorf(node->loc, "Too few arguments");
+			} else if (!param_member && param_id.value != 0) {
+				errorf(node->loc, "Too many arguments");
+			}
+#endif
 
 			type *return_type = called->type->children;
 			node->type = return_type;
@@ -445,6 +449,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 	case AST_EXPR_INT:
 		{
 			node->type = &type_int;
+		} break;
+	case AST_EXPR_STRING:
+		{
+			node->type = &type_char_ptr;
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
@@ -724,28 +732,29 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, symbol_id
 static symbol_table
 check(ast_pool *pool, arena *perm, b32 *error)
 {
-	scope s = new_scope(NULL);
-	symbol_id *symbols = ALLOC(perm, pool->size, symbol_id);
-	symbol_kind *kind = ALLOC(perm, pool->size, symbol_kind);
+	symbol_table symtab = {0};
+	symtab.symbols = ALLOC(perm, pool->size, symbol_id);
+	symtab.kind = ALLOC(perm, pool->size, symbol_kind);
+	symtab.switch_count = 1;
+	symtab.decl_count = 1;
+	symtab.case_count = 1;
+	symtab.label_count = 1;
+	symtab.string_count = 1;
 
-	isize switch_count = 1;
-	isize decl_count = 1;
-	isize case_count = 1;
-	isize label_count = 1;
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		switch (node->kind) {
 		case AST_STMT_SWITCH:
-			symbols[i].value = switch_count++;
-			kind[i] = SYM_SWITCH;
+			symtab.symbols[i].value = symtab.switch_count++;
+			symtab.kind[i] = SYM_SWITCH;
 			break;
 		case AST_STMT_CASE:
-			symbols[i].value = case_count++;
-			kind[i] = SYM_CASE;
+			symtab.symbols[i].value = symtab.case_count++;
+			symtab.kind[i] = SYM_CASE;
 			break;
 		case AST_STMT_LABEL:
-			symbols[i].value = label_count++;
-			kind[i] = SYM_LABEL;
+			symtab.symbols[i].value = symtab.label_count++;
+			symtab.kind[i] = SYM_LABEL;
 			break;
 		case AST_TYPE_STRUCT:
 			if (node->value.s.at == NULL || node->child[0].value == 0) {
@@ -756,30 +765,22 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		case AST_EXTERN_DEF:
 		case AST_ENUMERATOR:
 		case AST_DECL:
-			symbols[i].value = decl_count++;
-			kind[i] = SYM_DECL;
+			symtab.symbols[i].value = symtab.decl_count++;
+			symtab.kind[i] = SYM_DECL;
+			break;
+		case AST_EXPR_STRING:
+			symtab.symbols[i].value = symtab.string_count++;
+			symtab.kind[i] = SYM_STRING;
 			break;
 		default:
 		}
 	}
 
-	symbol_table symtab = {0};
-	symtab.decl_count = decl_count;
-	symtab.switch_count = switch_count;
-	symtab.case_count = case_count;
-	symtab.label_count = label_count;
-	symtab.symbols = symbols;
-	symtab.kind = kind;
-	symtab.labels = ALLOC(perm, label_count, u32);
-	symtab.cases = ALLOC(perm, case_count, case_symbol);
-	symtab.switches = ALLOC(perm, switch_count, switch_symbol);
-	symtab.decls = ALLOC(perm, decl_count, decl_symbol);
-
 	// NOTE: Check labels, ensure that no label is defined twice and merge
 	// gotos with their corresponding label.
-	if (label_count > 0) {
+	if (symtab.label_count > 1) {
 		arena_temp temp = arena_temp_begin(perm);
-		ast_id *label_id = ALLOC(perm, label_count, ast_id);
+		ast_id *label_id = ALLOC(perm, symtab.label_count, ast_id);
 		for (isize i = 1; i < pool->size; i++) {
 			isize j = i;
 			isize l = 0;
@@ -807,12 +808,12 @@ check(ast_pool *pool, arena *perm, b32 *error)
 				for (isize k = 0; k < l; k++) {
 					ast_node *label_node = &pool->nodes[label_id[k].value];
 					if (str_equals(label_node->value.s, node->value.s)) {
-						symbols[j] = symbols[label_id[k].value];
+						symtab.symbols[j] = symtab.symbols[label_id[k].value];
 						break;
 					}
 				}
 
-				if (symbols[j].value == 0) {
+				if (symtab.symbols[j].value == 0) {
 					errorf(node->loc, "No label was found");
 				}
 			}
@@ -821,8 +822,18 @@ check(ast_pool *pool, arena *perm, b32 *error)
 		arena_temp_end(temp);
 	}
 
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		if (node->kind == AST_EXPR_STRING) {
+			str *sym = get_string_symbol(symtab, symtab.symbols[i]);
+			*sym = node->value.s;
+		}
+	}
+
 	symbol_id nil_sym = {0};
 	check_switch_stmt(pool, pool->root, symtab, nil_sym, perm);
+
+	scope s = new_scope(NULL);
 	check_decls(pool, &pool->root, &s, perm, error);
 	if (!*error) {
 		check_type(pool, pool->root, perm, error);

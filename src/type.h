@@ -20,6 +20,7 @@ typedef enum {
 	SYM_DECL,
 	SYM_LABEL,
 	SYM_SWITCH,
+	SYM_STRING,
 } symbol_kind;
 
 typedef struct case_symbol case_symbol;
@@ -45,16 +46,20 @@ typedef struct {
 } decl_symbol;
 
 typedef struct {
+	symbol_id *symbols;
+	symbol_kind *kind;
+
+	u32 *labels;
+	str *strings;
+	decl_symbol *decls;
+	case_symbol *cases;
+	switch_symbol *switches;
+
 	isize decl_count;
 	isize switch_count;
 	isize case_count;
 	isize label_count;
-	symbol_id *symbols;
-	symbol_kind *kind;
-	u32 *labels;
-	decl_symbol *decls;
-	case_symbol *cases;
-	switch_symbol *switches;
+	isize string_count;
 } symbol_table;
 
 typedef enum {
@@ -115,6 +120,7 @@ static type type_long_unsigned  = {TYPE_LONG_UNSIGNED};
 static type type_llong_unsigned = {TYPE_LLONG_UNSIGNED};
 static type type_float = {TYPE_FLOAT};
 static type type_double = {TYPE_DOUBLE};
+static type type_char_ptr  = {TYPE_POINTER, &type_nil, &type_char};
 
 static char *
 type_get_name(type_kind type)
@@ -310,5 +316,14 @@ get_case_symbol(symbol_table symtab, symbol_id id)
 	ASSERT(id.value < symtab.case_count);
 	ASSERT(symtab.kind[id.value] == SYM_CASE);
 	case_symbol *symbol = &symtab.cases[id.value];
+	return symbol;
+}
+
+static str *
+get_string_symbol(symbol_table symtab, symbol_id id)
+{
+	ASSERT(id.value < symtab.string_count);
+	ASSERT(symtab.kind[id.value] == SYM_STRING);
+	str *symbol = &symtab.strings[id.value];
 	return symbol;
 }
