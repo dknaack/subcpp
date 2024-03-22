@@ -904,7 +904,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			}
 		}
 
-		stream_print(out, "\", 0x0");
+		stream_print(out, "\", 0x0\n");
 	}
 
 	stream_print(out, "\nsection .bss\n");
