@@ -740,7 +740,7 @@ parse_decl(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 
 	ast_list list = {0};
 	if (type_specifier.kind == AST_INVALID) {
-		if (flags != 0) {
+		if (qualifiers != 0) {
 			syntax_error(tokenizer, "Expected type after qualifiers");
 		}
 
