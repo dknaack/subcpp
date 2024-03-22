@@ -118,7 +118,9 @@ remove_unused_registers(ir_program program, arena *arena)
 				used[i] = true;
 				break;
 			default:
-				continue;
+				if (!used[i]) {
+					continue;
+				}
 			}
 
 			ir_opcode_info info = get_opcode_info(instr.opcode);
