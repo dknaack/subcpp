@@ -49,18 +49,6 @@ equals(str a, str b)
 	return true;
 }
 
-static char *
-cstr(str s, arena *perm)
-{
-	char *c = ALLOC(perm, 1 + s.length, char);
-
-	for (isize i = 0; i < s.length; i++) {
-		c[i] = s.at[i];
-	}
-
-	return c;
-}
-
 static str
 substr(str s, isize start, isize end)
 {
