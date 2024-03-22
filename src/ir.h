@@ -152,33 +152,6 @@ ir_sizeof(ir_type type)
 	return 0;
 }
 
-static ir_type
-ir_typeof(isize size, b32 is_float)
-{
-	ir_type type = IR_VOID;
-
-	if (is_float) {
-		if (size == 4) {
-			type = IR_F32;
-		} else if (size == 8) {
-			type = IR_F64;
-		}
-	} else {
-		if (size == 1) {
-			type = IR_I8;
-		} else if (size == 2) {
-			type = IR_I16;
-		} else if (size == 4) {
-			type = IR_I32;
-		} else if (size == 8) {
-			type = IR_I64;
-		}
-	}
-
-	ASSERT(type != IR_VOID);
-	return type;
-}
-
 // TODO: This depends on the underlying system. For example, a long can either
 // be 4 bytes or 8 bytes.
 static ir_type
