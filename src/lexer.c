@@ -342,7 +342,7 @@ push_file(lexer *t, str path, b32 system_header)
 	b32 found_header = false;
 	if (!system_header) {
 		if (is_relative_path(path)) {
-			str dir = dirname(str_from(t->filename));
+			str dir = dirname(make_str(t->filename));
 			filename = concat_paths(dir, path, t->arena);
 			contents = read_file(filename.at, t->arena);
 			if (errno == 0) {

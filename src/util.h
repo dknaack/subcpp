@@ -21,7 +21,7 @@ read_file(char *filename, arena *arena)
 }
 
 static str
-str_from(char *cstr)
+make_str(char *cstr)
 {
 	str result;
 	result.at = cstr;
