@@ -275,7 +275,6 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 	case AST_STMT_IF1:
 	case AST_STMT_IF2:
 	case AST_STMT_LABEL:
-	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:
 	case AST_STMT_SWITCH:
 	case AST_STMT_WHILE:

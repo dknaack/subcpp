@@ -74,7 +74,6 @@ typedef enum {
 	TOKEN_IF,
 	TOKEN_INT,
 	TOKEN_LONG,
-	TOKEN_PRINT,
 	TOKEN_REGISTER,
 	TOKEN_RESTRICT,
 	TOKEN_RETURN,
@@ -198,7 +197,6 @@ get_token_name(token_kind kind)
 	case TOKEN_IF:            return "'if'";
 	case TOKEN_INT:           return "'int'";
 	case TOKEN_LONG:          return "'long'";
-	case TOKEN_PRINT:         return "'print'";
 	case TOKEN_REGISTER:      return "'register'";
 	case TOKEN_RESTRICT:      return "'restrict'";
 	case TOKEN_RETURN:        return "'return'";

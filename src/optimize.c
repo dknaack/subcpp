@@ -111,7 +111,6 @@ remove_unused_registers(ir_program program, arena *arena)
 			case IR_CALL:
 			case IR_RET:
 			case IR_MOV:
-			case IR_PRINT:
 			case IR_JIZ:
 			case IR_JNZ:
 			case IR_JMP:

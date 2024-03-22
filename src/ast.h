@@ -40,7 +40,6 @@ typedef enum {
 	AST_STMT_IF2,      // {if, else?}
 	AST_STMT_LABEL,    // {stmt}
 	AST_STMT_LIST,     // {stmt, stmt_list}
-	AST_STMT_PRINT,    // {expr}
 	AST_STMT_SWITCH,   // {expr, stmt}
 	AST_STMT_RETURN,   // {expr?}
 	AST_STMT_WHILE,    // {cond, body}
@@ -118,7 +117,6 @@ is_statement(ast_node_kind node_kind)
 	case AST_STMT_IF1:
 	case AST_STMT_IF2:
 	case AST_STMT_LIST:
-	case AST_STMT_PRINT:
 	case AST_STMT_RETURN:
 	case AST_STMT_WHILE:
 		return true;

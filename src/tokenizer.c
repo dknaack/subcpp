@@ -409,7 +409,6 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_IF,           S("if")            },
 		{ TOKEN_INT,          S("int")           },
 		{ TOKEN_LONG,         S("long")          },
-		{ TOKEN_PRINT,        S("print")         },
 		{ TOKEN_REGISTER,     S("register")      },
 		{ TOKEN_RESTRICT,     S("restrict")      },
 		{ TOKEN_RETURN,       S("return")        },

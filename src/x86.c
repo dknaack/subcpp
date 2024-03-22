@@ -611,17 +611,6 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			x86_select1(out, X86_CALL, called);
 			x86_select2(out, X86_MOV, dst, rax);
 		} break;
-	case IR_PRINT:
-		{
-			machine_operand rsi = make_mreg(X86_RSI, size);
-			machine_operand rdi = make_mreg(X86_RDI, 8);
-			machine_operand rax = make_mreg(X86_RAX, 8);
-			machine_operand zero = make_immediate(0, 8);
-
-			x86_select_instr(out, instr, op0, rsi);
-			x86_select2(out, X86_MOV, rax, zero);
-			x86_select2(out, X86_PRINT, rdi, rsi);
-		} break;
 	case IR_LABEL:
 		{
 			x86_select1(out, X86_LABEL, make_immediate(op0, ir_sizeof(instr[op0].type)));

@@ -111,7 +111,7 @@ verrorf(location loc, char *fmt, va_list ap)
 	fputc('\n', stderr);
 	fflush(stderr);
 
-	//ASSERT(!"Syntax error");
+	ASSERT(!"Syntax error");
 }
 
 static void
@@ -122,8 +122,6 @@ errorf(location loc, char *fmt, ...)
 	va_start(ap, fmt);
 	verrorf(loc, fmt, ap);
 	va_end(ap);
-
-	ASSERT(false);
 }
 
 static void
@@ -971,14 +969,6 @@ parse_stmt(tokenizer *tokenizer, ast_pool *pool)
 				node.child[0] = parse_assign_expr(tokenizer, pool);
 				expect(tokenizer, TOKEN_SEMICOLON);
 			}
-			result = ast_push(pool, node);
-		} break;
-	case TOKEN_PRINT:
-		{
-			get_token(tokenizer);
-			ast_node node = ast_make_node(AST_STMT_PRINT, tokenizer->loc);
-			node.child[0] = parse_assign_expr(tokenizer, pool);
-			expect(tokenizer, TOKEN_SEMICOLON);
 			result = ast_push(pool, node);
 		} break;
 	case TOKEN_SWITCH:

@@ -4,6 +4,12 @@ get_builtin_str(ir_builtin builtin)
 	switch (builtin) {
 	case BUILTIN_POPCOUNT:
 		return "popcount";
+	case BUILTIN_VA_START:
+		return "va_start";
+	case BUILTIN_VA_ARG:
+		return "va_arg";
+	case BUILTIN_VA_END:
+		return "va_end";
 	}
 
 	return "(invalid builtin)";
@@ -146,9 +152,6 @@ print_ir_instr(ir_instr instr, u32 i)
 		break;
 	case IR_CALL:
 		printf("\t%%%d =%s call %%%d, %d\n", dst, type, op0, op1);
-		break;
-	case IR_PRINT:
-		printf("\tprint %s %%%d\n", type, op0);
 		break;
 	case IR_PARAM:
 		printf("\tparam %s %%%d\n", type, op0);

@@ -765,11 +765,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(ctx, pool, node->child[1], false);
 			ir_emit1(ctx, IR_LABEL, ctx->break_label);
 		} break;
-	case AST_STMT_PRINT:
-		{
-			u32 value = translate_node(ctx, pool, node->child[0], false);
-			ir_emit1(ctx, IR_PRINT, value);
-		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_VOID:
 	case AST_TYPE_CHAR:
@@ -798,7 +793,6 @@ get_opcode_info(ir_opcode opcode)
 		break;
 	case IR_CAST:
 	case IR_CASTU:
-	case IR_PRINT:
 	case IR_PARAM:
 	case IR_RET:
 	case IR_LOAD:

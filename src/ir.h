@@ -30,7 +30,6 @@ typedef enum {
 	IR_MUL,
 	IR_OR,
 	IR_PARAM,
-	IR_PRINT,
 	IR_RET,
 	IR_SEXT,
 	IR_SHL,
