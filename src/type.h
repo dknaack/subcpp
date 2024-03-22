@@ -256,31 +256,6 @@ type_offsetof(type *type, str member_name)
 	return offset;
 }
 
-static usize
-type_offsetof_index(type *type, isize index)
-{
-	usize offset = 0;
-
-	ASSERT(type != NULL);
-	if (type->kind == TYPE_STRUCT) {
-		// TODO: member could be in an unnamed struct
-		for (member *s = type->members; s; s = s->next) {
-			u32 align = type_alignof(s->type);
-			offset = (offset + align - 1) & ~(align - 1);
-			if (index-- <= 0) {
-				break;
-			}
-
-			offset += type_sizeof(s->type);
-		}
-	} else {
-		// TODO: report error
-		ASSERT(!"Type must be struct or union");
-	}
-
-	return offset;
-}
-
 static member *
 get_member(member *list, str key)
 {
