@@ -7,7 +7,7 @@
 #include "main.h"
 
 #include "debug.c"
-#include "tokenizer.c"
+#include "lexer.c"
 #include "parser.c"
 #include "check.c"
 #include "ir.c"
@@ -109,8 +109,8 @@ main(int argc, char *argv[])
 	b32 error = false;
 	arena *arena = new_arena(5 * 1024 * 1024);
 	ast_pool pool = {0};
-	tokenizer tokenizer = tokenize(argv[1], arena);
-	parse(&tokenizer, &pool);
+	lexer lexer = tokenize(argv[1], arena);
+	parse(&lexer, &pool);
 	symbol_table symbol_table = check(&pool, arena, &error);
 
 	if (!error) {

@@ -4,7 +4,11 @@
 #include <string.h>
 
 #ifndef TRAP
+#ifdef DEBUG
 #define TRAP() __builtin_trap()
+#else
+#define TRAP() (void)0
+#endif
 #endif
 #define BREAK() asm("int3; nop")
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
@@ -42,7 +46,7 @@ typedef struct {
 
 #include "memory.h"
 #include "util.h"
-#include "tokenizer.h"
+#include "lexer.h"
 #include "type.h"
 #include "ast.h"
 #include "ir.h"

@@ -1,25 +1,25 @@
 static char
-advance(tokenizer *tokenizer)
+advance(lexer *lexer)
 {
-	for (isize i = 0; i < LENGTH(tokenizer->at); i++) {
-		if (tokenizer->pos + i < tokenizer->source.length) {
-			tokenizer->at[i] = tokenizer->source.at[tokenizer->pos + i];
+	for (isize i = 0; i < LENGTH(lexer->at); i++) {
+		if (lexer->pos + i < lexer->source.length) {
+			lexer->at[i] = lexer->source.at[lexer->pos + i];
 		} else {
-			tokenizer->at[i] = '\0';
+			lexer->at[i] = '\0';
 		}
 	}
 
-	if (tokenizer->pos < tokenizer->source.length) {
-		tokenizer->pos++;
+	if (lexer->pos < lexer->source.length) {
+		lexer->pos++;
 	}
 
-	tokenizer->loc.column++;
-	if (tokenizer->at[0] == '\n') {
-		tokenizer->loc.line++;
-		tokenizer->loc.column = 0;
+	lexer->loc.column++;
+	if (lexer->at[0] == '\n') {
+		lexer->loc.line++;
+		lexer->loc.column = 0;
 	}
 
-	return tokenizer->at[0];
+	return lexer->at[0];
 }
 
 static b32
@@ -51,10 +51,10 @@ is_whitespace(char c)
 }
 
 static token_kind
-eat1(tokenizer *tokenizer, token_kind a, char c, token_kind b)
+eat1(lexer *lexer, token_kind a, char c, token_kind b)
 {
-	if (tokenizer->at[1] == c) {
-		advance(tokenizer);
+	if (lexer->at[1] == c) {
+		advance(lexer);
 		return b;
 	} else {
 		return a;
@@ -62,12 +62,12 @@ eat1(tokenizer *tokenizer, token_kind a, char c, token_kind b)
 }
 
 static token
-get_raw_token(tokenizer *tokenizer)
+get_raw_token(lexer *lexer)
 {
 	token token = {0};
-	isize start = tokenizer->pos;
+	isize start = lexer->pos;
 
-	char c = advance(tokenizer);
+	char c = advance(lexer);
 	switch (c) {
 	case '(':  token.kind = TOKEN_LPAREN;    break;
 	case ')':  token.kind = TOKEN_RPAREN;    break;
@@ -85,202 +85,202 @@ get_raw_token(tokenizer *tokenizer)
 	case '\n': token.kind = TOKEN_NEWLINE;   break;
 	case '\0': token.kind = TOKEN_EOF;       break;
 	case '.':
-		if (tokenizer->at[1] == '.' && tokenizer->at[2] == '.') {
+		if (lexer->at[1] == '.' && lexer->at[2] == '.') {
 			token.kind = TOKEN_ELLIPSIS;
-			advance(tokenizer);
-			advance(tokenizer);
+			advance(lexer);
+			advance(lexer);
 		} else {
 			token.kind = TOKEN_DOT;
 		}
 		break;
 	case '&':
 		{
-			if (tokenizer->at[1] == '&') {
+			if (lexer->at[1] == '&') {
 				token.kind = TOKEN_AMP_AMP;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '=') {
+				advance(lexer);
+			} else if (lexer->at[1] == '=') {
 				token.kind = TOKEN_AMP_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_AMP;
 			}
 		} break;
 	case '|':
 		{
-			if (tokenizer->at[1] == '|') {
+			if (lexer->at[1] == '|') {
 				token.kind = TOKEN_BAR_BAR;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '=') {
+				advance(lexer);
+			} else if (lexer->at[1] == '=') {
 				token.kind = TOKEN_BAR_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_BAR;
 			}
 		} break;
 	case '+':
 		{
-			if (tokenizer->at[1] == '+') {
+			if (lexer->at[1] == '+') {
 				token.kind = TOKEN_PLUS_PLUS;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '=') {
+				advance(lexer);
+			} else if (lexer->at[1] == '=') {
 				token.kind = TOKEN_PLUS_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_PLUS;
 			}
 		} break;
 	case '-':
 		{
-			if (tokenizer->at[1] == '-') {
+			if (lexer->at[1] == '-') {
 				token.kind = TOKEN_MINUS_MINUS;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '>') {
+				advance(lexer);
+			} else if (lexer->at[1] == '>') {
 				token.kind = TOKEN_ARROW;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '=') {
+				advance(lexer);
+			} else if (lexer->at[1] == '=') {
 				token.kind = TOKEN_MINUS_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_MINUS;
 			}
 		} break;
 	case '*':
 		{
-			if (tokenizer->at[1] == '=') {
+			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_STAR_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_STAR;
 			}
 		} break;
 	case '/':
 		{
-			if (tokenizer->at[1] == '=') {
+			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_SLASH_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_SLASH;
 			}
 		} break;
 	case '%':
 		{
-			if (tokenizer->at[1] == '=') {
+			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_PERCENT_EQUAL;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_PERCENT;
 			}
 		} break;
 	case '=':
 		{
-			token.kind = eat1(tokenizer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
+			token.kind = eat1(lexer, TOKEN_EQUAL, '=', TOKEN_EQUAL_EQUAL);
 		} break;
 	case '<':
 		{
-			if (tokenizer->at[1] == '=') {
+			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_LESS_EQUAL;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '<') {
+				advance(lexer);
+			} else if (lexer->at[1] == '<') {
 				token.kind = TOKEN_LSHIFT;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_LESS;
 			}
 		} break;
 	case '>':
 		{
-			if (tokenizer->at[1] == '=') {
+			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_GREATER_EQUAL;
-				advance(tokenizer);
-			} else if (tokenizer->at[1] == '>') {
+				advance(lexer);
+			} else if (lexer->at[1] == '>') {
 				token.kind = TOKEN_RSHIFT;
-				advance(tokenizer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_GREATER;
 			}
 		} break;
 	case '#':
-		token.kind = eat1(tokenizer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
+		token.kind = eat1(lexer, TOKEN_HASH, '#', TOKEN_HASH_HASH);
 		break;
 	case '\r':
 		{
-			token.kind = eat1(tokenizer, TOKEN_NEWLINE, '\n', TOKEN_NEWLINE);
+			token.kind = eat1(lexer, TOKEN_NEWLINE, '\n', TOKEN_NEWLINE);
 		} break;
 	case ' ': case '\t': case '\v': case '\f':
 		{
 			token.kind = TOKEN_WHITESPACE;
-			while (is_whitespace(tokenizer->at[1])) {
-				advance(tokenizer);
+			while (is_whitespace(lexer->at[1])) {
+				advance(lexer);
 			}
 		} break;
 	case '"':
 		{
-			while (tokenizer->at[1] != '"'
-				&& tokenizer->at[1] != '\n'
-				&& tokenizer->at[1] != '\0')
+			while (lexer->at[1] != '"'
+				&& lexer->at[1] != '\n'
+				&& lexer->at[1] != '\0')
 			{
-				if (tokenizer->at[1] == '\\') {
-					advance(tokenizer);
+				if (lexer->at[1] == '\\') {
+					advance(lexer);
 				}
 
-				advance(tokenizer);
+				advance(lexer);
 			}
 
-			if (tokenizer->at[1] == '"') {
+			if (lexer->at[1] == '"') {
 				token.kind = TOKEN_LITERAL_STRING;
-				advance(tokenizer);
+				advance(lexer);
 			}
 		} break;
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 		{
 			token.kind = TOKEN_LITERAL_INT;
-			while (is_digit(tokenizer->at[1])) {
-				advance(tokenizer);
+			while (is_digit(lexer->at[1])) {
+				advance(lexer);
 			}
 
-			if (tokenizer->at[1] == '.') {
-				advance(tokenizer);
+			if (lexer->at[1] == '.') {
+				advance(lexer);
 				token.kind = TOKEN_LITERAL_FLOAT;
-				while (is_digit(tokenizer->at[1])) {
-					advance(tokenizer);
+				while (is_digit(lexer->at[1])) {
+					advance(lexer);
 				}
 			}
 
-			while (is_ident(tokenizer->at[1])) {
-				advance(tokenizer);
+			while (is_ident(lexer->at[1])) {
+				advance(lexer);
 			}
 		} break;
 	default:
 		{
 			if (is_alpha(c) || c == '_') {
 				token.kind = TOKEN_IDENT;
-				while (is_ident(tokenizer->at[1])) {
-					advance(tokenizer);
+				while (is_ident(lexer->at[1])) {
+					advance(lexer);
 				}
 			}
 		} break;
 	}
 
-	isize end = tokenizer->pos;
-	token.value = substr(tokenizer->source, start, end);
+	isize end = lexer->pos;
+	token.value = substr(lexer->source, start, end);
 	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
 }
 
 static token
-peek_raw_token(tokenizer *t)
+peek_raw_token(lexer *t)
 {
-	tokenizer tmp = *t;
+	lexer tmp = *t;
 	token token = get_raw_token(&tmp);
 	return token;
 }
 
 static void
-eat_whitespace(tokenizer *tokenizer)
+eat_whitespace(lexer *lexer)
 {
-	while (peek_raw_token(tokenizer).kind == TOKEN_WHITESPACE) {
-		get_raw_token(tokenizer);
+	while (peek_raw_token(lexer).kind == TOKEN_WHITESPACE) {
+		get_raw_token(lexer);
 	}
 }
 
@@ -316,7 +316,7 @@ concat_paths(str a, str b, arena *perm)
 }
 
 static void
-push_file(tokenizer *t, str path, b32 system_header)
+push_file(lexer *t, str path, b32 system_header)
 {
 	if (path.length == 0) {
 		// TODO: report error: Invalid header path
@@ -373,7 +373,7 @@ push_file(tokenizer *t, str path, b32 system_header)
 }
 
 static b32
-pop_file(tokenizer *t)
+pop_file(lexer *t)
 {
 	file *f = t->files;
 	b32 result = f != NULL;
@@ -389,7 +389,7 @@ pop_file(tokenizer *t)
 }
 
 static token
-get_token(tokenizer *tokenizer)
+get_token(lexer *lexer)
 {
 	token tmp, token = {TOKEN_INVALID};
 	struct {
@@ -429,42 +429,42 @@ get_token(tokenizer *tokenizer)
 		{ TOKEN_WHILE,        S("while")         },
 	};
 
-	b32 at_line_start = (tokenizer->pos == 0);
+	b32 at_line_start = (lexer->pos == 0);
 	do {
-		token = get_raw_token(tokenizer);
+		token = get_raw_token(lexer);
 		if (at_line_start && token.kind == TOKEN_HASH) {
-			token = get_raw_token(tokenizer);
+			token = get_raw_token(lexer);
 			if (token.kind == TOKEN_IDENT) {
 				if (str_equals(token.value, S("include"))) {
-					eat_whitespace(tokenizer);
+					eat_whitespace(lexer);
 
 					str filename = {0};
 					b32 is_system_header = false;
-					if (tokenizer->source.at[tokenizer->pos] == '<') {
+					if (lexer->source.at[lexer->pos] == '<') {
 						is_system_header = true;
-						advance(tokenizer);
+						advance(lexer);
 
 						char c;
-						isize start = tokenizer->pos;
+						isize start = lexer->pos;
 						do {
-							c = advance(tokenizer);
+							c = advance(lexer);
 						} while (c != '\n' && c != '>');
-						isize end = tokenizer->pos - 1;
+						isize end = lexer->pos - 1;
 
-						filename.at = tokenizer->source.at + start;
+						filename.at = lexer->source.at + start;
 						filename.length = end - start;
 						printf("%.*s\n", (int)filename.length, filename.at);
-					} else if (tokenizer->source.at[tokenizer->pos] == '"') {
-						advance(tokenizer);
+					} else if (lexer->source.at[lexer->pos] == '"') {
+						advance(lexer);
 
 						char c;
-						isize start = tokenizer->pos;
+						isize start = lexer->pos;
 						do {
-							c = advance(tokenizer);
+							c = advance(lexer);
 						} while (c != '\n' && c != '"');
-						isize end = tokenizer->pos - 1;
+						isize end = lexer->pos - 1;
 
-						filename.at = tokenizer->source.at + start;
+						filename.at = lexer->source.at + start;
 						filename.length = end - start;
 						printf("%.*s\n", (int)filename.length, filename.at);
 					} else {
@@ -472,34 +472,34 @@ get_token(tokenizer *tokenizer)
 					}
 
 					while (token.kind != TOKEN_NEWLINE) {
-						token = get_raw_token(tokenizer);
+						token = get_raw_token(lexer);
 						if (token.kind == TOKEN_BACKSLASH) {
-							token = peek_raw_token(tokenizer);
+							token = peek_raw_token(lexer);
 							if (token.kind == TOKEN_NEWLINE) {
-								get_raw_token(tokenizer);
+								get_raw_token(lexer);
 							}
 						}
 					}
 
-					push_file(tokenizer, filename, is_system_header);
+					push_file(lexer, filename, is_system_header);
 				}
 			}
 		}
 
 		if (token.kind == TOKEN_BACKSLASH) {
-			token = peek_raw_token(tokenizer);
+			token = peek_raw_token(lexer);
 			if (token.kind == TOKEN_NEWLINE) {
-				get_raw_token(tokenizer);
+				get_raw_token(lexer);
 			} else {
 				token.kind = TOKEN_INVALID;
 			}
 		} else if (token.kind == TOKEN_EOF) {
-			if (pop_file(tokenizer)) {
+			if (pop_file(lexer)) {
 				token.kind = TOKEN_WHITESPACE;
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
-			eat_whitespace(tokenizer);
+			eat_whitespace(lexer);
 		} else if (token.kind == TOKEN_IDENT) {
 			for (usize i = 0; i < LENGTH(keywords); i++) {
 				if (str_equals(token.value, keywords[i].str)) {
@@ -512,38 +512,38 @@ get_token(tokenizer *tokenizer)
 		|| token.kind == TOKEN_NEWLINE);
 
 	tmp = token;
-	token = tokenizer->peek[0];
-	tokenizer->peek[0] = tokenizer->peek[1];
-	tokenizer->peek[1] = tmp;
+	token = lexer->peek[0];
+	lexer->peek[0] = lexer->peek[1];
+	lexer->peek[1] = tmp;
 	return token;
 }
 
 static token
-peek_token(tokenizer *t)
+peek_token(lexer *t)
 {
 	token result = t->peek[0];
 	return result;
 }
 
-static tokenizer
+static lexer
 tokenize_str(str src, arena *perm)
 {
-	tokenizer tokenizer = {0};
-	tokenizer.arena = perm;
-	tokenizer.filename = "(no file)";
-	tokenizer.loc.file = "(no file)";
-	tokenizer.loc.line = 1;
-	tokenizer.source = src;
-	get_token(&tokenizer);
-	get_token(&tokenizer);
-	return tokenizer;
+	lexer lexer = {0};
+	lexer.arena = perm;
+	lexer.filename = "(no file)";
+	lexer.loc.file = "(no file)";
+	lexer.loc.line = 1;
+	lexer.source = src;
+	get_token(&lexer);
+	get_token(&lexer);
+	return lexer;
 }
 
-static tokenizer
+static lexer
 tokenize(char *filename, arena *perm)
 {
 	str src = read_file(filename, perm);
-	tokenizer t = tokenize_str(src, perm);
+	lexer t = tokenize_str(src, perm);
 	t.loc.file = t.filename = filename;
 	return t;
 }

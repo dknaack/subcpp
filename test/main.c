@@ -22,8 +22,9 @@ test_parse_initializer(void)
 	u32 error_count = 0;
 	for (isize i = 0; i < LENGTH(test_cases); i++) {
 		arena *perm = new_arena(1000 * 1000);
-		tokenizer t = tokenize_str(test_cases[i].input, perm);
-		parse_initializer(&t, perm);
+		lexer t = tokenize_str(test_cases[i].input, perm);
+		ast_pool pool = {0};
+		parse_initializer(&t, &pool);
 		if (t.error == test_cases[i].result) {
 			printf("%s: FAIL [%ld/%ld] \"%s\"\n", __func__, i+1, LENGTH(test_cases),
 				test_cases[i].input.at);
@@ -55,8 +56,9 @@ test_parse_expr(void)
 	u32 error_count = 0;
 	for (isize i = 0; i < LENGTH(test_cases); i++) {
 		arena *perm = new_arena(1000 * 1000);
-		tokenizer t = tokenize_str(test_cases[i].input, perm);
-		parse_assign_expr(&t, perm);
+		ast_pool pool = {0};
+		lexer t = tokenize_str(test_cases[i].input, perm);
+		parse_assign_expr(&t, &pool);
 		if (t.error == test_cases[i].result) {
 			printf("%s: FAIL [%ld/%ld] \"%s\"\n", __func__, i+1, LENGTH(test_cases),
 				test_cases[i].input.at);

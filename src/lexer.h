@@ -123,7 +123,7 @@ typedef struct {
 	isize pos;
 	b32 error;
 	char at[4];
-} tokenizer;
+} lexer;
 
 static char *
 get_token_name(token_kind kind)
