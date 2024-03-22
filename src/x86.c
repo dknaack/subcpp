@@ -572,7 +572,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		{
 			machine_operand called = make_vreg(op0, 8);
 			if (instr[op0].opcode == IR_GLOBAL) {
-				called = make_global(instr[op0].op0, 8);
+				called = make_func(instr[op0].op0);
 			} else {
 				x86_select_instr(out, instr, op0, called);
 			}
