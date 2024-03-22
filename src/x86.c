@@ -18,12 +18,6 @@ push_operand(machine_program *program, machine_operand operand)
 }
 
 static void
-x86_select0(machine_program *out, x86_opcode opcode)
-{
-	push_instr(out, opcode, 0);
-}
-
-static void
 x86_select1(machine_program *out, x86_opcode opcode, machine_operand dst)
 {
 	dst.flags |= MOP_DEF | MOP_USE;
