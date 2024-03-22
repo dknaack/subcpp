@@ -71,6 +71,7 @@ typedef enum {
 	AST_THREAD_LOCAL = 1 << 10,
 	AST_TYPEDEF      = 1 << 11,
 	AST_UNSIGNED     = 1 << 12,
+	AST_VARIADIC     = 1 << 13,
 } ast_node_flags;
 
 typedef struct {

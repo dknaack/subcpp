@@ -4,7 +4,7 @@ typedef enum {
 	TOKEN_NEWLINE,
 	TOKEN_WHITESPACE,
 
-	// decl_symbols
+	// symbols
 	TOKEN_AMP,
 	TOKEN_AMP_AMP,
 	TOKEN_AMP_EQUAL,
@@ -21,6 +21,7 @@ typedef enum {
 	TOKEN_DOT,
 	TOKEN_EQUAL,
 	TOKEN_EQUAL_EQUAL,
+	TOKEN_ELLIPSIS,
 	TOKEN_RSHIFT,
 	TOKEN_GREATER_EQUAL,
 	TOKEN_GREATER,
@@ -120,7 +121,7 @@ typedef struct {
 	str source;
 	isize pos;
 	b32 error;
-	char at[2];
+	char at[4];
 } tokenizer;
 
 static char *
@@ -156,6 +157,7 @@ get_token_name(token_kind kind)
 	case TOKEN_PERCENT:       return "'%'";
 	case TOKEN_PERCENT_EQUAL: return "'%='";
 	case TOKEN_EQUAL_EQUAL:   return "'=='";
+	case TOKEN_ELLIPSIS:      return "'...'";
 	case TOKEN_LESS:          return "'<'";
 	case TOKEN_LSHIFT:        return "'<<'";
 	case TOKEN_GREATER:       return "'>'";

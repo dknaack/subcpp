@@ -1,15 +1,12 @@
 static char
 advance(tokenizer *tokenizer)
 {
-	if (tokenizer->pos + 1 < tokenizer->source.length) {
-		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
-		tokenizer->at[1] = tokenizer->source.at[tokenizer->pos + 1];
-	} else if (tokenizer->pos < tokenizer->source.length) {
-		tokenizer->at[0] = tokenizer->source.at[tokenizer->pos];
-		tokenizer->at[1] = '\0';
-	} else {
-		tokenizer->at[0] = '\0';
-		tokenizer->at[1] = '\0';
+	for (isize i = 0; i < LENGTH(tokenizer->at); i++) {
+		if (tokenizer->pos + i < tokenizer->source.length) {
+			tokenizer->at[i] = tokenizer->source.at[tokenizer->pos + i];
+		} else {
+			tokenizer->at[i] = '\0';
+		}
 	}
 
 	if (tokenizer->pos < tokenizer->source.length) {
@@ -72,7 +69,6 @@ get_raw_token(tokenizer *tokenizer)
 
 	char c = advance(tokenizer);
 	switch (c) {
-	case '.':  token.kind = TOKEN_DOT;       break;
 	case '(':  token.kind = TOKEN_LPAREN;    break;
 	case ')':  token.kind = TOKEN_RPAREN;    break;
 	case '[':  token.kind = TOKEN_LBRACKET;  break;
@@ -87,6 +83,15 @@ get_raw_token(tokenizer *tokenizer)
 	case '\\': token.kind = TOKEN_BACKSLASH; break;
 	case '\n': token.kind = TOKEN_NEWLINE;   break;
 	case '\0': token.kind = TOKEN_EOF;       break;
+	case '.':
+		if (tokenizer->at[1] == '.' && tokenizer->at[2] == '.') {
+			token.kind = TOKEN_ELLIPSIS;
+			advance(tokenizer);
+			advance(tokenizer);
+		} else {
+			token.kind = TOKEN_DOT;
+		}
+		break;
 	case '&':
 		{
 			if (tokenizer->at[1] == '&') {

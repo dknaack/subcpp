@@ -595,7 +595,13 @@ parse_declarator(tokenizer *tokenizer, u32 flags, ast_pool *pool)
 			} else {
 				ast_list params = {0};
 				do {
-					ast_list param = parse_decl(tokenizer, PARSE_PARAM, pool);
+					ast_list param = {0};
+					if (accept(tokenizer, TOKEN_ELLIPSIS)) {
+						node.flags |= AST_VARIADIC;
+						break;
+					}
+
+					param = parse_decl(tokenizer, PARSE_PARAM, pool);
 					ast_concat(pool, &params, param);
 					if (param.first.value == 0) {
 						tokenizer->error = true;
