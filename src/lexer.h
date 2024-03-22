@@ -100,8 +100,7 @@ typedef struct {
 
 typedef struct {
 	char *file;
-	u32 line;
-	u32 column;
+	isize offset;
 } location;
 
 typedef struct file file;
@@ -116,12 +115,11 @@ struct file {
 typedef struct {
 	arena *arena;
 	file *files;
-	char *filename;
-	token peek[2];
 	location loc;
 	str source;
 	isize pos;
 	b32 error;
+	token peek[2];
 	char at[4];
 } lexer;
 

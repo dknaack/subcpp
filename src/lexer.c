@@ -13,12 +13,6 @@ advance(lexer *lexer)
 		lexer->pos++;
 	}
 
-	lexer->loc.column++;
-	if (lexer->at[0] == '\n') {
-		lexer->loc.line++;
-		lexer->loc.column = 0;
-	}
-
 	return lexer->at[0];
 }
 
@@ -328,7 +322,7 @@ push_file(lexer *t, str path, b32 system_header)
 	f->contents = t->source;
 	f->pos = t->pos;
 	f->prev = t->files;
-	f->name = t->filename;
+	f->name = t->loc.file;
 	f->loc = t->loc;
 	t->files = f;
 
@@ -342,7 +336,7 @@ push_file(lexer *t, str path, b32 system_header)
 	b32 found_header = false;
 	if (!system_header) {
 		if (is_relative_path(path)) {
-			str dir = dirname(make_str(t->filename));
+			str dir = dirname(make_str(t->loc.file));
 			filename = concat_paths(dir, path, t->arena);
 			contents = read_file(filename.at, t->arena);
 			if (errno == 0) {
@@ -366,7 +360,7 @@ push_file(lexer *t, str path, b32 system_header)
 	}
 
 	if (found_header) {
-		t->filename = filename.at;
+		t->loc.file = filename.at;
 		t->source = contents;
 		t->pos = 0;
 	}
@@ -381,7 +375,6 @@ pop_file(lexer *t)
 		t->source = f->contents;
 		t->pos = f->pos;
 		t->loc = f->loc;
-		t->filename = f->name;
 		t->files = f->prev;
 	}
 
@@ -523,9 +516,7 @@ tokenize_str(str src, arena *perm)
 {
 	lexer lexer = {0};
 	lexer.arena = perm;
-	lexer.filename = "(no file)";
 	lexer.loc.file = "(no file)";
-	lexer.loc.line = 1;
 	lexer.source = src;
 	get_token(&lexer);
 	get_token(&lexer);
@@ -537,6 +528,6 @@ tokenize(char *filename, arena *perm)
 {
 	str src = read_file(filename, perm);
 	lexer t = tokenize_str(src, perm);
-	t.loc.file = t.filename = filename;
+	t.loc.file = filename;
 	return t;
 }

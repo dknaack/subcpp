@@ -92,7 +92,7 @@ ast_shrink(ast_pool *p)
 static void
 verrorf(location loc, char *fmt, va_list ap)
 {
-	fprintf(stderr, "%s:%d:%d: ", loc.file, loc.line-1, loc.column);
+	fprintf(stderr, "%s[%ld]: ", loc.file, loc.offset);
 	vfprintf(stderr, fmt, ap);
 	fputc('\n', stderr);
 	fflush(stderr);
