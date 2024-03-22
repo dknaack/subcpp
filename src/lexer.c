@@ -518,13 +518,6 @@ get_token(lexer *lexer)
 	return token;
 }
 
-static token
-peek_token(lexer *t)
-{
-	token result = t->peek[0];
-	return result;
-}
-
 static lexer
 tokenize_str(str src, arena *perm)
 {

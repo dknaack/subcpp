@@ -142,7 +142,7 @@ syntax_error(lexer *lexer, char *fmt, ...)
 static b32
 accept(lexer *lexer, token_kind expected_token)
 {
-	token token = peek_token(lexer);
+	token token = lexer->peek[0];
 	if (token.kind == expected_token) {
 		get_token(lexer);
 		return true;
@@ -275,7 +275,7 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 {
 	ast_id expr;
 
-	token token = peek_token(lexer);
+	token token = lexer->peek[0];
 	switch (token.kind) {
 	case TOKEN_IDENT:
 		{
@@ -389,7 +389,7 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 	}
 
 	for (;;) {
-		token = peek_token(lexer);
+		token = lexer->peek[0];
 		if (token.kind == TOKEN_EOF
 			|| token.kind == TOKEN_SEMICOLON
 			|| token.kind == TOKEN_RPAREN)
@@ -422,7 +422,7 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 			}
 
 			get_token(lexer);
-			token = peek_token(lexer);
+			token = lexer->peek[0];
 			expect(lexer, TOKEN_IDENT);
 
 			ast_node node = ast_make_node(kind, lexer->loc);
@@ -627,7 +627,7 @@ parse_decl(lexer *lexer, u32 flags, ast_pool *pool)
 
 	b32 found_qualifier = true;
 	while (found_qualifier) {
-		token token = peek_token(lexer);
+		token token = lexer->peek[0];
 		switch (token.kind) {
 		case TOKEN_FLOAT:
 			type_specifier = ast_make_node(AST_TYPE_FLOAT, lexer->loc);
@@ -675,7 +675,7 @@ parse_decl(lexer *lexer, u32 flags, ast_pool *pool)
 		case TOKEN_STRUCT:
 			get_token(lexer);
 			type_specifier = ast_make_node(AST_TYPE_STRUCT, lexer->loc);
-			token = peek_token(lexer);
+			token = lexer->peek[0];
 			if (token.kind == TOKEN_IDENT) {
 				type_specifier.value.s = token.value;
 				get_token(lexer);
@@ -799,7 +799,7 @@ parse_stmt(lexer *lexer, ast_pool *pool)
 {
 	ast_id result;
 
-	token token = peek_token(lexer);
+	token token = lexer->peek[0];
 	switch (token.kind) {
 	case TOKEN_BREAK:
 		{
@@ -853,7 +853,7 @@ parse_stmt(lexer *lexer, ast_pool *pool)
 
 			ast_node init = ast_make_node(AST_STMT_FOR1, lexer->loc);
 			if (!accept(lexer, TOKEN_SEMICOLON)) {
-				token = peek_token(lexer);
+				token = lexer->peek[0];
 				init.child[0] = parse_decl(lexer, 0, pool).first;
 				if (init.child[0].value == 0) {
 					init.child[0] = parse_assign_expr(lexer, pool);
@@ -892,7 +892,7 @@ parse_stmt(lexer *lexer, ast_pool *pool)
 	case TOKEN_GOTO:
 		{
 			get_token(lexer);
-			token = peek_token(lexer);
+			token = lexer->peek[0];
 			expect(lexer, TOKEN_IDENT);
 			ast_node node = ast_make_node(AST_STMT_GOTO, lexer->loc);
 			node.value.s = token.value;
@@ -1025,7 +1025,7 @@ parse_external_decl(lexer *lexer, ast_pool *pool)
 	decl->kind = AST_EXTERN_DEF;
 
 	if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
-		token token = peek_token(lexer);
+		token token = lexer->peek[0];
 		if (token.kind == TOKEN_LBRACE) {
 			ast_id body = parse_stmt(lexer, pool);
 			ast_node *decl = ast_get(pool, decl_id);
