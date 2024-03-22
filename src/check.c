@@ -245,7 +245,14 @@ static void
 check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 {
 	ast_node *node = ast_get(pool, node_id);
-	if ((node->kind == AST_INIT_LIST) == (node->type == NULL)) {
+	if (node->kind == AST_INIT_LIST) {
+		if (node->type == NULL) {
+			return;
+		}
+	} else if (node->type == NULL) {
+		node->type = &type_nil;
+	} else {
+		// This node has already been type checked.
 		return;
 	}
 
