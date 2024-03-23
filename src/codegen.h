@@ -113,14 +113,6 @@ make_global(u32 index)
 	return operand;
 }
 
-static u32
-get_inst_size(machine_inst inst)
-{
-	u32 size = sizeof(inst);
-	size += inst.operand_count * sizeof(machine_operand);
-	return size;
-}
-
 static machine_inst *
 get_inst(void *code, u32 *offsets, u32 index)
 {
