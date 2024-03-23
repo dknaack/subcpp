@@ -810,6 +810,7 @@ check(ast_pool *pool, arena *perm)
 		arena_temp_end(temp);
 	}
 
+	// NOTE: Collect all strings.
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXPR_STRING) {
@@ -853,9 +854,10 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
+	// NOTE: Collect all switch statements.
 	check_switch_stmt(pool, pool->root, symtab, ast_id_nil, perm);
 
-	scope s = new_scope(NULL);
+	scope s = {0};
 	check_decls(pool, &pool->root, &s, perm);
 	if (!pool->error) {
 		check_type(pool, pool->root, perm);
