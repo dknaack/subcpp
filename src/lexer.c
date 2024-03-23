@@ -69,6 +69,7 @@ get_raw_token(lexer *lexer)
 	case ']':  token.kind = TOKEN_RBRACKET;  break;
 	case '{':  token.kind = TOKEN_LBRACE;    break;
 	case '}':  token.kind = TOKEN_RBRACE;    break;
+	case '?':  token.kind = TOKEN_QMARK;     break;
 	case ',':  token.kind = TOKEN_COMMA;     break;
 	case ':':  token.kind = TOKEN_COLON;     break;
 	case ';':  token.kind = TOKEN_SEMICOLON; break;

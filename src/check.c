@@ -234,6 +234,15 @@ eval_ast(ast_pool *pool, ast_id node_id)
 				ASSERT(!"Invalid operator");
 			}
 		} break;
+	case AST_EXPR_TERNARY1:
+		{
+			ast_node *node2 = ast_get(pool, node->child[1]);
+			if (eval_ast(pool, node->child[0])) {
+				result = eval_ast(pool, node2->child[0]);
+			} else {
+				result = eval_ast(pool, node2->child[1]);
+			}
+		} break;
 	default:
 		ASSERT(!"Invalid node");
 	}
@@ -286,6 +295,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_STMT_RETURN:
 	case AST_STMT_SWITCH:
 	case AST_STMT_WHILE:
+	case AST_EXPR_TERNARY2:
 		// NOTE: Types are already checked above
 		break;
 	case AST_STMT_FOR1:
@@ -495,6 +505,22 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				ASSERT(!"Invalid operator");
 				break;
 			}
+		} break;
+	case AST_EXPR_TERNARY1:
+		{
+			ast_node *node2 = ast_get(pool, node->child[1]);
+			ast_node *cond = ast_get(pool, node->child[0]);
+			if (!is_integer(cond->type->kind)) {
+				errorf(cond->loc, "Not an integer expression");
+			}
+
+			ast_node *lhs = ast_get(pool, node2->child[0]);
+			ast_node *rhs = ast_get(pool, node2->child[1]);
+			if (!type_equals(lhs->type, rhs->type)) {
+				errorf(lhs->loc, "Invalid type in ternary expression");
+			}
+
+			node->type = lhs->type;
 		} break;
 	case AST_DECL:
 	case AST_EXTERN_DEF:

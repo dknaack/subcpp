@@ -164,6 +164,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_FOR2:
 	case AST_STMT_FOR3:
 	case AST_EXPR_LIST:
+	case AST_EXPR_TERNARY2:
 		{
 			ASSERT(!"Invalid node");
 		} break;
@@ -464,6 +465,29 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			default:
 				ASSERT(!"Invalid operator");
 			}
+		} break;
+	case AST_EXPR_TERNARY1:
+		{
+			u32 endif_label = new_label(ctx);
+			u32 else_label = new_label(ctx);
+
+			ast_id cond = node->child[0];
+			ast_node *branches = ast_get(pool, node->child[1]);
+			u32 cond_reg = translate_node(ctx, pool, cond, false);
+			result = ir_emit0_type(ctx, ir_type_from(node->type), IR_VAR);
+			ir_emit2(ctx, IR_JIZ, cond_reg, else_label);
+
+			ast_id if_branch = branches->child[0];
+			u32 if_reg = translate_node(ctx, pool, if_branch, false);
+			ir_emit2(ctx, IR_MOV, result, if_reg);
+			ir_emit1(ctx, IR_JMP, endif_label);
+
+			ir_emit1(ctx, IR_LABEL, else_label);
+			ast_id else_branch = branches->child[1];
+			u32 else_reg = translate_node(ctx, pool, else_branch, false);
+			ir_emit2(ctx, IR_MOV, result, else_reg);
+
+			ir_emit1(ctx, IR_LABEL, endif_label);
 		} break;
 	case AST_EXPR_POSTFIX:
 		{

@@ -178,6 +178,8 @@ get_precedence(token_kind token)
 	switch (token) {
 	case TOKEN_COMMA:
 		return PREC_COMMA;
+	case TOKEN_QMARK:
+		return PREC_TERNARY;
 	case TOKEN_EQUAL:
 	case TOKEN_PLUS_EQUAL:
 	case TOKEN_MINUS_EQUAL:
@@ -437,8 +439,18 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 				node.value.op = operator;
 				node.child[0] = expr;
 				expr = ast_push(pool, node);
+			} else if (operator == TOKEN_QMARK) {
+				ast_node node2 = ast_make_node(AST_EXPR_TERNARY2, lexer->loc);
+				node2.child[0] = parse_expr(lexer, PREC_COMMA, pool);
+				expect(lexer, TOKEN_COLON);
+				node2.child[1] = parse_expr(lexer, PREC_COMMA, pool);
+
+				ast_node node1 = ast_make_node(AST_EXPR_TERNARY1, lexer->loc);
+				node1.child[0] = expr;
+				node1.child[1] = ast_push(pool, node2);
+				expr = ast_push(pool, node1);
 			} else {
-				if (token.kind == TOKEN_LBRACKET) {
+				if (operator == TOKEN_LBRACKET) {
 					prec = PREC_NONE;
 				}
 
