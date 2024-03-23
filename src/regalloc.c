@@ -68,13 +68,6 @@ swap_u32(u32 *a, u32 *b)
 	*b = tmp;
 }
 
-static b32
-overlaps(live_interval a, live_interval b)
-{
-	b32 result = !(b.end < a.start || a.end < b.start);
-	return result;
-}
-
 typedef struct {
 	b32 *used;
 	u32 spill_count;
@@ -283,8 +276,10 @@ allocate_function_registers(machine_function func, void *code,
 					continue;
 				}
 
-				live_interval mreg_interval = intervals[reg_count - 1 - mreg];
-				if (!overlaps(mreg_interval, intervals[curr_reg])) {
+				u32 mreg_start = intervals[reg_count - 1 - mreg].start;
+				u32 mreg_end = intervals[reg_count - 1 - mreg].end;
+				b32 mreg_overlaps = (curr_end >= mreg_start && mreg_end >= curr_start);
+				if (!mreg_overlaps) {
 					swap_u32(pool + active_count, pool + i);
 					found_mreg = true;
 					break;
