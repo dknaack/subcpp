@@ -106,14 +106,13 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	b32 error = false;
 	arena *arena = new_arena(5 * 1024 * 1024);
 	ast_pool pool = {0};
 	lexer lexer = tokenize(argv[1], arena);
 	parse(&lexer, &pool);
-	symbol_table symbol_table = check(&pool, arena, &error);
+	symbol_table symbol_table = check(&pool, arena);
 
-	if (!error) {
+	if (!pool.error) {
 		ir_program ir_program = translate(&pool, &symbol_table, arena);
 		print_ir_program(ir_program);
 		optimize(ir_program, arena);

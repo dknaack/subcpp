@@ -133,12 +133,12 @@ is_pointer(type *type)
 }
 
 static void
-check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
+check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 {
 	scope tmp = {0};
 
 	ast_node *node = ast_get(pool, *node_id);
-	if (*error) {
+	if (pool->error) {
 		return;
 	}
 
@@ -168,14 +168,14 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm, b32 *error)
 			ast_id *resolved = scope_upsert_ident(s, node->value.s, NULL);
 			if (!resolved) {
 				errorf(node->loc, "Variable was never declared");
-				*error = true;
+				pool->error = true;
 			} else {
 				*child = *resolved;
 			}
 		}
 
 		if (node->child[0].value != 0) {
-			check_decls(pool, &node->child[0], s, perm, error);
+			check_decls(pool, &node->child[0], s, perm);
 		}
 
 		if (node->kind == AST_EXTERN_DEF) {
@@ -242,7 +242,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 }
 
 static void
-check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
+check_type(ast_pool *pool, ast_id node_id, arena *arena)
 {
 	ast_node *node = ast_get(pool, node_id);
 	if (node->kind == AST_INIT_LIST) {
@@ -257,16 +257,16 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 	}
 
 	if (node->child[0].value != 0) {
-		check_type(pool, node->child[0], arena, error);
+		check_type(pool, node->child[0], arena);
 	}
 
 	if (node->child[1].value != 0) {
-		check_type(pool, node->child[1], arena, error);
+		check_type(pool, node->child[1], arena);
 	}
 
 	switch (node->kind) {
 	case AST_INVALID:
-		*error = true;
+		pool->error = true;
 		break;
 	case AST_EXPR_LIST:
 	case AST_STMT_BREAK:
@@ -311,7 +311,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 						value->type = member->type;
 					}
 
-					check_type(pool, list_node->child[0], arena, error);
+					check_type(pool, list_node->child[0], arena);
 					// TODO: Type conversion
 					if (!type_equals(member->type, value->type)) {
 						//errorf(list_node->loc, "Invalid type");
@@ -327,7 +327,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			} else if (node->type->kind == TYPE_ARRAY) {
 				type *ty = node->type;
 				while (node != AST_NIL) {
-					check_type(pool, node->child[0], arena, error);
+					check_type(pool, node->child[0], arena);
 					if (!type_equals(ast_get(pool, node->child[0])->type, ty->children)) {
 						errorf(node->loc, "Invalid array member type");
 					}
@@ -344,7 +344,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 			if (node->kind == AST_EXPR_MEMBER_PTR) {
 				if (operand_type->kind != TYPE_POINTER) {
 					errorf(node->loc, "Left-hand side is not a pointer");
-					*error = true;
+					pool->error = true;
 				}
 
 				operand_type = operand_type->children;
@@ -352,7 +352,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 
 			if (operand_type->kind != TYPE_STRUCT) {
 				errorf(node->loc, "Left-hand side is not a struct");
-				*error = true;
+				pool->error = true;
 			}
 
 			member *s = get_member(operand_type->members, node->value.s);
@@ -379,7 +379,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 					node->type = rhs->type->children;
 				} else {
 					node->type = TYPE_NIL;
-					*error = true;
+					pool->error = true;
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->type->kind),
 						type_get_name(rhs->type->kind));
@@ -409,7 +409,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 		{
 			ast_node *called = ast_get(pool, node->child[0]);
 			if (called->type->kind != TYPE_FUNCTION) {
-				*error = true;
+				pool->error = true;
 				errorf(node->loc, "Not a function: %s", type_get_name(called->type->kind));
 				break;
 			}
@@ -471,7 +471,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 					node->type = operand->type->children;
 				} else {
 					node->type = TYPE_NIL;
-					*error = true;
+					pool->error = true;
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
@@ -505,7 +505,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena, b32 *error)
 				ast_node *initializer = ast_get(pool, node->child[1]);
 				if (initializer->kind == AST_INIT_LIST) {
 					initializer->type = node->type;
-					check_type(pool, node->child[1], arena, error);
+					check_type(pool, node->child[1], arena);
 				} else {
 					// TODO: Check type of the expression
 				}
@@ -738,7 +738,7 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 }
 
 static symbol_table
-check(ast_pool *pool, arena *perm, b32 *error)
+check(ast_pool *pool, arena *perm)
 {
 	symbol_table symtab = {0};
 	symtab.symbols = ALLOC(perm, pool->size, symbol_id);
@@ -882,9 +882,9 @@ check(ast_pool *pool, arena *perm, b32 *error)
 	check_switch_stmt(pool, pool->root, symtab, ast_id_nil, perm);
 
 	scope s = new_scope(NULL);
-	check_decls(pool, &pool->root, &s, perm, error);
-	if (!*error) {
-		check_type(pool, pool->root, perm, error);
+	check_decls(pool, &pool->root, &s, perm);
+	if (!pool->error) {
+		check_type(pool, pool->root, perm);
 		add_global_symbols(pool, symtab);
 	}
 

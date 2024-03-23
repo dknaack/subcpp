@@ -98,6 +98,7 @@ typedef struct {
 	ast_id root;
 	isize cap;
 	isize size;
+	b32 error;
 } ast_pool;
 
 static const ast_node ast_nil = {0};
