@@ -23,21 +23,12 @@ bit_matrix_init(u32 width, u32 height, arena *arena)
 }
 
 static void
-set_bit(bit_matrix matrix, u32 y, u32 x)
+set_bit(bit_matrix matrix, u32 y, u32 x, b32 value)
 {
 	ASSERT(x < matrix.width);
 	ASSERT(y < matrix.height);
 	u32 i = y * matrix.width + x;
-	matrix.bits[i] = 1;
-}
-
-static void
-clear_bit(bit_matrix matrix, u32 y, u32 x)
-{
-	ASSERT(x < matrix.width);
-	ASSERT(y < matrix.height);
-	u32 i = y * matrix.width + x;
-	matrix.bits[i] = 0;
+	matrix.bits[i] = value;
 }
 
 static void
@@ -125,7 +116,7 @@ allocate_function_registers(machine_function func, void *code,
 
 					for (u32 k = 0; k < reg_info.volatile_register_count; k++) {
 						u32 mreg = reg_info.volatile_registers[k];
-						set_bit(live_matrix, i, live_matrix.width - 1 - mreg);
+						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 					}
 				}
 
@@ -134,20 +125,20 @@ allocate_function_registers(machine_function func, void *code,
 					switch (operands[j].kind) {
 					case MOP_VREG:
 						if (operands[j].flags & MOP_DEF) {
-							clear_bit(live_matrix, i, value);
+							set_bit(live_matrix, i, value, 1);
 						}
 
 						if (operands[j].flags & MOP_USE) {
-							set_bit(live_matrix, i, value);
+							set_bit(live_matrix, i, value, 1);
 						}
 						break;
 					case MOP_MREG:
 						if (operands[j].flags & MOP_DEF) {
-							clear_bit(live_matrix, i, live_matrix.width - 1 - value);
+							set_bit(live_matrix, i, live_matrix.width - 1 - value, 1);
 						}
 
 						if (operands[j].flags & MOP_USE) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - value);
+							set_bit(live_matrix, i, live_matrix.width - 1 - value, 1);
 						}
 						break;
 					case MOP_SPILL:
