@@ -352,7 +352,7 @@ allocate_function_registers(machine_function func, void *code,
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < reg_info.register_count);
 			info.used[mreg] |= !is_empty;
-			mreg_map[curr_reg] = make_mreg(mreg, 0);
+			mreg_map[curr_reg] = make_operand(MOP_MREG, mreg, 0);
 		}
 	}
 

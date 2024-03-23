@@ -79,20 +79,6 @@ make_operand(u32 kind, u32 value, u32 size)
 }
 
 static machine_operand
-make_mreg(u32 mreg, u32 size)
-{
-	machine_operand operand = make_operand(MOP_MREG, mreg, size);
-	return operand;
-}
-
-static machine_operand
-make_vreg(u32 vreg, u32 size)
-{
-	machine_operand operand = make_operand(MOP_VREG, vreg, size);
-	return operand;
-}
-
-static machine_operand
 make_spill(u32 index)
 {
 	machine_operand operand = make_operand(MOP_SPILL, index, 8);
