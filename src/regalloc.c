@@ -52,11 +52,11 @@ union_rows(bit_matrix matrix, u32 dst_y, u32 src_y)
 }
 
 static void
-swap_u32(u32 *a, u32 *b)
+swap_u32(u32 *a, isize i, isize j)
 {
-	u32 tmp = *a;
-	*a = *b;
-	*b = tmp;
+	u32 tmp = a[i];
+	a[i] = a[j];
+	a[j] = tmp;
 }
 
 typedef struct {
@@ -190,7 +190,7 @@ allocate_function_registers(machine_function func, void *code,
 	for (u32 i = 1; i < reg_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
-			swap_u32(sorted + j, sorted + j - 1);
+			swap_u32(sorted, j, j - 1);
 			j--;
 		}
 	}
@@ -271,7 +271,7 @@ allocate_function_registers(machine_function func, void *code,
 				u32 mreg_end = intervals[reg_count - 1 - mreg].end;
 				b32 mreg_overlaps = (curr_end >= mreg_start && mreg_end >= curr_start);
 				if (!mreg_overlaps) {
-					swap_u32(pool + active_count, pool + i);
+					swap_u32(pool, active_count, i);
 					found_mreg = true;
 					break;
 				}
