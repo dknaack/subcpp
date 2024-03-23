@@ -8,6 +8,7 @@ push_instr(machine_program *program, u32 opcode, u32 operand_count)
 		* sizeof(machine_operand) <= program->max_size);
 	memcpy((char *)program->code + program->size, &instr, sizeof(instr));
 	program->size += sizeof(instr);
+	program->instr_count++;
 }
 
 static void
@@ -642,6 +643,7 @@ x86_select_instructions(ir_program program, arena *arena)
 		mach_func->stack_size = ir_func->stack_size;
 		mach_func->register_count = ir_func->instr_count;
 		u32 first_instr_offset = out.size;
+		u32 first_instr_index = out.instr_count;
 		ir_instr *instr = program.instrs + ir_func->instr_index;
 
 		i32 float_count = 0;
@@ -708,23 +710,15 @@ x86_select_instructions(ir_program program, arena *arena)
 		}
 
 		// NOTE: Compute instruction offsets
-		// TODO: Count the instruction during selection. Keep a counter.
-		mach_func->instr_count = 0;
-		{
-			char *code = (char *)out.code + first_instr_offset;
-			char *end = (char *)out.code + out.size;
-			while (code < end) {
-				mach_func->instr_count++;
-				code += get_instr_size(*(machine_instr *)code);
-			}
-
-			mach_func->instr_offsets = ALLOC(arena, mach_func->instr_count, u32);
-			code = (char *)out.code + first_instr_offset;
-			for (u32 i = 0; i < mach_func->instr_count; i++) {
-				mach_func->instr_offsets[i] = code - (char *)out.code;
-				code += get_instr_size(*(machine_instr *)code);
-			}
+		mach_func->instr_count = out.instr_count - first_instr_index;
+		mach_func->instr_offsets = ALLOC(arena, mach_func->instr_count, u32);
+		char *code = (char *)out.code + first_instr_offset;
+		for (u32 i = 0; i < mach_func->instr_count; i++) {
+			mach_func->instr_offsets[i] = code - (char *)out.code;
+			machine_instr *instr = (machine_instr *)code;
+			code += sizeof(*instr) + instr->operand_count * sizeof(machine_operand);
 		}
+
 
 		// NOTE: Compute the instruction index of each label
 		u32 *label_indices = ALLOC(arena, ir_func->label_count, u32);
