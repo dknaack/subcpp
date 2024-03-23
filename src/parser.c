@@ -475,26 +475,26 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 }
 
 static ast_id
-parse_initializer(lexer *t, ast_pool *pool)
+parse_initializer(lexer *lexer, ast_pool *pool)
 {
 	ast_list list = {0};
-	expect(t, TOKEN_LBRACE);
+	expect(lexer, TOKEN_LBRACE);
 
 	do {
-		ast_node node = ast_make_node(AST_INIT_LIST, t->loc);
-		if (t->peek[0].kind == TOKEN_LBRACE) {
-			node.child[0] = parse_initializer(t, pool);
+		ast_node node = ast_make_node(AST_INIT_LIST, lexer->loc);
+		if (lexer->peek[0].kind == TOKEN_LBRACE) {
+			node.child[0] = parse_initializer(lexer, pool);
 		} else {
-			node.child[0] = parse_expr(t, PREC_ASSIGN, pool);
+			node.child[0] = parse_expr(lexer, PREC_ASSIGN, pool);
 		}
 
 		ast_append(pool, &list, node);
-		if (!accept(t, TOKEN_COMMA)) {
+		if (!accept(lexer, TOKEN_COMMA)) {
 			break;
 		}
-	} while (!t->error && t->peek[0].kind != TOKEN_RBRACE);
+	} while (!lexer->error && lexer->peek[0].kind != TOKEN_RBRACE);
 
-	expect(t, TOKEN_RBRACE);
+	expect(lexer, TOKEN_RBRACE);
 	return list.first;
 }
 
