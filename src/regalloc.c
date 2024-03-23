@@ -60,31 +60,6 @@ union_rows(bit_matrix matrix, u32 dst_y, u32 src_y)
 	}
 }
 
-static u32
-get_interval_start(bit_matrix live_matrix, u32 reg)
-{
-	for (u32 i = 0; i < live_matrix.height; i++) {
-		if (live_matrix.bits[i * live_matrix.width + reg]) {
-			return i;
-		}
-	}
-
-
-	return live_matrix.height;
-}
-
-static u32
-get_interval_end(bit_matrix live_matrix, u32 reg)
-{
-	for (u32 i = live_matrix.height; i-- > 0;) {
-		if (live_matrix.bits[i * live_matrix.width + reg]) {
-			return i + 1;
-		}
-	}
-
-	return 0;
-}
-
 static void
 swap_u32(u32 *a, u32 *b)
 {
@@ -206,8 +181,19 @@ allocate_function_registers(machine_function func, void *code,
 	// NOTE: Calculate the live intervals of the virtual registers
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (u32 i = 0; i < reg_count; i++) {
-		intervals[i].start = get_interval_start(live_matrix, i);
-		intervals[i].end   = get_interval_end(live_matrix, i);
+		intervals[i].start = live_matrix.height;
+		for (u32 j = 0; j < live_matrix.height; j++) {
+			if (live_matrix.bits[j * live_matrix.width + i]) {
+				intervals[i].start = j;
+			}
+		}
+
+		intervals[i].end = 0;
+		for (u32 j = live_matrix.height; j-- > 0;) {
+			if (live_matrix.bits[j * live_matrix.width + i]) {
+				intervals[i].end = j + 1;
+			}
+		}
 	}
 
 	// NOTE: Sort the intervals by their start
