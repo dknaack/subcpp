@@ -190,11 +190,7 @@ allocate_function_registers(machine_function func, void *code,
 	}
 
 	// Determine floating-pointer registers
-	b32 *is_int_vreg = ALLOC(arena, func.register_count, b32);
-	for (u32 i = 0; i < func.register_count; i++) {
-		is_int_vreg[i] = true;
-	}
-
+	b32 *is_float_vreg = ALLOC(arena, func.register_count, b32);
 	for (u32 i = 0; i < func.inst_count; i++) {
 		machine_inst *inst = get_inst(code, func.inst_offsets, i);
 		u32 operand_count = inst->operand_count;
@@ -204,7 +200,7 @@ allocate_function_registers(machine_function func, void *code,
 			b32 is_vreg = (operands[j].kind == MOP_VREG);
 			if (is_vreg && (operands[j].flags & MOP_ISFLOAT)) {
 				u32 reg = operands[j].value;
-				is_int_vreg[reg] = false;
+				is_float_vreg[reg] = true;
 			}
 		}
 	}
@@ -262,8 +258,8 @@ allocate_function_registers(machine_function func, void *code,
 		if (!should_spill) {
 			for (u32 i = active_count; i < reg_info.register_count; i++) {
 				u32 mreg = pool[i];
-				b32 is_int_mreg = pool[i] < reg_info.int_register_count;
-				if (is_int_mreg != is_int_vreg[curr_reg]) {
+				b32 is_float_mreg = pool[i] >= reg_info.int_register_count;
+				if (is_float_mreg != is_float_vreg[curr_reg]) {
 					continue;
 				}
 
