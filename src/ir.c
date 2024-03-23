@@ -17,12 +17,12 @@ static u32
 ir_emit2_type(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(type <= IR_F64);
-	ASSERT(ctx->program->instr_count <= ctx->max_instr_count);
-	ir_instr *instr = &ctx->program->instrs[ctx->program->instr_count++];
-	instr->opcode = opcode;
-	instr->type = type;
-	instr->op0 = op0;
-	instr->op1 = op1;
+	ASSERT(ctx->program->inst_count <= ctx->max_inst_count);
+	ir_inst *inst = &ctx->program->insts[ctx->program->inst_count++];
+	inst->opcode = opcode;
+	inst->type = type;
+	inst->op0 = op0;
+	inst->op1 = op1;
 	u32 result = ctx->program->register_count++;
 	return result;
 }
@@ -563,7 +563,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ctx->stack_size = 0;
 
 						ir_function *func = add_function(ctx, node->value.s, ctx->arena);
-						func->instr_index = ctx->program->instr_count;
+						func->inst_index = ctx->program->inst_count;
 						ir_emit1(ctx, IR_LABEL, new_label(ctx));
 
 						i32 param_count = 0;
@@ -592,7 +592,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 						func->stack_size = ctx->stack_size;
 						func->label_count = ctx->program->label_count;
-						func->instr_count = ctx->program->instr_count - func->instr_index;
+						func->inst_count = ctx->program->inst_count - func->inst_index;
 
 						u32 curr_register_count = ctx->program->register_count;
 						ctx->program->label_count = MAX(func->label_count, prev_label_count);
@@ -877,25 +877,25 @@ is_register_operand(ir_operand_type operand)
 }
 
 static b8 *
-get_toplevel_instructions(ir_function *func, ir_instr *instrs, arena *arena)
+get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
 {
-	b8 *is_toplevel = ALLOC(arena, func->instr_count, b8);
-	for (u32 i = 0; i < func->instr_count; i++) {
+	b8 *is_toplevel = ALLOC(arena, func->inst_count, b8);
+	for (u32 i = 0; i < func->inst_count; i++) {
 		is_toplevel[i] = true;
 	}
 
-	for (u32 i = 0; i < func->instr_count; i++) {
-		ir_opcode_info info = get_opcode_info(instrs[i].opcode);
-		if (instrs[i].opcode == IR_GLOBAL) {
+	for (u32 i = 0; i < func->inst_count; i++) {
+		ir_opcode_info info = get_opcode_info(insts[i].opcode);
+		if (insts[i].opcode == IR_GLOBAL) {
 			is_toplevel[i] = false;
 		}
 
 		if (is_register_operand(info.op0)) {
-			is_toplevel[instrs[i].op0] = false;
+			is_toplevel[insts[i].op0] = false;
 		}
 
 		if (is_register_operand(info.op1)) {
-			is_toplevel[instrs[i].op1] = false;
+			is_toplevel[insts[i].op1] = false;
 		}
 	}
 
@@ -906,13 +906,13 @@ static ir_program
 translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 {
 	ir_program program = {0};
-	program.instrs = ALLOC(arena, 1024, ir_instr);
+	program.insts = ALLOC(arena, 1024, ir_inst);
 	program.register_count++;
 	program.label_count++;
 
 	ir_context ctx = {0};
 	ctx.program = &program;
-	ctx.max_instr_count = 1024;
+	ctx.max_inst_count = 1024;
 	ctx.arena = arena;
 	ctx.symbol_registers = ALLOC(arena, symtab->decl_count, u32);
 	ctx.symtab = symtab;
@@ -920,22 +920,22 @@ translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 	translate_node(&ctx, pool, pool->root, false);
 
 	for (ir_function *func = program.function_list; func; func = func->next) {
-		ir_instr *instr = program.instrs + func->instr_index;
-		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instr[i].type != IR_VOID || instr[i].opcode == IR_CAST
-				|| instr[i].opcode == IR_CASTU)
+		ir_inst *inst = program.insts + func->inst_index;
+		for (u32 i = 0; i < func->inst_count; i++) {
+			if (inst[i].type != IR_VOID || inst[i].opcode == IR_CAST
+				|| inst[i].opcode == IR_CASTU)
 			{
 				continue;
 			}
 
-			u32 op0 = instr[i].op0;
-			u32 op1 = instr[i].op1;
+			u32 op0 = inst[i].op0;
+			u32 op1 = inst[i].op1;
 
-			ir_opcode_info info = get_opcode_info(instr[i].opcode);
+			ir_opcode_info info = get_opcode_info(inst[i].opcode);
 			if (is_register_operand(info.op0)) {
-				instr[i].type = instr[op0].type;
+				inst[i].type = inst[op0].type;
 			} else if (is_register_operand(info.op1)) {
-				instr[i].type = instr[op1].type;
+				inst[i].type = inst[op1].type;
 			}
 		}
 	}

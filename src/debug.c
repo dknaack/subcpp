@@ -32,13 +32,13 @@ get_ir_type_str(ir_type type)
 }
 
 static void
-print_ir_instr(ir_instr instr, u32 i)
+print_ir_inst(ir_inst inst, u32 i)
 {
 	u32 dst = i;
-	u32 op0 = instr.op0;
-	u32 op1 = instr.op1;
-	char *type = get_ir_type_str(instr.type);
-	switch (instr.opcode) {
+	u32 op0 = inst.op0;
+	u32 op1 = inst.op1;
+	char *type = get_ir_type_str(inst.type);
+	switch (inst.opcode) {
 	case IR_NOP:
 		printf("\tnop\n");
 		break;
@@ -176,13 +176,13 @@ print_ir_program(ir_program program)
 		printf("function[%d]:\n", i++);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  parameter_count: %d\n", func->parameter_count);
-		printf("  instr_index: %d\n", func->instr_index);
+		printf("  inst_index: %d\n", func->inst_index);
 		printf("  stack_size: %d\n", func->stack_size);
 
-		for (u32 i = 0; i < func->instr_count; i++) {
+		for (u32 i = 0; i < func->inst_count; i++) {
 			printf("%2d| ", i);
-			ir_instr instr = program.instrs[func->instr_index + i];
-			print_ir_instr(instr, i);
+			ir_inst inst = program.insts[func->inst_index + i];
+			print_ir_inst(inst, i);
 		}
 	}
 
@@ -198,13 +198,13 @@ print_x86_program(machine_program program)
 	while (code < end) {
 		printf("%2d|", i++);
 
-		machine_instr *instr = (machine_instr *)code;
-		if (instr->opcode != X86_LABEL) {
-			printf("\tX86.%s ", x86_get_opcode_name(instr->opcode));
+		machine_inst *inst = (machine_inst *)code;
+		if (inst->opcode != X86_LABEL) {
+			printf("\tX86.%s ", x86_get_opcode_name(inst->opcode));
 		}
 
-		machine_operand *operands = (machine_operand *)(instr + 1);
-		for (u32 j = 0; j < instr->operand_count; j++) {
+		machine_operand *operands = (machine_operand *)(inst + 1);
+		for (u32 j = 0; j < inst->operand_count; j++) {
 			u32 value = operands[j].value;
 			switch (operands[j].kind) {
 			case MOP_VREG:
@@ -230,7 +230,7 @@ print_x86_program(machine_program program)
 				break;
 			}
 
-			if (j + 1 < instr->operand_count) {
+			if (j + 1 < inst->operand_count) {
 				printf(", ");
 			}
 		}

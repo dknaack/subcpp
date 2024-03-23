@@ -1,7 +1,7 @@
 typedef struct {
 	u32 opcode:24;
 	u32 operand_count:8;
-} machine_instr;
+} machine_inst;
 
 typedef enum {
 	MOP_INVALID,
@@ -32,10 +32,10 @@ typedef struct {
 
 typedef struct {
 	str name;
-	u32 instr_count;
+	u32 inst_count;
 	u32 register_count;
 	u32 stack_size;
-	u32 *instr_offsets;
+	u32 *inst_offsets;
 	i32 *floats;
 	i32 float_count;
 } machine_function;
@@ -56,7 +56,7 @@ typedef struct {
 	u32 size;
 	u32 max_size;
 	u32 vreg_count;
-	u32 instr_count;
+	u32 inst_count;
 	u32 function_count;
 } machine_program;
 
@@ -114,16 +114,16 @@ make_global(u32 index)
 }
 
 static u32
-get_instr_size(machine_instr instr)
+get_inst_size(machine_inst inst)
 {
-	u32 size = sizeof(instr);
-	size += instr.operand_count * sizeof(machine_operand);
+	u32 size = sizeof(inst);
+	size += inst.operand_count * sizeof(machine_operand);
 	return size;
 }
 
-static machine_instr *
-get_instr(void *code, u32 *offsets, u32 index)
+static machine_inst *
+get_inst(void *code, u32 *offsets, u32 index)
 {
-	machine_instr *instr = (machine_instr *)((char *)code + offsets[index]);
-	return instr;
+	machine_inst *inst = (machine_inst *)((char *)code + offsets[index]);
+	return inst;
 }

@@ -73,7 +73,7 @@ typedef struct {
 	ir_type type:8;
 	u32 op0;
 	u32 op1;
-} ir_instr;
+} ir_inst;
 
 typedef struct ir_function ir_function;
 struct ir_function {
@@ -81,19 +81,19 @@ struct ir_function {
 
 	str name;
 	u32 parameter_count;
-	u32 instr_index;
-	u32 instr_count;
+	u32 inst_index;
+	u32 inst_count;
 	u32 label_count;
 	u32 stack_size;
 };
 
 typedef struct {
-	ir_instr *instrs;
+	ir_inst *insts;
 	ir_function *function_list;
 
 	u32 register_count;
 	u32 function_count;
-	u32 instr_count;
+	u32 inst_count;
 	u32 label_count;
 } ir_program;
 
@@ -110,7 +110,7 @@ typedef struct {
 	arena *arena;
 
 	u32 *symbol_registers;
-	u32 max_instr_count;
+	u32 max_inst_count;
 	u32 stack_size;
 	u32 continue_label;
 	u32 break_label;

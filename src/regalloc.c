@@ -65,34 +65,34 @@ get_live_matrix(void *code, machine_function func,
 	machine_register_info reg_info, arena *arena)
 {
 	// TODO: use a bitset as matrix instead of a b32ean matrix.
-	u32 instr_count = func.instr_count;
+	u32 inst_count = func.inst_count;
 	u32 register_count = func.register_count + reg_info.register_count;
-	bit_matrix live_matrix = bit_matrix_init(register_count, instr_count, arena);
+	bit_matrix live_matrix = bit_matrix_init(register_count, inst_count, arena);
 	arena_temp temp = arena_temp_begin(arena);
-	bit_matrix prev_live_matrix = bit_matrix_init(register_count, instr_count, arena);
+	bit_matrix prev_live_matrix = bit_matrix_init(register_count, inst_count, arena);
 
 	b32 has_matrix_changed = false;
 	do {
-		u32 i = instr_count;
+		u32 i = inst_count;
 		while (i-- > 0) {
-			machine_instr *instr = get_instr(code, func.instr_offsets, i);
+			machine_inst *inst = get_inst(code, func.inst_offsets, i);
 
 			clear_row(live_matrix, i);
 			/* TODO: successor of jump instructions */
-			if (i + 1 != instr_count) {
+			if (i + 1 != inst_count) {
 				union_rows(live_matrix, i, i + 1);
 			}
 
-			machine_operand *operands = (machine_operand *)(instr + 1);
-			for (u32 j = 0; j < instr->operand_count; j++) {
+			machine_operand *operands = (machine_operand *)(inst + 1);
+			for (u32 j = 0; j < inst->operand_count; j++) {
 				if (operands[j].kind == MOP_LABEL) {
-					u32 instr_index = operands[j].value;
-					ASSERT(instr_index < instr_count);
-					union_rows(live_matrix, i, instr_index);
+					u32 inst_index = operands[j].value;
+					ASSERT(inst_index < inst_count);
+					union_rows(live_matrix, i, inst_index);
 				}
 			}
 
-			for (u32 j = 0; j < instr->operand_count; j++) {
+			for (u32 j = 0; j < inst->operand_count; j++) {
 				if (operands[j].kind != MOP_FUNC) {
 					continue;
 				}
@@ -103,7 +103,7 @@ get_live_matrix(void *code, machine_function func,
 				}
 			}
 
-			for (u32 j = 0; j < instr->operand_count; j++) {
+			for (u32 j = 0; j < inst->operand_count; j++) {
 				u32 value = operands[j].value;
 				switch (operands[j].kind) {
 				case MOP_VREG:
@@ -245,11 +245,11 @@ allocate_function_registers(machine_function func, void *code,
 		is_int_vreg[i] = true;
 	}
 
-	for (u32 i = 0; i < func.instr_count; i++) {
-		machine_instr *instr = get_instr(code, func.instr_offsets, i);
-		u32 operand_count = instr->operand_count;
+	for (u32 i = 0; i < func.inst_count; i++) {
+		machine_inst *inst = get_inst(code, func.inst_offsets, i);
+		u32 operand_count = inst->operand_count;
 
-		machine_operand *operands = (machine_operand *)(instr + 1);
+		machine_operand *operands = (machine_operand *)(inst + 1);
 		for (u32 j = 0; j < operand_count; j++) {
 			b32 is_vreg = (operands[j].kind == MOP_VREG);
 			if (is_vreg && (operands[j].flags & MOP_ISFLOAT)) {
@@ -357,11 +357,11 @@ allocate_function_registers(machine_function func, void *code,
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
-	for (u32 i = 0; i < func.instr_count; i++) {
-		machine_instr *instr = get_instr(code, func.instr_offsets, i);
-		u32 operand_count = instr->operand_count;
+	for (u32 i = 0; i < func.inst_count; i++) {
+		machine_inst *inst = get_inst(code, func.inst_offsets, i);
+		u32 operand_count = inst->operand_count;
 
-		machine_operand *operands = (machine_operand *)(instr + 1);
+		machine_operand *operands = (machine_operand *)(inst + 1);
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;

@@ -25,65 +25,65 @@ promote_stack_variables(ir_program program, arena *arena)
 	for (ir_function *func = program.function_list; func; func = func->next) {
 		// Mark all stack variables which address is used by a different
 		// instruction than load/store.
-		ir_instr *instrs = program.instrs + func->instr_index;
+		ir_inst *insts = program.insts + func->inst_index;
 		arena_temp temp = arena_temp_begin(arena);
-		b32 *addr_used = ALLOC(arena, func->instr_count, b32);
-		ir_type *types = ALLOC(arena, func->instr_count, b32);
-		for (u32 i = 0; i < func->instr_count; i++) {
-			u32 opcode = instrs[i].opcode;
-			u32 op0 = instrs[i].op0;
-			u32 op1 = instrs[i].op1;
+		b32 *addr_used = ALLOC(arena, func->inst_count, b32);
+		ir_type *types = ALLOC(arena, func->inst_count, b32);
+		for (u32 i = 0; i < func->inst_count; i++) {
+			u32 opcode = insts[i].opcode;
+			u32 op0 = insts[i].op0;
+			u32 op1 = insts[i].op1;
 
 			ir_opcode_info info = get_opcode_info(opcode);
 			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
-				&& instrs[op0].opcode == IR_ALLOC)
+				&& insts[op0].opcode == IR_ALLOC)
 			{
 				addr_used[op0] = true;
 			}
 
-			if (info.op1 == IR_OPERAND_REG_SRC && instrs[op1].opcode == IR_ALLOC) {
+			if (info.op1 == IR_OPERAND_REG_SRC && insts[op1].opcode == IR_ALLOC) {
 				addr_used[op1] = true;
 			}
 		}
 
 		// Promote stack variables to registers
-		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instrs[i].opcode == IR_LOAD) {
-				u32 op0 = instrs[i].op0;
-				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					types[op0] = instrs[i].type;
-					instrs[i].opcode = IR_COPY;
+		for (u32 i = 0; i < func->inst_count; i++) {
+			if (insts[i].opcode == IR_LOAD) {
+				u32 op0 = insts[i].op0;
+				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+					types[op0] = insts[i].type;
+					insts[i].opcode = IR_COPY;
 				}
-			} else if (instrs[i].opcode == IR_STORE) {
-				u32 op0 = instrs[i].op0;
-				if (instrs[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					u32 op1 = instrs[i].op1;
-					types[op0] = instrs[op1].type;
-					instrs[i].opcode = IR_MOV;
+			} else if (insts[i].opcode == IR_STORE) {
+				u32 op0 = insts[i].op0;
+				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
+					u32 op1 = insts[i].op1;
+					types[op0] = insts[op1].type;
+					insts[i].opcode = IR_MOV;
 				}
 			}
 		}
 
-		for (u32 i = 0; i < func->instr_count; i++) {
-			if (instrs[i].opcode == IR_ALLOC) {
+		for (u32 i = 0; i < func->inst_count; i++) {
+			if (insts[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
-					instrs[i].opcode = IR_VAR;
-					instrs[i].type = types[i];
-					ASSERT(instrs[i].type != IR_VOID);
+					insts[i].opcode = IR_VAR;
+					insts[i].type = types[i];
+					ASSERT(insts[i].type != IR_VOID);
 					// Can only turn scalars into registers, not arrays or structs
-					ASSERT(instrs[i].op0 <= 8);
+					ASSERT(insts[i].op0 <= 8);
 				}
 			}
 		}
 
 		// Reallocate all stack allocations and fix the stack size for each function
 		u32 stack_size = 0;
-		for (u32 j = 0; j < func->instr_count; j++) {
-			ir_instr *instr = &instrs[j];
-			if (instr->opcode == IR_ALLOC) {
+		for (u32 j = 0; j < func->inst_count; j++) {
+			ir_inst *inst = &insts[j];
+			if (inst->opcode == IR_ALLOC) {
 				// TODO: Alignment
-				instr->op1 = stack_size;
-				stack_size += instr->op0;
+				inst->op1 = stack_size;
+				stack_size += inst->op0;
 			}
 		}
 
@@ -99,13 +99,13 @@ remove_unused_registers(ir_program program, arena *arena)
 	// Remove unused registers
 	for (ir_function *func = program.function_list; func; func = func->next) {
 		arena_temp temp = arena_temp_begin(arena);
-		ir_instr *instrs = program.instrs + func->instr_index;
+		ir_inst *insts = program.insts + func->inst_index;
 
-		b32 *used = ALLOC(arena, func->instr_count, b32);
-		for (u32 j = 0; j < func->instr_count; j++) {
-			u32 i = func->instr_count - 1 - j;
-			ir_instr instr = instrs[i];
-			switch (instr.opcode) {
+		b32 *used = ALLOC(arena, func->inst_count, b32);
+		for (u32 j = 0; j < func->inst_count; j++) {
+			u32 i = func->inst_count - 1 - j;
+			ir_inst inst = insts[i];
+			switch (inst.opcode) {
 			case IR_STORE:
 			case IR_PARAM:
 			case IR_CALL:
@@ -123,19 +123,19 @@ remove_unused_registers(ir_program program, arena *arena)
 				}
 			}
 
-			ir_opcode_info info = get_opcode_info(instr.opcode);
+			ir_opcode_info info = get_opcode_info(inst.opcode);
 			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
-				used[instr.op0] = true;
+				used[inst.op0] = true;
 			}
 
 			if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
-				used[instr.op1] = true;
+				used[inst.op1] = true;
 			}
 		}
 
-		for (u32 i = func->parameter_count; i < func->instr_count; i++) {
+		for (u32 i = func->parameter_count; i < func->inst_count; i++) {
 			if (!used[i]) {
-				instrs[i].opcode = IR_NOP;
+				insts[i].opcode = IR_NOP;
 			}
 		}
 
@@ -149,76 +149,76 @@ optimize(ir_program program, arena *arena)
 	promote_stack_variables(program, arena);
 
 	for (ir_function *func = program.function_list; func; func = func->next) {
-		ir_instr *instrs = program.instrs + func->instr_index;
-		for (u32 i = 0; i < func->instr_count; i++) {
-			u32 op0 = instrs[i].op0;
-			u32 op1 = instrs[i].op1;
+		ir_inst *insts = program.insts + func->inst_index;
+		for (u32 i = 0; i < func->inst_count; i++) {
+			u32 op0 = insts[i].op0;
+			u32 op1 = insts[i].op1;
 
-			switch (instrs[i].opcode) {
+			switch (insts[i].opcode) {
 			case IR_ADD:
-				if (instrs[op0].opcode == IR_CONST
-					&& instrs[op1].opcode == IR_CONST)
+				if (insts[op0].opcode == IR_CONST
+					&& insts[op1].opcode == IR_CONST)
 				{
-					instrs[i].opcode = IR_ADD;
-					instrs[op1].opcode = IR_NOP;
-					instrs[op0].opcode = IR_NOP;
-					instrs[i].op0 = add(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op0].opcode == IR_CONST
-					&& instrs[op0].op0 == 0)
+					insts[i].opcode = IR_ADD;
+					insts[op1].opcode = IR_NOP;
+					insts[op0].opcode = IR_NOP;
+					insts[i].op0 = add(insts[op0].op0, insts[op1].op0);
+				} else if (insts[op0].opcode == IR_CONST
+					&& insts[op0].op0 == 0)
 				{
-					instrs[op0].opcode = IR_NOP;
-					instrs[i].opcode = IR_MOV;
-					instrs[i].op0 = i;
-				} else if (instrs[op1].opcode == IR_CONST
-					&& instrs[op1].op0 == 0)
+					insts[op0].opcode = IR_NOP;
+					insts[i].opcode = IR_MOV;
+					insts[i].op0 = i;
+				} else if (insts[op1].opcode == IR_CONST
+					&& insts[op1].op0 == 0)
 				{
-					instrs[op1].opcode = IR_NOP;
-					instrs[i].opcode = IR_COPY;
+					insts[op1].opcode = IR_NOP;
+					insts[i].opcode = IR_COPY;
 				}
 				break;
 			case IR_SUB:
-				if (instrs[op0].opcode == IR_CONST
-					&& instrs[op1].opcode == IR_CONST)
+				if (insts[op0].opcode == IR_CONST
+					&& insts[op1].opcode == IR_CONST)
 				{
-					instrs[i].opcode = IR_CONST;
-					instrs[op1].opcode = IR_NOP;
-					instrs[op0].opcode = IR_NOP;
-					instrs[i].op0 = sub(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op1].opcode == IR_CONST
-					&& instrs[op1].op0 == 0)
+					insts[i].opcode = IR_CONST;
+					insts[op1].opcode = IR_NOP;
+					insts[op0].opcode = IR_NOP;
+					insts[i].op0 = sub(insts[op0].op0, insts[op1].op0);
+				} else if (insts[op1].opcode == IR_CONST
+					&& insts[op1].op0 == 0)
 				{
-					instrs[op1].opcode = IR_NOP;
-					instrs[i].opcode = IR_COPY;
+					insts[op1].opcode = IR_NOP;
+					insts[i].opcode = IR_COPY;
 				}
 				break;
 			case IR_MUL:
-				if (instrs[op0].opcode == IR_CONST
-					&& instrs[op1].opcode == IR_CONST) {
-					instrs[i].opcode = IR_CONST;
-					instrs[op1].opcode = IR_NOP;
-					instrs[op0].opcode = IR_NOP;
+				if (insts[op0].opcode == IR_CONST
+					&& insts[op1].opcode == IR_CONST) {
+					insts[i].opcode = IR_CONST;
+					insts[op1].opcode = IR_NOP;
+					insts[op0].opcode = IR_NOP;
 					/* TODO: evaluate depending on the target architecture */
-					instrs[i].op0 = multiply(instrs[op0].op0, instrs[op1].op0);
-				} else if (instrs[op0].opcode == IR_CONST
-					&& instrs[op0].op0 == 1)
+					insts[i].op0 = multiply(insts[op0].op0, insts[op1].op0);
+				} else if (insts[op0].opcode == IR_CONST
+					&& insts[op0].op0 == 1)
 				{
-					instrs[i].opcode = IR_MOV;
-					instrs[i].op0 = i;
-				} else if (instrs[op1].opcode == IR_CONST
-					&& instrs[op1].op0 == 1)
+					insts[i].opcode = IR_MOV;
+					insts[i].op0 = i;
+				} else if (insts[op1].opcode == IR_CONST
+					&& insts[op1].op0 == 1)
 				{
-					instrs[i].opcode = IR_MOV;
-					instrs[i].op1 = op0;
-					instrs[i].op0 = i;
+					insts[i].opcode = IR_MOV;
+					insts[i].op1 = op0;
+					insts[i].op0 = i;
 				}
 				break;
 			case IR_JIZ:
-				if (instrs[op0].opcode == IR_CONST
-					&& instrs[op0].op0 == 0)
+				if (insts[op0].opcode == IR_CONST
+					&& insts[op0].op0 == 0)
 				{
-					instrs[op0].opcode = IR_NOP;
-					instrs[i].opcode = IR_JMP;
-					instrs[i].op0 = instrs[i].op1;
+					insts[op0].opcode = IR_NOP;
+					insts[i].opcode = IR_JMP;
+					insts[i].op0 = insts[i].op1;
 				}
 				break;
 			default:
@@ -234,12 +234,12 @@ optimize(ir_program program, arena *arena)
 		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
 		for (ir_function *func = program.function_list; func; func = func->next) {
 			memset(reachable, 0, program.label_count * sizeof(*reachable));
-			ir_instr *instr = program.instrs + func->instr_index;
+			ir_inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
-			for (u32 i = 0; i < func->instr_count; i++) {
-				if (instr[i].opcode == IR_LABEL) {
-					label_addresses[instr[i].op0] = i;
+			for (u32 i = 0; i < func->inst_count; i++) {
+				if (inst[i].opcode == IR_LABEL) {
+					label_addresses[inst[i].op0] = i;
 				}
 			}
 
@@ -254,12 +254,12 @@ next_block:
 
 				// NOTE: The first instruction is the label itself
 				u32 start = label_addresses[label] + 1;
-				for (u32 i = start; i < func->instr_count; i++) {
+				for (u32 i = start; i < func->inst_count; i++) {
 					u32 new_label = 0;
-					switch (instr[i].opcode) {
+					switch (inst[i].opcode) {
 					case IR_JMP:
 					case IR_LABEL:
-						new_label = instr[i].op0;
+						new_label = inst[i].op0;
 						if (!reachable[new_label]) {
 							stack[stack_pos++] = new_label;
 							reachable[new_label] = true;
@@ -270,7 +270,7 @@ next_block:
 					case IR_JIZ:
 					case IR_JNZ:
 						// TODO: Check if the condition is zero or not.
-						new_label = instr[i].op1;
+						new_label = inst[i].op1;
 						if (!reachable[new_label]) {
 							stack[stack_pos++] = new_label;
 							reachable[new_label] = true;
@@ -288,13 +288,13 @@ next_block:
 				}
 
 				u32 start = label_addresses[label];
-				instr[start].opcode = IR_NOP;
-				for (u32 i = start; i < func->instr_count; i++) {
-					if (instr[i].opcode == IR_LABEL) {
+				inst[start].opcode = IR_NOP;
+				for (u32 i = start; i < func->inst_count; i++) {
+					if (inst[i].opcode == IR_LABEL) {
 						break;
 					}
 
-					instr[i].opcode = IR_NOP;
+					inst[i].opcode = IR_NOP;
 				}
 			}
 		}
@@ -302,18 +302,18 @@ next_block:
 
 	// Remove register copies from the IR tree
 	for (ir_function *func = program.function_list; func; func = func->next) {
-		ir_instr *instrs = program.instrs + func->instr_index;
-		for (u32 i = 0; i < func->instr_count; i++) {
-			ir_opcode_info info = get_opcode_info(instrs[i].opcode);
+		ir_inst *insts = program.insts + func->inst_index;
+		for (u32 i = 0; i < func->inst_count; i++) {
+			ir_opcode_info info = get_opcode_info(insts[i].opcode);
 
-			u32 op0 = instrs[i].op0;
-			if (is_register_operand(info.op0) && instrs[op0].opcode == IR_COPY) {
-				instrs[i].op0 = instrs[op0].op0;
+			u32 op0 = insts[i].op0;
+			if (is_register_operand(info.op0) && insts[op0].opcode == IR_COPY) {
+				insts[i].op0 = insts[op0].op0;
 			}
 
-			u32 op1 = instrs[i].op1;
-			if (is_register_operand(info.op1) && instrs[op1].opcode == IR_COPY) {
-				instrs[i].op1 = instrs[op1].op0;
+			u32 op1 = insts[i].op1;
+			if (is_register_operand(info.op1) && insts[op1].opcode == IR_COPY) {
+				insts[i].op1 = insts[op1].op0;
 			}
 		}
 	}
