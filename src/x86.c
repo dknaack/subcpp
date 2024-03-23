@@ -186,7 +186,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 	switch (opcode) {
 	case IR_GLOBAL:
 		{
-			machine_operand src = make_global(op0, size);
+			machine_operand src = make_global(op0);
 			x86_select2(out, X86_MOV, dst, src);
 		} break;
 	case IR_VAR:

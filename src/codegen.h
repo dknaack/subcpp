@@ -107,9 +107,9 @@ make_func(u32 index)
 }
 
 static machine_operand
-make_global(u32 index, u32 size)
+make_global(u32 index)
 {
-	machine_operand operand = make_operand(MOP_GLOBAL, index, size);
+	machine_operand operand = make_operand(MOP_GLOBAL, index, 8);
 	return operand;
 }
 
