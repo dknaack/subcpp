@@ -67,7 +67,7 @@ x86_select2(machine_program *out, x86_opcode opcode,
 
 	switch (opcode) {
 	case X86_MOV:
-		if (!machine_operand_equals(dst, src)) {
+		if (!equals_operand(dst, src)) {
 			push_instr(out, opcode, 2);
 			if (dst.flags & MOP_INDIRECT) {
 				dst.flags |= MOP_USE;
@@ -253,7 +253,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				dst.flags |= MOP_ISFLOAT;
 			}
 
-			ASSERT(!machine_operand_equals(src, dst));
+			ASSERT(!equals_operand(src, dst));
 			if (instr[op0].opcode == IR_ALLOC) {
 				u32 addr = instr[op0].op1;
 				src = make_spill(addr);
@@ -282,7 +282,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			machine_operand src = make_operand(MOP_VREG, op1, ir_sizeof(instr[op1].type));
 			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
 
-			ASSERT(!machine_operand_equals(src, dst));
+			ASSERT(!equals_operand(src, dst));
 			if (instr[op1].opcode != IR_CONST) {
 				x86_select_instr(out, instr, op1, src);
 			} else {
@@ -983,7 +983,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				stream_print(out, "\tjmp .exit\n");
 			} else {
 				if (opcode == X86_MOV || opcode == X86_MOVSS) {
-					if  (machine_operand_equals(operands[0], operands[1])) {
+					if  (equals_operand(operands[0], operands[1])) {
 						continue;
 					}
 				}

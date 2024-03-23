@@ -61,7 +61,7 @@ typedef struct {
 } machine_program;
 
 static b32
-machine_operand_equals(machine_operand a, machine_operand b)
+equals_operand(machine_operand a, machine_operand b)
 {
 	b32 result = (a.kind == b.kind && a.value == b.value);
 	return result;
