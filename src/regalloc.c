@@ -171,28 +171,6 @@ get_interval_end(bit_matrix live_matrix, u32 reg)
 	return 0;
 }
 
-// TODO: replace with counting-sort?
-static u32 *
-sort_intervals_by_start(live_interval *intervals, u32 count, arena *arena)
-{
-	u32 *index = ALLOC(arena, count, u32);
-	for (u32 i = 0; i < count; i++) {
-		index[i] = i;
-	}
-
-	for (u32 i = 1; i < count; i++) {
-		u32 j = i;
-		while (j > 0 && intervals[index[j - 1]].start > intervals[index[j]].start) {
-			u32 tmp = index[j];
-			index[j] = index[j-1];
-			index[j-1] = tmp;
-			j--;
-		}
-	}
-
-	return index;
-}
-
 static void
 swap_u32(u32 *a, u32 *b)
 {
@@ -236,8 +214,20 @@ allocate_function_registers(machine_function func, void *code,
 		intervals[i].end   = get_interval_end(live_matrix, i);
 	}
 
-	u32 *sorted = sort_intervals_by_start(intervals, func.register_count, arena);
-	machine_operand *mreg_map = ALLOC(arena, func.register_count, machine_operand);
+	// Sort the intervals by their start
+	// TODO: Replace with a more efficient sorting algorithm
+	u32 *sorted = ALLOC(arena, reg_count, u32);
+	for (u32 i = 0; i < reg_count; i++) {
+		sorted[i] = i;
+	}
+
+	for (u32 i = 1; i < reg_count; i++) {
+		u32 j = i;
+		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
+			swap_u32(sorted + j, sorted + j - 1);
+			j--;
+		}
+	}
 
 	// Determine floating-pointer registers
 	b32 *is_int_vreg = ALLOC(arena, func.register_count, b32);
@@ -265,6 +255,7 @@ allocate_function_registers(machine_function func, void *code,
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
+	machine_operand *mreg_map = ALLOC(arena, func.register_count, machine_operand);
 	for (u32 i = 0; i < func.register_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
