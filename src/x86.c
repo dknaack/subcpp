@@ -163,7 +163,7 @@ x86_select_immediate(machine_program *out,
 	machine_operand result;
 	u32 size = ir_sizeof(instr[instr_index].type);
 	if (instr[instr_index].opcode == IR_CONST) {
-		result = make_immediate(instr[instr_index].op0, size);
+		result = make_operand(MOP_IMMEDIATE, instr[instr_index].op0, size);
 	} else {
 		result = make_operand(MOP_VREG, instr_index, size);
 		x86_select_instr(out, instr, instr_index, result);
@@ -227,7 +227,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				machine_operand src = make_float(op0);
 				x86_select2(out, X86_MOVSS, dst, src);
 			} else {
-				machine_operand src = make_immediate(op0, size);
+				machine_operand src = make_operand(MOP_IMMEDIATE, op0, size);
 				x86_select2(out, X86_MOV, dst, src);
 			}
 		} break;
@@ -286,7 +286,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			if (instr[op1].opcode != IR_CONST) {
 				x86_select_instr(out, instr, op1, src);
 			} else {
-				src = make_immediate(instr[op1].op0, size);
+				src = make_operand(MOP_IMMEDIATE, instr[op1].op0, size);
 			}
 
 			src.size = ir_sizeof(instr[op1].type);
@@ -337,11 +337,13 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				} else if (instr[op1].opcode == IR_CONST) {
 					x86_select_instr(out, instr, op0, dst);
 					op1 = instr[op1].op0;
-					x86_select2(out, X86_ADD, dst, make_immediate(op1, size));
+					machine_operand src = make_operand(MOP_IMMEDIATE, op1, size);
+					x86_select2(out, X86_ADD, dst, src);
 				} else if (instr[op0].opcode == IR_CONST) {
 					x86_select_instr(out, instr, op1, dst);
 					op0 = instr[op0].op0;
-					x86_select2(out, X86_ADD, dst, make_immediate(op0, size));
+					machine_operand src = make_operand(MOP_IMMEDIATE, op0, size);
+					x86_select2(out, X86_ADD, dst, src);
 				} else {
 					machine_operand src = make_operand(MOP_VREG, op1, ir_sizeof(instr[op1].type));
 					x86_select_instr(out, instr, op0, dst);
@@ -369,7 +371,9 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			} else if (instr[op1].opcode == IR_CONST) {
 				op1 = instr[op1].op0;
 				x86_select_instr(out, instr, op0, dst);
-				x86_select2(out, X86_SUB, dst, make_immediate(op1, ir_sizeof(instr[op1].type)));
+				isize src_size = ir_sizeof(instr[op1].type);
+				machine_operand src = make_operand(MOP_IMMEDIATE, op1, src_size);
+				x86_select2(out, X86_SUB, dst, src);
 			} else {
 				machine_operand src = make_operand(MOP_VREG, op1, ir_sizeof(instr[op1].type));
 				x86_select_instr(out, instr, op0, dst);
@@ -414,7 +418,7 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 			machine_operand rax = make_operand(MOP_MREG, X86_RAX, ir_sizeof(instr[op0].type));
 			machine_operand rcx = make_operand(MOP_MREG, X86_RCX, ir_sizeof(instr[op1].type));
 			machine_operand rdx = make_operand(MOP_MREG, X86_RDX, dst.size);
-			machine_operand zero = make_immediate(0, dst.size);
+			machine_operand zero = make_operand(MOP_IMMEDIATE, 0, dst.size);
 
 			x86_select_instr(out, instr, op0, rax);
 			x86_select_instr(out, instr, op1, rcx);
@@ -467,11 +471,11 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 				opcode == IR_OR ? X86_OR : X86_XOR;
 
 			if (instr[op1].opcode == IR_CONST) {
-				src = make_immediate(instr[op1].op0, src.size);
+				src = make_operand(MOP_IMMEDIATE, instr[op1].op0, src.size);
 				x86_select_instr(out, instr, op0, dst);
 				x86_select2(out, x86_opcode, dst, src);
 			} else if (instr[op0].opcode == IR_CONST) {
-				src = make_immediate(instr[op0].op0, src.size);
+				src = make_operand(MOP_IMMEDIATE, instr[op0].op0, src.size);
 				x86_select_instr(out, instr, op1, dst);
 				x86_select2(out, x86_opcode, dst, src);
 			} else {
@@ -613,7 +617,9 @@ x86_select_instr(machine_program *out, ir_instr *instr,
 		} break;
 	case IR_LABEL:
 		{
-			x86_select1(out, X86_LABEL, make_immediate(op0, ir_sizeof(instr[op0].type)));
+			isize src_size = ir_sizeof(instr[op0].type);
+			machine_operand src = make_operand(MOP_IMMEDIATE, op0, src_size);
+			x86_select1(out, X86_LABEL, src);
 		} break;
 	case IR_NOP:
 	case IR_PARAM:

@@ -86,13 +86,6 @@ make_spill(u32 index)
 }
 
 static machine_operand
-make_immediate(u32 value, u32 size)
-{
-	machine_operand operand = make_operand(MOP_IMMEDIATE, value, size);
-	return operand;
-}
-
-static machine_operand
 make_float(u32 index)
 {
 	machine_operand operand = make_operand(MOP_FLOAT, index, 4);
