@@ -850,9 +850,7 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 static void
 x86_generate(stream *out, machine_program program, allocation_info *info)
 {
-	stream_print(out,
-		"section .data\n"
-		"fmt: db \"%d\", 0x0A, 0\n");
+	stream_print(out, "section .data\n");
 
 	for (u32 i = 0; i < program.function_count; i++) {
 		machine_function *function = &program.functions[i];
