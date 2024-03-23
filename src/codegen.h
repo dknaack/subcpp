@@ -68,7 +68,7 @@ machine_operand_equals(machine_operand a, machine_operand b)
 }
 
 static machine_operand
-machine_operand_init(u32 kind, u32 value, u32 size)
+make_operand(u32 kind, u32 value, u32 size)
 {
 	machine_operand operand = {0};
 	operand.kind = kind;
@@ -81,56 +81,56 @@ machine_operand_init(u32 kind, u32 value, u32 size)
 static machine_operand
 make_mreg(u32 mreg, u32 size)
 {
-	machine_operand operand = machine_operand_init(MOP_MREG, mreg, size);
+	machine_operand operand = make_operand(MOP_MREG, mreg, size);
 	return operand;
 }
 
 static machine_operand
 make_vreg(u32 vreg, u32 size)
 {
-	machine_operand operand = machine_operand_init(MOP_VREG, vreg, size);
+	machine_operand operand = make_operand(MOP_VREG, vreg, size);
 	return operand;
 }
 
 static machine_operand
 make_spill(u32 index)
 {
-	machine_operand operand = machine_operand_init(MOP_SPILL, index, 8);
+	machine_operand operand = make_operand(MOP_SPILL, index, 8);
 	return operand;
 }
 
 static machine_operand
 make_immediate(u32 value, u32 size)
 {
-	machine_operand operand = machine_operand_init(MOP_IMMEDIATE, value, size);
+	machine_operand operand = make_operand(MOP_IMMEDIATE, value, size);
 	return operand;
 }
 
 static machine_operand
 make_float(u32 index)
 {
-	machine_operand operand = machine_operand_init(MOP_FLOAT, index, 4);
+	machine_operand operand = make_operand(MOP_FLOAT, index, 4);
 	return operand;
 }
 
 static machine_operand
 make_label(u32 value)
 {
-	machine_operand operand = machine_operand_init(MOP_LABEL, value, 0);
+	machine_operand operand = make_operand(MOP_LABEL, value, 0);
 	return operand;
 }
 
 static machine_operand
 make_func(u32 index)
 {
-	machine_operand operand = machine_operand_init(MOP_FUNC, index, 8);
+	machine_operand operand = make_operand(MOP_FUNC, index, 8);
 	return operand;
 }
 
 static machine_operand
 make_global(u32 index, u32 size)
 {
-	machine_operand operand = machine_operand_init(MOP_GLOBAL, index, size);
+	machine_operand operand = make_operand(MOP_GLOBAL, index, size);
 	return operand;
 }
 
