@@ -72,12 +72,6 @@ allocate_function_registers(machine_function func, void *code,
 	info.used = ALLOC(arena, reg_info.register_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
-	// Initialize the register pool
-	u32 *pool = ALLOC(arena, reg_info.register_count, u32);
-	for (u32 i = 0; i < reg_info.register_count; i++) {
-		pool[i] = i;
-	}
-
 	// NOTE; Compute the live matrix. Each row corresponds to one instruction,
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
@@ -213,6 +207,12 @@ allocate_function_registers(machine_function func, void *code,
 				is_int_vreg[reg] = false;
 			}
 		}
+	}
+
+	// Initialize the register pool
+	u32 *pool = ALLOC(arena, reg_info.register_count, u32);
+	for (u32 i = 0; i < reg_info.register_count; i++) {
+		pool[i] = i;
 	}
 
 	/*
