@@ -574,9 +574,12 @@ parse_declarator(lexer *lexer, u32 flags, ast_pool *pool)
 	while (!lexer->error) {
 		if (accept(lexer, TOKEN_LBRACKET)) {
 			ast_node node = ast_make_node(AST_TYPE_ARRAY, lexer->loc);
-			node.child[0] = parse_expr(lexer, PREC_ASSIGN, pool);
+			if (!accept(lexer, TOKEN_RBRACKET)) {
+				node.child[0] = parse_expr(lexer, PREC_ASSIGN, pool);
+				expect(lexer, TOKEN_RBRACKET);
+			}
+
 			ast_append(pool, &declarator, node);
-			expect(lexer, TOKEN_RBRACKET);
 		} else if (accept(lexer, TOKEN_LPAREN)) {
 			ast_node node = ast_make_node(AST_TYPE_FUNC, lexer->loc);
 			if (lexer->peek[0].kind == TOKEN_RPAREN) {
