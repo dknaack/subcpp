@@ -177,11 +177,11 @@ allocate_function_registers(machine_function func, void *code,
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < reg_count; i++) {
+	for (u32 i = 0; i < func.register_count; i++) {
 		sorted[i] = i;
 	}
 
-	for (u32 i = 1; i < reg_count; i++) {
+	for (u32 i = 1; i < func.register_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
