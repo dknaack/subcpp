@@ -806,6 +806,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_FLOAT:
 	case AST_TYPE_FUNC:
+	case AST_TYPE_IDENT:
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_POINTER:
 	case AST_TYPE_BITFIELD:

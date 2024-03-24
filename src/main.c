@@ -109,7 +109,7 @@ main(int argc, char *argv[])
 	arena *arena = new_arena(5 * 1024 * 1024);
 	ast_pool pool = {0};
 	lexer lexer = tokenize(argv[1], arena);
-	parse(&lexer, &pool);
+	parse(&lexer, &pool, arena);
 	symbol_table symbol_table = check(&pool, arena);
 
 	if (!pool.error) {

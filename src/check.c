@@ -1,78 +1,3 @@
-typedef struct scope_entry scope_entry;
-struct scope_entry {
-	str key;
-	ast_id value;
-	b8 is_type;
-
-	i32 depth;
-	scope_entry *next;
-};
-
-typedef struct scope scope;
-struct scope {
-	scope *parent;
-	scope_entry *idents;
-	scope_entry *tags;
-};
-
-static scope
-new_scope(scope *parent)
-{
-	scope s = {0};
-	s.parent = parent;
-	return s;
-}
-
-static ast_id *
-scope_upsert_ident(scope *s, str key, arena *perm)
-{
-	if (!s) {
-		return NULL;
-	}
-
-	scope_entry *e = NULL;
-	for (e = s->idents; e; e = e->next) {
-		if (equals(key, e->key)) {
-			return &e->value;
-		}
-	}
-
-	if (!perm) {
-		return scope_upsert_ident(s->parent, key, NULL);
-	}
-
-	e = ALLOC(perm, 1, scope_entry);
-	e->next = s->idents;
-	e->key = key;
-	s->idents = e;
-	return &e->value;
-}
-
-static ast_id *
-scope_upsert_tag(scope *s, str key, arena *perm)
-{
-	if (!s) {
-		return NULL;
-	}
-
-	scope_entry *e = NULL;
-	for (e = s->tags; e; e = e->next) {
-		if (equals(key, e->key)) {
-			return &e->value;
-		}
-	}
-
-	if (!perm) {
-		return scope_upsert_tag(s->parent, key, NULL);
-	}
-
-	e = ALLOC(perm, 1, scope_entry);
-	e->next = s->idents;
-	e->key = key;
-	s->tags = e;
-	return &e->value;
-}
-
 static b32
 type_equals(type *lhs, type *rhs)
 {
@@ -150,28 +75,40 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 	ast_id *child = node_id;
 	while (child->value != 0) {
 		ast_node *node = ast_get(pool, *child);
-		if (node->kind == AST_TYPE_STRUCT && node->value.s.at) {
-			if (node->child[0].value != 0) {
-				*scope_upsert_tag(s, node->value.s, perm) = *child;
-			} else {
-				// TODO: Opaque struct declarations
-				ast_id *resolved = scope_upsert_tag(s, node->value.s, NULL);
-				if (resolved) {
-					*child = *resolved;
+		switch (node->kind) {
+		case AST_TYPE_STRUCT:
+			{
+				if (node->value.s.at) {
+					if (node->child[0].value != 0) {
+						*scope_upsert_tag(s, node->value.s, perm) = *child;
+					} else {
+						// TODO: Opaque struct declarations
+						ast_id *resolved = scope_upsert_tag(s, node->value.s, NULL);
+						if (resolved) {
+							*child = *resolved;
+						}
+					}
 				}
-			}
-		} else if (node->kind == AST_DECL || node->kind == AST_EXTERN_DEF
-			|| node->kind == AST_ENUMERATOR)
-		{
-			*scope_upsert_ident(s, node->value.s, perm) = *child;
-		} else if (node->kind == AST_EXPR_IDENT) {
-			ast_id *resolved = scope_upsert_ident(s, node->value.s, NULL);
-			if (!resolved) {
-				errorf(node->loc, "Variable was never declared");
-				pool->error = true;
-			} else {
-				*child = *resolved;
-			}
+			} break;
+		case AST_DECL:
+		case AST_EXTERN_DEF:
+		case AST_ENUMERATOR:
+			{
+				scope_entry *e = scope_upsert_ident(s, node->value.s, perm);
+				e->value = *child;
+			} break;
+		case AST_EXPR_IDENT:
+		case AST_TYPE_IDENT:
+			{
+				scope_entry *resolved = scope_upsert_ident(s, node->value.s, NULL);
+				if (!resolved) {
+					errorf(node->loc, "Variable was never declared");
+					pool->error = true;
+				} else {
+					*child = resolved->value;
+				}
+			} break;
+		default:
 		}
 
 		if (node->child[0].value != 0) {
@@ -635,6 +572,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			}
 
 			node->type->children = return_type->type;
+		} break;
+	case AST_TYPE_IDENT:
+		{
+			ASSERT(!"Should have been removed by check_decls");
 		} break;
 	case AST_ENUMERATOR:
 		{
