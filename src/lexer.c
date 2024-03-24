@@ -280,13 +280,6 @@ eat_whitespace(lexer *lexer)
 	}
 }
 
-static b32
-is_relative_path(str path)
-{
-	b32 result = path.length <= 0 || path.at[0] != '/';
-	return result;
-}
-
 static str
 dirname(str path)
 {
@@ -337,7 +330,8 @@ push_file(lexer *t, str path, b32 system_header)
 	str contents = {0};
 	b32 found_header = false;
 	if (!system_header) {
-		if (is_relative_path(path)) {
+		b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
+		if (is_relative_path) {
 			str dir = dirname(make_str(t->loc.file));
 			filename = concat_paths(dir, path, t->arena);
 			contents = read_file(filename.at, t->arena);
