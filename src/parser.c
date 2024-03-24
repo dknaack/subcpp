@@ -947,6 +947,9 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 		} break;
 	case TOKEN_FOR:
 		{
+			scope tmp = new_scope(s);
+			s = &tmp;
+
 			get_token(lexer);
 			expect(lexer, TOKEN_LPAREN);
 
