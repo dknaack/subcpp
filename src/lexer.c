@@ -208,9 +208,10 @@ get_raw_token(lexer *lexer)
 				advance(lexer);
 			}
 		} break;
+	case '\'':
 	case '"':
 		{
-			while (lexer->at[1] != '"'
+			while (lexer->at[1] != c
 				&& lexer->at[1] != '\n'
 				&& lexer->at[1] != '\0')
 			{
@@ -221,8 +222,8 @@ get_raw_token(lexer *lexer)
 				advance(lexer);
 			}
 
-			if (lexer->at[1] == '"') {
-				token.kind = TOKEN_LITERAL_STRING;
+			if (lexer->at[1] == c) {
+				token.kind = c == '"' ? TOKEN_LITERAL_STRING : TOKEN_LITERAL_CHAR;
 				advance(lexer);
 			}
 		} break;

@@ -15,17 +15,18 @@ typedef enum {
 	AST_EXPR_BINARY,   // {lhs, rhs}
 	AST_EXPR_CALL,     // {called: expr, params: expr_list}
 	AST_EXPR_CAST,     // {type, expr}
+	AST_EXPR_CHAR,
+	AST_EXPR_FLOAT,    // value.f
 	AST_EXPR_IDENT,    // value.s
 	AST_EXPR_INT,      // value.i
-	AST_EXPR_FLOAT,    // value.f
 	AST_EXPR_LIST,     // {expr, list}
 	AST_EXPR_MEMBER,   // {operand}
 	AST_EXPR_MEMBER_PTR, // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
-	AST_EXPR_UNARY,    // {operand}
+	AST_EXPR_STRING,
 	AST_EXPR_TERNARY1, // {expr, ternary2}
 	AST_EXPR_TERNARY2, // {expr, expr}
-	AST_EXPR_STRING,
+	AST_EXPR_UNARY,    // {operand}
 
 	// statements
 	AST_STMT_BREAK,    // {}

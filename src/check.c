@@ -463,6 +463,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		{
 			node->type = &type_double;
 		} break;
+	case AST_EXPR_CHAR:
+		{
+			node->type = &type_char;
+		} break;
 	case AST_EXPR_INT:
 		{
 			node->type = &type_int;

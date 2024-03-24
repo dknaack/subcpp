@@ -398,6 +398,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
 		} break;
+	case AST_EXPR_CHAR:
+		{
+			result = ir_emit1_type(ctx, IR_I8, IR_CONST, node->value.i);
+		} break;
 	case AST_EXPR_INT:
 		{
 			result = ir_emit1_type(ctx, IR_I32, IR_CONST, node->value.i);

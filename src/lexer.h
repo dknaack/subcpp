@@ -54,6 +54,7 @@ typedef enum {
 	TOKEN_TILDE,
 
 	// literals
+	TOKEN_LITERAL_CHAR,
 	TOKEN_LITERAL_FLOAT,
 	TOKEN_LITERAL_INT,
 	TOKEN_LITERAL_STRING,
@@ -179,6 +180,7 @@ get_token_name(token_kind kind)
 	case TOKEN_STAR:           return "'*'";
 	case TOKEN_STAR_EQUAL:     return "'*='";
 	case TOKEN_TILDE:          return "'~'";
+	case TOKEN_LITERAL_CHAR:   return "char";
 	case TOKEN_LITERAL_FLOAT:  return "float";
 	case TOKEN_LITERAL_INT:    return "integer";
 	case TOKEN_LITERAL_STRING: return "string";

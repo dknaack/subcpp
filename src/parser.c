@@ -284,6 +284,14 @@ parse_expr(lexer *lexer, precedence prev_prec, ast_pool *pool)
 			literal.value.s = token.value;
 			expr = ast_push(pool, literal);
 		} break;
+	case TOKEN_LITERAL_CHAR:
+		{
+			get_token(lexer);
+			ast_node literal = ast_make_node(AST_EXPR_CHAR, lexer->loc);
+			// TODO: Parse the value
+			literal.value.i = 0;
+			expr = ast_push(pool, literal);
+		} break;
 	case TOKEN_LITERAL_FLOAT:
 		{
 			get_token(lexer);
