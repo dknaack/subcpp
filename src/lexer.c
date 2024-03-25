@@ -313,7 +313,7 @@ expect_raw(lexer *lexer, token_kind expected_token)
 }
 
 static void
-eat_whitespace(lexer *lexer)
+skip_whitespace(lexer *lexer)
 {
 	while (accept_raw(lexer, TOKEN_WHITESPACE)) {}
 }
@@ -546,11 +546,11 @@ get_token(lexer *lexer)
 			lexer->preprocess = false;
 
 			if (at_line_start && token.kind == TOKEN_HASH) {
-				eat_whitespace(lexer);
+				skip_whitespace(lexer);
 				token = get_token(lexer);
 				if (token.kind == TOKEN_IDENT) {
 					if (equals(token.value, S("include"))) {
-						eat_whitespace(lexer);
+						skip_whitespace(lexer);
 
 						str filename = {0};
 						b32 is_system_header = false;
@@ -589,19 +589,19 @@ get_token(lexer *lexer)
 						next_line(lexer);
 						push_file(lexer, filename, is_system_header);
 					} else if (equals(token.value, S("define"))) {
-						eat_whitespace(lexer);
+						skip_whitespace(lexer);
 						token = get_token(lexer);
 						if (token.kind == TOKEN_IDENT) {
 							str name = token.value;
 							macro_param *params = NULL;
 							if (accept_raw(lexer, TOKEN_LPAREN)) {
-								eat_whitespace(lexer);
+								skip_whitespace(lexer);
 
 								macro_param **ptr = &params;
 								while (!accept_raw(lexer, TOKEN_EOF)
 									&& !accept_raw(lexer, TOKEN_RPAREN))
 								{
-									eat_whitespace(lexer);
+									skip_whitespace(lexer);
 
 									token = get_token(lexer);
 									if (token.kind == TOKEN_IDENT) {
@@ -610,7 +610,7 @@ get_token(lexer *lexer)
 										ptr = &(*ptr)->next;
 									}
 
-									eat_whitespace(lexer);
+									skip_whitespace(lexer);
 									if (!accept_raw(lexer, TOKEN_COMMA)) {
 										break;
 									}
@@ -629,7 +629,7 @@ get_token(lexer *lexer)
 							next_line(lexer);
 						}
 					} else if (equals(token.value, S("if"))) {
-						eat_whitespace(lexer);
+						skip_whitespace(lexer);
 						token = get_token(lexer);
 						option_i64 literal = parse_i64(token.value);
 						// TODO: Report error
@@ -639,7 +639,7 @@ get_token(lexer *lexer)
 							next_line(lexer);
 							while (!accept_raw(lexer, TOKEN_EOF) && if_depth > 0) {
 								if (accept_raw(lexer, TOKEN_HASH)) {
-									eat_whitespace(lexer);
+									skip_whitespace(lexer);
 									token = get_raw_token(lexer);
 									if (token.kind != TOKEN_IDENT) {
 										// TODO: Report error?
@@ -684,7 +684,7 @@ get_token(lexer *lexer)
 				}
 			} else if (token.kind == TOKEN_NEWLINE) {
 				at_line_start = true;
-				eat_whitespace(lexer);
+				skip_whitespace(lexer);
 			} else if (token.kind == TOKEN_IDENT) {
 				for (usize i = 0; i < LENGTH(keywords); i++) {
 					if (equals(token.value, keywords[i].str)) {
