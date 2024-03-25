@@ -56,7 +56,7 @@ eat1(lexer *lexer, token_kind a, char c, token_kind b)
 }
 
 static token
-get_raw_token(lexer *lexer)
+cpp_get_token(lexer *lexer)
 {
 	token token = {0};
 	isize start = lexer->pos;
@@ -297,7 +297,7 @@ cpp_accept(lexer *lexer, token_kind expected_token)
 {
 	token token = peek_token(lexer);
 	if (token.kind == expected_token) {
-		get_raw_token(lexer);
+		cpp_get_token(lexer);
 		return true;
 	} else {
 		return false;
@@ -323,7 +323,7 @@ skip_line(lexer *lexer)
 {
 	while (!cpp_accept(lexer, TOKEN_EOF) && !cpp_accept(lexer, TOKEN_NEWLINE)) {
 		cpp_accept(lexer, TOKEN_BACKSLASH);
-		get_raw_token(lexer);
+		cpp_get_token(lexer);
 	}
 }
 
@@ -541,7 +541,7 @@ get_token(lexer *lexer)
 
 	b32 at_line_start = (lexer->pos == 0);
 	do {
-		token = get_raw_token(lexer);
+		token = cpp_get_token(lexer);
 		if (lexer->preprocess) {
 			lexer->preprocess = false;
 
@@ -640,7 +640,7 @@ get_token(lexer *lexer)
 							while (!cpp_accept(lexer, TOKEN_EOF) && if_depth > 0) {
 								if (cpp_accept(lexer, TOKEN_HASH)) {
 									skip_whitespace(lexer);
-									token = get_raw_token(lexer);
+									token = cpp_get_token(lexer);
 									if (token.kind != TOKEN_IDENT) {
 										// TODO: Report error?
 										continue;
