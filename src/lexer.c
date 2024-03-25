@@ -1,3 +1,38 @@
+#include <stdarg.h>
+
+static void
+verrorf(location loc, char *fmt, va_list ap)
+{
+	fprintf(stderr, "%s[%ld]: ", loc.file, loc.offset);
+	vfprintf(stderr, fmt, ap);
+	fputc('\n', stderr);
+	fflush(stderr);
+
+	ASSERT(!"Syntax error");
+}
+
+static void
+errorf(location loc, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verrorf(loc, fmt, ap);
+	va_end(ap);
+}
+
+static void
+fatalf(location loc, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verrorf(loc, fmt, ap);
+	va_end(ap);
+
+	exit(EXIT_FAILURE);
+}
+
 static char
 advance(lexer *lexer)
 {
@@ -541,124 +576,129 @@ get_token(lexer *lexer)
 		if (at_line_start && token.kind == TOKEN_HASH) {
 			skip_whitespace(lexer);
 			token = cpp_get_token(lexer);
-			if (token.kind == TOKEN_IDENT) {
-				if (equals(token.value, S("include"))) {
-					skip_whitespace(lexer);
+			if (token.kind != TOKEN_IDENT) {
+				fatalf(lexer->loc, "Invalid preprocessing directive");
+			}
 
-					str filename = {0};
-					b32 is_system_header = false;
-					if (lexer->source.at[lexer->pos] == '<') {
-						is_system_header = true;
-						advance(lexer);
+			if (equals(token.value, S("include"))) {
+				skip_whitespace(lexer);
 
-						char c;
-						isize start = lexer->pos;
-						do {
-							c = advance(lexer);
-						} while (c != '\n' && c != '>');
-						isize end = lexer->pos - 1;
+				str filename = {0};
+				b32 is_system_header = false;
+				if (lexer->source.at[lexer->pos] == '<') {
+					is_system_header = true;
+					advance(lexer);
 
-						filename.at = lexer->source.at + start;
-						filename.length = end - start;
-						printf("%.*s\n", (int)filename.length, filename.at);
-					} else if (lexer->source.at[lexer->pos] == '"') {
-						advance(lexer);
+					char c;
+					isize start = lexer->pos;
+					do {
+						c = advance(lexer);
+					} while (c != '\n' && c != '>');
+					isize end = lexer->pos - 1;
 
-						char c;
-						isize start = lexer->pos;
-						do {
-							c = advance(lexer);
-						} while (c != '\n' && c != '"');
-						isize end = lexer->pos - 1;
+					filename.at = lexer->source.at + start;
+					filename.length = end - start;
+					printf("%.*s\n", (int)filename.length, filename.at);
+				} else if (lexer->source.at[lexer->pos] == '"') {
+					advance(lexer);
 
-						filename.at = lexer->source.at + start;
-						filename.length = end - start;
-						printf("%.*s\n", (int)filename.length, filename.at);
-					} else {
-						ASSERT(!"Macro filenames have not been implement yet");
-					}
+					char c;
+					isize start = lexer->pos;
+					do {
+						c = advance(lexer);
+					} while (c != '\n' && c != '"');
+					isize end = lexer->pos - 1;
 
-					token.kind = TOKEN_NEWLINE;
-					skip_line(lexer);
-					push_file(lexer, filename, is_system_header);
-				} else if (equals(token.value, S("define"))) {
-					skip_whitespace(lexer);
-					token = cpp_get_token(lexer);
-					if (token.kind == TOKEN_IDENT) {
-						str name = token.value;
-						macro_param *params = NULL;
-						if (cpp_accept(lexer, TOKEN_LPAREN)) {
+					filename.at = lexer->source.at + start;
+					filename.length = end - start;
+					printf("%.*s\n", (int)filename.length, filename.at);
+				} else {
+					ASSERT(!"Macro filenames have not been implement yet");
+				}
+
+				token.kind = TOKEN_NEWLINE;
+				skip_line(lexer);
+				push_file(lexer, filename, is_system_header);
+			} else if (equals(token.value, S("define"))) {
+				skip_whitespace(lexer);
+				token = cpp_get_token(lexer);
+				if (token.kind == TOKEN_IDENT) {
+					str name = token.value;
+					macro_param *params = NULL;
+					if (cpp_accept(lexer, TOKEN_LPAREN)) {
+						skip_whitespace(lexer);
+
+						macro_param **ptr = &params;
+						while (!cpp_accept(lexer, TOKEN_EOF)
+							&& !cpp_accept(lexer, TOKEN_RPAREN))
+						{
 							skip_whitespace(lexer);
 
-							macro_param **ptr = &params;
-							while (!cpp_accept(lexer, TOKEN_EOF)
-								&& !cpp_accept(lexer, TOKEN_RPAREN))
-							{
-								skip_whitespace(lexer);
-
-								token = cpp_get_token(lexer);
-								if (token.kind == TOKEN_IDENT) {
-									*ptr = ALLOC(lexer->arena, 1, macro_param);
-									(*ptr)->name = token.value;
-									ptr = &(*ptr)->next;
-								}
-
-								skip_whitespace(lexer);
-								if (!cpp_accept(lexer, TOKEN_COMMA)) {
-									break;
-								}
+							token = cpp_get_token(lexer);
+							if (token.kind == TOKEN_IDENT) {
+								*ptr = ALLOC(lexer->arena, 1, macro_param);
+								(*ptr)->name = token.value;
+								ptr = &(*ptr)->next;
 							}
 
-							cpp_expect(lexer, TOKEN_RPAREN);
-						}
-
-						macro *m = upsert_macro(&lexer->macros, token.value, lexer->arena);
-						if (!m->value.at) {
-							m->name = name;
-							m->value = S("(TODO)");
-							m->params = params;
-						}
-
-						skip_line(lexer);
-					}
-				} else if (equals(token.value, S("if"))) {
-					skip_whitespace(lexer);
-					token = cpp_get_token(lexer);
-					option_i64 literal = parse_i64(token.value);
-					// TODO: Report error
-					ASSERT(literal.ok);
-					if (literal.value == 0) {
-						i32 if_depth = 1;
-						skip_line(lexer);
-						while (!cpp_accept(lexer, TOKEN_EOF) && if_depth > 0) {
-							if (cpp_accept(lexer, TOKEN_HASH)) {
-								skip_whitespace(lexer);
-								token = cpp_get_token(lexer);
-								if (token.kind != TOKEN_IDENT) {
-									// TODO: Report error?
-									continue;
-								}
-
-								if (equals(token.value, S("if"))) {
-									if_depth++;
-								} else if (equals(token.value, S("endif"))) {
-									if_depth--;
-								}
+							skip_whitespace(lexer);
+							if (!cpp_accept(lexer, TOKEN_COMMA)) {
+								break;
 							}
-
-							skip_line(lexer);
 						}
 
-						if (if_depth > 0) {
-							// TODO: report error
-							ASSERT(!"if directive was never ended");
-						}
-					} else {
-						lexer->if_depth++;
+						cpp_expect(lexer, TOKEN_RPAREN);
 					}
-				} else if (equals(token.value, S("endif"))) {
-					lexer->if_depth--;
+
+					macro *m = upsert_macro(&lexer->macros, token.value, lexer->arena);
+					if (!m->value.at) {
+						m->name = name;
+						m->value = S("(TODO)");
+						m->params = params;
+					}
+
+					skip_line(lexer);
 				}
+			} else if (equals(token.value, S("if"))) {
+				skip_whitespace(lexer);
+				token = cpp_get_token(lexer);
+				option_i64 literal = parse_i64(token.value);
+				if (literal.ok) {
+					fatalf(lexer->loc, "Invalid integer literal");
+				}
+
+				if (literal.value == 0) {
+					i32 if_depth = 1;
+					skip_line(lexer);
+					while (!cpp_accept(lexer, TOKEN_EOF) && if_depth > 0) {
+						if (cpp_accept(lexer, TOKEN_HASH)) {
+							skip_whitespace(lexer);
+							token = cpp_get_token(lexer);
+							if (token.kind != TOKEN_IDENT) {
+								fatalf(lexer->loc, "expected identifier (TODO)");
+								continue;
+							}
+
+							if (equals(token.value, S("if"))) {
+								if_depth++;
+							} else if (equals(token.value, S("endif"))) {
+								if_depth--;
+							}
+						}
+
+						skip_line(lexer);
+					}
+
+					if (if_depth > 0) {
+						fatalf(lexer->loc, "if directive was never ended");
+					}
+				} else {
+					lexer->if_depth++;
+				}
+			} else if (equals(token.value, S("endif"))) {
+				lexer->if_depth--;
+			} else {
+				fatalf(lexer->loc, "Invalid preprocessor directive");
 			}
 
 			token.kind = TOKEN_NEWLINE;

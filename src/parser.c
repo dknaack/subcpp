@@ -1,5 +1,3 @@
-#include <stdarg.h>
-
 typedef struct scope_entry scope_entry;
 struct scope_entry {
 	str key;
@@ -168,27 +166,6 @@ ast_shrink(ast_pool *p)
 		p->nodes = nodes;
 		p->cap = p->size;
 	}
-}
-
-static void
-verrorf(location loc, char *fmt, va_list ap)
-{
-	fprintf(stderr, "%s[%ld]: ", loc.file, loc.offset);
-	vfprintf(stderr, fmt, ap);
-	fputc('\n', stderr);
-	fflush(stderr);
-
-	ASSERT(!"Syntax error");
-}
-
-static void
-errorf(location loc, char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	verrorf(loc, fmt, ap);
-	va_end(ap);
 }
 
 static void
