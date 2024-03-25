@@ -284,7 +284,7 @@ cpp_peek_token(lexer *lex)
 {
 	ASSERT(lex->preprocess);
 	lexer tmp = *lex;
-	token token = get_token(&tmp);
+	token token = cpp_get_token(&tmp);
 	return token;
 }
 
@@ -543,7 +543,7 @@ get_token(lexer *lexer)
 
 			if (at_line_start && token.kind == TOKEN_HASH) {
 				skip_whitespace(lexer);
-				token = get_token(lexer);
+				token = cpp_get_token(lexer);
 				if (token.kind == TOKEN_IDENT) {
 					if (equals(token.value, S("include"))) {
 						skip_whitespace(lexer);
@@ -586,7 +586,7 @@ get_token(lexer *lexer)
 						push_file(lexer, filename, is_system_header);
 					} else if (equals(token.value, S("define"))) {
 						skip_whitespace(lexer);
-						token = get_token(lexer);
+						token = cpp_get_token(lexer);
 						if (token.kind == TOKEN_IDENT) {
 							str name = token.value;
 							macro_param *params = NULL;
@@ -599,7 +599,7 @@ get_token(lexer *lexer)
 								{
 									skip_whitespace(lexer);
 
-									token = get_token(lexer);
+									token = cpp_get_token(lexer);
 									if (token.kind == TOKEN_IDENT) {
 										*ptr = ALLOC(lexer->arena, 1, macro_param);
 										(*ptr)->name = token.value;
@@ -626,7 +626,7 @@ get_token(lexer *lexer)
 						}
 					} else if (equals(token.value, S("if"))) {
 						skip_whitespace(lexer);
-						token = get_token(lexer);
+						token = cpp_get_token(lexer);
 						option_i64 literal = parse_i64(token.value);
 						// TODO: Report error
 						ASSERT(literal.ok);
@@ -670,7 +670,7 @@ get_token(lexer *lexer)
 			if (token.kind == TOKEN_BACKSLASH) {
 				token = cpp_peek_token(lexer);
 				if (token.kind == TOKEN_NEWLINE) {
-					get_token(lexer);
+					cpp_get_token(lexer);
 				} else {
 					token.kind = TOKEN_INVALID;
 				}
