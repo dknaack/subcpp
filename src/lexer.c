@@ -321,15 +321,29 @@ push_file(lexer *t, str path, b32 system_header)
 	f->loc = t->loc;
 	t->files = f;
 
-	static str system_include_dirs[] = {
-		S("/usr/local/include"),
-		S("/usr/include")
-	};
-
 	str filename = {0};
 	str contents = {0};
 	b32 found_header = false;
-	if (!system_header) {
+
+	static struct { str filename, contents; } internal_headers[] = {
+		{ S("stddef.h"), S(
+			"typedef unsigned long size_t;\n"
+			"typedef int wchar_t;\n"
+			"typedef long ptrdiff_t;\n"
+			"#define offsetof(s, m) __builtin_offsetof(s, m)\n"),
+		}
+	};
+
+	for (isize i = 0; i < LENGTH(internal_headers); i++) {
+		if (equals(internal_headers[i].filename, path)) {
+			found_header = true;
+			filename = internal_headers[i].filename;
+			contents = internal_headers[i].contents;
+			break;
+		}
+	}
+
+	if (!found_header && !system_header) {
 		b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 		if (is_relative_path) {
 			str dir = dirname(make_str(t->loc.file));
@@ -344,6 +358,11 @@ push_file(lexer *t, str path, b32 system_header)
 	}
 
 	if (!found_header) {
+		static str system_include_dirs[] = {
+			S("/usr/local/include"),
+			S("/usr/include")
+		};
+
 		for (u32 i = 0; i < LENGTH(system_include_dirs); i++) {
 			str dir = system_include_dirs[i];
 			filename = concat_paths(dir, path, t->arena);
@@ -359,6 +378,8 @@ push_file(lexer *t, str path, b32 system_header)
 		t->loc.file = filename.at;
 		t->source = contents;
 		t->pos = 0;
+	} else {
+		ASSERT(!"Header not found");
 	}
 }
 
