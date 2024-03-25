@@ -293,7 +293,7 @@ peek_token(lexer *lex)
 }
 
 static b32
-accept_raw(lexer *lexer, token_kind expected_token)
+cpp_accept(lexer *lexer, token_kind expected_token)
 {
 	token token = peek_token(lexer);
 	if (token.kind == expected_token) {
@@ -305,9 +305,9 @@ accept_raw(lexer *lexer, token_kind expected_token)
 }
 
 static void
-expect_raw(lexer *lexer, token_kind expected_token)
+cpp_expect(lexer *lexer, token_kind expected_token)
 {
-	if (!accept_raw(lexer, expected_token)) {
+	if (!cpp_accept(lexer, expected_token)) {
 		ASSERT(!"Invalid token");
 	}
 }
@@ -315,14 +315,14 @@ expect_raw(lexer *lexer, token_kind expected_token)
 static void
 skip_whitespace(lexer *lexer)
 {
-	while (accept_raw(lexer, TOKEN_WHITESPACE)) {}
+	while (cpp_accept(lexer, TOKEN_WHITESPACE)) {}
 }
 
 static void
 skip_line(lexer *lexer)
 {
-	while (!accept_raw(lexer, TOKEN_EOF) && !accept_raw(lexer, TOKEN_NEWLINE)) {
-		accept_raw(lexer, TOKEN_BACKSLASH);
+	while (!cpp_accept(lexer, TOKEN_EOF) && !cpp_accept(lexer, TOKEN_NEWLINE)) {
+		cpp_accept(lexer, TOKEN_BACKSLASH);
 		get_raw_token(lexer);
 	}
 }
@@ -594,12 +594,12 @@ get_token(lexer *lexer)
 						if (token.kind == TOKEN_IDENT) {
 							str name = token.value;
 							macro_param *params = NULL;
-							if (accept_raw(lexer, TOKEN_LPAREN)) {
+							if (cpp_accept(lexer, TOKEN_LPAREN)) {
 								skip_whitespace(lexer);
 
 								macro_param **ptr = &params;
-								while (!accept_raw(lexer, TOKEN_EOF)
-									&& !accept_raw(lexer, TOKEN_RPAREN))
+								while (!cpp_accept(lexer, TOKEN_EOF)
+									&& !cpp_accept(lexer, TOKEN_RPAREN))
 								{
 									skip_whitespace(lexer);
 
@@ -611,12 +611,12 @@ get_token(lexer *lexer)
 									}
 
 									skip_whitespace(lexer);
-									if (!accept_raw(lexer, TOKEN_COMMA)) {
+									if (!cpp_accept(lexer, TOKEN_COMMA)) {
 										break;
 									}
 								}
 
-								expect_raw(lexer, TOKEN_RPAREN);
+								cpp_expect(lexer, TOKEN_RPAREN);
 							}
 
 							macro *m = upsert_macro(&lexer->macros, token.value, lexer->arena);
@@ -637,8 +637,8 @@ get_token(lexer *lexer)
 						if (literal.value == 0) {
 							i32 if_depth = 1;
 							skip_line(lexer);
-							while (!accept_raw(lexer, TOKEN_EOF) && if_depth > 0) {
-								if (accept_raw(lexer, TOKEN_HASH)) {
+							while (!cpp_accept(lexer, TOKEN_EOF) && if_depth > 0) {
+								if (cpp_accept(lexer, TOKEN_HASH)) {
 									skip_whitespace(lexer);
 									token = get_raw_token(lexer);
 									if (token.kind != TOKEN_IDENT) {
