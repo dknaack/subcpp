@@ -136,6 +136,7 @@ typedef struct {
 	str source;
 	isize pos;
 	b32 error;
+	b32 preprocess;
 	token peek[2];
 	char at[4];
 } lexer;
