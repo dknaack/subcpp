@@ -119,15 +119,21 @@ ast_get(ast_pool *p, ast_id id)
 }
 
 static void
-ast_append(ast_pool *p, ast_list *l, ast_node node)
+ast_append_id(ast_pool *p, ast_list *l, ast_id node_id)
 {
-	ast_id node_id = ast_push(p, node);
 	if (l->last.value != 0) {
 		ast_node *last = ast_get(p, l->last);
 		l->last = last->child[1] = node_id;
 	} else {
 		l->last = l->first = node_id;
 	}
+}
+
+static void
+ast_append(ast_pool *p, ast_list *l, ast_node node)
+{
+	ast_id node_id = ast_push(p, node);
+	ast_append_id(p, l, node_id);
 }
 
 static void
@@ -846,12 +852,14 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		return list;
 	}
 
+	ast_id type_id = ast_push(pool, type_specifier);
+
 	do {
 		ast_node node = ast_make_node(AST_DECL_LIST, lexer->loc);
 		ast_list decl = parse_declarator(lexer, flags, s, pool, arena);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.first.value != 0);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
-		ast_append(pool, &decl, type_specifier);
+		ast_append_id(pool, &decl, type_id);
 
 		ast_node *decl_node = ast_get(pool, decl.first);
 		decl_node->flags |= type_specifier.flags;
