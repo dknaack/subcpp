@@ -280,22 +280,18 @@ cpp_get_token(lexer *lexer)
 static token get_token(lexer *lexer);
 
 static token
-peek_token(lexer *lex)
+cpp_peek_token(lexer *lex)
 {
-	token token = lex->peek[0];
-
-	if (!lex->preprocess) {
-		lexer tmp = *lex;
-		token = get_token(&tmp);
-	}
-
+	ASSERT(lex->preprocess);
+	lexer tmp = *lex;
+	token token = get_token(&tmp);
 	return token;
 }
 
 static b32
 cpp_accept(lexer *lexer, token_kind expected_token)
 {
-	token token = peek_token(lexer);
+	token token = cpp_peek_token(lexer);
 	if (token.kind == expected_token) {
 		cpp_get_token(lexer);
 		return true;
@@ -672,7 +668,7 @@ get_token(lexer *lexer)
 			}
 
 			if (token.kind == TOKEN_BACKSLASH) {
-				token = peek_token(lexer);
+				token = cpp_peek_token(lexer);
 				if (token.kind == TOKEN_NEWLINE) {
 					get_token(lexer);
 				} else {
