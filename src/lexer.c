@@ -473,6 +473,31 @@ upsert_macro(macro **m, str name, arena *perm)
 	return x;
 }
 
+typedef struct {
+	i64 value;
+	b32 ok;
+} option_i64;
+
+// TODO: integer suffixes?
+static option_i64
+parse_i64(str s)
+{
+	option_i64 result = {0};
+
+	while (s.length-- > 0) {
+		char c = *s.at++;
+		if (!is_digit(c)) {
+			return result;
+		}
+
+		result.value *= 10;
+		result.value += c - '0';
+	}
+
+	result.ok = true;
+	return result;
+}
+
 static token
 get_token(lexer *lexer)
 {
@@ -573,7 +598,9 @@ get_token(lexer *lexer)
 								eat_whitespace(lexer);
 
 								macro_param **ptr = &params;
-								while (!accept_raw(lexer, TOKEN_RPAREN)) {
+								while (!accept_raw(lexer, TOKEN_EOF)
+									&& !accept_raw(lexer, TOKEN_RPAREN))
+								{
 									eat_whitespace(lexer);
 
 									token = get_token(lexer);
@@ -599,18 +626,49 @@ get_token(lexer *lexer)
 								m->params = params;
 							}
 
-							while (token.kind != TOKEN_NEWLINE) {
-								token = get_token(lexer);
-								if (token.kind == TOKEN_BACKSLASH) {
-									token = peek_token(lexer);
-									if (token.kind == TOKEN_NEWLINE) {
-										get_token(lexer);
+							next_line(lexer);
+						}
+					} else if (equals(token.value, S("if"))) {
+						eat_whitespace(lexer);
+						token = get_token(lexer);
+						option_i64 literal = parse_i64(token.value);
+						// TODO: Report error
+						ASSERT(literal.ok);
+						if (literal.value == 0) {
+							i32 if_depth = 1;
+							next_line(lexer);
+							while (!accept_raw(lexer, TOKEN_EOF) && if_depth > 0) {
+								if (accept_raw(lexer, TOKEN_HASH)) {
+									eat_whitespace(lexer);
+									token = get_raw_token(lexer);
+									if (token.kind != TOKEN_IDENT) {
+										// TODO: Report error?
+										continue;
+									}
+
+									if (equals(token.value, S("if"))) {
+										if_depth++;
+									} else if (equals(token.value, S("endif"))) {
+										if_depth--;
 									}
 								}
+
+								next_line(lexer);
 							}
+
+							if (if_depth > 0) {
+								// TODO: report error
+								ASSERT(!"if directive was never ended");
+							}
+						} else {
+							lexer->if_depth++;
 						}
+					} else if (equals(token.value, S("endif"))) {
+						lexer->if_depth--;
 					}
 				}
+
+				token.kind = TOKEN_NEWLINE;
 			}
 
 			if (token.kind == TOKEN_BACKSLASH) {
