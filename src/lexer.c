@@ -153,6 +153,18 @@ get_raw_token(lexer *lexer)
 			if (lexer->at[1] == '=') {
 				token.kind = TOKEN_SLASH_EQUAL;
 				advance(lexer);
+			} else if (lexer->at[1] == '/') {
+				token.kind = TOKEN_COMMENT;
+				while (lexer->at[1] != '\n' && lexer->at[1] != '\0') {
+					advance(lexer);
+				}
+			} else if (lexer->at[1] == '*') {
+				token.kind = TOKEN_COMMENT;
+				while (lexer->at[1] != '*' && lexer->at[2] != '/'
+					&& lexer->at[1] != '\0')
+				{
+					advance(lexer);
+				}
 			} else {
 				token.kind = TOKEN_SLASH;
 			}
@@ -627,7 +639,8 @@ get_token(lexer *lexer)
 
 			lexer->preprocess = true;
 		}
-	} while (lexer->preprocess && (token.kind == TOKEN_WHITESPACE || token.kind == TOKEN_NEWLINE));
+	} while (lexer->preprocess && (token.kind == TOKEN_WHITESPACE
+		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT));
 
 	if (lexer->preprocess) {
 		tmp = token;

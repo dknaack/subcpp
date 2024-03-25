@@ -3,6 +3,7 @@ typedef enum {
 	TOKEN_EOF,
 	TOKEN_NEWLINE,
 	TOKEN_WHITESPACE,
+	TOKEN_COMMENT,
 
 	// symbols
 	TOKEN_AMP,
@@ -148,6 +149,7 @@ get_token_name(token_kind kind)
 	case TOKEN_INVALID:        return "invalid token";
 	case TOKEN_EOF:            return "eof";
 	case TOKEN_NEWLINE:        return "newline";
+	case TOKEN_COMMENT:        return "comment";
 	case TOKEN_WHITESPACE:     return "whitespace";
 	case TOKEN_AMP:            return "'&'";
 	case TOKEN_AMP_AMP:        return "'&&'";
