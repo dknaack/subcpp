@@ -319,7 +319,7 @@ skip_whitespace(lexer *lexer)
 }
 
 static void
-next_line(lexer *lexer)
+skip_line(lexer *lexer)
 {
 	while (!accept_raw(lexer, TOKEN_EOF) && !accept_raw(lexer, TOKEN_NEWLINE)) {
 		accept_raw(lexer, TOKEN_BACKSLASH);
@@ -586,7 +586,7 @@ get_token(lexer *lexer)
 						}
 
 						token.kind = TOKEN_NEWLINE;
-						next_line(lexer);
+						skip_line(lexer);
 						push_file(lexer, filename, is_system_header);
 					} else if (equals(token.value, S("define"))) {
 						skip_whitespace(lexer);
@@ -626,7 +626,7 @@ get_token(lexer *lexer)
 								m->params = params;
 							}
 
-							next_line(lexer);
+							skip_line(lexer);
 						}
 					} else if (equals(token.value, S("if"))) {
 						skip_whitespace(lexer);
@@ -636,7 +636,7 @@ get_token(lexer *lexer)
 						ASSERT(literal.ok);
 						if (literal.value == 0) {
 							i32 if_depth = 1;
-							next_line(lexer);
+							skip_line(lexer);
 							while (!accept_raw(lexer, TOKEN_EOF) && if_depth > 0) {
 								if (accept_raw(lexer, TOKEN_HASH)) {
 									skip_whitespace(lexer);
@@ -653,7 +653,7 @@ get_token(lexer *lexer)
 									}
 								}
 
-								next_line(lexer);
+								skip_line(lexer);
 							}
 
 							if (if_depth > 0) {
