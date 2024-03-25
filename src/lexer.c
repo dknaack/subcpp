@@ -318,6 +318,15 @@ eat_whitespace(lexer *lexer)
 	while (accept_raw(lexer, TOKEN_WHITESPACE)) {}
 }
 
+static void
+next_line(lexer *lexer)
+{
+	while (!accept_raw(lexer, TOKEN_EOF) && !accept_raw(lexer, TOKEN_NEWLINE)) {
+		accept_raw(lexer, TOKEN_BACKSLASH);
+		get_raw_token(lexer);
+	}
+}
+
 static str
 dirname(str path)
 {
@@ -551,16 +560,8 @@ get_token(lexer *lexer)
 							ASSERT(!"Macro filenames have not been implement yet");
 						}
 
-						while (token.kind != TOKEN_NEWLINE) {
-							token = get_token(lexer);
-							if (token.kind == TOKEN_BACKSLASH) {
-								token = peek_token(lexer);
-								if (token.kind == TOKEN_NEWLINE) {
-									get_token(lexer);
-								}
-							}
-						}
-
+						token.kind = TOKEN_NEWLINE;
+						next_line(lexer);
 						push_file(lexer, filename, is_system_header);
 					} else if (equals(token.value, S("define"))) {
 						eat_whitespace(lexer);
