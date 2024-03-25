@@ -284,7 +284,7 @@ peek_token(lexer *lex)
 {
 	token token = lex->peek[0];
 
-	if (lex->preprocess) {
+	if (!lex->preprocess) {
 		lexer tmp = *lex;
 		token = get_token(&tmp);
 	}
