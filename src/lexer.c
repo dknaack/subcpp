@@ -265,18 +265,25 @@ get_raw_token(lexer *lexer)
 	return token;
 }
 
+static token get_token(lexer *lexer);
+
 static token
-peek_raw_token(lexer *t)
+peek_token(lexer *lex)
 {
-	lexer tmp = *t;
-	token token = get_raw_token(&tmp);
+	token token = lex->peek[0];
+
+	if (lex->preprocess) {
+		lexer tmp = *lex;
+		token = get_token(&tmp);
+	}
+
 	return token;
 }
 
 static b32
 accept_raw(lexer *lexer, token_kind expected_token)
 {
-	token token = peek_raw_token(lexer);
+	token token = peek_token(lexer);
 	if (token.kind == expected_token) {
 		get_raw_token(lexer);
 		return true;
@@ -296,7 +303,7 @@ expect_raw(lexer *lexer, token_kind expected_token)
 static void
 eat_whitespace(lexer *lexer)
 {
-	while (peek_raw_token(lexer).kind == TOKEN_WHITESPACE) {
+	while (peek_token(lexer).kind == TOKEN_WHITESPACE) {
 		get_raw_token(lexer);
 	}
 }
@@ -537,7 +544,7 @@ get_token(lexer *lexer)
 						while (token.kind != TOKEN_NEWLINE) {
 							token = get_token(lexer);
 							if (token.kind == TOKEN_BACKSLASH) {
-								token = peek_raw_token(lexer);
+								token = peek_token(lexer);
 								if (token.kind == TOKEN_NEWLINE) {
 									get_token(lexer);
 								}
@@ -584,7 +591,7 @@ get_token(lexer *lexer)
 							while (token.kind != TOKEN_NEWLINE) {
 								token = get_token(lexer);
 								if (token.kind == TOKEN_BACKSLASH) {
-									token = peek_raw_token(lexer);
+									token = peek_token(lexer);
 									if (token.kind == TOKEN_NEWLINE) {
 										get_token(lexer);
 									}
@@ -596,7 +603,7 @@ get_token(lexer *lexer)
 			}
 
 			if (token.kind == TOKEN_BACKSLASH) {
-				token = peek_raw_token(lexer);
+				token = peek_token(lexer);
 				if (token.kind == TOKEN_NEWLINE) {
 					get_token(lexer);
 				} else {
