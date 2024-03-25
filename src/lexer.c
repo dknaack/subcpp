@@ -315,9 +315,7 @@ expect_raw(lexer *lexer, token_kind expected_token)
 static void
 eat_whitespace(lexer *lexer)
 {
-	while (peek_token(lexer).kind == TOKEN_WHITESPACE) {
-		get_raw_token(lexer);
-	}
+	while (accept_raw(lexer, TOKEN_WHITESPACE)) {}
 }
 
 static str
