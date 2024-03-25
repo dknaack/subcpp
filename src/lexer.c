@@ -272,6 +272,26 @@ peek_raw_token(lexer *t)
 	return token;
 }
 
+static b32
+accept_raw(lexer *lexer, token_kind expected_token)
+{
+	token token = peek_raw_token(lexer);
+	if (token.kind == expected_token) {
+		get_raw_token(lexer);
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void
+expect_raw(lexer *lexer, token_kind expected_token)
+{
+	if (!accept_raw(lexer, expected_token)) {
+		ASSERT(!"Invalid token");
+	}
+}
+
 static void
 eat_whitespace(lexer *lexer)
 {
@@ -398,6 +418,34 @@ pop_file(lexer *t)
 	return result;
 }
 
+static str tombstone = S("(deleted)");
+
+static macro *
+upsert_macro(macro **m, str name, arena *perm)
+{
+	macro *x = NULL;
+
+	for (u64 h = hash(name); *m; h <<= 2) {
+		str key = (*m)->name;
+		if (equals(name, key)) {
+			return *m;
+		} else if (key.at == tombstone.at) {
+			x = *m;
+		}
+
+		m = &(*m)->child[h >> 62];
+	}
+
+	if (!perm) {
+		return NULL;
+	} else if (!x) {
+		*m = x = ALLOC(perm, 1, macro);
+	}
+
+	x->name = name;
+	return x;
+}
+
 static token
 get_token(lexer *lexer)
 {
@@ -443,6 +491,7 @@ get_token(lexer *lexer)
 	do {
 		token = get_raw_token(lexer);
 		if (at_line_start && token.kind == TOKEN_HASH) {
+			eat_whitespace(lexer);
 			token = get_raw_token(lexer);
 			if (token.kind == TOKEN_IDENT) {
 				if (equals(token.value, S("include"))) {
@@ -492,6 +541,52 @@ get_token(lexer *lexer)
 					}
 
 					push_file(lexer, filename, is_system_header);
+				} else if (equals(token.value, S("define"))) {
+					eat_whitespace(lexer);
+					token = get_raw_token(lexer);
+					if (token.kind == TOKEN_IDENT) {
+						str name = token.value;
+						macro_param *params = NULL;
+						if (accept_raw(lexer, TOKEN_LPAREN)) {
+							eat_whitespace(lexer);
+
+							macro_param **ptr = &params;
+							while (!accept_raw(lexer, TOKEN_RPAREN)) {
+								eat_whitespace(lexer);
+
+								token = get_raw_token(lexer);
+								if (token.kind == TOKEN_IDENT) {
+									*ptr = ALLOC(lexer->arena, 1, macro_param);
+									(*ptr)->name = token.value;
+									ptr = &(*ptr)->next;
+								}
+
+								eat_whitespace(lexer);
+								if (!accept_raw(lexer, TOKEN_COMMA)) {
+									break;
+								}
+							}
+
+							expect_raw(lexer, TOKEN_RPAREN);
+						}
+
+						macro *m = upsert_macro(&lexer->macros, token.value, lexer->arena);
+						if (!m->value.at) {
+							m->name = name;
+							m->value = S("(TODO)");
+							m->params = params;
+						}
+
+						while (token.kind != TOKEN_NEWLINE) {
+							token = get_raw_token(lexer);
+							if (token.kind == TOKEN_BACKSLASH) {
+								token = peek_raw_token(lexer);
+								if (token.kind == TOKEN_NEWLINE) {
+									get_raw_token(lexer);
+								}
+							}
+						}
+					}
 				}
 			}
 		}

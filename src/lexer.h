@@ -114,9 +114,24 @@ struct file {
 	location loc;
 };
 
+typedef struct macro_param macro_param;
+struct macro_param {
+	macro_param *next;
+	str name;
+};
+
+typedef struct macro macro;
+struct macro {
+	str name;
+	str value;
+	macro_param *params;
+	macro *child[4];
+};
+
 typedef struct {
 	arena *arena;
 	file *files;
+	macro *macros;
 	location loc;
 	str source;
 	isize pos;
