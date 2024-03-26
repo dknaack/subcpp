@@ -106,6 +106,12 @@ typedef struct {
 	isize offset;
 } location;
 
+typedef enum {
+	IF_TRUE = 1 << 0,
+	IF_HAS_ELSE = 1 << 1,
+	IF_INIT = 1 << 2,
+} if_state;
+
 typedef struct file file;
 struct file {
 	file *prev;
@@ -130,9 +136,13 @@ struct macro {
 };
 
 typedef struct {
-	arena *arena;
-	file *files;
+	i32 if_depth;
+	if_state if_state[64];
+	b32 ignore_token;
 	macro *macros;
+	file *files;
+	arena *arena;
+
 	location loc;
 	str source;
 	isize pos;
