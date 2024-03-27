@@ -738,13 +738,16 @@ get_token(lexer *lexer)
 					}
 
 					macro *m = upsert_macro(&cpp->macros, token.value, cpp->arena);
-					if (!m->value.at) {
-						m->name = name;
-						m->value = S("(TODO)");
-						m->params = params;
+					if (m->value.at != NULL) {
+						errorf(lexer->loc, "Macro was already defined");
 					}
 
+					m->name = name;
+					m->value.at = lexer->source.at + lexer->pos;
+					m->params = params;
 					skip_line(lexer);
+					char *end = lexer->source.at + lexer->pos;
+					m->value.length = end - m->value.at;
 				}
 			} else {
 				fatalf(lexer->loc, "Invalid preprocessor directive");
