@@ -139,7 +139,6 @@ struct macro {
 typedef struct {
 	location loc;
 	str source;
-	isize pos;
 	b32 error;
 	token peek[2];
 	char at[4];

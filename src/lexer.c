@@ -37,15 +37,15 @@ static char
 advance(lexer *lexer)
 {
 	for (isize i = 0; i < LENGTH(lexer->at); i++) {
-		if (lexer->pos + i < lexer->source.length) {
-			lexer->at[i] = lexer->source.at[lexer->pos + i];
+		if (lexer->loc.offset + i < lexer->source.length) {
+			lexer->at[i] = lexer->source.at[lexer->loc.offset + i];
 		} else {
 			lexer->at[i] = '\0';
 		}
 	}
 
-	if (lexer->pos < lexer->source.length) {
-		lexer->pos++;
+	if (lexer->loc.offset < lexer->source.length) {
+		lexer->loc.offset++;
 	}
 
 	return lexer->at[0];
@@ -94,7 +94,7 @@ static token
 cpp_get_token(lexer *lexer)
 {
 	token token = {0};
-	isize start = lexer->pos;
+	isize start = lexer->loc.offset;
 
 	char c = advance(lexer);
 	switch (c) {
@@ -305,8 +305,7 @@ cpp_get_token(lexer *lexer)
 		} break;
 	}
 
-	isize end = lexer->pos;
-	lexer->loc.offset = lexer->pos;
+	isize end = lexer->loc.offset;
 	token.value = substr(lexer->source, start, end);
 	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
@@ -392,7 +391,7 @@ push_file(cpp_state *cpp, str path, b32 system_header)
 
 	file *f = ALLOC(cpp->arena, 1, file);
 	f->contents = cpp->lexer.source;
-	f->pos = cpp->lexer.pos;
+	f->pos = cpp->lexer.loc.offset;
 	f->prev = cpp->files;
 	f->name = cpp->lexer.loc.file;
 	f->loc = cpp->lexer.loc;
@@ -452,9 +451,9 @@ push_file(cpp_state *cpp, str path, b32 system_header)
 	}
 
 	if (found_header) {
-		cpp->lexer.loc.file = filename.at;
 		cpp->lexer.source = contents;
-		cpp->lexer.pos = 0;
+		cpp->lexer.loc.file = filename.at;
+		cpp->lexer.loc.offset = 0;
 	} else {
 		ASSERT(!"Header not found");
 	}
@@ -467,7 +466,6 @@ pop_file(cpp_state *cpp)
 	b32 result = f != NULL;
 	if (result) {
 		cpp->lexer.source = f->contents;
-		cpp->lexer.pos = f->pos;
 		cpp->lexer.loc = f->loc;
 		cpp->files = f->prev;
 	}
@@ -570,7 +568,7 @@ get_token(lexer *lexer)
 		{ TOKEN_WHILE,        S("while")         },
 	};
 
-	b32 at_line_start = (lexer->pos == 0);
+	b32 at_line_start = (lexer->loc.offset == 0);
 	do {
 		token = cpp_get_token(lexer);
 
@@ -673,29 +671,29 @@ get_token(lexer *lexer)
 			} else if (equals(token.value, S("include"))) {
 				str filename = {0};
 				b32 is_system_header = false;
-				if (lexer->source.at[lexer->pos] == '<') {
+				if (lexer->source.at[lexer->loc.offset] == '<') {
 					is_system_header = true;
 					advance(lexer);
 
 					char c;
-					isize start = lexer->pos;
+					isize start = lexer->loc.offset;
 					do {
 						c = advance(lexer);
 					} while (c != '\n' && c != '>');
-					isize end = lexer->pos - 1;
+					isize end = lexer->loc.offset - 1;
 
 					filename.at = lexer->source.at + start;
 					filename.length = end - start;
 					printf("%.*s\n", (int)filename.length, filename.at);
-				} else if (lexer->source.at[lexer->pos] == '"') {
+				} else if (lexer->source.at[lexer->loc.offset] == '"') {
 					advance(lexer);
 
 					char c;
-					isize start = lexer->pos;
+					isize start = lexer->loc.offset;
 					do {
 						c = advance(lexer);
 					} while (c != '\n' && c != '"');
-					isize end = lexer->pos - 1;
+					isize end = lexer->loc.offset - 1;
 
 					filename.at = lexer->source.at + start;
 					filename.length = end - start;
@@ -774,7 +772,6 @@ get_token(lexer *lexer)
 				cpp->macro_depth--;
 				cpp->expanded_macro[cpp->macro_depth]->was_expanded = false;
 				lexer->loc.offset = cpp->prev_loc[cpp->macro_depth].offset;
-				lexer->pos = lexer->loc.offset;
 				if (lexer->loc.file != cpp->prev_loc[cpp->macro_depth].file) {
 					lexer->source.at = NULL;
 					for (file *f = cpp->files; f; f = f->prev) {
@@ -804,7 +801,6 @@ get_token(lexer *lexer)
 					cpp->macro_depth++;
 
 					lexer->loc.offset = m->loc.offset;
-					lexer->pos = lexer->loc.offset;
 					if (lexer->loc.file != m->loc.file) {
 						lexer->source.at = NULL;
 						for (file *f = cpp->files; f; f = f->prev) {
