@@ -382,21 +382,21 @@ concat_paths(str a, str b, arena *perm)
 }
 
 static void
-push_file(lexer *t, str path, b32 system_header)
+push_file(cpp_state *cpp, str path, b32 system_header)
 {
 	if (path.length == 0) {
 		// TODO: report error: Invalid header path
-		t->error = 1;
+		cpp->lexer.error = 1;
 		return;
 	}
 
-	file *f = ALLOC(t->arena, 1, file);
-	f->contents = t->source;
-	f->pos = t->pos;
-	f->prev = t->files;
-	f->name = t->loc.file;
-	f->loc = t->loc;
-	t->files = f;
+	file *f = ALLOC(cpp->arena, 1, file);
+	f->contents = cpp->lexer.source;
+	f->pos = cpp->lexer.pos;
+	f->prev = cpp->files;
+	f->name = cpp->lexer.loc.file;
+	f->loc = cpp->lexer.loc;
+	cpp->files = f;
 
 	str filename = {0};
 	str contents = {0};
@@ -423,9 +423,9 @@ push_file(lexer *t, str path, b32 system_header)
 	if (!found_header && !system_header) {
 		b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 		if (is_relative_path) {
-			str dir = dirname(make_str(t->loc.file));
-			filename = concat_paths(dir, path, t->arena);
-			contents = read_file(filename.at, t->arena);
+			str dir = dirname(make_str(cpp->lexer.loc.file));
+			filename = concat_paths(dir, path, cpp->arena);
+			contents = read_file(filename.at, cpp->arena);
 			if (errno == 0) {
 				found_header = true;
 			}
@@ -442,8 +442,8 @@ push_file(lexer *t, str path, b32 system_header)
 
 		for (u32 i = 0; i < LENGTH(system_include_dirs); i++) {
 			str dir = system_include_dirs[i];
-			filename = concat_paths(dir, path, t->arena);
-			contents = read_file(filename.at, t->arena);
+			filename = concat_paths(dir, path, cpp->arena);
+			contents = read_file(filename.at, cpp->arena);
 			if (errno == 0) {
 				found_header = true;
 				break;
@@ -452,24 +452,24 @@ push_file(lexer *t, str path, b32 system_header)
 	}
 
 	if (found_header) {
-		t->loc.file = filename.at;
-		t->source = contents;
-		t->pos = 0;
+		cpp->lexer.loc.file = filename.at;
+		cpp->lexer.source = contents;
+		cpp->lexer.pos = 0;
 	} else {
 		ASSERT(!"Header not found");
 	}
 }
 
 static b32
-pop_file(lexer *t)
+pop_file(cpp_state *cpp)
 {
-	file *f = t->files;
+	file *f = cpp->files;
 	b32 result = f != NULL;
 	if (result) {
-		t->source = f->contents;
-		t->pos = f->pos;
-		t->loc = f->loc;
-		t->files = f->prev;
+		cpp->lexer.source = f->contents;
+		cpp->lexer.pos = f->pos;
+		cpp->lexer.loc = f->loc;
+		cpp->files = f->prev;
 	}
 
 	return result;
@@ -531,6 +531,7 @@ parse_i64(str s)
 static token
 get_token(lexer *lexer)
 {
+	cpp_state *cpp = (cpp_state *)lexer;
 	token tmp, token = {TOKEN_INVALID};
 	struct {
 		token_kind token;
@@ -582,10 +583,10 @@ get_token(lexer *lexer)
 
 			if_state curr_state = IF_TRUE;
 			if_state prev_state = IF_TRUE;
-			if (lexer->if_depth > 0) {
-				curr_state = lexer->if_state[lexer->if_depth - 1];
-				if (lexer->if_depth > 1) {
-					prev_state = lexer->if_state[lexer->if_depth - 2];
+			if (cpp->if_depth > 0) {
+				curr_state = cpp->if_state[cpp->if_depth - 1];
+				if (cpp->if_depth > 1) {
+					prev_state = cpp->if_state[cpp->if_depth - 2];
 				}
 			}
 
@@ -601,21 +602,21 @@ get_token(lexer *lexer)
 					fatalf(lexer->loc, "(TODO)");
 				}
 
-				lexer->if_depth++;
-				if (lexer->if_depth > LENGTH(lexer->if_state)) {
+				cpp->if_depth++;
+				if (cpp->if_depth > LENGTH(cpp->if_state)) {
 					fatalf(lexer->loc, "Internal error: Too many #ifs");
 				}
 
-				lexer->if_state[lexer->if_depth - 1] = 0;
-				lexer->ignore_token = true;
-				if (!lexer->ignore_token && literal.value) {
-					lexer->if_state[lexer->if_depth - 1] = IF_TRUE;
-					lexer->ignore_token = false;
+				cpp->if_state[cpp->if_depth - 1] = 0;
+				cpp->ignore_token = true;
+				if (!cpp->ignore_token && literal.value) {
+					cpp->if_state[cpp->if_depth - 1] = IF_TRUE;
+					cpp->ignore_token = false;
 				}
 
 				skip_line(lexer);
 			} else if (equals(token.value, S("elif"))) {
-				if (lexer->if_depth <= 0) {
+				if (cpp->if_depth <= 0) {
 					fatalf(lexer->loc, "#elif without #if");
 				}
 
@@ -633,15 +634,15 @@ get_token(lexer *lexer)
 					fatalf(lexer->loc, "(TODO)");
 				}
 
-				lexer->ignore_token = true;
+				cpp->ignore_token = true;
 				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE) && literal.value) {
-					lexer->if_state[lexer->if_depth - 1] |= IF_TRUE;
-					lexer->ignore_token = false;
+					cpp->if_state[cpp->if_depth - 1] |= IF_TRUE;
+					cpp->ignore_token = false;
 				}
 
 				skip_line(lexer);
 			} else if (equals(token.value, S("else"))) {
-				if (lexer->if_depth <= 0) {
+				if (cpp->if_depth <= 0) {
 					fatalf(lexer->loc, "#else without #if");
 				}
 
@@ -649,24 +650,24 @@ get_token(lexer *lexer)
 					fatalf(lexer->loc, "#else after #else");
 				}
 
-				lexer->ignore_token = true;
-				lexer->if_state[lexer->if_depth - 1] |= IF_HAS_ELSE;
+				cpp->ignore_token = true;
+				cpp->if_state[cpp->if_depth - 1] |= IF_HAS_ELSE;
 				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
-					lexer->if_state[lexer->if_depth - 1] |= IF_TRUE;
-					lexer->ignore_token = false;
+					cpp->if_state[cpp->if_depth - 1] |= IF_TRUE;
+					cpp->ignore_token = false;
 				}
 
 				skip_line(lexer);
 			} else if (equals(token.value, S("endif"))) {
-				if (lexer->if_depth <= 0) {
+				if (cpp->if_depth <= 0) {
 					fatalf(lexer->loc, "#endif without #if");
 				}
 
-				lexer->ignore_token = !(prev_state & IF_TRUE);
-				lexer->if_depth--;
+				cpp->ignore_token = !(prev_state & IF_TRUE);
+				cpp->if_depth--;
 
 				skip_line(lexer);
-			} else if (lexer->ignore_token) {
+			} else if (cpp->ignore_token) {
 				skip_line(lexer);
 				token.kind = TOKEN_NEWLINE;
 			} else if (equals(token.value, S("include"))) {
@@ -705,7 +706,7 @@ get_token(lexer *lexer)
 
 				token.kind = TOKEN_NEWLINE;
 				skip_line(lexer);
-				push_file(lexer, filename, is_system_header);
+				push_file(cpp, filename, is_system_header);
 			} else if (equals(token.value, S("define"))) {
 				token = cpp_get_token(lexer);
 				if (token.kind == TOKEN_IDENT) {
@@ -722,7 +723,7 @@ get_token(lexer *lexer)
 
 							token = cpp_get_token(lexer);
 							if (token.kind == TOKEN_IDENT) {
-								*ptr = ALLOC(lexer->arena, 1, macro_param);
+								*ptr = ALLOC(cpp->arena, 1, macro_param);
 								(*ptr)->name = token.value;
 								ptr = &(*ptr)->next;
 							}
@@ -736,7 +737,7 @@ get_token(lexer *lexer)
 						cpp_expect(lexer, TOKEN_RPAREN);
 					}
 
-					macro *m = upsert_macro(&lexer->macros, token.value, lexer->arena);
+					macro *m = upsert_macro(&cpp->macros, token.value, cpp->arena);
 					if (!m->value.at) {
 						m->name = name;
 						m->value = S("(TODO)");
@@ -760,18 +761,18 @@ get_token(lexer *lexer)
 				token.kind = TOKEN_INVALID;
 			}
 		} else if (token.kind == TOKEN_EOF) {
-			if (lexer->if_depth > 0) {
+			if (cpp->if_depth > 0) {
 				fatalf(lexer->loc, "Unterminated #if");
 			}
 
-			if (pop_file(lexer)) {
+			if (pop_file(cpp)) {
 				token.kind = TOKEN_WHITESPACE;
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
 			skip_whitespace(lexer);
 		}
-	} while (lexer->ignore_token || token.kind == TOKEN_WHITESPACE
+	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
 		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT);
 
 	if (token.kind == TOKEN_IDENT) {
@@ -790,23 +791,23 @@ get_token(lexer *lexer)
 	return token;
 }
 
-static lexer
+static cpp_state
 tokenize_str(str src, arena *perm)
 {
-	lexer lexer = {0};
-	lexer.arena = perm;
-	lexer.loc.file = "(no file)";
-	lexer.source = src;
-	get_token(&lexer);
-	get_token(&lexer);
-	return lexer;
+	cpp_state cpp = {0};
+	cpp.arena = perm;
+	cpp.lexer.loc.file = "(no file)";
+	cpp.lexer.source = src;
+	get_token(&cpp.lexer);
+	get_token(&cpp.lexer);
+	return cpp;
 }
 
-static lexer
+static cpp_state
 tokenize(char *filename, arena *perm)
 {
 	str src = read_file(filename, perm);
-	lexer t = tokenize_str(src, perm);
-	t.loc.file = filename;
-	return t;
+	cpp_state cpp = tokenize_str(src, perm);
+	cpp.lexer.loc.file = filename;
+	return cpp;
 }
