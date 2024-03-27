@@ -2,3 +2,4 @@ build
 tags
 a.out
 *.bak
+test/main
