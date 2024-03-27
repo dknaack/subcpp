@@ -576,7 +576,7 @@ get_token(lexer *lexer)
 			skip_whitespace(lexer);
 			token = cpp_get_token(lexer);
 			if (token.kind != TOKEN_IDENT) {
-				fatalf(lexer->loc, "Invalid preprocessing directive");
+				fatalf(get_location(lexer), "Invalid preprocessing directive");
 			}
 
 			if_state curr_state = IF_TRUE;
@@ -592,17 +592,17 @@ get_token(lexer *lexer)
 			if (equals(token.value, S("if"))) {
 				token = cpp_get_token(lexer);
 				if (token.kind != TOKEN_LITERAL_INT) {
-					fatalf(lexer->loc, "(TODO)");
+					fatalf(get_location(lexer), "(TODO)");
 				}
 
 				option_i64 literal = parse_i64(token.value);
 				if (!literal.ok) {
-					fatalf(lexer->loc, "(TODO)");
+					fatalf(get_location(lexer), "(TODO)");
 				}
 
 				cpp->if_depth++;
 				if (cpp->if_depth > LENGTH(cpp->if_state)) {
-					fatalf(lexer->loc, "Internal error: Too many #ifs");
+					fatalf(get_location(lexer), "Internal error: Too many #ifs");
 				}
 
 				cpp->if_state[cpp->if_depth - 1] = 0;
@@ -615,21 +615,21 @@ get_token(lexer *lexer)
 				skip_line(lexer);
 			} else if (equals(token.value, S("elif"))) {
 				if (cpp->if_depth <= 0) {
-					fatalf(lexer->loc, "#elif without #if");
+					fatalf(get_location(lexer), "#elif without #if");
 				}
 
 				if (curr_state & IF_HAS_ELSE) {
-					fatalf(lexer->loc, "#elif after #else");
+					fatalf(get_location(lexer), "#elif after #else");
 				}
 
 				token = cpp_get_token(lexer);
 				if (token.kind != TOKEN_LITERAL_INT) {
-					fatalf(lexer->loc, "(TODO)");
+					fatalf(get_location(lexer), "(TODO)");
 				}
 
 				option_i64 literal = parse_i64(token.value);
 				if (!literal.ok) {
-					fatalf(lexer->loc, "(TODO)");
+					fatalf(get_location(lexer), "(TODO)");
 				}
 
 				cpp->ignore_token = true;
@@ -641,11 +641,11 @@ get_token(lexer *lexer)
 				skip_line(lexer);
 			} else if (equals(token.value, S("else"))) {
 				if (cpp->if_depth <= 0) {
-					fatalf(lexer->loc, "#else without #if");
+					fatalf(get_location(lexer), "#else without #if");
 				}
 
 				if (curr_state & IF_HAS_ELSE) {
-					fatalf(lexer->loc, "#else after #else");
+					fatalf(get_location(lexer), "#else after #else");
 				}
 
 				cpp->ignore_token = true;
@@ -658,7 +658,7 @@ get_token(lexer *lexer)
 				skip_line(lexer);
 			} else if (equals(token.value, S("endif"))) {
 				if (cpp->if_depth <= 0) {
-					fatalf(lexer->loc, "#endif without #if");
+					fatalf(get_location(lexer), "#endif without #if");
 				}
 
 				cpp->ignore_token = !(prev_state & IF_TRUE);
@@ -737,7 +737,7 @@ get_token(lexer *lexer)
 
 					macro *m = upsert_macro(cpp->macros, token.value, cpp->arena);
 					if (m->loc.file != NULL) {
-						errorf(lexer->loc, "Macro was already defined");
+						errorf(get_location(lexer), "Macro was already defined");
 					}
 
 					m->name = name;
@@ -746,7 +746,7 @@ get_token(lexer *lexer)
 					skip_line(lexer);
 				}
 			} else {
-				fatalf(lexer->loc, "Invalid preprocessor directive");
+				fatalf(get_location(lexer), "Invalid preprocessor directive");
 			}
 
 			token.kind = TOKEN_NEWLINE;
@@ -761,7 +761,7 @@ get_token(lexer *lexer)
 			}
 		} else if (token.kind == TOKEN_EOF) {
 			if (cpp->if_depth > 0) {
-				fatalf(lexer->loc, "Unterminated #if");
+				fatalf(get_location(lexer), "Unterminated #if");
 			}
 
 			if (pop_file(cpp)) {

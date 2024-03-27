@@ -159,6 +159,12 @@ typedef struct {
 	arena *arena;
 } cpp_state;
 
+static location
+get_location(lexer *lexer)
+{
+	return lexer->loc;
+}
+
 static char *
 get_token_name(token_kind kind)
 {

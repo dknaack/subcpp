@@ -175,7 +175,7 @@ vsyntax_error(lexer *lexer, char *fmt, va_list ap)
 		return;
 	}
 
-	verrorf(lexer->loc, fmt, ap);
+	verrorf(get_location(lexer), fmt, ap);
 	lexer->error = true;
 }
 
@@ -331,21 +331,21 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 	case TOKEN_IDENT:
 		{
 			get_token(lexer);
-			ast_node ident = ast_make_node(AST_EXPR_IDENT, lexer->loc);
+			ast_node ident = ast_make_node(AST_EXPR_IDENT, get_location(lexer));
 			ident.value.s = token.value;
 			expr = ast_push(pool, ident);
 		} break;
 	case TOKEN_LITERAL_STRING:
 		{
 			get_token(lexer);
-			ast_node literal = ast_make_node(AST_EXPR_STRING, lexer->loc);
+			ast_node literal = ast_make_node(AST_EXPR_STRING, get_location(lexer));
 			literal.value.s = token.value;
 			expr = ast_push(pool, literal);
 		} break;
 	case TOKEN_LITERAL_CHAR:
 		{
 			get_token(lexer);
-			ast_node literal = ast_make_node(AST_EXPR_CHAR, lexer->loc);
+			ast_node literal = ast_make_node(AST_EXPR_CHAR, get_location(lexer));
 			// TODO: Parse the value
 			literal.value.i = 0;
 			expr = ast_push(pool, literal);
@@ -353,7 +353,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 	case TOKEN_LITERAL_FLOAT:
 		{
 			get_token(lexer);
-			ast_node literal = ast_make_node(AST_EXPR_FLOAT, lexer->loc);
+			ast_node literal = ast_make_node(AST_EXPR_FLOAT, get_location(lexer));
 			// TODO: Parse the value
 			literal.value.f = 1.23456f;
 			expr = ast_push(pool, literal);
@@ -361,7 +361,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 	case TOKEN_LITERAL_INT:
 		{
 			get_token(lexer);
-			ast_node literal = ast_make_node(AST_EXPR_INT, lexer->loc);
+			ast_node literal = ast_make_node(AST_EXPR_INT, get_location(lexer));
 			literal.value.i = 0;
 
 			isize i = 0;
@@ -412,7 +412,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 					ast_node *decl_node = ast_get(pool, decl.first);
 					ast_id type = decl_node->child[0];
 
-					ast_node node = ast_make_node(AST_EXPR_CAST, lexer->loc);
+					ast_node node = ast_make_node(AST_EXPR_CAST, get_location(lexer));
 					node.child[0] = type;
 					node.child[1] = parse_expr(lexer, PREC_PRIMARY, s, pool, arena);
 					expr = ast_push(pool, node);
@@ -437,7 +437,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 	case TOKEN_MINUS_MINUS:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_EXPR_UNARY, lexer->loc);
+			ast_node node = ast_make_node(AST_EXPR_UNARY, get_location(lexer));
 			node.value.i = token.kind;
 			node.child[0] = parse_expr(lexer, PREC_PRIMARY, s, pool, arena);
 			expr = ast_push(pool, node);
@@ -462,7 +462,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 			ast_list params = {0};
 			if (!accept(lexer, TOKEN_RPAREN)) {
 				do {
-					ast_node node = ast_make_node(AST_EXPR_LIST, lexer->loc);
+					ast_node node = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 					node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 					ast_append(pool, &params, node);
 				} while (!lexer->error && accept(lexer, TOKEN_COMMA));
@@ -470,7 +470,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 			}
 
 			ast_id called = expr;
-			ast_node node = ast_make_node(AST_EXPR_CALL, lexer->loc);
+			ast_node node = ast_make_node(AST_EXPR_CALL, get_location(lexer));
 			node.child[0] = called;
 			node.child[1] = params.first;
 			expr = ast_push(pool, node);
@@ -484,7 +484,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 			token = lexer->peek[0];
 			expect(lexer, TOKEN_IDENT);
 
-			ast_node node = ast_make_node(kind, lexer->loc);
+			ast_node node = ast_make_node(kind, get_location(lexer));
 			node.child[0] = expr;
 			node.value.s = token.value;
 			expr = ast_push(pool, node);
@@ -501,17 +501,17 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 			get_token(lexer);
 			ast_id lhs = expr;
 			if (is_postfix_operator(token.kind)) {
-				ast_node node = ast_make_node(AST_EXPR_POSTFIX, lexer->loc);
+				ast_node node = ast_make_node(AST_EXPR_POSTFIX, get_location(lexer));
 				node.value.op = operator;
 				node.child[0] = expr;
 				expr = ast_push(pool, node);
 			} else if (operator == TOKEN_QMARK) {
-				ast_node node2 = ast_make_node(AST_EXPR_TERNARY2, lexer->loc);
+				ast_node node2 = ast_make_node(AST_EXPR_TERNARY2, get_location(lexer));
 				node2.child[0] = parse_expr(lexer, PREC_COMMA, s, pool, arena);
 				expect(lexer, TOKEN_COLON);
 				node2.child[1] = parse_expr(lexer, PREC_COMMA, s, pool, arena);
 
-				ast_node node1 = ast_make_node(AST_EXPR_TERNARY1, lexer->loc);
+				ast_node node1 = ast_make_node(AST_EXPR_TERNARY1, get_location(lexer));
 				node1.child[0] = expr;
 				node1.child[1] = ast_push(pool, node2);
 				expr = ast_push(pool, node1);
@@ -524,7 +524,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 				ast_id rhs = parse_expr(lexer, prec, s, pool, arena);
 				ASSERT(rhs.value != 0);
 
-				ast_node node = ast_make_node(AST_EXPR_BINARY, lexer->loc);
+				ast_node node = ast_make_node(AST_EXPR_BINARY, get_location(lexer));
 				node.value.i = token.kind;
 				node.child[0] = lhs;
 				node.child[1] = rhs;
@@ -547,7 +547,7 @@ parse_initializer(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	expect(lexer, TOKEN_LBRACE);
 
 	do {
-		ast_node node = ast_make_node(AST_INIT_LIST, lexer->loc);
+		ast_node node = ast_make_node(AST_INIT_LIST, get_location(lexer));
 		if (lexer->peek[0].kind == TOKEN_LBRACE) {
 			node.child[0] = parse_initializer(lexer, s, pool, arena);
 		} else {
@@ -602,7 +602,7 @@ parse_declarator(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena
 {
 	ast_list pointer_declarator = {0};
 	while (accept(lexer, TOKEN_STAR)) {
-		ast_node node = ast_make_node(AST_TYPE_POINTER, lexer->loc);
+		ast_node node = ast_make_node(AST_TYPE_POINTER, get_location(lexer));
 		token_kind qualifier_token = lexer->peek[0].kind;
 		switch (qualifier_token) {
 		case TOKEN_CONST:
@@ -632,14 +632,14 @@ parse_declarator(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena
 			get_token(lexer);
 		}
 
-		ast_node node = ast_make_node(AST_DECL, lexer->loc);
+		ast_node node = ast_make_node(AST_DECL, get_location(lexer));
 		node.value.s = token.value;
 		ast_append(pool, &declarator, node);
 	}
 
 	while (!lexer->error) {
 		if (accept(lexer, TOKEN_LBRACKET)) {
-			ast_node node = ast_make_node(AST_TYPE_ARRAY, lexer->loc);
+			ast_node node = ast_make_node(AST_TYPE_ARRAY, get_location(lexer));
 			if (!accept(lexer, TOKEN_RBRACKET)) {
 				node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				expect(lexer, TOKEN_RBRACKET);
@@ -647,7 +647,7 @@ parse_declarator(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena
 
 			ast_append(pool, &declarator, node);
 		} else if (accept(lexer, TOKEN_LPAREN)) {
-			ast_node node = ast_make_node(AST_TYPE_FUNC, lexer->loc);
+			ast_node node = ast_make_node(AST_TYPE_FUNC, get_location(lexer));
 			if (lexer->peek[0].kind == TOKEN_RPAREN) {
 				get_token(lexer);
 			} else if (lexer->peek[0].kind == TOKEN_VOID
@@ -698,26 +698,26 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		token token = lexer->peek[0];
 		switch (token.kind) {
 		case TOKEN_FLOAT:
-			type_specifier = ast_make_node(AST_TYPE_FLOAT, lexer->loc);
+			type_specifier = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
 			get_token(lexer);
 			break;
 		case TOKEN_INT:
-			type_specifier = ast_make_node(AST_TYPE_INT, lexer->loc);
+			type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
 			get_token(lexer);
 			break;
 		case TOKEN_CHAR:
-			type_specifier = ast_make_node(AST_TYPE_CHAR, lexer->loc);
+			type_specifier = ast_make_node(AST_TYPE_CHAR, get_location(lexer));
 			get_token(lexer);
 			break;
 		case TOKEN_VOID:
-			type_specifier = ast_make_node(AST_TYPE_VOID, lexer->loc);
+			type_specifier = ast_make_node(AST_TYPE_VOID, get_location(lexer));
 			get_token(lexer);
 			break;
 		case TOKEN_IDENT:
 			{
 				scope_entry *e = scope_upsert_ident(s, token.value, NULL);
 				if (e && e->is_type) {
-					type_specifier = ast_make_node(AST_TYPE_IDENT, lexer->loc);
+					type_specifier = ast_make_node(AST_TYPE_IDENT, get_location(lexer));
 					type_specifier.value.s = token.value;
 					get_token(lexer);
 				} else {
@@ -726,14 +726,14 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			} break;
 		case TOKEN_ENUM:
 			{
-				type_specifier = ast_make_node(AST_TYPE_ENUM, lexer->loc);
+				type_specifier = ast_make_node(AST_TYPE_ENUM, get_location(lexer));
 				get_token(lexer);
 				accept(lexer, TOKEN_IDENT);
 				expect(lexer, TOKEN_LBRACE);
 
 				ast_list enumerators = {0};
 				while (!lexer->error && lexer->peek[0].kind != TOKEN_RBRACE) {
-					ast_node node = ast_make_node(AST_ENUMERATOR, lexer->loc);
+					ast_node node = ast_make_node(AST_ENUMERATOR, get_location(lexer));
 					node.value.s = lexer->peek[0].value;
 					expect(lexer, TOKEN_IDENT);
 
@@ -753,7 +753,7 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			} break;
 		case TOKEN_STRUCT:
 			get_token(lexer);
-			type_specifier = ast_make_node(AST_TYPE_STRUCT, lexer->loc);
+			type_specifier = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
 			token = lexer->peek[0];
 			if (token.kind == TOKEN_IDENT) {
 				type_specifier.value.s = token.value;
@@ -806,7 +806,7 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 	}
 
 	if (qualifiers & (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED)) {
-		type_specifier = ast_make_node(AST_TYPE_INT, lexer->loc);
+		type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
 	}
 
 	ast_list list = {0};
@@ -820,10 +820,10 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 
 	type_specifier.flags = qualifiers;
 	if (lexer->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_node decl = ast_make_node(AST_DECL, lexer->loc);
+		ast_node decl = ast_make_node(AST_DECL, get_location(lexer));
 		decl.child[0] = ast_push(pool, type_specifier);
 
-		ast_node list_node = ast_make_node(AST_DECL_LIST, lexer->loc);
+		ast_node list_node = ast_make_node(AST_DECL_LIST, get_location(lexer));
 		list_node.child[0] = ast_push(pool, decl);
 		ast_append(pool, &list, list_node);
 		return list;
@@ -832,7 +832,7 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 	ast_id type_id = ast_push(pool, type_specifier);
 
 	do {
-		ast_node node = ast_make_node(AST_DECL_LIST, lexer->loc);
+		ast_node node = ast_make_node(AST_DECL_LIST, get_location(lexer));
 		ast_list decl = parse_declarator(lexer, flags, s, pool, arena);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.first.value != 0);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
@@ -848,7 +848,7 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 
 		if ((flags & PARSE_BITFIELD) && accept(lexer, TOKEN_COLON)) {
 			ast_id type = ast_get(pool, decl.first)->child[0];
-			ast_node bitfield = ast_make_node(AST_TYPE_BITFIELD, lexer->loc);
+			ast_node bitfield = ast_make_node(AST_TYPE_BITFIELD, get_location(lexer));
 			bitfield.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			bitfield.child[1] = type;
 
@@ -890,13 +890,13 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			get_token(lexer);
 			expect(lexer, TOKEN_SEMICOLON);
 
-			ast_node node = ast_make_node(AST_STMT_BREAK, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_BREAK, get_location(lexer));
 			result = ast_push(pool, node);
 		} break;
 	case TOKEN_CASE:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_STMT_CASE, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_CASE, get_location(lexer));
 			node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			expect(lexer, TOKEN_COLON);
 			node.child[1] = parse_stmt(lexer, s, pool, arena);
@@ -905,7 +905,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_CONTINUE:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_STMT_CONTINUE, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_CONTINUE, get_location(lexer));
 			expect(lexer, TOKEN_SEMICOLON);
 			result = ast_push(pool, node);
 		} break;
@@ -913,7 +913,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(lexer);
 			expect(lexer, TOKEN_COLON);
-			ast_node node = ast_make_node(AST_STMT_DEFAULT, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_DEFAULT, get_location(lexer));
 			node.child[0] = parse_stmt(lexer, s, pool, arena);
 			result = ast_push(pool, node);
 		} break;
@@ -925,7 +925,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			ast_id cond = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			expect(lexer, TOKEN_SEMICOLON);
 
-			ast_node node = ast_make_node(AST_STMT_DO_WHILE, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_DO_WHILE, get_location(lexer));
 			node.child[0] = cond;
 			node.child[1] = body;
 			result = ast_push(pool, node);
@@ -938,7 +938,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			get_token(lexer);
 			expect(lexer, TOKEN_LPAREN);
 
-			ast_node init = ast_make_node(AST_STMT_FOR1, lexer->loc);
+			ast_node init = ast_make_node(AST_STMT_FOR1, get_location(lexer));
 			if (!accept(lexer, TOKEN_SEMICOLON)) {
 				token = lexer->peek[0];
 				init.child[0] = parse_decl(lexer, 0, s, pool, arena).first;
@@ -948,26 +948,26 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 
 				expect(lexer, TOKEN_SEMICOLON);
 			} else {
-				ast_node empty = ast_make_node(AST_STMT_EMPTY, lexer->loc);
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, get_location(lexer));
 				init.child[0] = ast_push(pool, empty);
 			}
 
-			ast_node cond = ast_make_node(AST_STMT_FOR2, lexer->loc);
+			ast_node cond = ast_make_node(AST_STMT_FOR2, get_location(lexer));
 			if (!accept(lexer, TOKEN_SEMICOLON)) {
 				cond.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				expect(lexer, TOKEN_SEMICOLON);
 			} else {
-				ast_node one = ast_make_node(AST_EXPR_INT, lexer->loc);
+				ast_node one = ast_make_node(AST_EXPR_INT, get_location(lexer));
 				one.value.i = 1;
 				cond.child[0] = ast_push(pool, one);
 			}
 
-			ast_node post = ast_make_node(AST_STMT_FOR3, lexer->loc);
+			ast_node post = ast_make_node(AST_STMT_FOR3, get_location(lexer));
 			if (!accept(lexer, TOKEN_RPAREN)) {
 				post.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				expect(lexer, TOKEN_RPAREN);
 			} else {
-				ast_node empty = ast_make_node(AST_STMT_EMPTY, lexer->loc);
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, get_location(lexer));
 				post.child[0] = ast_push(pool, empty);
 			}
 
@@ -981,7 +981,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			get_token(lexer);
 			token = lexer->peek[0];
 			expect(lexer, TOKEN_IDENT);
-			ast_node node = ast_make_node(AST_STMT_GOTO, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_GOTO, get_location(lexer));
 			node.value.s = token.value;
 			result = ast_push(pool, node);
 			expect(lexer, TOKEN_SEMICOLON);
@@ -998,15 +998,15 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			if (accept(lexer, TOKEN_ELSE)) {
 				else_branch = parse_stmt(lexer, s, pool, arena);
 			} else {
-				ast_node empty = ast_make_node(AST_STMT_EMPTY, lexer->loc);
+				ast_node empty = ast_make_node(AST_STMT_EMPTY, get_location(lexer));
 				else_branch = ast_push(pool, empty);
 			}
 
-			ast_node branches = ast_make_node(AST_STMT_IF2, lexer->loc);
+			ast_node branches = ast_make_node(AST_STMT_IF2, get_location(lexer));
 			branches.child[0] = if_branch;
 			branches.child[1] = else_branch;
 
-			ast_node node = ast_make_node(AST_STMT_IF1, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_IF1, get_location(lexer));
 			node.child[0] = cond;
 			node.child[1] = ast_push(pool, branches);
 			result = ast_push(pool, node);
@@ -1019,7 +1019,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			expect(lexer, TOKEN_RPAREN);
 			ast_id body = parse_stmt(lexer, s, pool, arena);
 
-			ast_node node = ast_make_node(AST_STMT_WHILE, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_WHILE, get_location(lexer));
 			node.child[0] = cond;
 			node.child[1] = body;
 			result = ast_push(pool, node);
@@ -1027,7 +1027,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_RETURN:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_STMT_RETURN, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_RETURN, get_location(lexer));
 			if (!accept(lexer, TOKEN_SEMICOLON)) {
 				node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				expect(lexer, TOKEN_SEMICOLON);
@@ -1037,7 +1037,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_SWITCH:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_STMT_SWITCH, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_SWITCH, get_location(lexer));
 			expect(lexer, TOKEN_LPAREN);
 			node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			expect(lexer, TOKEN_RPAREN);
@@ -1047,7 +1047,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_SEMICOLON:
 		{
 			get_token(lexer);
-			ast_node node = ast_make_node(AST_STMT_EMPTY, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_EMPTY, get_location(lexer));
 			result = ast_push(pool, node);
 		} break;
 	case TOKEN_LBRACE:
@@ -1058,13 +1058,13 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			ast_list list = {0};
 			expect(lexer, TOKEN_LBRACE);
 			while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
-				ast_node node = ast_make_node(AST_STMT_LIST, lexer->loc);
+				ast_node node = ast_make_node(AST_STMT_LIST, get_location(lexer));
 				node.child[0] = parse_stmt(lexer, s, pool, arena);
 				ast_append(pool, &list, node);
 			}
 
 			if (list.first.value == 0) {
-				ast_node node = ast_make_node(AST_STMT_EMPTY, lexer->loc);
+				ast_node node = ast_make_node(AST_STMT_EMPTY, get_location(lexer));
 				list.first = ast_push(pool, node);
 			}
 
@@ -1074,7 +1074,7 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 		if (lexer->peek[0].kind == TOKEN_IDENT
 			&& lexer->peek[1].kind == TOKEN_COLON)
 		{
-			ast_node node = ast_make_node(AST_STMT_LABEL, lexer->loc);
+			ast_node node = ast_make_node(AST_STMT_LABEL, get_location(lexer));
 			node.value.s = token.value;
 			get_token(lexer);
 			get_token(lexer);
