@@ -737,17 +737,15 @@ get_token(lexer *lexer)
 						cpp_expect(lexer, TOKEN_RPAREN);
 					}
 
-					macro *m = upsert_macro(&cpp->macros, token.value, cpp->arena);
-					if (m->value.at != NULL) {
+					macro *m = upsert_macro(cpp->macros, token.value, cpp->arena);
+					if (m->loc.file != NULL) {
 						errorf(lexer->loc, "Macro was already defined");
 					}
 
 					m->name = name;
-					m->value.at = lexer->source.at + lexer->pos;
+					m->loc = lexer->loc;
 					m->params = params;
 					skip_line(lexer);
-					char *end = lexer->source.at + lexer->pos;
-					m->value.length = end - m->value.at;
 				}
 			} else {
 				fatalf(lexer->loc, "Invalid preprocessor directive");
@@ -772,8 +770,57 @@ get_token(lexer *lexer)
 				token.kind = TOKEN_WHITESPACE;
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
-			at_line_start = true;
-			skip_whitespace(lexer);
+			if (cpp->macro_depth > 0) {
+				cpp->macro_depth--;
+				cpp->expanded_macro[cpp->macro_depth]->was_expanded = false;
+				lexer->loc.offset = cpp->prev_loc[cpp->macro_depth].offset;
+				lexer->pos = lexer->loc.offset;
+				if (lexer->loc.file != cpp->prev_loc[cpp->macro_depth].file) {
+					lexer->source.at = NULL;
+					for (file *f = cpp->files; f; f = f->prev) {
+						if (lexer->loc.file == f->name) {
+							lexer->source = f->contents;
+							break;
+						}
+					}
+				}
+
+				// NOTE: We have to swap to whitespace, because a newline would
+				// allow a preprocessor directive after a macro invocation.
+				token.kind = TOKEN_WHITESPACE;
+				ASSERT(lexer->source.at);
+			} else {
+				at_line_start = true;
+				skip_whitespace(lexer);
+			}
+		} else if (!cpp->ignore_token && token.kind == TOKEN_IDENT) {
+			macro *m = upsert_macro(&cpp->macros[cpp->macro_depth], token.value, NULL);
+			if (m != NULL && !m->was_expanded) {
+				skip_whitespace(lexer);
+				if (m->params == NULL) {
+					m->was_expanded = true;
+					cpp->expanded_macro[cpp->macro_depth] = m;
+					cpp->prev_loc[cpp->macro_depth] = lexer->loc;
+					cpp->macro_depth++;
+
+					lexer->loc.offset = m->loc.offset;
+					lexer->pos = lexer->loc.offset;
+					if (lexer->loc.file != m->loc.file) {
+						lexer->source.at = NULL;
+						for (file *f = cpp->files; f; f = f->prev) {
+							if (lexer->loc.file == f->name) {
+								lexer->source = f->contents;
+								break;
+							}
+						}
+					}
+
+					token.kind = TOKEN_WHITESPACE;
+					ASSERT(lexer->source.at);
+				} else if (cpp_accept(lexer, TOKEN_LPAREN)) {
+					ASSERT(!"TODO");
+				}
+			}
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
 		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT);

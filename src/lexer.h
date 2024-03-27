@@ -130,7 +130,8 @@ struct macro_param {
 typedef struct macro macro;
 struct macro {
 	str name;
-	str value;
+	location loc;
+	b32 was_expanded;
 	macro_param *params;
 	macro *child[4];
 };
@@ -149,7 +150,12 @@ typedef struct {
 	i32 if_depth;
 	b32 ignore_token;
 	if_state if_state[64];
-	macro *macros;
+
+	i32 macro_depth;
+	macro *macros[64];
+	macro *expanded_macro[64];
+	location prev_loc[64];
+
 	file *files;
 	arena *arena;
 } cpp_state;
