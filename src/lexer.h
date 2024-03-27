@@ -136,13 +136,6 @@ struct macro {
 };
 
 typedef struct {
-	i32 if_depth;
-	if_state if_state[64];
-	b32 ignore_token;
-	macro *macros;
-	file *files;
-	arena *arena;
-
 	location loc;
 	str source;
 	isize pos;
@@ -150,6 +143,16 @@ typedef struct {
 	token peek[2];
 	char at[4];
 } lexer;
+
+typedef struct {
+	lexer lexer;
+	i32 if_depth;
+	b32 ignore_token;
+	if_state if_state[64];
+	macro *macros;
+	file *files;
+	arena *arena;
+} cpp_state;
 
 static char *
 get_token_name(token_kind kind)
