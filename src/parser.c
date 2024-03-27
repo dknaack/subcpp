@@ -992,18 +992,23 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 			expect(lexer, TOKEN_LPAREN);
 			ast_id cond = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			expect(lexer, TOKEN_RPAREN);
-			ast_node if_else = ast_make_node(AST_STMT_IF2, lexer->loc);
-			if_else.child[0] = parse_stmt(lexer, s, pool, arena);
+
+			ast_id if_branch = parse_stmt(lexer, s, pool, arena);
+			ast_id else_branch = {0};
 			if (accept(lexer, TOKEN_ELSE)) {
-				if_else.child[1] = parse_stmt(lexer, s, pool, arena);
+				else_branch = parse_stmt(lexer, s, pool, arena);
 			} else {
 				ast_node empty = ast_make_node(AST_STMT_EMPTY, lexer->loc);
-				if_else.child[1] = ast_push(pool, empty);
+				else_branch = ast_push(pool, empty);
 			}
+
+			ast_node branches = ast_make_node(AST_STMT_IF2, lexer->loc);
+			branches.child[0] = if_branch;
+			branches.child[1] = else_branch;
 
 			ast_node node = ast_make_node(AST_STMT_IF1, lexer->loc);
 			node.child[0] = cond;
-			node.child[1] = ast_push(pool, if_else);
+			node.child[1] = ast_push(pool, branches);
 			result = ast_push(pool, node);
 		} break;
 	case TOKEN_WHILE:
