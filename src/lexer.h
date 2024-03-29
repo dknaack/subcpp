@@ -117,28 +117,26 @@ struct file {
 	file *prev;
 	char *name;
 	str contents;
-	isize pos;
-	location loc;
-};
-
-typedef struct macro_param macro_param;
-struct macro_param {
-	macro_param *next;
-	str name;
+	isize offset;
 };
 
 typedef struct macro macro;
+typedef struct macro_table macro_table;
+struct macro_table {
+	macro_table *parent;
+	macro *macros;
+};
+
 struct macro {
 	str name;
-	location loc;
-	b32 was_expanded;
-	macro_param *params;
+	file value;
+	macro *next;
 	macro *child[4];
+	macro_table params;
 };
 
 typedef struct {
-	location loc;
-	str source;
+	file file;
 	b32 error;
 	token peek[2];
 	char at[4];
@@ -146,23 +144,21 @@ typedef struct {
 
 typedef struct {
 	lexer lexer;
+	arena *arena;
+
 	i32 if_depth;
 	b32 ignore_token;
 	if_state if_state[64];
-
-	i32 macro_depth;
-	macro *macros[64];
-	macro *expanded_macro[64];
-	location prev_loc[64];
-
-	file *files;
-	arena *arena;
+	macro_table *macros;
 } cpp_state;
 
 static location
 get_location(lexer *lexer)
 {
-	return lexer->loc;
+	location loc = {0};
+	loc.file = lexer->file.name;
+	loc.offset = lexer->file.offset;
+	return loc;
 }
 
 static char *

@@ -81,3 +81,11 @@ hash(str str)
 
 	return h;
 }
+
+static char *
+cstr(str s, arena *a)
+{
+	char *c = ALLOC(a, s.length + 1, char);
+	memcpy(c, s.at, s.length);
+	return c;
+}
