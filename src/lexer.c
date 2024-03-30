@@ -645,10 +645,12 @@ get_token(lexer *lexer)
 				if (!found_header && !is_system_header) {
 					b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 					if (is_relative_path) {
+						errno = 0;
 						str dir = dirname(make_str(cpp->lexer.file.name));
 						filename = concat_paths(dir, path, cpp->arena);
 						contents = read_file(filename.at, cpp->arena);
-						if (errno == 0) {
+						i32 error_value = errno;
+						if (error_value == 0) {
 							found_header = true;
 						}
 					}
@@ -663,10 +665,12 @@ get_token(lexer *lexer)
 					};
 
 					for (u32 i = 0; i < LENGTH(system_include_dirs); i++) {
+						errno = 0;
 						str dir = system_include_dirs[i];
 						filename = concat_paths(dir, path, cpp->arena);
 						contents = read_file(filename.at, cpp->arena);
-						if (errno == 0) {
+						i32 error_value = errno;
+						if (error_value == 0) {
 							found_header = true;
 							break;
 						}
