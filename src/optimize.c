@@ -159,7 +159,7 @@ optimize(ir_program program, arena *arena)
 				if (insts[op0].opcode == IR_CONST
 					&& insts[op1].opcode == IR_CONST)
 				{
-					insts[i].opcode = IR_ADD;
+					insts[i].opcode = IR_CONST;
 					insts[op1].opcode = IR_NOP;
 					insts[op0].opcode = IR_NOP;
 					insts[i].op0 = add(insts[op0].op0, insts[op1].op0);
