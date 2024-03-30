@@ -592,42 +592,34 @@ get_token(lexer *lexer)
 				token.kind = TOKEN_NEWLINE;
 			} else if (equals(token.value, S("include"))) {
 				str path = {0};
+				char end_char = '\0';
 				b32 is_system_header = false;
 				if (lexer->file.contents.at[lexer->file.offset] == '<') {
 					is_system_header = true;
-					advance(lexer);
-
-					char c;
-					isize start = lexer->file.offset;
-					do {
-						c = advance(lexer);
-					} while (c != '\n' && c != '>');
-					isize end = lexer->file.offset - 1;
-
-					path.at = lexer->file.contents.at + start;
-					path.length = end - start;
+					end_char = '>';
 				} else if (lexer->file.contents.at[lexer->file.offset] == '"') {
-					advance(lexer);
-
-					char c;
-					isize start = lexer->file.offset;
-					do {
-						c = advance(lexer);
-					} while (c != '\n' && c != '"');
-					isize end = lexer->file.offset - 1;
-
-					path.at = lexer->file.contents.at + start;
-					path.length = end - start;
+					end_char = '"';
 				} else {
 					ASSERT(!"Macro filenames have not been implement yet");
 				}
 
-				token.kind = TOKEN_NEWLINE;
-				skip_line(lexer);
+				advance(lexer);
+				char c = '\0';
+				isize start = lexer->file.offset;
+				do {
+					c = advance(lexer);
+				} while (c != '\n' && c != end_char);
+				isize end = lexer->file.offset - 1;
 
+				path.at = lexer->file.contents.at + start;
+				path.length = end - start;
 				if (path.length == 0) {
 					fatalf(get_location(lexer), "Invalid header path");
 				}
+
+				advance(lexer);
+				token.kind = TOKEN_NEWLINE;
+				skip_line(lexer);
 
 				str filename = {0};
 				str contents = {0};
