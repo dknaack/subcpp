@@ -617,7 +617,6 @@ get_token(lexer *lexer)
 					fatalf(get_location(lexer), "Invalid header path");
 				}
 
-				advance(lexer);
 				token.kind = TOKEN_NEWLINE;
 				skip_line(lexer);
 
@@ -678,6 +677,7 @@ get_token(lexer *lexer)
 					file *f = push_file(cpp);
 					f->name = cstr(filename, cpp->arena);
 					f->contents = contents;
+					f->offset = 0;
 				} else {
 					fatalf(get_location(lexer), "File not found");
 				}
@@ -741,14 +741,19 @@ get_token(lexer *lexer)
 			}
 
 			if (cpp->lexer.file.prev) {
+				token.kind = TOKEN_WHITESPACE;
+				at_line_start = true;
+				cpp->lexer.file = *cpp->lexer.file.prev;
 				if (cpp->macros->parent) {
+					// NOTE: Macros end in whitespace, because otherwise there
+					// could be a preprocessor directive after a macro.
+					at_line_start = false;
 					macro_table *prev = cpp->macros;
 					cpp->macros = prev->parent;
 					prev->parent = NULL;
 				}
 
-				cpp->lexer.file = *cpp->lexer.file.prev;
-				token.kind = TOKEN_WHITESPACE;
+				skip_whitespace(lexer);
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
@@ -830,11 +835,11 @@ get_token(lexer *lexer)
 }
 
 static cpp_state
-tokenize_str(str src, arena *perm)
+tokenize_str(str src, char *filename, arena *perm)
 {
 	cpp_state cpp = {0};
 	cpp.arena = perm;
-	cpp.lexer.file.name = "(no file)";
+	cpp.lexer.file.name = filename;
 	cpp.lexer.file.contents = src;
 	cpp.macros = ALLOC(perm, 1, macro_table);
 	get_token(&cpp.lexer);
@@ -846,7 +851,6 @@ static cpp_state
 tokenize(char *filename, arena *perm)
 {
 	str src = read_file(filename, perm);
-	cpp_state cpp = tokenize_str(src, perm);
-	cpp.lexer.file.name = filename;
+	cpp_state cpp = tokenize_str(src, filename, perm);
 	return cpp;
 }
