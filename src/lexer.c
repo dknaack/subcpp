@@ -767,7 +767,46 @@ get_token(lexer *lexer)
 			if (can_expand_macro) {
 				skip_whitespace(lexer);
 				b32 has_params = (m->params.macros != NULL);
-				if (!has_params) {
+				b32 expand_macro = !has_params;
+				if (has_params && cpp_accept(lexer, TOKEN_LPAREN)) {
+					macro *param = m->params.macros;
+					while (!cpp_accept(lexer, TOKEN_EOF)) {
+						skip_whitespace(lexer);
+
+						param->value = lexer->file;
+						param->value.prev = NULL;
+
+						token = cpp_peek_token(lexer);
+						while (token.kind != TOKEN_EOF
+							&& token.kind != TOKEN_COMMA
+							&& token.kind != TOKEN_RPAREN)
+						{
+							cpp_get_token(lexer);
+							token = cpp_peek_token(lexer);
+						}
+
+						param->value.contents.length = lexer->file.offset;
+						param = param->next;
+
+						if (token.kind != TOKEN_COMMA) {
+							break;
+						}
+
+						cpp_get_token(lexer);
+						if (param == NULL) {
+							fatalf(get_location(lexer), "Too many parameters");
+						}
+					}
+
+					if (param != NULL) {
+						fatalf(get_location(lexer), "Too few parameters");
+					}
+
+					cpp_expect(lexer, TOKEN_RPAREN);
+					expand_macro = true;
+				}
+
+				if (expand_macro) {
 					m->params.parent = cpp->macros;
 					cpp->macros = &m->params;
 
@@ -775,13 +814,8 @@ get_token(lexer *lexer)
 					f->name = m->value.name;
 					f->contents = m->value.contents;
 					f->offset = m->value.offset;
-					ASSERT(lexer->file.contents.at);
-				} else if (cpp_accept(lexer, TOKEN_LPAREN)) {
-					ASSERT(!"TODO");
-					cpp_expect(lexer, TOKEN_RPAREN);
+					token.kind = TOKEN_WHITESPACE;
 				}
-
-				token.kind = TOKEN_WHITESPACE;
 			}
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
