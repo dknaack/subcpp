@@ -705,9 +705,7 @@ get_token(lexer *lexer)
 					macro *params = NULL;
 					macro **ptr = &params;
 					skip_whitespace(lexer);
-					while (!cpp_accept(lexer, TOKEN_EOF)
-						&& !cpp_accept(lexer, TOKEN_RPAREN))
-					{
+					while (!cpp_accept(lexer, TOKEN_EOF)) {
 						token = cpp_get_token(lexer);
 						if (token.kind == TOKEN_IDENT) {
 							*ptr = upsert_macro(&m->params, token.value, cpp->arena);
@@ -722,6 +720,8 @@ get_token(lexer *lexer)
 
 						skip_whitespace(lexer);
 					}
+
+					cpp_expect(lexer, TOKEN_RPAREN);
 				}
 
 				m->name = name;
