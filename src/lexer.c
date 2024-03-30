@@ -451,6 +451,22 @@ parse_i64(str s)
 	return result;
 }
 
+static void
+push_if(cpp_state *cpp, b32 value)
+{
+	cpp->if_depth++;
+	if (cpp->if_depth > LENGTH(cpp->if_state)) {
+		fatalf(get_location(&cpp->lexer), "Internal error: Too many #ifs");
+	}
+
+	cpp->if_state[cpp->if_depth - 1] = 0;
+	cpp->ignore_token = true;
+	if (!cpp->ignore_token && value) {
+		cpp->if_state[cpp->if_depth - 1] = IF_TRUE;
+		cpp->ignore_token = false;
+	}
+}
+
 static token
 get_token(lexer *lexer)
 {
@@ -525,19 +541,26 @@ get_token(lexer *lexer)
 					fatalf(get_location(lexer), "(TODO)");
 				}
 
-				cpp->if_depth++;
-				if (cpp->if_depth > LENGTH(cpp->if_state)) {
-					fatalf(get_location(lexer), "Internal error: Too many #ifs");
-				}
-
-				cpp->if_state[cpp->if_depth - 1] = 0;
-				cpp->ignore_token = true;
-				if (!cpp->ignore_token && literal.value) {
-					cpp->if_state[cpp->if_depth - 1] = IF_TRUE;
-					cpp->ignore_token = false;
-				}
-
+				push_if(cpp, literal.value);
 				skip_line(lexer);
+			} else if (equals(token.value, S("ifdef"))) {
+				token = cpp_get_token(lexer);
+				if (token.kind != TOKEN_IDENT) {
+					fatalf(get_location(lexer), "Expected identifier");
+				}
+
+				macro *m = upsert_macro(cpp->macros, token.value, NULL);
+				b32 is_defined = (m != NULL);
+				push_if(cpp, is_defined);
+			} else if (equals(token.value, S("ifndef"))) {
+				token = cpp_get_token(lexer);
+				if (token.kind != TOKEN_IDENT) {
+					fatalf(get_location(lexer), "Expected identifier");
+				}
+
+				macro *m = upsert_macro(cpp->macros, token.value, NULL);
+				b32 is_defined = (m != NULL);
+				push_if(cpp, !is_defined);
 			} else if (equals(token.value, S("elif"))) {
 				if (cpp->if_depth <= 0) {
 					fatalf(get_location(lexer), "#elif without #if");
