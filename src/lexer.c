@@ -195,11 +195,14 @@ cpp_get_token(lexer *lexer)
 				}
 			} else if (lexer->at[1] == '*') {
 				token.kind = TOKEN_COMMENT;
-				while (lexer->at[1] != '*' && lexer->at[2] != '/'
+				while (!(lexer->at[1] == '*' && lexer->at[2] == '/')
 					&& lexer->at[1] != '\0')
 				{
 					advance(lexer);
 				}
+
+				advance(lexer);
+				advance(lexer);
 			} else {
 				token.kind = TOKEN_SLASH;
 			}
