@@ -600,10 +600,10 @@ push_if(cpp_state *cpp, b32 value)
 	}
 
 	cpp->if_state[cpp->if_depth - 1] = 0;
-	cpp->ignore_token = true;
 	if (!cpp->ignore_token && value) {
 		cpp->if_state[cpp->if_depth - 1] = IF_TRUE;
-		cpp->ignore_token = false;
+	} else {
+		cpp->ignore_token = true;
 	}
 }
 
