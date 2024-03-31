@@ -509,10 +509,12 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 	switch (token.kind) {
 	case TOKEN_IDENT:
 		if (equals(token.value, S("defined"))) {
-			cpp_get_token(lexer);
+			skip_whitespace(lexer);
 			if (cpp_accept(lexer, TOKEN_LPAREN)) {
+				skip_whitespace(lexer);
 				token = cpp_peek_token(lexer);
 				cpp_expect(lexer, TOKEN_IDENT);
+				skip_whitespace(lexer);
 				cpp_expect(lexer, TOKEN_RPAREN);
 			} else {
 				token = cpp_peek_token(lexer);
