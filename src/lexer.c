@@ -548,6 +548,11 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 		}
 
 		break;
+	case TOKEN_LPAREN:
+		result = cpp_parse_expr(cpp, PREC_ASSIGN);
+		skip_whitespace(lexer);
+		cpp_expect(lexer, TOKEN_RPAREN);
+		break;
 	default:
 		errorf(get_location(lexer), "Invalid expression");
 	}
