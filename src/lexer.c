@@ -838,6 +838,8 @@ get_token(lexer *lexer)
 				m->value.prev = NULL;
 				skip_line(lexer);
 				m->value.contents.length = lexer->file.offset;
+			} else if (equals(token.value, S("pragma"))) {
+				skip_line(lexer);
 			} else if (equals(token.value, S("error"))) {
 				// TODO: Print the message
 				errorf(get_location(lexer), "Error directive");
