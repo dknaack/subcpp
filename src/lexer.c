@@ -426,28 +426,168 @@ upsert_macro(macro_table *table, str name, arena *perm)
 	return m;
 }
 
-typedef struct {
-	i64 value;
-	b32 ok;
-} option_i64;
-
-// TODO: integer suffixes?
-static option_i64
-parse_i64(str s)
+static token
+expand(cpp_state *cpp, token token)
 {
-	option_i64 result = {0};
-
-	while (s.length-- > 0) {
-		char c = *s.at++;
-		if (!is_digit(c)) {
-			return result;
-		}
-
-		result.value *= 10;
-		result.value += c - '0';
+	lexer *lexer = &cpp->lexer;
+	if (cpp->ignore_token) {
+		return token;
 	}
 
-	result.ok = true;
+	for (;;) {
+		macro *m = upsert_macro(cpp->macros, token.value, NULL);
+		b32 can_expand_macro = (m != NULL && m->params.parent == NULL);
+		if (!can_expand_macro) {
+			break;
+		}
+
+		skip_whitespace(lexer);
+		b32 has_params = (m->params.macros != NULL);
+		if (has_params) {
+			if (!cpp_accept(lexer, TOKEN_LPAREN)) {
+				break;
+			}
+
+			macro *param = m->params.macros;
+			while (!cpp_accept(lexer, TOKEN_EOF)) {
+				skip_whitespace(lexer);
+
+				param->value = lexer->file;
+				param->value.prev = NULL;
+
+				token = cpp_peek_token(lexer);
+				while (token.kind != TOKEN_EOF
+					&& token.kind != TOKEN_COMMA
+					&& token.kind != TOKEN_RPAREN)
+				{
+					cpp_get_token(lexer);
+					token = cpp_peek_token(lexer);
+				}
+
+				param->value.contents.length = lexer->file.offset;
+				param = param->next;
+
+				if (token.kind != TOKEN_COMMA) {
+					break;
+				}
+
+				cpp_get_token(lexer);
+				if (param == NULL) {
+					fatalf(get_location(lexer), "Too many parameters");
+				}
+			}
+
+			if (param != NULL) {
+				fatalf(get_location(lexer), "Too few parameters");
+			}
+
+			cpp_expect(lexer, TOKEN_RPAREN);
+		}
+
+		m->params.parent = cpp->macros;
+		cpp->macros = &m->params;
+
+		file *f = push_file(cpp);
+		f->name = m->value.name;
+		f->contents = m->value.contents;
+		f->offset = m->value.offset;
+		skip_whitespace(lexer);
+		token = cpp_get_token(lexer);
+	}
+
+	return token;
+}
+
+static i64
+cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
+{
+	i64 result = 0;
+	lexer *lexer = &cpp->lexer;
+
+	skip_whitespace(lexer);
+	token token = expand(cpp, cpp_get_token(lexer));
+	switch (token.kind) {
+	case TOKEN_IDENT:
+		if (equals(token.value, S("defined"))) {
+			cpp_get_token(lexer);
+			if (cpp_accept(lexer, TOKEN_LPAREN)) {
+				token = cpp_peek_token(lexer);
+				cpp_expect(lexer, TOKEN_IDENT);
+				cpp_expect(lexer, TOKEN_RPAREN);
+			} else {
+				token = cpp_peek_token(lexer);
+				cpp_expect(lexer, TOKEN_IDENT);
+			}
+
+			macro *m = upsert_macro(cpp->macros, token.value, NULL);
+			result = (m != NULL);
+		} else {
+			result = 0;
+		}
+		break;
+	case TOKEN_PLUS:
+		result = +cpp_parse_expr(cpp, PREC_PRIMARY);
+		break;
+	case TOKEN_MINUS:
+		result = -cpp_parse_expr(cpp, PREC_PRIMARY);
+		break;
+	case TOKEN_BANG:
+		result = !cpp_parse_expr(cpp, PREC_PRIMARY);
+		break;
+	case TOKEN_LITERAL_INT:
+		while (token.value.length-- > 0) {
+			char c = *token.value.at++;
+			if (!is_digit(c)) {
+				break;
+			}
+
+			result *= 10;
+			result += c - '0';
+		}
+
+		break;
+	default:
+		errorf(get_location(lexer), "Invalid expression");
+	}
+
+	while (!lexer->error) {
+		skip_whitespace(lexer);
+		token = cpp_peek_token(lexer);
+		if (token.kind == TOKEN_EOF || token.kind == TOKEN_NEWLINE) {
+			break;
+		}
+
+		precedence prec = get_precedence(token.kind);
+		if (prec == PREC_NONE || prec < prev_prec) {
+			break;
+		}
+
+		cpp_get_token(lexer);
+		i64 lhs = result;
+		i64 rhs = cpp_parse_expr(cpp, prec);
+		switch (token.kind) {
+		case TOKEN_AMP:           result = lhs & rhs;  break;
+		case TOKEN_AMP_AMP:       result = lhs && rhs; break;
+		case TOKEN_BAR:           result = lhs | rhs;  break;
+		case TOKEN_BAR_BAR:       result = lhs || rhs; break;
+		case TOKEN_CARET:         result = lhs ^ rhs;  break;
+		case TOKEN_EQUAL_EQUAL:   result = lhs == rhs; break;
+		case TOKEN_GREATER:       result = lhs > rhs;  break;
+		case TOKEN_GREATER_EQUAL: result = lhs >= rhs; break;
+		case TOKEN_RSHIFT:        result = lhs >> rhs; break;
+		case TOKEN_LESS:          result = lhs < rhs;  break;
+		case TOKEN_LESS_EQUAL:    result = lhs <= rhs; break;
+		case TOKEN_LSHIFT:        result = lhs << rhs; break;
+		case TOKEN_MINUS:         result = lhs - rhs;  break;
+		case TOKEN_PERCENT:       result = lhs % rhs;  break;
+		case TOKEN_PLUS:          result = lhs + rhs;  break;
+		case TOKEN_SLASH:         result = lhs / rhs;  break;
+		case TOKEN_STAR:          result = lhs * rhs;  break;
+		default:
+			errorf(get_location(lexer), "Invalid operator");
+		}
+	}
+
 	return result;
 }
 
@@ -531,17 +671,8 @@ get_token(lexer *lexer)
 
 			skip_whitespace(lexer);
 			if (equals(token.value, S("if"))) {
-				token = cpp_get_token(lexer);
-				if (token.kind != TOKEN_LITERAL_INT) {
-					fatalf(get_location(lexer), "(TODO)");
-				}
-
-				option_i64 literal = parse_i64(token.value);
-				if (!literal.ok) {
-					fatalf(get_location(lexer), "(TODO)");
-				}
-
-				push_if(cpp, literal.value);
+				i64 value = cpp_parse_expr(cpp, PREC_ASSIGN);
+				push_if(cpp, value);
 				skip_line(lexer);
 			} else if (equals(token.value, S("ifdef"))) {
 				token = cpp_get_token(lexer);
@@ -570,18 +701,9 @@ get_token(lexer *lexer)
 					fatalf(get_location(lexer), "#elif after #else");
 				}
 
-				token = cpp_get_token(lexer);
-				if (token.kind != TOKEN_LITERAL_INT) {
-					fatalf(get_location(lexer), "(TODO)");
-				}
-
-				option_i64 literal = parse_i64(token.value);
-				if (!literal.ok) {
-					fatalf(get_location(lexer), "(TODO)");
-				}
-
+				i64 value = cpp_parse_expr(cpp, PREC_ASSIGN);
 				cpp->ignore_token = true;
-				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE) && literal.value) {
+				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE) && value) {
 					cpp->if_state[cpp->if_depth - 1] |= IF_TRUE;
 					cpp->ignore_token = false;
 				}
@@ -789,61 +911,7 @@ get_token(lexer *lexer)
 			at_line_start = true;
 			skip_whitespace(lexer);
 		} else if (!cpp->ignore_token && token.kind == TOKEN_IDENT) {
-			macro *m = upsert_macro(cpp->macros, token.value, NULL);
-			b32 can_expand_macro = (m != NULL && m->params.parent == NULL);
-			if (can_expand_macro) {
-				skip_whitespace(lexer);
-				b32 has_params = (m->params.macros != NULL);
-				b32 expand_macro = !has_params;
-				if (has_params && cpp_accept(lexer, TOKEN_LPAREN)) {
-					macro *param = m->params.macros;
-					while (!cpp_accept(lexer, TOKEN_EOF)) {
-						skip_whitespace(lexer);
-
-						param->value = lexer->file;
-						param->value.prev = NULL;
-
-						token = cpp_peek_token(lexer);
-						while (token.kind != TOKEN_EOF
-							&& token.kind != TOKEN_COMMA
-							&& token.kind != TOKEN_RPAREN)
-						{
-							cpp_get_token(lexer);
-							token = cpp_peek_token(lexer);
-						}
-
-						param->value.contents.length = lexer->file.offset;
-						param = param->next;
-
-						if (token.kind != TOKEN_COMMA) {
-							break;
-						}
-
-						cpp_get_token(lexer);
-						if (param == NULL) {
-							fatalf(get_location(lexer), "Too many parameters");
-						}
-					}
-
-					if (param != NULL) {
-						fatalf(get_location(lexer), "Too few parameters");
-					}
-
-					cpp_expect(lexer, TOKEN_RPAREN);
-					expand_macro = true;
-				}
-
-				if (expand_macro) {
-					m->params.parent = cpp->macros;
-					cpp->macros = &m->params;
-
-					file *f = push_file(cpp);
-					f->name = m->value.name;
-					f->contents = m->value.contents;
-					f->offset = m->value.offset;
-					token.kind = TOKEN_WHITESPACE;
-				}
-			}
+			token = expand(cpp, token);
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
 		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT);
