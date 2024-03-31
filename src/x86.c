@@ -14,6 +14,8 @@ push_inst(machine_program *program, u32 opcode, u32 operand_count)
 static void
 push_operand(machine_program *program, machine_operand operand)
 {
+	machine_function *func = &program->functions[program->function_count - 1];
+	ASSERT(operand.kind != MOP_VREG || operand.value < func->register_count);
 	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
 	program->size += sizeof(operand);
 }
@@ -677,7 +679,7 @@ x86_select_instructions(ir_program program, arena *arena)
 
 		for (u32 i = 0; i < ir_func->parameter_count; i++) {
 			// TODO: Set the correct size of the parameters
-			machine_operand dst = make_operand(MOP_VREG, ir_func->inst_index+i, 8);
+			machine_operand dst = make_operand(MOP_VREG, i, 8);
 			machine_operand src;
 			switch (i) {
 			case 0:
