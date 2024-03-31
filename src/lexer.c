@@ -614,43 +614,6 @@ get_token(lexer *lexer)
 {
 	cpp_state *cpp = (cpp_state *)lexer;
 	token tmp, token = {TOKEN_INVALID};
-	struct {
-		token_kind token;
-		str str;
-	} keywords[] = {
-		{ TOKEN_AUTO,         S("auto")          },
-		{ TOKEN_BREAK,        S("break")         },
-		{ TOKEN_CASE,         S("case")          },
-		{ TOKEN_CHAR,         S("char")          },
-		{ TOKEN_CONST,        S("const")         },
-		{ TOKEN_CONTINUE,     S("continue")      },
-		{ TOKEN_DO,           S("do")            },
-		{ TOKEN_DEFAULT,      S("default")       },
-		{ TOKEN_ELSE,         S("else")          },
-		{ TOKEN_ENUM,         S("enum")          },
-		{ TOKEN_EXTERN,       S("extern")        },
-		{ TOKEN_FLOAT,        S("float")         },
-		{ TOKEN_FOR,          S("for")           },
-		{ TOKEN_GOTO,         S("goto")          },
-		{ TOKEN_IF,           S("if")            },
-		{ TOKEN_INT,          S("int")           },
-		{ TOKEN_LONG,         S("long")          },
-		{ TOKEN_REGISTER,     S("register")      },
-		{ TOKEN_RESTRICT,     S("restrict")      },
-		{ TOKEN_RETURN,       S("return")        },
-		{ TOKEN_SIGNED,       S("signed")        },
-		{ TOKEN_SHORT,        S("short")         },
-		{ TOKEN_STATIC,       S("static")        },
-		{ TOKEN_STRUCT,       S("struct")        },
-		{ TOKEN_SWITCH,       S("switch")        },
-		{ TOKEN_THREAD_LOCAL, S("_Thread_local") },
-		{ TOKEN_TYPEDEF,      S("typedef")       },
-		{ TOKEN_UNSIGNED,     S("unsigned")      },
-		{ TOKEN_VOID,         S("void")          },
-		{ TOKEN_VOLATILE,     S("volatile")      },
-		{ TOKEN_WHILE,        S("while")         },
-	};
-
 	b32 at_line_start = (lexer->file.offset == 0);
 	do {
 		token = cpp_get_token(lexer);
@@ -919,6 +882,43 @@ get_token(lexer *lexer)
 		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT);
 
 	if (token.kind == TOKEN_IDENT) {
+		struct {
+			token_kind token;
+			str str;
+		} keywords[] = {
+			{ TOKEN_AUTO,         S("auto")          },
+			{ TOKEN_BREAK,        S("break")         },
+			{ TOKEN_CASE,         S("case")          },
+			{ TOKEN_CHAR,         S("char")          },
+			{ TOKEN_CONST,        S("const")         },
+			{ TOKEN_CONTINUE,     S("continue")      },
+			{ TOKEN_DO,           S("do")            },
+			{ TOKEN_DEFAULT,      S("default")       },
+			{ TOKEN_ELSE,         S("else")          },
+			{ TOKEN_ENUM,         S("enum")          },
+			{ TOKEN_EXTERN,       S("extern")        },
+			{ TOKEN_FLOAT,        S("float")         },
+			{ TOKEN_FOR,          S("for")           },
+			{ TOKEN_GOTO,         S("goto")          },
+			{ TOKEN_IF,           S("if")            },
+			{ TOKEN_INT,          S("int")           },
+			{ TOKEN_LONG,         S("long")          },
+			{ TOKEN_REGISTER,     S("register")      },
+			{ TOKEN_RESTRICT,     S("restrict")      },
+			{ TOKEN_RETURN,       S("return")        },
+			{ TOKEN_SIGNED,       S("signed")        },
+			{ TOKEN_SHORT,        S("short")         },
+			{ TOKEN_STATIC,       S("static")        },
+			{ TOKEN_STRUCT,       S("struct")        },
+			{ TOKEN_SWITCH,       S("switch")        },
+			{ TOKEN_THREAD_LOCAL, S("_Thread_local") },
+			{ TOKEN_TYPEDEF,      S("typedef")       },
+			{ TOKEN_UNSIGNED,     S("unsigned")      },
+			{ TOKEN_VOID,         S("void")          },
+			{ TOKEN_VOLATILE,     S("volatile")      },
+			{ TOKEN_WHILE,        S("while")         },
+		};
+
 		for (usize i = 0; i < LENGTH(keywords); i++) {
 			if (equals(token.value, keywords[i].str)) {
 				token.kind = keywords[i].token;
