@@ -984,13 +984,13 @@ get_token(lexer *lexer)
 }
 
 static cpp_state
-tokenize_str(str src, char *filename, arena *perm)
+tokenize(char *filename, str src, arena *arena)
 {
 	cpp_state cpp = {0};
-	cpp.arena = perm;
+	cpp.arena = arena;
 	cpp.lexer.file.name = filename;
 	cpp.lexer.file.contents = src;
-	cpp.macros = ALLOC(perm, 1, macro_table);
+	cpp.macros = ALLOC(arena, 1, macro_table);
 
 	static struct { str name, value; } predefined_macros[] = {
 		{ S("__STDC_VERSION__"), S("201710L") },
@@ -1009,13 +1009,5 @@ tokenize_str(str src, char *filename, arena *perm)
 
 	get_token(&cpp.lexer);
 	get_token(&cpp.lexer);
-	return cpp;
-}
-
-static cpp_state
-tokenize(char *filename, arena *perm)
-{
-	str src = read_file(filename, perm);
-	cpp_state cpp = tokenize_str(src, filename, perm);
 	return cpp;
 }
