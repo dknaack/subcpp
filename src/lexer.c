@@ -880,6 +880,14 @@ get_token(lexer *lexer)
 				m->value.prev = NULL;
 				skip_line(lexer);
 				m->value.contents.length = lexer->file.offset;
+			} else if (equals(token.value, S("undef"))) {
+				token = cpp_get_token(lexer);
+				macro *m = upsert_macro(cpp->macros, token.value, NULL);
+				if (m != NULL) {
+					m->name = tombstone;
+				}
+
+				skip_line(lexer);
 			} else if (equals(token.value, S("pragma"))) {
 				skip_line(lexer);
 			} else if (equals(token.value, S("error"))) {
