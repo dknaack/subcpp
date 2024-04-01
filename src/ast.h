@@ -108,6 +108,79 @@ typedef struct {
 static const ast_node ast_nil = {0};
 static const ast_id ast_id_nil = {0};
 
+typedef enum {
+	PREC_NONE,
+	PREC_COMMA,
+	PREC_ASSIGN,
+	PREC_TERNARY,
+	PREC_LOR,
+	PREC_LAND,
+	PREC_BOR,
+	PREC_XOR,
+	PREC_BAND,
+	PREC_EQUAL,
+	PREC_COMPARE,
+	PREC_SHIFT,
+	PREC_TERM,
+	PREC_FACTOR,
+	PREC_PRIMARY,
+} precedence;
+
+/* NOTE: An operator with negative precedence is right associative. */
+static precedence
+get_precedence(token_kind token)
+{
+	switch (token) {
+	case TOKEN_COMMA:
+		return PREC_COMMA;
+	case TOKEN_QMARK:
+		return PREC_TERNARY;
+	case TOKEN_EQUAL:
+	case TOKEN_PLUS_EQUAL:
+	case TOKEN_MINUS_EQUAL:
+	case TOKEN_STAR_EQUAL:
+	case TOKEN_SLASH_EQUAL:
+	case TOKEN_PERCENT_EQUAL:
+	case TOKEN_AMP_EQUAL:
+	case TOKEN_BAR_EQUAL:
+		return PREC_ASSIGN;
+	case TOKEN_BAR_BAR:
+		return PREC_LOR;
+	case TOKEN_AMP_AMP:
+		return PREC_LAND;
+	case TOKEN_BAR:
+		return PREC_BOR;
+	case TOKEN_CARET:
+		return PREC_XOR;
+	case TOKEN_AMP:
+		return PREC_BAND;
+	case TOKEN_LSHIFT:
+	case TOKEN_RSHIFT:
+		return PREC_SHIFT;
+	case TOKEN_PLUS:
+	case TOKEN_MINUS:
+		return PREC_TERM;
+	case TOKEN_STAR:
+	case TOKEN_SLASH:
+	case TOKEN_PERCENT:
+		return PREC_FACTOR;
+	case TOKEN_EQUAL_EQUAL:
+		return PREC_EQUAL;
+	case TOKEN_LESS:
+	case TOKEN_GREATER:
+	case TOKEN_LESS_EQUAL:
+	case TOKEN_GREATER_EQUAL:
+		return PREC_COMPARE;
+	case TOKEN_LBRACKET:
+	case TOKEN_DOT:
+	case TOKEN_PLUS_PLUS:
+	case TOKEN_MINUS_MINUS:
+		return PREC_PRIMARY;
+	default:
+		return PREC_NONE;
+	}
+}
+
 static b32
 is_statement(ast_node_kind node_kind)
 {
