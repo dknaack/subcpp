@@ -590,7 +590,22 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 
 		cpp_get_token(lexer);
 		i64 lhs = result;
-		i64 rhs = cpp_parse_expr(cpp, prec);
+		i64 rhs = 0;
+		if (token.kind == TOKEN_QMARK) {
+			lhs = cpp_parse_expr(cpp, prec);
+			skip_whitespace(lexer);
+			token = expand(cpp, cpp_get_token(lexer));
+			if (token.kind != TOKEN_COLON) {
+				errorf(get_location(lexer), "Expected ':'");
+			}
+
+			skip_whitespace(lexer);
+			rhs = cpp_parse_expr(cpp, prec);
+			token.kind = TOKEN_QMARK;
+		} else {
+			rhs = cpp_parse_expr(cpp, prec);
+		}
+
 		switch (token.kind) {
 		case TOKEN_AMP:           result = lhs & rhs;  break;
 		case TOKEN_AMP_AMP:       result = lhs && rhs; break;
@@ -609,6 +624,7 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 		case TOKEN_PLUS:          result = lhs + rhs;  break;
 		case TOKEN_SLASH:         result = lhs / rhs;  break;
 		case TOKEN_STAR:          result = lhs * rhs;  break;
+		case TOKEN_QMARK:         result = result ? lhs : rhs; break;
 		default:
 			errorf(get_location(lexer), "Invalid operator");
 		}
