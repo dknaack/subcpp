@@ -1061,23 +1061,24 @@ parse_external_decl(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	return list;
 }
 
-static b32
-parse(lexer *lexer, ast_pool *pool, arena *arena)
+static ast_pool
+parse(lexer *lexer, arena *arena)
 {
+	ast_pool pool = {0};
 	ast_list list = {0};
 	scope s = new_scope(NULL);
 
 	do {
-		ast_list decls = parse_external_decl(lexer, &s, pool, arena);
-		ast_concat(pool, &list, decls);
+		ast_list decls = parse_external_decl(lexer, &s, &pool, arena);
+		ast_concat(&pool, &list, decls);
 	} while (!lexer->error && !accept(lexer, TOKEN_EOF));
 
-	pool->root = list.first;
-	ast_shrink(pool);
+	pool.root = list.first;
+	ast_shrink(&pool);
 
-	if (pool->root.value == 0) {
+	if (pool.root.value == 0) {
 		lexer->error = true;
 	}
 
-	return lexer->error;
+	return pool;
 }

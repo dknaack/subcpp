@@ -107,11 +107,9 @@ main(int argc, char *argv[])
 	}
 
 	arena *arena = new_arena(5 * 1024 * 1024);
-	ast_pool pool = {0};
-
 	str src = read_file(input, arena);
 	cpp_state cpp = tokenize(input, src, arena);
-	parse(&cpp.lexer, &pool, arena);
+	ast_pool pool = parse(&cpp.lexer, arena);
 	symbol_table symbol_table = check(&pool, arena);
 
 	if (!pool.error) {
