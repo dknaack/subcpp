@@ -444,6 +444,16 @@ expand(cpp_state *cpp, token token)
 	}
 
 	for (;;) {
+		while (token.kind == TOKEN_EOF && cpp->macros->parent) {
+			cpp->lexer.file = *cpp->lexer.file.prev;
+			macro_table *prev = cpp->macros;
+			cpp->macros = prev->parent;
+			prev->parent = NULL;
+
+			skip_whitespace(lexer);
+			token = cpp_get_token(lexer);
+		}
+
 		macro *m = upsert_macro(cpp->macros, token.value, NULL);
 		b32 can_expand_macro = (m != NULL && m->params.parent == NULL);
 		if (!can_expand_macro) {
@@ -879,19 +889,12 @@ get_token(lexer *lexer)
 				fatalf(get_location(lexer), "Unterminated #if");
 			}
 
-			if (cpp->lexer.file.prev) {
-				token.kind = TOKEN_WHITESPACE;
+			if (cpp->lexer.file.prev != NULL) {
+				ASSERT(cpp->macros->parent == NULL);
+
+				token.kind = TOKEN_NEWLINE;
 				at_line_start = true;
 				cpp->lexer.file = *cpp->lexer.file.prev;
-				if (cpp->macros->parent) {
-					// NOTE: Macros end in whitespace, because otherwise there
-					// could be a preprocessor directive after a macro.
-					at_line_start = false;
-					macro_table *prev = cpp->macros;
-					cpp->macros = prev->parent;
-					prev->parent = NULL;
-				}
-
 				skip_whitespace(lexer);
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
