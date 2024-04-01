@@ -360,9 +360,10 @@ skip_whitespace(lexer *lexer)
 static void
 skip_line(lexer *lexer)
 {
-	while (!cpp_accept(lexer, TOKEN_EOF) && !cpp_accept(lexer, TOKEN_NEWLINE)) {
-		cpp_accept(lexer, TOKEN_BACKSLASH);
+	token token = cpp_peek_token(lexer);
+	while (token.kind != TOKEN_NEWLINE && token.kind != TOKEN_EOF) {
 		cpp_get_token(lexer);
+		token = cpp_peek_token(lexer);
 	}
 }
 
