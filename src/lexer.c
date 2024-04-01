@@ -111,9 +111,16 @@ cpp_get_token(lexer *lexer)
 	case '~':  token.kind = TOKEN_TILDE;     break;
 	case '^':  token.kind = TOKEN_CARET;     break;
 	case '!':  token.kind = TOKEN_BANG;      break;
-	case '\\': token.kind = TOKEN_BACKSLASH; break;
 	case '\n': token.kind = TOKEN_NEWLINE;   break;
 	case '\0': token.kind = TOKEN_EOF;       break;
+	case '\\':
+		if (lexer->at[1] == '\n') {
+			advance(lexer);
+			token.kind = TOKEN_WHITESPACE;
+		} else {
+			token.kind = TOKEN_BACKSLASH;
+		}
+		break;
 	case '.':
 		if (lexer->at[1] == '.' && lexer->at[2] == '.') {
 			token.kind = TOKEN_ELLIPSIS;
