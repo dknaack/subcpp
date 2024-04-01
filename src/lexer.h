@@ -118,6 +118,7 @@ struct file {
 	char *name;
 	str contents;
 	isize offset;
+	i32 if_depth;
 };
 
 typedef struct macro macro;
@@ -146,7 +147,6 @@ typedef struct {
 	lexer lexer;
 	arena *arena;
 
-	i32 if_depth;
 	b32 ignore_token;
 	if_state if_state[64];
 	macro_table *macros;

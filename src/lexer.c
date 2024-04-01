@@ -389,6 +389,7 @@ push_file(cpp_state *cpp)
 	lexer *lexer = &cpp->lexer;
 	file *f = ALLOC(cpp->arena, 1, file);
 	*f = lexer->file;
+	f->if_depth = 0;
 	lexer->file.prev = f;
 	return &lexer->file;
 }
@@ -601,14 +602,14 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 static void
 push_if(cpp_state *cpp, b32 value)
 {
-	cpp->if_depth++;
-	if (cpp->if_depth > LENGTH(cpp->if_state)) {
+	cpp->lexer.file.if_depth++;
+	if (cpp->lexer.file.if_depth > LENGTH(cpp->if_state)) {
 		fatalf(get_location(&cpp->lexer), "Internal error: Too many #ifs");
 	}
 
-	cpp->if_state[cpp->if_depth - 1] = 0;
+	cpp->if_state[cpp->lexer.file.if_depth - 1] = 0;
 	if (!cpp->ignore_token && value) {
-		cpp->if_state[cpp->if_depth - 1] = IF_TRUE;
+		cpp->if_state[cpp->lexer.file.if_depth - 1] = IF_TRUE;
 	} else {
 		cpp->ignore_token = true;
 	}
@@ -632,10 +633,10 @@ get_token(lexer *lexer)
 
 			if_state curr_state = IF_TRUE;
 			if_state prev_state = IF_TRUE;
-			if (cpp->if_depth > 0) {
-				curr_state = cpp->if_state[cpp->if_depth - 1];
-				if (cpp->if_depth > 1) {
-					prev_state = cpp->if_state[cpp->if_depth - 2];
+			if (cpp->lexer.file.if_depth > 0) {
+				curr_state = cpp->if_state[cpp->lexer.file.if_depth - 1];
+				if (cpp->lexer.file.if_depth > 1) {
+					prev_state = cpp->if_state[cpp->lexer.file.if_depth - 2];
 				}
 			}
 
@@ -663,7 +664,7 @@ get_token(lexer *lexer)
 				b32 is_defined = (m != NULL);
 				push_if(cpp, !is_defined);
 			} else if (equals(token.value, S("elif"))) {
-				if (cpp->if_depth <= 0) {
+				if (cpp->lexer.file.if_depth <= 0) {
 					fatalf(get_location(lexer), "#elif without #if");
 				}
 
@@ -671,16 +672,18 @@ get_token(lexer *lexer)
 					fatalf(get_location(lexer), "#elif after #else");
 				}
 
-				i64 value = cpp_parse_expr(cpp, PREC_ASSIGN);
 				cpp->ignore_token = true;
-				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE) && value) {
-					cpp->if_state[cpp->if_depth - 1] |= IF_TRUE;
-					cpp->ignore_token = false;
+				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
+					i64 value = cpp_parse_expr(cpp, PREC_ASSIGN);
+					if (value) {
+						cpp->if_state[cpp->lexer.file.if_depth - 1] |= IF_TRUE;
+						cpp->ignore_token = false;
+					}
 				}
 
 				skip_line(lexer);
 			} else if (equals(token.value, S("else"))) {
-				if (cpp->if_depth <= 0) {
+				if (cpp->lexer.file.if_depth <= 0) {
 					fatalf(get_location(lexer), "#else without #if");
 				}
 
@@ -689,20 +692,20 @@ get_token(lexer *lexer)
 				}
 
 				cpp->ignore_token = true;
-				cpp->if_state[cpp->if_depth - 1] |= IF_HAS_ELSE;
+				cpp->if_state[cpp->lexer.file.if_depth - 1] |= IF_HAS_ELSE;
 				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
-					cpp->if_state[cpp->if_depth - 1] |= IF_TRUE;
+					cpp->if_state[cpp->lexer.file.if_depth - 1] |= IF_TRUE;
 					cpp->ignore_token = false;
 				}
 
 				skip_line(lexer);
 			} else if (equals(token.value, S("endif"))) {
-				if (cpp->if_depth <= 0) {
+				if (cpp->lexer.file.if_depth <= 0) {
 					fatalf(get_location(lexer), "#endif without #if");
 				}
 
 				cpp->ignore_token = !(prev_state & IF_TRUE);
-				cpp->if_depth--;
+				cpp->lexer.file.if_depth--;
 
 				skip_line(lexer);
 			} else if (cpp->ignore_token) {
@@ -864,7 +867,7 @@ get_token(lexer *lexer)
 				token.kind = TOKEN_INVALID;
 			}
 		} else if (token.kind == TOKEN_EOF) {
-			if (cpp->if_depth > 0) {
+			if (cpp->lexer.file.if_depth > 0) {
 				fatalf(get_location(lexer), "Unterminated #if");
 			}
 
