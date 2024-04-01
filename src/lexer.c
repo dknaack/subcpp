@@ -578,7 +578,7 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 
 	while (!lexer->error) {
 		skip_whitespace(lexer);
-		token = cpp_peek_token(lexer);
+		token = expand(cpp, cpp_peek_token(lexer));
 		if (token.kind == TOKEN_EOF || token.kind == TOKEN_NEWLINE) {
 			break;
 		}
@@ -875,6 +875,8 @@ get_token(lexer *lexer)
 			}
 
 			token.kind = TOKEN_NEWLINE;
+		} else {
+			token = expand(cpp, token);
 		}
 
 		if (token.kind == TOKEN_BACKSLASH) {
@@ -900,8 +902,6 @@ get_token(lexer *lexer)
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
 			skip_whitespace(lexer);
-		} else if (!cpp->ignore_token && token.kind == TOKEN_IDENT) {
-			token = expand(cpp, token);
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
 		|| token.kind == TOKEN_NEWLINE || token.kind == TOKEN_COMMENT);
