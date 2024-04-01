@@ -991,6 +991,22 @@ tokenize_str(str src, char *filename, arena *perm)
 	cpp.lexer.file.name = filename;
 	cpp.lexer.file.contents = src;
 	cpp.macros = ALLOC(perm, 1, macro_table);
+
+	static struct { str name, value; } predefined_macros[] = {
+		{ S("__STDC_VERSION__"), S("201710L") },
+		{ S("__STDC__"),         S("1")       },
+		{ S("__STDC_NO_VLA__"),  S("1")       },
+	};
+
+	for (i32 i = 0; i < LENGTH(predefined_macros); i++) {
+		str name = predefined_macros[i].name;
+		macro *m = upsert_macro(cpp.macros, name, cpp.arena);
+		m->name = name;
+		m->value.name = "(internal)";
+		m->value.contents = predefined_macros[i].value;
+		m->value.offset = 0;
+	}
+
 	get_token(&cpp.lexer);
 	get_token(&cpp.lexer);
 	return cpp;
