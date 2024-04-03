@@ -780,12 +780,35 @@ get_token(lexer *lexer)
 				b32 found_header = false;
 
 				static struct { str filename, contents; } internal_headers[] = {
-					{ S("stddef.h"), S(
-						"typedef unsigned long size_t;\n"
-						"typedef int wchar_t;\n"
-						"typedef long ptrdiff_t;\n"
-						"#define offsetof(s, m) __builtin_offsetof(s, m)\n"),
-					}
+					{
+						S("stddef.h"),
+						S(
+							"typedef unsigned long size_t;\n"
+							"typedef int wchar_t;\n"
+							"typedef long ptrdiff_t;\n"
+							"#define NULL ((void *)0)\n"
+							"#define offsetof(s, m) __builtin_offsetof(s, m)\n"
+						)
+					},
+					{
+						S("stdbool.h"),
+						S(
+							"#define __bool_true_false_are_defined 1\n"
+							"#define bool _Bool\n"
+							"#define true 1\n"
+							"#define false 0\n"
+						)
+					},
+					{
+						S("stdarg.h"),
+						S(
+							"typedef __builtin_va_list va_list;\n"
+							"#define va_start(ap, ptr) __builtin_va_start(ap, ptr)\n"
+							"#define va_end(ap)        __builtin_va_end(ap)\n"
+							"#define va_arg(ap, type)  __builtin_va_arg(ap, type)\n"
+							"#define va_copy(dst, src) __builtin_va_copy(dst, src)\n"
+						)
+					},
 				};
 
 				for (isize i = 0; i < LENGTH(internal_headers); i++) {
