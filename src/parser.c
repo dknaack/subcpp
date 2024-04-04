@@ -1030,37 +1030,6 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 	return result;
 }
 
-static ast_list
-parse_external_decl(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
-{
-	ast_list list = parse_decl(lexer, PARSE_EXTERNAL_DECL, s, pool, arena);
-	if (list.first.value == 0) {
-		syntax_error(lexer, "Expected declaration");
-		return list;
-	}
-
-	ast_node *decl_list = ast_get(pool, list.first);
-	ast_id decl_id = decl_list->child[0];
-	ast_node *decl = ast_get(pool, decl_id);
-	ast_node *type = ast_get(pool, decl->child[0]);
-	decl->kind = AST_EXTERN_DEF;
-
-	if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
-		token token = lexer->peek[0];
-		if (token.kind == TOKEN_LBRACE) {
-			ast_id body = parse_stmt(lexer, s, pool, arena);
-			ast_node *decl = ast_get(pool, decl_id);
-			decl->child[1] = body;
-		} else {
-			expect(lexer, TOKEN_SEMICOLON);
-		}
-	} else {
-		expect(lexer, TOKEN_SEMICOLON);
-	}
-
-	return list;
-}
-
 static ast_pool
 parse(lexer *lexer, arena *arena)
 {
@@ -1069,7 +1038,31 @@ parse(lexer *lexer, arena *arena)
 	scope s = new_scope(NULL);
 
 	do {
-		ast_list decls = parse_external_decl(lexer, &s, &pool, arena);
+		ast_list decls = parse_decl(lexer, PARSE_EXTERNAL_DECL, &s, &pool, arena);
+		if (decls.first.value == 0) {
+			syntax_error(lexer, "Expected declaration");
+			break;
+		}
+
+		ast_node *decl_list = ast_get(&pool, decls.first);
+		ast_id decl_id = decl_list->child[0];
+		ast_node *decl = ast_get(&pool, decl_id);
+		ast_node *type = ast_get(&pool, decl->child[0]);
+		decl->kind = AST_EXTERN_DEF;
+
+		if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
+			token token = lexer->peek[0];
+			if (token.kind == TOKEN_LBRACE) {
+				ast_id body = parse_stmt(lexer, &s, &pool, arena);
+				ast_node *decl = ast_get(&pool, decl_id);
+				decl->child[1] = body;
+			} else {
+				expect(lexer, TOKEN_SEMICOLON);
+			}
+		} else {
+			expect(lexer, TOKEN_SEMICOLON);
+		}
+
 		ast_concat(&pool, &list, decls);
 	} while (!lexer->error && !accept(lexer, TOKEN_EOF));
 
