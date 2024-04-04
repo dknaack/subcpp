@@ -272,3 +272,68 @@ print_matrix(bit_matrix matrix)
 		print_row(matrix, y);
 	}
 }
+
+static void
+print_tokens(lexer *lexer)
+{
+	i32 indent = 0;
+	b32 newline = true;
+	b32 requires_space = false;
+	for (;;) {
+		if (newline) {
+			for (i32 i = 0; i < indent; i++) {
+				printf("    ");
+			}
+
+			newline = false;
+		}
+
+		token token = get_token(lexer);
+		switch (token.kind) {
+		case TOKEN_LPAREN:
+		case TOKEN_SEMICOLON:
+		case TOKEN_MINUS_MINUS:
+		case TOKEN_PLUS_PLUS:
+		case TOKEN_RBRACE:
+			requires_space = false;
+			break;
+		case TOKEN_LBRACE:
+			printf(" ");
+			requires_space = false;
+			break;
+		case TOKEN_PLUS:
+		case TOKEN_MINUS:
+		case TOKEN_AMP:
+		case TOKEN_STAR:
+			if (requires_space) {
+				printf(" ");
+			}
+
+			break;
+		default:
+			if (requires_space) {
+				printf(" ");
+			}
+
+			/* fallthrough */
+		case TOKEN_RPAREN:
+		case TOKEN_COMMA:
+			requires_space = true;
+		}
+
+		printf("%.*s", (int)token.value.length, token.value.at);
+		if (token.kind == TOKEN_SEMICOLON) {
+			printf("\n");
+		} else if (token.kind == TOKEN_LBRACE) {
+			indent++;
+			printf("\n");
+			newline = true;
+		} else if (token.kind == TOKEN_RBRACE) {
+			printf("\n\n");
+			indent--;
+			newline = true;
+		} else if (token.kind == TOKEN_EOF) {
+			break;
+		}
+	}
+}
