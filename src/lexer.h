@@ -121,24 +121,39 @@ struct file {
 	i32 if_depth;
 };
 
-typedef struct macro macro;
-typedef struct macro_table macro_table;
-struct macro_table {
-	macro_table *parent;
-	macro *macros;
+typedef struct hide_set hide_set;
+struct hide_set {
+	str value;
+	hide_set *next;
 };
 
-struct macro {
+typedef struct token_list token_list;
+struct token_list {
+	token_list *next;
+	hide_set *hide_set;
+	token token;
+};
+
+typedef struct macro_param macro_param;
+struct macro_param {
 	str name;
-	file value;
+	macro_param *next;
+};
+
+typedef struct macro macro;
+struct macro {
 	macro *next;
-	macro *child[4];
-	macro_table params;
+
+	str name;
+	token_list *tokens;
+	i32 param_count;
+	macro_param *params;
 };
 
 typedef struct {
 	file file;
 	b32 error;
+	token_list *tokens;
 	token peek[2];
 	char at[4];
 } lexer;
@@ -149,7 +164,7 @@ typedef struct {
 
 	b32 ignore_token;
 	if_state if_state[64];
-	macro_table *macros;
+	macro *macros;
 } cpp_state;
 
 static location
