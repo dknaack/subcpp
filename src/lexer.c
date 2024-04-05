@@ -993,24 +993,26 @@ get_token(lexer *lexer)
 					str_list **ptr = &m->params;
 					m->param_count = 0;
 					skip_whitespace(lexer);
-					while (!cpp_accept(lexer, TOKEN_EOF)) {
-						token = cpp_get_token(lexer);
-						if (token.kind == TOKEN_IDENT) {
-							m->param_count++;
-							*ptr = ALLOC(cpp->arena, 1, str_list);
-							(*ptr)->value = token.value;
-							ptr = &(*ptr)->next;
+					if (!cpp_accept(lexer, TOKEN_RPAREN)) {
+						while (!cpp_accept(lexer, TOKEN_EOF)) {
+							token = cpp_get_token(lexer);
+							if (token.kind == TOKEN_IDENT) {
+								m->param_count++;
+								*ptr = ALLOC(cpp->arena, 1, str_list);
+								(*ptr)->value = token.value;
+								ptr = &(*ptr)->next;
+							}
+
+							skip_whitespace(lexer);
+							if (!cpp_accept(lexer, TOKEN_COMMA)) {
+								break;
+							}
+
+							skip_whitespace(lexer);
 						}
 
-						skip_whitespace(lexer);
-						if (!cpp_accept(lexer, TOKEN_COMMA)) {
-							break;
-						}
-
-						skip_whitespace(lexer);
+						cpp_expect(lexer, TOKEN_RPAREN);
 					}
-
-					cpp_expect(lexer, TOKEN_RPAREN);
 				}
 
 				m->name = name;
