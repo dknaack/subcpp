@@ -502,6 +502,16 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 		token_list *new_list = NULL;
 		token_list **out = &new_list;
 		for (token_list *input = m->tokens; input; input = input->next) {
+			b32 stringize = false;
+			if (input->token.kind == TOKEN_HASH) {
+				stringize = true;
+				input = input->next;
+				if (!input) {
+					// TODO: Report error
+					break;
+				}
+			}
+
 			i32 param_index = -1;
 			b32 is_param = false;
 			if (input->token.kind == TOKEN_IDENT) {
@@ -514,15 +524,51 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 				}
 			}
 
-			if (is_param) {
+			if (stringize) {
+				if (!is_param) {
+					// TODO: Report error
+					continue;
+				}
+
+				str result = {0};
+				result.length = 2;
+				for (token_list *list = params[param_index]; list; list = list->next) {
+					// TODO: Implement stringize for string and char literals.
+					ASSERT(list->token.kind != TOKEN_LITERAL_STRING);
+					ASSERT(list->token.kind != TOKEN_LITERAL_CHAR);
+					if (list->token.kind == TOKEN_WHITESPACE) {
+						result.length += 1;
+					} else {
+						result.length += list->token.value.length;
+					}
+				}
+
+				result.at = ALLOC(arena, result.length, char);
+				isize start = 1;
+				for (token_list *list = params[param_index]; list; list = list->next) {
+					if (list->token.kind == TOKEN_WHITESPACE) {
+						result.at[start++] = ' ';
+					} else {
+						isize end = start + list->token.value.length;
+						copy(substr(result, start, end), list->token.value);
+						start = end;
+					}
+				}
+
+				result.at[0] = '"';
+				result.at[result.length - 1] = '"';
+				*out = ALLOC(arena, 1, token_list);
+				(*out)->token.kind = TOKEN_LITERAL_STRING;
+				(*out)->token.value = result;
+			} else if (is_param) {
 				ASSERT(params != NULL);
 				*out = expand(params[param_index], expanded_macros, macros, arena);
-				while (*out) {
-					out = &(*out)->next;
-				}
 			} else {
 				*out = ALLOC(arena, 1, token_list);
 				(*out)->token = input->token;
+			}
+
+			while (*out) {
 				out = &(*out)->next;
 			}
 		}
