@@ -431,86 +431,83 @@ upsert_macro(macro **p, str name, arena *perm)
 }
 
 static token_list *
-expand(token_list *list, macro *macros, arena *arena)
+expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 {
-	token_list **p = &list;
-	while (*p) {
+	token_list **curr = &list;
+	while (*curr) {
 		macro *m = NULL;
-		token_list *end = NULL;
-		token_list **params = NULL;
-		if ((*p)->token.kind == TOKEN_IDENT) {
-			b32 is_hidden = false;
-			for (hide_set *hs = (*p)->hide_set; !is_hidden && hs; hs = hs->next) {
-				if (equals(hs->value, (*p)->token.value)) {
-					is_hidden = true;
-				}
-			}
+		if ((*curr)->token.kind == TOKEN_IDENT && !(*curr)->was_expanded) {
+			m = upsert_macro(&macros, (*curr)->token.value, NULL);
 
-			if (!is_hidden) {
-				m = upsert_macro(&macros, (*p)->token.value, NULL);
-				end = (*p)->next;
-				if (m && m->param_count < 0) {
-					// Get the hide set of the current token
-				} else if (m && end->token.kind == TOKEN_LPAREN) {
-					// Parse the parameters
-					params = ALLOC(arena, m->param_count, token_list *);
-
-					end = end->next;
-					token_list **p = params;
-					*p = end;
-
-					i32 param_index = 1;
-					i32 paren_depth = 1;
-					for (;;) {
-						if (end->token.kind == TOKEN_COMMA) {
-							// TODO: Report error
-							ASSERT(param_index < m->param_count);
-
-							*p = NULL;
-							p = &params[param_index++];
-							*p = end->next;
-						} else if (end->token.kind == TOKEN_EOF) {
-							break;
-						} else {
-							if (end->token.kind == TOKEN_LPAREN) {
-								paren_depth++;
-							} else if (end->token.kind == TOKEN_RPAREN) {
-								paren_depth--;
-								if (paren_depth <= 0) {
-									end = end->next;
-									*p = NULL;
-									break;
-								}
-							}
-
-							p = &(*p)->next;
-						}
-
-						end = end->next;
-					}
-				} else {
-					m = NULL;
-				}
+			// Ensure that function-like macros are followed by a parenthesis.
+			token_list *next = (*curr)->next;
+			b32 next_is_lparen = (next && next->token.kind == TOKEN_LPAREN);
+			if (m && m->param_count >= 0 && !next_is_lparen) {
+				m = NULL;
 			}
 		}
 
 		if (m == NULL) {
-			p = &(*p)->next;
+			curr = &(*curr)->next;
 			continue;
 		}
 
+		// The next token comes after the expanded macro. In the case of a
+		// function-like macro this is the token after the right parenthesis.
+		token_list *next = (*curr)->next;
+		token_list **params = NULL;
+		if (m->param_count > 0) {
+			params = ALLOC(arena, m->param_count, token_list *);
+
+			// Skip the first parenthesis
+			ASSERT(next && next->token.kind == TOKEN_LPAREN);
+			next = next->next;
+
+			// Parse the actual parameters, counting balanced parentheses
+			token_list **curr_param = params;
+			*curr_param = next;
+			i32 param_index = 1;
+			i32 paren_depth = 1;
+			while (next && paren_depth > 0) {
+				if (next->token.kind == TOKEN_COMMA) {
+					if (param_index < m->param_count) {
+						*curr_param = NULL;
+						curr_param = &params[param_index++];
+						*curr_param = next->next;
+					} else {
+						// TODO: Report error
+					}
+				} else if (next->token.kind == TOKEN_EOF) {
+					paren_depth = -1;
+				} else {
+					paren_depth += (next->token.kind == TOKEN_LPAREN);
+					paren_depth -= (next->token.kind == TOKEN_RPAREN);
+					if (paren_depth == 0) {
+						*curr_param = NULL;
+					} else {
+						curr_param = &(*curr_param)->next;
+					}
+				}
+
+				next = next->next;
+			}
+		} else if (m->param_count == 0) {
+			ASSERT(next && next->token.kind == TOKEN_LPAREN);
+			next = next->next;
+			ASSERT(next && next->token.kind == TOKEN_LPAREN);
+			next = next->next;
+		}
 
 		// Do parameter substitution
-		token_list **output = p;
+		token_list *new_list = NULL;
+		token_list **out = &new_list;
 		for (token_list *input = m->tokens; input; input = input->next) {
-			input->hide_set = NULL;
-
 			i32 param_index = -1;
 			b32 is_param = false;
 			if (input->token.kind == TOKEN_IDENT) {
-				for (macro_param *param = m->params; param; param = param->next) {
+				for (str_list *param = m->params; param; param = param->next) {
 					param_index++;
-					if (equals(param->name, input->token.value)) {
+					if (equals(param->value, input->token.value)) {
 						is_param = true;
 						break;
 					}
@@ -519,18 +516,45 @@ expand(token_list *list, macro *macros, arena *arena)
 
 			if (is_param) {
 				ASSERT(params != NULL);
-				*output = expand(params[param_index], macros, arena);
-				while (*output) {
-					output = &(*output)->next;
+				*out = expand(params[param_index], expanded_macros, macros, arena);
+				while (*out) {
+					out = &(*out)->next;
 				}
 			} else {
-				*output = ALLOC(arena, 1, token_list);
-				memcpy(*output, input, sizeof(*input));
-				output = &(*output)->next;
+				*out = ALLOC(arena, 1, token_list);
+				(*out)->token = input->token;
+				out = &(*out)->next;
 			}
 		}
 
-		*output = end;
+		// Add the expanded macro to the list.
+		str_list tmp = {0};
+		tmp.value = m->name;
+		tmp.next = expanded_macros;
+		expanded_macros = &tmp;
+
+		// Paint any tokens that have been expanded blue.
+		for (token_list *list = new_list; list; list = list->next) {
+			if (list->token.kind != TOKEN_IDENT || list->was_expanded) {
+				continue;
+			}
+
+			for (str_list *s = expanded_macros; s; s = s->next) {
+				if (equals(s->value, list->token.value)) {
+					list->was_expanded = true;
+					break;
+				}
+			}
+		}
+
+		// Rescan
+		new_list = expand(new_list, expanded_macros, macros, arena);
+
+		// Insert the list back into the token list
+		token_list **end = NULL;
+		for (end = &new_list; *end; end = &(*end)->next) {}
+		*end = next;
+		*curr = new_list;
 	}
 
 	return list;
@@ -564,7 +588,7 @@ cpp_parse_expr(cpp_state *cpp, precedence prev_prec)
 
 	skip_whitespace(lexer);
 	lexer->tokens = read_line(lexer, cpp->arena);
-	lexer->tokens = expand(lexer->tokens, cpp->macros, cpp->arena);
+	lexer->tokens = expand(lexer->tokens, NULL, cpp->macros, cpp->arena);
 
 	token token = cpp_get_token(lexer);
 	switch (token.kind) {
@@ -920,15 +944,15 @@ get_token(lexer *lexer)
 				}
 
 				if (cpp_accept(lexer, TOKEN_LPAREN)) {
-					macro_param **ptr = &m->params;
+					str_list **ptr = &m->params;
 					m->param_count = 0;
 					skip_whitespace(lexer);
 					while (!cpp_accept(lexer, TOKEN_EOF)) {
 						token = cpp_get_token(lexer);
 						if (token.kind == TOKEN_IDENT) {
 							m->param_count++;
-							*ptr = ALLOC(cpp->arena, 1, macro_param);
-							(*ptr)->name = token.value;
+							*ptr = ALLOC(cpp->arena, 1, str_list);
+							(*ptr)->value = token.value;
 							ptr = &(*ptr)->next;
 						}
 
@@ -1020,7 +1044,7 @@ get_token(lexer *lexer)
 				}
 			}
 
-			lexer->tokens = expand(list, cpp->macros, cpp->arena);
+			lexer->tokens = expand(list, NULL, cpp->macros, cpp->arena);
 			token.kind = TOKEN_WHITESPACE;
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE

@@ -121,23 +121,17 @@ struct file {
 	i32 if_depth;
 };
 
-typedef struct hide_set hide_set;
-struct hide_set {
-	str value;
-	hide_set *next;
-};
-
 typedef struct token_list token_list;
 struct token_list {
 	token_list *next;
-	hide_set *hide_set;
+	b32 was_expanded;
 	token token;
 };
 
-typedef struct macro_param macro_param;
-struct macro_param {
-	str name;
-	macro_param *next;
+typedef struct str_list str_list;
+struct str_list {
+	str value;
+	str_list *next;
 };
 
 typedef struct macro macro;
@@ -147,7 +141,7 @@ struct macro {
 	str name;
 	token_list *tokens;
 	i32 param_count;
-	macro_param *params;
+	str_list *params;
 };
 
 typedef struct {
