@@ -118,6 +118,8 @@ struct file {
 	char *name;
 	str contents;
 	isize offset;
+	if_state if_state[64];
+	location if_loc[64];
 	i32 if_depth;
 };
 
@@ -157,7 +159,6 @@ typedef struct {
 	arena *arena;
 
 	b32 ignore_token;
-	if_state if_state[64];
 	macro *macros;
 } cpp_state;
 
