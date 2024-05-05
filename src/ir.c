@@ -378,7 +378,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ASSERT(!"Should have been removed by merge_identifiers");
+			if (equals(node->value.s, S("__builtin_popcount"))) {
+				result = ir_emit1_type(ctx, IR_I64, IR_BUILTIN, BUILTIN_POPCOUNT);
+			} else {
+				ASSERT(!"Should have been removed by merge_identifiers");
+			}
 		} break;
 	case AST_EXPR_FLOAT:
 		{
@@ -866,6 +870,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_CONST:
+	case IR_BUILTIN:
 		info.op0 = IR_OPERAND_CONST;
 		break;
 	case IR_CALL:

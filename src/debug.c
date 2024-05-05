@@ -4,6 +4,8 @@ get_builtin_str(ir_builtin builtin)
 	switch (builtin) {
 	case BUILTIN_POPCOUNT:
 		return "popcount";
+	case BUILTIN_VA_LIST:
+		return "va_list";
 	case BUILTIN_VA_START:
 		return "va_start";
 	case BUILTIN_VA_ARG:
@@ -56,6 +58,9 @@ print_ir_inst(ir_inst inst, u32 i)
 		break;
 	case IR_CONST:
 		printf("\t%%%d =%s %d\n", dst, type, op0);
+		break;
+	case IR_BUILTIN:
+		printf("\t%%%d =%s %s\n", dst, type, get_builtin_str(op0));
 		break;
 	case IR_COPY:
 		printf("\t%%%d =%s %%%d (copy)\n", dst, type, op0);

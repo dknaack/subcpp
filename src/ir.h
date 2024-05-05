@@ -3,6 +3,7 @@ typedef enum {
 	IR_ADD,
 	IR_ALLOC,
 	IR_AND,
+	IR_BUILTIN,
 	IR_CALL,
 	IR_CAST,
 	IR_CASTU,
@@ -53,6 +54,14 @@ typedef enum {
 } ir_type;
 
 typedef enum {
+	BUILTIN_POPCOUNT,
+	BUILTIN_VA_ARG,
+	BUILTIN_VA_END,
+	BUILTIN_VA_LIST,
+	BUILTIN_VA_START,
+} ir_builtin;
+
+typedef enum {
 	IR_OPERAND_NONE,
 	IR_OPERAND_REG_SRC,
 	IR_OPERAND_REG_DST,
@@ -95,13 +104,6 @@ typedef struct {
 	u32 inst_count;
 	u32 label_count;
 } ir_program;
-
-typedef enum {
-	BUILTIN_POPCOUNT,
-	BUILTIN_VA_START,
-	BUILTIN_VA_ARG,
-	BUILTIN_VA_END,
-} ir_builtin;
 
 typedef struct {
 	ir_program *program;
