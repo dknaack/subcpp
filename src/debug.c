@@ -34,6 +34,253 @@ get_ir_type_str(ir_type type)
 }
 
 static void
+print_ast_node(ast_pool *pool, ast_id node_id, int indent)
+{
+	ast_id tmp;
+
+	if (node_id.value == 0) {
+		return;
+	}
+
+	ast_node *node = ast_get(pool, node_id);
+	switch (node->kind) {
+	case AST_EXTERN_DEF:
+	case AST_DECL:
+		printf("%.*s: ", (int)node->value.s.length, node->value.s.at);
+		print_ast_node(pool, node->child[0], indent);
+		if (node->child[1].value != 0) {
+			printf(" = ");
+			print_ast_node(pool, node->child[1], indent);
+		}
+
+		break;
+	case AST_DECL_LIST:
+		while (node_id.value != 0) {
+			for (int i = 0; i < indent - 1; i++) printf("    ");
+			node = ast_get(pool, node_id);
+			print_ast_node(pool, node->child[0], indent);
+			node_id = node->child[1];
+			printf(";\n");
+		}
+
+		break;
+	case AST_EXPR_BINARY:
+		printf("binary");
+		break;
+	case AST_EXPR_CALL:
+		print_ast_node(pool, node->child[0], indent);
+
+		printf("(");
+		for (node_id = node->child[1]; node_id.value != 0; node_id = node->child[1]) {
+			node = ast_get(pool, node_id);
+			print_ast_node(pool, node->child[0], indent);
+			if (node->child[1].value != 0) {
+				printf(", ");
+			}
+		}
+
+		printf(")");
+		break;
+	case AST_EXPR_CAST:
+		printf("(");
+		print_ast_node(pool, node->child[0], indent);
+		printf(")");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	case AST_EXPR_CHAR:
+		printf("'%c'", (char)node->value.i);
+		break;
+	case AST_EXPR_FLOAT:
+		printf("%f", node->value.f);
+		break;
+	case AST_EXPR_INT:
+		printf("%jd", node->value.i);
+		break;
+	case AST_EXPR_LIST:
+		printf("(list)");
+		break;
+	case AST_EXPR_MEMBER:
+	case AST_EXPR_MEMBER_PTR:
+		print_ast_node(pool, node->child[0], indent);
+		printf(".%.*s", (int)node->value.s.length, node->value.s.at);
+		break;
+	case AST_EXPR_POSTFIX:
+		print_ast_node(pool, node->child[0], indent);
+		switch (node->value.i) {
+		case TOKEN_PLUS_PLUS:
+			printf("++");
+			break;
+		case TOKEN_MINUS_MINUS:
+			printf("--");
+			break;
+		}
+
+		break;
+	case AST_EXPR_STRING:
+		printf("%.*s", (int)node->value.s.length, node->value.s.at);
+		break;
+	case AST_EXPR_TERNARY1:
+		print_ast_node(pool, node->child[0], indent);
+		printf(" ? ");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	case AST_EXPR_TERNARY2:
+		print_ast_node(pool, node->child[0], indent);
+		printf(" : ");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	case AST_EXPR_UNARY:
+		switch (node->value.i) {
+		case TOKEN_PLUS_PLUS:
+			printf("++");
+			break;
+		case TOKEN_MINUS_MINUS:
+			printf("--");
+			break;
+		case TOKEN_PLUS:
+			printf("+");
+			break;
+		case TOKEN_MINUS:
+			printf("-");
+			break;
+		case TOKEN_STAR:
+			printf("*");
+			break;
+		case TOKEN_BANG:
+			printf("!");
+			break;
+		case TOKEN_AMP:
+			printf("&");
+			break;
+		}
+
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_STMT_BREAK:
+		printf("break");
+		break;
+	case AST_STMT_CASE:
+		printf("case ");
+		print_ast_node(pool, node->child[0], indent + 1);
+		printf(":\n");
+		print_ast_node(pool, node->child[1], indent + 1);
+		break;
+	case AST_STMT_CONTINUE:
+		printf("continue");
+		break;
+	case AST_STMT_DEFAULT:
+		printf("default:\n");
+		print_ast_node(pool, node->child[0], indent + 1);
+		break;
+	case AST_STMT_EMPTY:
+		break;
+	case AST_STMT_GOTO:
+		printf("goto %.*s", (int)node->value.s.length, node->value.s.at);
+		break;
+	case AST_STMT_FOR1:
+		printf("for (");
+		print_ast_node(pool, node->child[0], indent);
+		printf("; ");
+		node = ast_get(pool, node->child[1]);
+		print_ast_node(pool, node->child[0], indent);
+		printf("; ");
+		node = ast_get(pool, node->child[1]);
+		print_ast_node(pool, node->child[0], indent);
+		printf(") ");
+		node = ast_get(pool, node->child[1]);
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_STMT_IF1:
+		printf("if (");
+		print_ast_node(pool, node->child[0], indent);
+		printf(") ");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	case AST_STMT_IF2:
+		print_ast_node(pool, node->child[0], indent);
+		if (node->child[1].value != 0) {
+			printf("else ");
+			print_ast_node(pool, node->child[1], indent);
+		}
+		break;
+	case AST_STMT_LABEL:
+		printf("%.*s:\n", (int)node->value.s.length, node->value.s.at);
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_STMT_LIST:
+		printf("{\n");
+		while (node_id.value != 0) {
+			for (int i = 0; i < indent + 1; i++) printf("    ");
+			node = ast_get(pool, node_id);
+			print_ast_node(pool, node->child[0], indent+1);
+			node_id = node->child[1];
+			printf(";\n");
+		}
+		for (int i = 0; i < indent; i++) printf("    ");
+		printf("}\n");
+		break;
+	case AST_STMT_SWITCH:
+		printf("switch (");
+		print_ast_node(pool, node->child[0], indent);
+		printf(")");
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_STMT_RETURN:
+		printf("return ");
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_TYPE_ARRAY:
+		printf("[");
+		print_ast_node(pool, node->child[0], indent);
+		printf("]");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	case AST_TYPE_BITFIELD:
+		print_ast_node(pool, node->child[1], indent);
+		printf(":");
+		print_ast_node(pool, node->child[0], indent);
+		break;
+	case AST_TYPE_CHAR:
+		printf("char");
+		break;
+	case AST_TYPE_FUNC:
+		tmp = node->child[1];
+		printf("(");
+		for (node_id = node->child[0]; node_id.value != 0; node_id = node->child[1]) {
+			node = ast_get(pool, node_id);
+			print_ast_node(pool, node->child[0], indent);
+			if (node->child[1].value != 0) {
+				printf(", ");
+			}
+		}
+
+		printf(") -> ");
+		print_ast_node(pool, tmp, indent);
+		break;
+	case AST_TYPE_IDENT:
+	case AST_EXPR_IDENT:
+		printf("%.*s", (int)node->value.s.length, node->value.s.at);
+		break;
+	case AST_TYPE_INT:
+		printf("int");
+		break;
+	case AST_TYPE_POINTER:
+		printf("*");
+		print_ast_node(pool, node->child[1], indent);
+		break;
+	default:
+		printf("(todo %d)", node->kind);
+		break;
+	}
+}
+
+static void
+print_ast(ast_pool *pool)
+{
+	print_ast_node(pool, pool->root, 0);
+}
+
+static void
 print_ir_inst(ir_inst inst, u32 i)
 {
 	u32 dst = i;
