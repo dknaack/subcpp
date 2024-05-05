@@ -737,8 +737,11 @@ check(ast_pool *pool, arena *perm)
 		case AST_EXTERN_DEF:
 		case AST_ENUMERATOR:
 		case AST_DECL:
-			symtab.symbols[i].value = symtab.decl_count++;
-			symtab.kind[i] = SYM_DECL;
+			if (!(node->flags & AST_TYPEDEF)) {
+				symtab.symbols[i].value = symtab.decl_count++;
+				symtab.kind[i] = SYM_DECL;
+			}
+
 			break;
 		case AST_EXPR_STRING:
 			symtab.symbols[i].value = symtab.string_count++;
@@ -856,7 +859,7 @@ check(ast_pool *pool, arena *perm)
 		// Add global symbols to the symbol table
 		for (isize i = 0; i < pool->size; i++) {
 			ast_node *node = &pool->nodes[i];
-			if (node->kind == AST_EXTERN_DEF) {
+			if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)) {
 				ast_id node_id = {i};
 				ASSERT(node->type);
 
