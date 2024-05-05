@@ -563,8 +563,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			ast_node *node = ast_get(pool, node_id);
-			ASSERT(node->kind == AST_DECL || node->kind == AST_EXTERN_DEF);
+			// do not generate code for typedef declarations
+			if (node->flags & AST_TYPEDEF) {
+				break;
+			}
 
 			decl_symbol *sym = get_decl_symbol(*ctx->symtab, node_id);
 			symbol_id sym_id = ctx->symtab->symbols[node_id.value];
