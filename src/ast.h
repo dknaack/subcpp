@@ -36,10 +36,10 @@ typedef enum {
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
 	AST_STMT_GOTO,     // {}
-	AST_STMT_FOR1,     // {init, cond}
-	AST_STMT_FOR2,     // {cond, post}
+	AST_STMT_FOR1,     // {init, for2}
+	AST_STMT_FOR2,     // {cond, for3}
 	AST_STMT_FOR3,     // {post, body}
-	AST_STMT_IF1,      // {cond, if_else}
+	AST_STMT_IF1,      // {cond, if2}
 	AST_STMT_IF2,      // {if, else?}
 	AST_STMT_LABEL,    // {stmt}
 	AST_STMT_LIST,     // {stmt, stmt_list}
