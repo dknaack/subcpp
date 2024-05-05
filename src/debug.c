@@ -276,12 +276,19 @@ print_matrix(bit_matrix matrix)
 }
 
 static void
-print_tokens(lexer *lexer)
+print_tokens(cpp_state *cpp)
 {
 	i32 indent = 0;
 	b32 newline = true;
 	b32 requires_space = false;
 	for (;;) {
+		token token = get_token(cpp);
+		if (token.kind == TOKEN_EOF) break;
+		if (token.kind == TOKEN_RBRACE) {
+			newline = true;
+			indent--;
+		}
+
 		if (newline) {
 			for (i32 i = 0; i < indent; i++) {
 				printf("    ");
@@ -290,7 +297,6 @@ print_tokens(lexer *lexer)
 			newline = false;
 		}
 
-		token token = get_token(lexer);
 		switch (token.kind) {
 		case TOKEN_LPAREN:
 		case TOKEN_SEMICOLON:
@@ -326,13 +332,13 @@ print_tokens(lexer *lexer)
 		printf("%.*s", (int)token.value.length, token.value.at);
 		if (token.kind == TOKEN_SEMICOLON) {
 			printf("\n");
+			newline = true;
 		} else if (token.kind == TOKEN_LBRACE) {
 			indent++;
 			printf("\n");
 			newline = true;
 		} else if (token.kind == TOKEN_RBRACE) {
 			printf("\n\n");
-			indent--;
 			newline = true;
 		} else if (token.kind == TOKEN_EOF) {
 			break;
