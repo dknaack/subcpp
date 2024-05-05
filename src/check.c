@@ -94,15 +94,18 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 		case AST_EXTERN_DEF:
 		case AST_ENUMERATOR:
 			{
-				if (!(node->flags & AST_TYPEDEF)) {
-					scope_entry *e = scope_upsert_ident(s, node->value.s, perm);
+				scope_entry *e = scope_upsert_ident(s, node->value.s, perm);
+				if (node->flags & AST_TYPEDEF) {
+					e->is_type = true;
+					e->value = node->child[0];
+				} else {
 					e->value = *child;
 				}
 			} break;
 		case AST_EXPR_IDENT:
 		case AST_TYPE_IDENT:
 			{
-				if (!equals(node->value.s, S("__builtin_va_list"))) {
+				if (!starts_with(node->value.s, S("__builtin_"))) {
 					scope_entry *resolved = scope_upsert_ident(s, node->value.s, NULL);
 					if (!resolved) {
 						errorf(node->loc, "Variable was never declared");
