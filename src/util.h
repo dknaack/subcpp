@@ -61,6 +61,19 @@ substr(str s, isize start, isize end)
 	return result;
 }
 
+static b32
+starts_with(str s, str prefix)
+{
+	b32 result = false;
+
+	if (s.length >= prefix.length) {
+		s = substr(s, 0, prefix.length);
+		result = equals(s, prefix);
+	}
+
+	return result;
+}
+
 static void
 copy(str dst, str src)
 {
