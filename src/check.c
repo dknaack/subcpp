@@ -401,7 +401,17 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ASSERT(!"This node should have been eliminated by check_decls");
+			if (equals(node->value.s, S("__builtin_popcount"))) {
+				member *param = ALLOC(arena, 1, member);
+				param->name = S("x");
+				param->type = &type_int;
+
+				node->type = type_create(TYPE_FUNCTION, arena);
+				node->type->members = param;
+				node->type->children = &type_int;
+			} else {
+				ASSERT(!"This node should have been eliminated by check_decls");
+			}
 		} break;
 	case AST_EXPR_FLOAT:
 		{
