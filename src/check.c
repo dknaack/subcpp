@@ -94,18 +94,22 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 		case AST_EXTERN_DEF:
 		case AST_ENUMERATOR:
 			{
-				scope_entry *e = scope_upsert_ident(s, node->value.s, perm);
-				e->value = *child;
+				if (!(node->flags & AST_TYPEDEF)) {
+					scope_entry *e = scope_upsert_ident(s, node->value.s, perm);
+					e->value = *child;
+				}
 			} break;
 		case AST_EXPR_IDENT:
 		case AST_TYPE_IDENT:
 			{
-				scope_entry *resolved = scope_upsert_ident(s, node->value.s, NULL);
-				if (!resolved) {
-					errorf(node->loc, "Variable was never declared");
-					pool->error = true;
-				} else {
-					*child = resolved->value;
+				if (!equals(node->value.s, S("__builtin_va_list"))) {
+					scope_entry *resolved = scope_upsert_ident(s, node->value.s, NULL);
+					if (!resolved) {
+						errorf(node->loc, "Variable was never declared");
+						pool->error = true;
+					} else {
+						*child = resolved->value;
+					}
 				}
 			} break;
 		default:
@@ -575,7 +579,9 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_TYPE_IDENT:
 		{
-			ASSERT(!"Should have been removed by check_decls");
+			if (!equals(node->value.s, S("__builtin_va_list"))) {
+				ASSERT(!"Should have been removed by check_decls");
+			}
 		} break;
 	case AST_ENUMERATOR:
 		{
@@ -829,6 +835,7 @@ check(ast_pool *pool, arena *perm)
 	check_switch_stmt(pool, pool->root, symtab, ast_id_nil, perm);
 
 	scope s = {0};
+
 	check_decls(pool, &pool->root, &s, perm);
 	if (!pool->error) {
 		check_type(pool, pool->root, perm);
