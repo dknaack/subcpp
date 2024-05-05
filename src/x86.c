@@ -233,6 +233,10 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 				x86_select2(out, X86_MOV, dst, src);
 			}
 		} break;
+	case IR_BUILTIN:
+		{
+			ASSERT(!"Builtins should be handled in their respective instruction");
+		} break;
 	case IR_ALLOC:
 		{
 			machine_operand src = make_spill(op1);
@@ -555,50 +559,63 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 	case IR_CALL:
 		{
 			machine_operand called = make_operand(MOP_VREG, op0, 8);
-			if (inst[op0].opcode == IR_GLOBAL) {
-				called = make_func(inst[op0].op0);
-			} else {
-				x86_select_inst(out, inst, op0, called);
-			}
-
-			i32 param_offset = op1;
-			while (param_offset > 0) {
-				ASSERT(inst[inst_index - param_offset].opcode == IR_PARAM);
-				ir_inst param_inst = inst[inst_index - param_offset];
-				isize param_size = ir_sizeof(param_inst.type);
-				i32 param_index = op1 - param_offset;
-				switch (param_index) {
-				case 0:
-					{
-						machine_operand rdi = make_operand(MOP_MREG, X86_RDI, param_size);
-						x86_select_inst(out, inst, param_inst.op0, rdi);
-					} break;
-				case 1:
-					{
-						machine_operand rsi = make_operand(MOP_MREG, X86_RSI, param_size);
-						x86_select_inst(out, inst, param_inst.op0, rsi);
-					} break;
-				case 2:
-					{
-						machine_operand rdx = make_operand(MOP_MREG, X86_RDX, param_size);
-						x86_select_inst(out, inst, param_inst.op0, rdx);
-					} break;
-				case 3:
-					{
-						machine_operand rcx = make_operand(MOP_MREG, X86_RCX, param_size);
-						x86_select_inst(out, inst, param_inst.op0, rcx);
-					} break;
-				default:
-					ASSERT(!"Too many arguments");
+			if (inst[op0].opcode == IR_BUILTIN) {
+				machine_operand src = {0};
+				ir_builtin builtin = inst[op0].op0;
+				switch (builtin) {
+				case BUILTIN_POPCOUNT:
+					src = make_operand(MOP_VREG, inst[inst_index - 1].op0, size);
+					x86_select2(out, X86_POPCNT, dst, src);
 					break;
+				default:
+					ASSERT(!"Builtin is not supported");
+				}
+			} else {
+				if (inst[op0].opcode == IR_GLOBAL) {
+					called = make_func(inst[op0].op0);
+				} else {
+					x86_select_inst(out, inst, op0, called);
 				}
 
-				param_offset--;
-			}
+				i32 param_offset = op1;
+				while (param_offset > 0) {
+					ASSERT(inst[inst_index - param_offset].opcode == IR_PARAM);
+					ir_inst param_inst = inst[inst_index - param_offset];
+					isize param_size = ir_sizeof(param_inst.type);
+					i32 param_index = op1 - param_offset;
+					switch (param_index) {
+					case 0:
+						{
+							machine_operand rdi = make_operand(MOP_MREG, X86_RDI, param_size);
+							x86_select_inst(out, inst, param_inst.op0, rdi);
+						} break;
+					case 1:
+						{
+							machine_operand rsi = make_operand(MOP_MREG, X86_RSI, param_size);
+							x86_select_inst(out, inst, param_inst.op0, rsi);
+						} break;
+					case 2:
+						{
+							machine_operand rdx = make_operand(MOP_MREG, X86_RDX, param_size);
+							x86_select_inst(out, inst, param_inst.op0, rdx);
+						} break;
+					case 3:
+						{
+							machine_operand rcx = make_operand(MOP_MREG, X86_RCX, param_size);
+							x86_select_inst(out, inst, param_inst.op0, rcx);
+						} break;
+					default:
+						ASSERT(!"Too many arguments");
+						break;
+					}
 
-			machine_operand rax = make_operand(MOP_MREG, X86_RAX, size);
-			x86_select1(out, X86_CALL, called);
-			x86_select2(out, X86_MOV, dst, rax);
+					param_offset--;
+				}
+
+				machine_operand rax = make_operand(MOP_MREG, X86_RAX, size);
+				x86_select1(out, X86_CALL, called);
+				x86_select2(out, X86_MOV, dst, rax);
+			}
 		} break;
 	case IR_LABEL:
 		{
