@@ -150,9 +150,6 @@ print_ir_inst(ir_inst inst, u32 i)
 	case IR_ZEXT:
 		printf("\t%%%d =%s zext %%%d\n", dst, type, op0);
 		break;
-	case IR_CALL_BUILTIN:
-		printf("\t%%%d =%s call_builtin %s\n", dst, type, get_builtin_str(op0));
-		break;
 	case IR_CALL:
 		printf("\t%%%d =%s call %%%d, %d\n", dst, type, op0, op1);
 		break;

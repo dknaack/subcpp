@@ -552,23 +552,6 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 			dst.size = ir_sizeof(inst[op0].type);
 			x86_select_inst(out, inst, op0, dst);
 		} break;
-	case IR_CALL_BUILTIN:
-		{
-			ir_builtin builtin = op0;
-			switch (builtin) {
-			case BUILTIN_POPCOUNT:
-				{
-					machine_operand src = make_operand(MOP_VREG, inst[inst_index - 1].op0, size);
-					x86_select2(out, X86_POPCNT, dst, src);
-				} break;
-			case BUILTIN_VA_START:
-			case BUILTIN_VA_END:
-			case BUILTIN_VA_ARG:
-				{
-					ASSERT(!"TODO");
-				} break;
-			}
-		} break;
 	case IR_CALL:
 		{
 			machine_operand called = make_operand(MOP_VREG, op0, 8);
