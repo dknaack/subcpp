@@ -20,20 +20,15 @@ warnf(location loc, char *fmt, ...)
 }
 
 static void
-verrorf(location loc, char *fmt, va_list ap)
-{
-	vwarnf(loc, fmt, ap);
-	ASSERT(!"Syntax error");
-}
-
-static void
 errorf(location loc, char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	verrorf(loc, fmt, ap);
+	vwarnf(loc, fmt, ap);
 	va_end(ap);
+
+	ASSERT(!"error");
 }
 
 static void

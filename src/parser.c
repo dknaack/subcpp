@@ -175,7 +175,7 @@ vsyntax_error(lexer *lexer, char *fmt, va_list ap)
 		return;
 	}
 
-	verrorf(get_location(lexer), fmt, ap);
+	vwarnf(get_location(lexer), fmt, ap);
 	lexer->error = true;
 }
 
