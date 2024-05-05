@@ -1030,30 +1030,39 @@ get_token(lexer *lexer)
 					{
 						S("stddef.h"),
 						S(
+							"#ifndef __STDDEF_H\n"
+							"#define __STDDEF_H\n"
 							"typedef unsigned long size_t;\n"
 							"typedef int wchar_t;\n"
 							"typedef long ptrdiff_t;\n"
 							"#define NULL ((void *)0)\n"
 							"#define offsetof(s, m) __builtin_offsetof(s, m)\n"
+							"#endif /* __STDDEF_H */\n"
 						)
 					},
 					{
 						S("stdbool.h"),
 						S(
+							"#ifndef __STDBOOL_H\n"
+							"#define __STDBOOL_H\n"
 							"#define __bool_true_false_are_defined 1\n"
 							"#define bool _Bool\n"
 							"#define true 1\n"
 							"#define false 0\n"
+							"#endif /* __STDBOOL_H */\n"
 						)
 					},
 					{
 						S("stdarg.h"),
 						S(
+							"#ifndef __STDARG_H\n"
+							"#define __STDARG_H\n"
 							"typedef __builtin_va_list va_list;\n"
 							"#define va_start(ap, ptr) __builtin_va_start(ap, ptr)\n"
 							"#define va_end(ap)        __builtin_va_end(ap)\n"
 							"#define va_arg(ap, type)  __builtin_va_arg(ap, type)\n"
 							"#define va_copy(dst, src) __builtin_va_copy(dst, src)\n"
+							"#endif /* __STDARG_H */\n"
 						)
 					},
 				};
