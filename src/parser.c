@@ -169,7 +169,7 @@ ast_shrink(ast_pool *p)
 }
 
 static void
-vsyntax_error(lexer *lexer, char *fmt, va_list ap)
+vsyntax_error(cpp_state *lexer, char *fmt, va_list ap)
 {
 	if (lexer->error) {
 		return;
@@ -180,7 +180,7 @@ vsyntax_error(lexer *lexer, char *fmt, va_list ap)
 }
 
 static void
-syntax_error(lexer *lexer, char *fmt, ...)
+syntax_error(cpp_state *lexer, char *fmt, ...)
 {
 	va_list ap;
 
@@ -190,7 +190,7 @@ syntax_error(lexer *lexer, char *fmt, ...)
 }
 
 static b32
-accept(lexer *lexer, token_kind expected_token)
+accept(cpp_state *lexer, token_kind expected_token)
 {
 	token token = lexer->peek[0];
 	if (token.kind == expected_token) {
@@ -202,7 +202,7 @@ accept(lexer *lexer, token_kind expected_token)
 }
 
 static void
-expect(lexer *lexer, token_kind expected_token)
+expect(cpp_state *lexer, token_kind expected_token)
 {
 	if (!accept(lexer, expected_token)) {
 		token found_token = lexer->peek[0];
@@ -246,10 +246,10 @@ typedef enum {
 	PARSE_EXTERNAL_DECL = 0,
 } parse_decl_flags;
 
-static ast_list parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena);
+static ast_list parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena);
 
 static ast_id
-parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *arena)
+parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_id expr;
 
@@ -387,7 +387,20 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 		if (operator == TOKEN_LPAREN) {
 			get_token(lexer);
 			ast_list params = {0};
-			if (!accept(lexer, TOKEN_RPAREN)) {
+			ast_id called = expr;
+			ast_node *called_node = ast_get(pool, called);
+			if (called_node->kind == AST_EXPR_IDENT
+				&& (equals(called_node->value.s, S("__builtin_va_start"))
+				 || equals(called_node->value.s, S("__builtin_va_end"))))
+			{
+				ast_node expr = ast_make_node(AST_EXPR_LIST, get_location(lexer));
+				expr.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
+				ast_append(pool, &params, expr);
+
+				ast_node type = ast_make_node(AST_EXPR_LIST, get_location(lexer));
+				type.child[0] = parse_decl(lexer, PARSE_CAST, s, pool, arena).first;
+				ast_append(pool, &params, type);
+			} else if (!accept(lexer, TOKEN_RPAREN)) {
 				do {
 					ast_node node = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 					node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
@@ -396,7 +409,6 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 				expect(lexer, TOKEN_RPAREN);
 			}
 
-			ast_id called = expr;
 			ast_node node = ast_make_node(AST_EXPR_CALL, get_location(lexer));
 			node.child[0] = called;
 			node.child[1] = params.first;
@@ -468,7 +480,7 @@ parse_expr(lexer *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *
 }
 
 static ast_id
-parse_initializer(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
+parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_list list = {0};
 	expect(lexer, TOKEN_LBRACE);
@@ -525,7 +537,7 @@ get_qualifier(token_kind token)
 }
 
 static ast_list
-parse_declarator(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
+parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_list pointer_declarator = {0};
 	while (accept(lexer, TOKEN_STAR)) {
@@ -615,7 +627,7 @@ parse_declarator(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena
 }
 
 static ast_list
-parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
+parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_node type_specifier = {0};
 	u32 qualifiers = 0;
@@ -806,7 +818,7 @@ parse_decl(lexer *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 }
 
 static ast_id
-parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
+parse_stmt(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_id result;
 
@@ -1031,11 +1043,14 @@ parse_stmt(lexer *lexer, scope *s, ast_pool *pool, arena *arena)
 }
 
 static ast_pool
-parse(lexer *lexer, arena *arena)
+parse(cpp_state *lexer, arena *arena)
 {
 	ast_pool pool = {0};
 	ast_list list = {0};
 	scope s = new_scope(NULL);
+
+	scope_entry *e = scope_upsert_ident(&s, S("__builtin_va_list"), arena);
+	e->is_type = true;
 
 	do {
 		ast_list decls = parse_decl(lexer, PARSE_EXTERNAL_DECL, &s, &pool, arena);

@@ -112,17 +112,6 @@ typedef enum {
 	IF_INIT = 1 << 2,
 } if_state;
 
-typedef struct file file;
-struct file {
-	file *prev;
-	char *name;
-	str contents;
-	isize offset;
-	if_state if_state[64];
-	location if_loc[64];
-	i32 if_depth;
-};
-
 typedef struct token_list token_list;
 struct token_list {
 	token_list *next;
@@ -144,30 +133,41 @@ struct macro {
 	token_list *tokens;
 	i32 param_count;
 	str_list *params;
+	location loc;
 };
 
 typedef struct {
-	file file;
-	b32 error;
-	token_list *tokens;
-	token peek[2];
+	str data;
+	isize pos;
 	char at[4];
 } lexer;
 
-typedef struct {
+typedef struct file_context file_context;
+struct file_context {
+	file_context *prev;
+	char *name;
 	lexer lexer;
-	arena *arena;
+	i32 if_depth;
+	if_state if_state[64];
+	location if_loc[64];
+};
 
+typedef struct {
+	file_context file;
+	arena *arena;
+	token_list *tokens;
+	token peek[2];
+	b32 error;
 	b32 ignore_token;
 	macro *macros;
 } cpp_state;
 
 static location
-get_location(lexer *lexer)
+get_location(cpp_state *cpp)
 {
 	location loc = {0};
-	loc.file = lexer->file.name;
-	loc.offset = lexer->file.offset;
+	loc.file = cpp->file.name;
+	loc.offset = cpp->file.lexer.pos;
 	return loc;
 }
 

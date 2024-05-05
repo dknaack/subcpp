@@ -37,25 +37,30 @@ fatalf(location loc, char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	verrorf(loc, fmt, ap);
+	vwarnf(loc, fmt, ap);
 	va_end(ap);
 
 	exit(EXIT_FAILURE);
 }
 
 static void
-advance(lexer *lexer, i32 amount)
+fill_chars(lexer *l)
 {
-	isize remaining = lexer->file.contents.length - lexer->file.offset;
-	lexer->file.offset += MIN(amount, remaining);
-
-	for (isize i = 0; i < LENGTH(lexer->at); i++) {
-		if (lexer->file.offset + i < lexer->file.contents.length) {
-			lexer->at[i] = lexer->file.contents.at[lexer->file.offset + i];
+	for (isize i = 0; i < LENGTH(l->at); i++) {
+		if (i < l->data.length - l->pos) {
+			l->at[i] = l->data.at[l->pos + i];
 		} else {
-			lexer->at[i] = '\0';
+			l->at[i] = '\0';
 		}
 	}
+}
+
+static void
+advance(lexer *l, i32 amount)
+{
+	isize remaining = l->data.length - l->pos;
+	l->pos += MIN(amount, remaining);
+	fill_chars(l);
 }
 
 static b32
@@ -88,17 +93,12 @@ is_whitespace(char c)
 
 // NOTE: Cannot upcast to cpp_state in this function, because of peek_token!!
 static token
-cpp_get_token(lexer *l)
+read_token(lexer *l)
 {
 	token token = {0};
 
-	if (l->tokens) {
-		token = l->tokens->token;
-		l->tokens = l->tokens->next;
-		return token;
-	}
-
-	isize start = l->file.offset;
+	fill_chars(l);
+	isize start = l->pos;
 	char c = l->at[0];
 	switch (c) {
 	case '\0':
@@ -106,53 +106,67 @@ cpp_get_token(lexer *l)
 		break;
 	case '(':
 		token.kind = TOKEN_LPAREN;
+		advance(l, 1);
 		break;
 	case ')':
 		token.kind = TOKEN_RPAREN;
+		advance(l, 1);
 		break;
 	case '[':
 		token.kind = TOKEN_LBRACKET;
+		advance(l, 1);
 		break;
 	case ']':
 		token.kind = TOKEN_RBRACKET;
+		advance(l, 1);
 		break;
 	case '{':
 		token.kind = TOKEN_LBRACE;
+		advance(l, 1);
 		break;
 	case '}':
 		token.kind = TOKEN_RBRACE;
+		advance(l, 1);
 		break;
 	case '?':
 		token.kind = TOKEN_QMARK;
+		advance(l, 1);
 		break;
 	case ',':
 		token.kind = TOKEN_COMMA;
+		advance(l, 1);
 		break;
 	case ':':
 		token.kind = TOKEN_COLON;
+		advance(l, 1);
 		break;
 	case ';':
 		token.kind = TOKEN_SEMICOLON;
+		advance(l, 1);
 		break;
 	case '~':
 		token.kind = TOKEN_TILDE;
+		advance(l, 1);
 		break;
 	case '^':
 		token.kind = TOKEN_CARET;
+		advance(l, 1);
 		break;
 	case '!':
 		token.kind = TOKEN_BANG;
+		advance(l, 1);
 		break;
 	case '\n':
 		token.kind = TOKEN_NEWLINE;
+		advance(l, 1);
 		break;
 	case '\\':
 		if (l->at[1] == '\n') {
-			advance(l, 2);
 			token.kind = TOKEN_WHITESPACE;
+			advance(l, 2);
 		} else {
-			advance(l, 1);
 			token.kind = TOKEN_BACKSLASH;
+			advance(l, 1);
 		}
 
 		break;
@@ -337,7 +351,7 @@ cpp_get_token(lexer *l)
 			}
 		} while (l->at[0] != c && l->at[0] != '\n' && l->at[0] != '\0');
 
-		if (l->at[1] == c) {
+		if (l->at[0] == c) {
 			token.kind = c == '"' ? TOKEN_LITERAL_STRING : TOKEN_LITERAL_CHAR;
 			advance(l, 1);
 		}
@@ -372,26 +386,49 @@ cpp_get_token(lexer *l)
 		}
 	}
 
-	isize end = l->file.offset;
-	token.value = substr(l->file.contents, start, end);
+	isize end = l->pos;
+	token.value = substr(l->data, start, end);
 	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
 }
 
 static token
-cpp_peek_token(lexer *lex)
+cpp_get_token(cpp_state *cpp)
 {
-	lexer tmp = *lex;
-	token token = cpp_get_token(&tmp);
+	token token = {0};
+
+	if (cpp->tokens) {
+		token = cpp->tokens->token;
+		cpp->tokens = cpp->tokens->next;
+	} else {
+		token = read_token(&cpp->file.lexer);
+	}
+
+	return token;
+
+}
+
+static token
+cpp_peek_token(cpp_state *cpp)
+{
+	token token = {0};
+
+	if (cpp->tokens) {
+		token = cpp->tokens->token;
+	} else {
+		lexer tmp = cpp->file.lexer;
+		token = read_token(&tmp);
+	}
+
 	return token;
 }
 
 static b32
-cpp_accept(lexer *lexer, token_kind expected_token)
+cpp_accept(cpp_state *cpp, token_kind expected_token)
 {
-	token token = cpp_peek_token(lexer);
+	token token = cpp_peek_token(cpp);
 	if (token.kind == expected_token) {
-		cpp_get_token(lexer);
+		cpp_get_token(cpp);
 		return true;
 	} else {
 		return false;
@@ -399,28 +436,28 @@ cpp_accept(lexer *lexer, token_kind expected_token)
 }
 
 static void
-cpp_expect(lexer *lexer, token_kind expected_token)
+cpp_expect(cpp_state *cpp, token_kind expected_token)
 {
-	token token = cpp_peek_token(lexer);
-	if (!cpp_accept(lexer, expected_token)) {
-		errorf(get_location(lexer), "Expected %s, but found %s",
+	token token = cpp_peek_token(cpp);
+	if (!cpp_accept(cpp, expected_token)) {
+		errorf(get_location(cpp), "Expected %s, but found %s",
 			get_token_name(expected_token), get_token_name(token.kind));
 	}
 }
 
 static void
-skip_whitespace(lexer *lexer)
+skip_whitespace(cpp_state *cpp)
 {
-	while (cpp_accept(lexer, TOKEN_WHITESPACE)) {}
+	while (cpp_accept(cpp, TOKEN_WHITESPACE)) {}
 }
 
 static void
-skip_line(lexer *lexer)
+skip_line(cpp_state *cpp)
 {
-	token token = cpp_peek_token(lexer);
+	token token = cpp_peek_token(cpp);
 	while (token.kind != TOKEN_NEWLINE && token.kind != TOKEN_EOF) {
-		cpp_get_token(lexer);
-		token = cpp_peek_token(lexer);
+		cpp_get_token(cpp);
+		token = cpp_peek_token(cpp);
 	}
 }
 
@@ -448,15 +485,14 @@ concat_paths(str a, str b, arena *perm)
 	return result;
 }
 
-static file *
+static file_context *
 push_file(cpp_state *cpp)
 {
-	lexer *lexer = &cpp->lexer;
-	file *f = ALLOC(cpp->arena, 1, file);
-	*f = lexer->file;
-	lexer->file.if_depth = 0;
-	lexer->file.prev = f;
-	return &lexer->file;
+	file_context *f = ALLOC(cpp->arena, 1, file_context);
+	*f = cpp->file;
+	cpp->file.if_depth = 0;
+	cpp->file.prev = f;
+	return &cpp->file;
 }
 
 static str tombstone = S("(deleted)");
@@ -474,6 +510,7 @@ upsert_macro(macro **p, str name, arena *perm)
 
 	if (perm) {
 		*p = ALLOC(perm, 1, macro);
+		memset(*p, 0, sizeof(**p));
 		return *p;
 	}
 
@@ -504,6 +541,7 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 		}
 
 		if (m == NULL) {
+			token_list *tmp = *curr;
 			*curr = ALLOC(arena, 1, token_list);
 			**curr = *tmp;
 			curr = &(*curr)->next;
@@ -594,7 +632,9 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 
 			if (concat) {
 				// TODO: Replace parameter
-				ASSERT(!is_param);
+				if (is_param) {
+					input = params[param_index];
+				}
 
 				// TODO: Non-identifier concatenation
 				ASSERT(prev->token.kind == TOKEN_IDENT);
@@ -608,6 +648,8 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 				copy(substr(result, 0, a.length), a);
 				copy(substr(result, a.length, -1), b);
 
+				// TODO: remove the token instead of replacing it with whitespace?
+				prev->token.kind = TOKEN_WHITESPACE;
 				*out = ALLOC(arena, 1, token_list);
 				(*out)->token.kind = TOKEN_IDENT;
 				(*out)->token.value = result;
@@ -668,7 +710,6 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 		str_list tmp = {0};
 		tmp.value = m->name;
 		tmp.next = expanded_macros;
-		expanded_macros = &tmp;
 
 		// Paint any tokens that have been expanded blue.
 		for (token_list *list = new_list; list; list = list->next) {
@@ -676,7 +717,7 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 				continue;
 			}
 
-			for (str_list *s = expanded_macros; s; s = s->next) {
+			for (str_list *s = &tmp; s; s = s->next) {
 				if (equals(s->value, list->token.value)) {
 					list->was_expanded = true;
 					break;
@@ -685,7 +726,7 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 		}
 
 		// Rescan
-		new_list = expand(new_list, expanded_macros, macros, arena);
+		new_list = expand(new_list, &tmp, macros, arena);
 
 		// Insert the list back into the token list
 		token_list **end = NULL;
@@ -698,19 +739,19 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 }
 
 static token_list *
-read_line(lexer *lexer, arena *arena)
+read_line(cpp_state *cpp)
 {
 	token_list *result = NULL;
 	token_list **p = &result;
 
 	for (;;) {
-		token token = cpp_peek_token(lexer);
+		token token = cpp_peek_token(cpp);
 		if (token.kind == TOKEN_NEWLINE || token.kind == TOKEN_EOF) {
 			break;
 		}
 
-		cpp_get_token(lexer);
-		*p = ALLOC(arena, 1, token_list);
+		cpp_get_token(cpp);
+		*p = ALLOC(cpp->arena, 1, token_list);
 		(*p)->token = token;
 		p = &(*p)->next;
 	}
@@ -722,10 +763,9 @@ static i64
 cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 {
 	i64 result = 0;
-	lexer *lexer = &cpp->lexer;
 
-	skip_whitespace(lexer);
-	token token = cpp_get_token(lexer);
+	skip_whitespace(cpp);
+	token token = cpp_get_token(cpp);
 	switch (token.kind) {
 	case TOKEN_IDENT:
 		break;
@@ -752,17 +792,17 @@ cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 		break;
 	case TOKEN_LPAREN:
 		result = cpp_parse_expr_rec(cpp, PREC_ASSIGN);
-		skip_whitespace(lexer);
-		cpp_expect(lexer, TOKEN_RPAREN);
+		skip_whitespace(cpp);
+		cpp_expect(cpp, TOKEN_RPAREN);
 		break;
 	default:
-		errorf(get_location(lexer), "Invalid expression: %s",
+		errorf(get_location(cpp), "Invalid expression: %s",
 			get_token_name(token.kind));
 	}
 
-	while (!lexer->error) {
-		skip_whitespace(lexer);
-		token = cpp_peek_token(lexer);
+	for (;;) {
+		skip_whitespace(cpp);
+		token = cpp_peek_token(cpp);
 		if (token.kind == TOKEN_EOF || token.kind == TOKEN_NEWLINE) {
 			break;
 		}
@@ -772,18 +812,18 @@ cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 			break;
 		}
 
-		cpp_get_token(lexer);
+		cpp_get_token(cpp);
 		i64 lhs = result;
 		i64 rhs = 0;
 		if (token.kind == TOKEN_QMARK) {
 			lhs = cpp_parse_expr_rec(cpp, prec);
-			skip_whitespace(lexer);
-			token = cpp_get_token(lexer);
+			skip_whitespace(cpp);
+			token = cpp_get_token(cpp);
 			if (token.kind != TOKEN_COLON) {
-				errorf(get_location(lexer), "Expected ':'");
+				errorf(get_location(cpp), "Expected ':'");
 			}
 
-			skip_whitespace(lexer);
+			skip_whitespace(cpp);
 			rhs = cpp_parse_expr_rec(cpp, prec);
 			token.kind = TOKEN_QMARK;
 		} else {
@@ -810,7 +850,7 @@ cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 		case TOKEN_STAR:          result = lhs  * rhs; break;
 		case TOKEN_QMARK:         result = result ? lhs : rhs; break;
 		default:
-			errorf(get_location(lexer), "Invalid operator");
+			errorf(get_location(cpp), "Invalid operator");
 		}
 	}
 
@@ -820,29 +860,27 @@ cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 static i64
 cpp_parse_expr(cpp_state *cpp)
 {
-	lexer *lexer = &cpp->lexer;
-
-	skip_whitespace(lexer);
-	lexer->tokens = read_line(lexer, cpp->arena);
+	skip_whitespace(cpp);
+	cpp->tokens = read_line(cpp);
 
 	// Remove all defined expressions from the token list.
 	// TODO: This should only be done once and not in each recursive step.
 	token_list *tmp = NULL;
 	token_list **p = &tmp;
-	while (lexer->tokens) {
-		token token = cpp_peek_token(lexer);
+	while (cpp->tokens) {
+		token token = cpp_peek_token(cpp);
 		if (equals(token.value, S("defined"))) {
-			cpp_get_token(lexer);
-			skip_whitespace(lexer);
-			if (cpp_accept(lexer, TOKEN_LPAREN)) {
-				skip_whitespace(lexer);
-				token = cpp_peek_token(lexer);
-				cpp_expect(lexer, TOKEN_IDENT);
-				skip_whitespace(lexer);
-				cpp_expect(lexer, TOKEN_RPAREN);
+			cpp_get_token(cpp);
+			skip_whitespace(cpp);
+			if (cpp_accept(cpp, TOKEN_LPAREN)) {
+				skip_whitespace(cpp);
+				token = cpp_peek_token(cpp);
+				cpp_expect(cpp, TOKEN_IDENT);
+				skip_whitespace(cpp);
+				cpp_expect(cpp, TOKEN_RPAREN);
 			} else {
-				token = cpp_peek_token(lexer);
-				cpp_expect(lexer, TOKEN_IDENT);
+				token = cpp_peek_token(cpp);
+				cpp_expect(cpp, TOKEN_IDENT);
 			}
 
 			static str token_values[] = { S("0"), S("1") };
@@ -852,15 +890,16 @@ cpp_parse_expr(cpp_state *cpp)
 			node->token.value = token_values[m != NULL];
 			*p = node;
 		} else {
-			*p = lexer->tokens;
-			cpp_get_token(lexer);
+			*p = cpp->tokens;
+			cpp_get_token(cpp);
 		}
 
 		p = &(*p)->next;
 	}
 
 	// Expand the tokens
-	lexer->tokens = expand(tmp, NULL, cpp->macros, cpp->arena);
+	token_list *expanded = expand(tmp, NULL, cpp->macros, cpp->arena);
+	cpp->tokens = expanded;
 
 	// Parse the expression recursively.
 	i64 result = cpp_parse_expr_rec(cpp, PREC_ASSIGN);
@@ -870,152 +909,147 @@ cpp_parse_expr(cpp_state *cpp)
 static void
 push_if(cpp_state *cpp, b32 value)
 {
-	cpp->lexer.file.if_depth++;
-	if (cpp->lexer.file.if_depth > LENGTH(cpp->lexer.file.if_state)) {
-		fatalf(get_location(&cpp->lexer), "Internal error: Too many #ifs");
+	cpp->file.if_depth++;
+	if (cpp->file.if_depth > LENGTH(cpp->file.if_state)) {
+		fatalf(get_location(cpp), "Internal error: Too many #ifs");
 	}
 
-	cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1] = 0;
-	cpp->lexer.file.if_loc[cpp->lexer.file.if_depth - 1] = get_location(&cpp->lexer);
+	cpp->file.if_state[cpp->file.if_depth - 1] = 0;
+	cpp->file.if_loc[cpp->file.if_depth - 1] = get_location(cpp);
 	if (!cpp->ignore_token && value) {
-		cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1] = IF_TRUE;
+		cpp->file.if_state[cpp->file.if_depth - 1] = IF_TRUE;
 	} else {
 		cpp->ignore_token = true;
 	}
 }
 
 static token
-get_token(lexer *lexer)
+get_token(cpp_state *cpp)
 {
-	cpp_state *cpp = (cpp_state *)lexer;
+	lexer *lexer = &cpp->file.lexer;
 	token tmp, token = {TOKEN_INVALID};
-	b32 at_line_start = (lexer->file.offset == 0);
+	b32 at_line_start = (cpp->file.lexer.pos == 0);
 	do {
-		b32 was_expanded = (lexer->tokens != NULL);
-		token = cpp_get_token(lexer);
+		b32 was_expanded = (cpp->tokens != NULL);
+		token = cpp_get_token(cpp);
 
 		if (at_line_start && !was_expanded && token.kind == TOKEN_HASH) {
-			skip_whitespace(lexer);
-			token = cpp_get_token(lexer);
+			skip_whitespace(cpp);
+			token = cpp_get_token(cpp);
 			if (token.kind != TOKEN_IDENT) {
-				fatalf(get_location(lexer), "Invalid preprocessing directive");
+				fatalf(get_location(cpp), "Invalid preprocessing directive");
 			}
 
 			if_state curr_state = IF_TRUE;
 			if_state prev_state = IF_TRUE;
-			if (cpp->lexer.file.if_depth > 0) {
-				curr_state = cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1];
-				if (cpp->lexer.file.if_depth > 1) {
-					prev_state = cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 2];
+			if (cpp->file.if_depth > 0) {
+				curr_state = cpp->file.if_state[cpp->file.if_depth - 1];
+				if (cpp->file.if_depth > 1) {
+					prev_state = cpp->file.if_state[cpp->file.if_depth - 2];
 				}
 			}
 
-			skip_whitespace(lexer);
+			skip_whitespace(cpp);
 			if (equals(token.value, S("if"))) {
 				i64 value = 0;
 				if (!cpp->ignore_token) {
 					value = cpp_parse_expr(cpp);
 				} else {
-					skip_line(lexer);
+					skip_line(cpp);
 				}
 
-				warnf(get_location(lexer), "#if");
 				push_if(cpp, value);
 			} else if (equals(token.value, S("ifdef"))) {
-				warnf(get_location(lexer), "#ifdef");
-				token = cpp_get_token(lexer);
+				token = cpp_get_token(cpp);
 				if (token.kind != TOKEN_IDENT) {
-					fatalf(get_location(lexer), "Expected identifier");
+					fatalf(get_location(cpp), "Expected identifier");
 				}
 
 				macro *m = upsert_macro(&cpp->macros, token.value, NULL);
 				b32 is_defined = (m != NULL);
 				push_if(cpp, is_defined);
 			} else if (equals(token.value, S("ifndef"))) {
-				token = cpp_get_token(lexer);
+				token = cpp_get_token(cpp);
 				if (token.kind != TOKEN_IDENT) {
-					fatalf(get_location(lexer), "Expected identifier");
+					fatalf(get_location(cpp), "Expected identifier");
 				}
 
 				macro *m = upsert_macro(&cpp->macros, token.value, NULL);
 				b32 is_defined = (m != NULL);
 				push_if(cpp, !is_defined);
 			} else if (equals(token.value, S("elif"))) {
-				if (cpp->lexer.file.if_depth <= 0) {
-					fatalf(get_location(lexer), "#elif without #if");
+				if (cpp->file.if_depth <= 0) {
+					fatalf(get_location(cpp), "#elif without #if");
 				}
 
 				if (curr_state & IF_HAS_ELSE) {
-					fatalf(get_location(lexer), "#elif after #else");
+					fatalf(get_location(cpp), "#elif after #else");
 				}
 
 				cpp->ignore_token = true;
 				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
 					i64 value = cpp_parse_expr(cpp);
 					if (value) {
-						cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1] |= IF_TRUE;
+						cpp->file.if_state[cpp->file.if_depth - 1] |= IF_TRUE;
 						cpp->ignore_token = false;
 					}
 				}
 
-				skip_line(lexer);
+				skip_line(cpp);
 			} else if (equals(token.value, S("else"))) {
-				if (cpp->lexer.file.if_depth <= 0) {
-					fatalf(get_location(lexer), "#else without #if");
+				if (cpp->file.if_depth <= 0) {
+					fatalf(get_location(cpp), "#else without #if");
 				}
 
 				if (curr_state & IF_HAS_ELSE) {
-					fatalf(get_location(lexer), "#else after #else");
+					fatalf(get_location(cpp), "#else after #else");
 				}
 
 				cpp->ignore_token = true;
-				cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1] |= IF_HAS_ELSE;
+				cpp->file.if_state[cpp->file.if_depth - 1] |= IF_HAS_ELSE;
 				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
-					cpp->lexer.file.if_state[cpp->lexer.file.if_depth - 1] |= IF_TRUE;
+					cpp->file.if_state[cpp->file.if_depth - 1] |= IF_TRUE;
 					cpp->ignore_token = false;
 				}
 
-				skip_line(lexer);
+				skip_line(cpp);
 			} else if (equals(token.value, S("endif"))) {
-				if (cpp->lexer.file.if_depth <= 0) {
-					fatalf(get_location(lexer), "#endif without #if");
+				if (cpp->file.if_depth <= 0) {
+					fatalf(get_location(cpp), "#endif without #if");
 				}
 
 				cpp->ignore_token = !(prev_state & IF_TRUE);
-				cpp->lexer.file.if_depth--;
+				cpp->file.if_depth--;
 
-				skip_line(lexer);
+				skip_line(cpp);
 			} else if (cpp->ignore_token) {
-				skip_line(lexer);
+				skip_line(cpp);
 				token.kind = TOKEN_NEWLINE;
 			} else if (equals(token.value, S("include"))) {
-				str path = {0};
 				char end_char = '\0';
 				b32 is_system_header = false;
-				if (lexer->file.contents.at[lexer->file.offset] == '<') {
+				if (lexer->at[0] == '<') {
 					is_system_header = true;
 					end_char = '>';
-				} else if (lexer->file.contents.at[lexer->file.offset] == '"') {
+				} else if (lexer->at[0] == '"') {
 					end_char = '"';
 				} else {
 					ASSERT(!"Macro filenames have not been implement yet");
 				}
 
 				advance(lexer, 1);
-				isize start = lexer->file.offset;
+				isize start = lexer->pos;
 				do {
 					advance(lexer, 1);
 				} while (lexer->at[0] != '\n' && lexer->at[0] != end_char);
-				isize end = lexer->file.offset - 1;
 
-				path.at = lexer->file.contents.at + start;
-				path.length = end - start;
+				str path = substr(lexer->data, start, lexer->pos);
 				if (path.length == 0) {
-					fatalf(get_location(lexer), "Invalid header path");
+					fatalf(get_location(cpp), "Invalid header path");
 				}
 
 				token.kind = TOKEN_NEWLINE;
-				skip_line(lexer);
+				skip_line(cpp);
 
 				str filename = {0};
 				str contents = {0};
@@ -1075,7 +1109,7 @@ get_token(lexer *lexer)
 					b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 					if (is_relative_path) {
 						errno = 0;
-						str dir = dirname(make_str(cpp->lexer.file.name));
+						str dir = dirname(make_str(cpp->file.name));
 						filename = concat_paths(dir, path, cpp->arena);
 						contents = read_file(filename.at, cpp->arena);
 						i32 error_value = errno;
@@ -1106,34 +1140,35 @@ get_token(lexer *lexer)
 					}
 				}
 
-				if (found_header) {
-					file *f = push_file(cpp);
-					f->name = cstr(filename, cpp->arena);
-					f->contents = contents;
-					f->offset = 0;
-				} else {
-					fatalf(get_location(lexer), "File not found");
+				if (!found_header) {
+					fatalf(get_location(cpp), "File not found");
 				}
+
+				file_context *f = push_file(cpp);
+				f->name = cstr(filename, cpp->arena);
+				f->lexer.data = contents;
+				f->lexer.pos = 0;
 			} else if (equals(token.value, S("define"))) {
-				token = cpp_get_token(lexer);
+				token = cpp_get_token(cpp);
 				if (token.kind != TOKEN_IDENT) {
-					fatalf(get_location(lexer), "Expected identifier");
+					fatalf(get_location(cpp), "Expected identifier");
 				}
 
 				str name = token.value;
 				macro *m = upsert_macro(&cpp->macros, token.value, cpp->arena);
 				m->param_count = -1;
 				if (m->name.at != NULL) {
-					warnf(get_location(lexer), "Macro was already defined");
+					warnf(get_location(cpp), "Macro was already defined");
 				}
 
-				if (cpp_accept(lexer, TOKEN_LPAREN)) {
+				m->loc = get_location(cpp);
+				if (cpp_accept(cpp, TOKEN_LPAREN)) {
 					str_list **ptr = &m->params;
 					m->param_count = 0;
-					skip_whitespace(lexer);
-					if (!cpp_accept(lexer, TOKEN_RPAREN)) {
-						while (!cpp_accept(lexer, TOKEN_EOF)) {
-							token = cpp_get_token(lexer);
+					skip_whitespace(cpp);
+					if (!cpp_accept(cpp, TOKEN_RPAREN)) {
+						while (!cpp_accept(cpp, TOKEN_EOF)) {
+							token = cpp_get_token(cpp);
 							if (token.kind == TOKEN_IDENT) {
 								m->param_count++;
 								*ptr = ALLOC(cpp->arena, 1, str_list);
@@ -1141,70 +1176,70 @@ get_token(lexer *lexer)
 								ptr = &(*ptr)->next;
 							}
 
-							skip_whitespace(lexer);
-							if (!cpp_accept(lexer, TOKEN_COMMA)) {
+							skip_whitespace(cpp);
+							if (!cpp_accept(cpp, TOKEN_COMMA)) {
 								break;
 							}
 
-							skip_whitespace(lexer);
+							skip_whitespace(cpp);
 						}
 
-						cpp_expect(lexer, TOKEN_RPAREN);
+						cpp_expect(cpp, TOKEN_RPAREN);
 					}
 				}
 
 				m->name = name;
-				m->tokens = read_line(lexer, cpp->arena);
+				m->tokens = read_line(cpp);
 			} else if (equals(token.value, S("undef"))) {
-				token = cpp_get_token(lexer);
+				token = cpp_get_token(cpp);
 				macro *m = upsert_macro(&cpp->macros, token.value, NULL);
 				if (m != NULL) {
 					m->name = tombstone;
 				}
 
-				skip_line(lexer);
+				skip_line(cpp);
 			} else if (equals(token.value, S("pragma"))) {
-				skip_line(lexer);
+				skip_line(cpp);
 			} else if (equals(token.value, S("error"))) {
 				// TODO: Print the message
-				errorf(get_location(lexer), "Error directive");
-				skip_line(lexer);
+				errorf(get_location(cpp), "Error directive");
+				skip_line(cpp);
 			} else {
-				fatalf(get_location(lexer), "Invalid preprocessor directive");
+				fatalf(get_location(cpp), "Invalid preprocessor directive");
 			}
 
 			token.kind = TOKEN_NEWLINE;
 		}
 
 		if (token.kind == TOKEN_BACKSLASH) {
-			token = cpp_peek_token(lexer);
+			token = cpp_peek_token(cpp);
 			if (token.kind == TOKEN_NEWLINE) {
-				cpp_get_token(lexer);
+				cpp_get_token(cpp);
 			} else {
 				token.kind = TOKEN_INVALID;
 			}
 		} else if (token.kind == TOKEN_EOF) {
-			if (cpp->lexer.file.if_depth > 0) {
-				fatalf(cpp->lexer.file.if_loc[cpp->lexer.file.if_depth - 1], "Unterminated #if: %d", cpp->lexer.file.if_depth);
+			if (cpp->file.if_depth > 0) {
+				fatalf(cpp->file.if_loc[cpp->file.if_depth - 1], "Unterminated #if: %d", cpp->file.if_depth);
 			}
 
-			if (cpp->lexer.file.prev != NULL) {
+			if (cpp->file.prev != NULL) {
 				token.kind = TOKEN_NEWLINE;
 				at_line_start = true;
-				cpp->lexer.file = *cpp->lexer.file.prev;
-				skip_whitespace(lexer);
+				cpp->file = *cpp->file.prev;
+				skip_whitespace(cpp);
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
-			skip_whitespace(lexer);
+			skip_whitespace(cpp);
 		} else if (!cpp->ignore_token && !was_expanded && token.kind == TOKEN_IDENT) {
-			ASSERT(lexer->tokens == NULL);
+			ASSERT(cpp->tokens == NULL);
 
 			token_list *list = ALLOC(cpp->arena, 1, token_list);
 			list->token = token;
 
 			token_list **p = &list->next;
-			while (cpp_accept(lexer, TOKEN_LPAREN)) {
+			while (cpp_accept(cpp, TOKEN_LPAREN)) {
 				*p = ALLOC(cpp->arena, 1, token_list);
 				(*p)->token.kind = TOKEN_LPAREN;
 				(*p)->token.value = S("(");
@@ -1212,7 +1247,7 @@ get_token(lexer *lexer)
 
 				i32 paren_depth = 1;
 				for (;;) {
-					token = cpp_get_token(lexer);
+					token = cpp_get_token(cpp);
 					if (token.kind == TOKEN_RPAREN) {
 						paren_depth--;
 					} else if (token.kind == TOKEN_LPAREN) {
@@ -1230,7 +1265,7 @@ get_token(lexer *lexer)
 				}
 			}
 
-			lexer->tokens = expand(list, NULL, cpp->macros, cpp->arena);
+			cpp->tokens = expand(list, NULL, cpp->macros, cpp->arena);
 			token.kind = TOKEN_WHITESPACE;
 		}
 	} while (cpp->ignore_token || token.kind == TOKEN_WHITESPACE
@@ -1283,9 +1318,9 @@ get_token(lexer *lexer)
 	}
 
 	tmp = token;
-	token = lexer->peek[0];
-	lexer->peek[0] = lexer->peek[1];
-	lexer->peek[1] = tmp;
+	token = cpp->peek[0];
+	cpp->peek[0] = cpp->peek[1];
+	cpp->peek[1] = tmp;
 	return token;
 }
 
@@ -1294,8 +1329,8 @@ tokenize(char *filename, str src, arena *arena)
 {
 	cpp_state cpp = {0};
 	cpp.arena = arena;
-	cpp.lexer.file.name = filename;
-	cpp.lexer.file.contents = src;
+	cpp.file.name = filename;
+	cpp.file.lexer.data = src;
 
 #if 0
 	static struct { str name, value; } predefined_macros[] = {
@@ -1314,7 +1349,7 @@ tokenize(char *filename, str src, arena *arena)
 	}
 #endif
 
-	get_token(&cpp.lexer);
-	get_token(&cpp.lexer);
+	get_token(&cpp);
+	get_token(&cpp);
 	return cpp;
 }
