@@ -875,10 +875,10 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 	for (u32 i = 0; i < program.symtab->decl_count; i++) {
 		decl_symbol *sym = &program.symtab->decls[i];
-		if (sym->is_function) {
-			if (sym->linkage == LINK_EXTERN) {
+		if (sym->is_function && sym->linkage != LINK_STATIC) {
+			if (sym->linkage == LINK_EXTERN || sym->definition.value == 0) {
 				stream_print(out, "extern ");
-			} else if (sym->linkage != LINK_STATIC) {
+			} else {
 				stream_print(out, "global ");
 			}
 
