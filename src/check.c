@@ -210,10 +210,12 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	}
 
 	if (node->child[0].value != 0) {
+		ASSERT(node->child[0].value != node_id.value);
 		check_type(pool, node->child[0], arena);
 	}
 
 	if (node->child[1].value != 0) {
+		ASSERT(node->child[1].value != node_id.value);
 		check_type(pool, node->child[1], arena);
 	}
 
