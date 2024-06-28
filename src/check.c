@@ -75,6 +75,10 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 	ast_id *child = node_id;
 	while (child->value != 0) {
 		ast_node *node = ast_get(pool, *child);
+		if (node->child[0].value != 0) {
+			check_decls(pool, &node->child[0], s, perm);
+		}
+
 		switch (node->kind) {
 		case AST_TYPE_STRUCT:
 			{
@@ -116,10 +120,6 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 				}
 			} break;
 		default:
-		}
-
-		if (node->child[0].value != 0) {
-			check_decls(pool, &node->child[0], s, perm);
 		}
 
 		if (node->kind == AST_EXTERN_DEF) {
