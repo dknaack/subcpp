@@ -44,6 +44,11 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 
 	ast_node *node = ast_get(pool, node_id);
 	switch (node->kind) {
+	case AST_INVALID:
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
+		printf("(invalid)");
+		break;
 	case AST_EXTERN_DEF:
 	case AST_DECL:
 		printf("%.*s: ", (int)node->value.s.length, node->value.s.at);
@@ -172,6 +177,13 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("default:\n");
 		print_ast_node(pool, node->child[0], indent + 1);
 		break;
+	case AST_STMT_DO_WHILE:
+		printf("do");
+		print_ast_node(pool, node->child[1], indent);
+		printf("while (");
+		print_ast_node(pool, node->child[0], indent);
+		printf(");");
+		break;
 	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_GOTO:
@@ -229,6 +241,12 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("return ");
 		print_ast_node(pool, node->child[0], indent);
 		break;
+	case AST_STMT_WHILE:
+		printf("while (");
+		print_ast_node(pool, node->child[0], indent);
+		printf(")");
+		print_ast_node(pool, node->child[1], indent);
+		break;
 	case AST_TYPE_ARRAY:
 		printf("[");
 		print_ast_node(pool, node->child[0], indent);
@@ -268,8 +286,23 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("*");
 		print_ast_node(pool, node->child[1], indent);
 		break;
+	case AST_TYPE_STRUCT:
+		printf("(struct)");
+		break;
+	case AST_TYPE_UNION:
+		printf("(union)");
+		break;
+	case AST_TYPE_ENUM:
+		printf("(enum)");
+		break;
+	case AST_TYPE_FLOAT:
+		printf("float");
+		break;
+	case AST_TYPE_VOID:
+		printf("void");
+		break;
 	default:
-		printf("(todo %d)", node->kind);
+		printf("(TODO)");
 		break;
 	}
 }
