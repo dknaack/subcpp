@@ -88,6 +88,7 @@ typedef enum {
 	TOKEN_SWITCH,
 	TOKEN_THREAD_LOCAL,
 	TOKEN_TYPEDEF,
+	TOKEN_UNION,
 	TOKEN_UNSIGNED,
 	TOKEN_VOID,
 	TOKEN_VOLATILE,
@@ -258,6 +259,7 @@ get_token_name(token_kind kind)
 	case TOKEN_SWITCH:         return "'switch'";
 	case TOKEN_THREAD_LOCAL:   return "'_Thread_local'";
 	case TOKEN_TYPEDEF:        return "'typedef'";
+	case TOKEN_UNION:          return "'union'";
 	case TOKEN_UNSIGNED:       return "'unsigned'";
 	case TOKEN_VOID:           return "'void'";
 	case TOKEN_VOLATILE:       return "'volatile'";

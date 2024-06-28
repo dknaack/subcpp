@@ -1303,6 +1303,7 @@ get_token(cpp_state *cpp)
 			{ TOKEN_SWITCH,       S("switch")        },
 			{ TOKEN_THREAD_LOCAL, S("_Thread_local") },
 			{ TOKEN_TYPEDEF,      S("typedef")       },
+			{ TOKEN_UNION,        S("union")         },
 			{ TOKEN_UNSIGNED,     S("unsigned")      },
 			{ TOKEN_VOID,         S("void")          },
 			{ TOKEN_VOLATILE,     S("volatile")      },
