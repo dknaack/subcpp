@@ -88,6 +88,7 @@ typedef enum {
 	TYPE_FUNCTION,
 	TYPE_POINTER,
 	TYPE_STRUCT,
+	TYPE_UNION,
 
 	TYPE_UNSIGNED = 1,
 } type_kind;
@@ -143,6 +144,7 @@ type_get_name(type_kind type)
 	case TYPE_ARRAY:          return "(array)";
 	case TYPE_POINTER:        return "(pointer)";
 	case TYPE_STRUCT:         return "(struct)";
+	case TYPE_UNION:          return "(union)";
 	case TYPE_BITFIELD:       return "(bitfield)";
 	case TYPE_UNKNOWN:        return "(unknown)";
 	}
@@ -196,6 +198,17 @@ type_sizeof(type *type)
 			usize target_size = type_sizeof(type->children);
 			return type->size * target_size;
 		} break;
+	case TYPE_UNION:
+		{
+			isize size = 0;
+
+			for (member *s = type->members; s; s = s->next) {
+				isize member_size = type_sizeof(s->type);
+				size = MAX(size, member_size);
+			}
+
+			return size;
+		} break;
 	case TYPE_STRUCT:
 		{
 			usize size = 0;
@@ -219,7 +232,7 @@ type_alignof(type *type)
 	// TODO: proper alignment for structs and arrays
 	if (type->kind == TYPE_ARRAY) {
 		result = 16;
-	} else if (type->kind == TYPE_STRUCT) {
+	} else if (type->kind == TYPE_STRUCT || type->kind == TYPE_UNION) {
 		for (member *s = type->members; s; s = s->next) {
 			u32 align = type_alignof(s->type);
 			result = MAX(result, align);
@@ -237,7 +250,17 @@ type_offsetof(type *type, str member_name)
 	usize offset = 0;
 
 	ASSERT(type != NULL);
-	if (type->kind == TYPE_STRUCT) {
+	if (type->kind == TYPE_UNION) {
+		b32 found = false;
+
+		for (member *s = type->members; !found && s; s = s->next) {
+			if (equals(member_name, s->name)) {
+				found = true;
+			}
+		}
+
+		ASSERT(found);
+	} else if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
 		for (member *s = type->members; s; s = s->next) {
 			u32 align = type_alignof(s->type);

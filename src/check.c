@@ -81,6 +81,7 @@ check_decls(ast_pool *pool, ast_id *node_id, scope *s, arena *perm)
 
 		switch (node->kind) {
 		case AST_TYPE_STRUCT:
+		case AST_TYPE_UNION:
 			{
 				if (node->value.s.at) {
 					if (node->child[0].value != 0) {
@@ -624,10 +625,14 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			}
 		} break;
 	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
 		{
 			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
 			node->type = type_create(TYPE_STRUCT, arena);
+			if (node->kind == AST_TYPE_UNION) {
+				node->type->kind = TYPE_UNION;
+			}
 
 			// TODO: Collect the members of the struct
 			member **ptr = &node->type->members;
