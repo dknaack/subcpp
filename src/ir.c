@@ -802,6 +802,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_TYPE_INT:
 	case AST_TYPE_ENUM:
 	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
 	case AST_TYPE_FLOAT:
 	case AST_TYPE_FUNC:
 	case AST_TYPE_IDENT:
