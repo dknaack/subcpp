@@ -58,6 +58,7 @@ typedef enum {
 	AST_TYPE_INT,      // {}
 	AST_TYPE_POINTER,  // {_, type}
 	AST_TYPE_STRUCT,   // {...declarations}
+	AST_TYPE_UNION,    // {...declarations}
 	AST_TYPE_VOID,     // {}
 } ast_node_kind;
 

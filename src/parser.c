@@ -691,8 +691,13 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 				expect(lexer, TOKEN_RBRACE);
 			} break;
 		case TOKEN_STRUCT:
+		case TOKEN_UNION:
 			get_token(lexer);
 			type_specifier = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
+			if (token.kind == TOKEN_UNION) {
+				type_specifier.kind = AST_TYPE_UNION;
+			}
+
 			token = lexer->peek[0];
 			if (token.kind == TOKEN_IDENT) {
 				type_specifier.value.s = token.value;
