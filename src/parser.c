@@ -816,13 +816,16 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
 		ast_append_id(pool, &decl, type_id);
 
-		ast_node *decl_node = ast_get(pool, decl.first);
-		decl_node->flags |= type_specifier.flags;
-		decl_node->child[0] = decl_node->child[1];
-		decl_node->child[1] = ast_id_nil;
+		if (!(flags & PARSE_NO_IDENT)) {
+			ast_node *decl_node = ast_get(pool, decl.first);
+			ASSERT(decl_node->kind == AST_DECL);
+			decl_node->flags |= type_specifier.flags;
+			decl_node->child[0] = decl_node->child[1];
+			decl_node->child[1] = ast_id_nil;
 
-		scope_entry *e = scope_upsert_ident(s, decl_node->value.s, arena);
-		e->is_type = ((type_specifier.flags & AST_TYPEDEF) != 0);
+			scope_entry *e = scope_upsert_ident(s, decl_node->value.s, arena);
+			e->is_type = ((type_specifier.flags & AST_TYPEDEF) != 0);
+		}
 
 		if ((flags & PARSE_BITFIELD) && accept(lexer, TOKEN_COLON)) {
 			ast_id type = ast_get(pool, decl.first)->child[0];
