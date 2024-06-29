@@ -168,6 +168,7 @@ get_precedence(token_kind token)
 	case TOKEN_PERCENT:
 		return PREC_FACTOR;
 	case TOKEN_EQUAL_EQUAL:
+	case TOKEN_BANG_EQUAL:
 		return PREC_EQUAL;
 	case TOKEN_LESS:
 	case TOKEN_GREATER:

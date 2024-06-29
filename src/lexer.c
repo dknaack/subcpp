@@ -160,8 +160,13 @@ read_token(lexer *l)
 		advance(l, 1);
 		break;
 	case '!':
-		token.kind = TOKEN_BANG;
-		advance(l, 1);
+		if (l->at[1] == '=') {
+			token.kind = TOKEN_BANG_EQUAL;
+			advance(l, 2);
+		} else {
+			token.kind = TOKEN_BANG;
+			advance(l, 1);
+		}
 		break;
 	case '\n':
 		token.kind = TOKEN_NEWLINE;
@@ -851,6 +856,7 @@ cpp_parse_expr_rec(cpp_state *cpp, precedence prev_prec)
 		case TOKEN_BAR_BAR:       result = lhs || rhs; break;
 		case TOKEN_CARET:         result = lhs  ^ rhs;  break;
 		case TOKEN_EQUAL_EQUAL:   result = lhs == rhs; break;
+		case TOKEN_BANG_EQUAL:    result = lhs != rhs; break;
 		case TOKEN_GREATER:       result = lhs  > rhs;  break;
 		case TOKEN_GREATER_EQUAL: result = lhs >= rhs; break;
 		case TOKEN_RSHIFT:        result = lhs >> rhs; break;
