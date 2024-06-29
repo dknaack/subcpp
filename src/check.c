@@ -188,6 +188,11 @@ eval_ast(ast_pool *pool, ast_id node_id)
 				result = eval_ast(pool, node2->child[1]);
 			}
 		} break;
+	case AST_EXPR_SIZEOF:
+		{
+			// TODO: Implement sizeof operator
+			result = 8;
+		} break;
 	default:
 		ASSERT(!"Invalid node");
 	}
@@ -431,6 +436,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_EXPR_STRING:
 		{
 			node->type = &type_char_ptr;
+		} break;
+	case AST_EXPR_SIZEOF:
+		{
+			node->type = &type_int;
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:

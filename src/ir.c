@@ -402,6 +402,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			result = ir_emit1_type(ctx, IR_I32, IR_CONST, node->value.i);
 		} break;
+	case AST_EXPR_SIZEOF:
+		{
+			// TODO: implement sizeof operator
+			result = ir_emit1_type(ctx, IR_I64, IR_CONST, 8);
+		} break;
 	case AST_EXPR_UNARY:
 		{
 			u32 operator = node->value.op;

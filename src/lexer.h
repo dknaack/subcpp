@@ -83,6 +83,7 @@ typedef enum {
 	TOKEN_RETURN,
 	TOKEN_SHORT,
 	TOKEN_SIGNED,
+	TOKEN_SIZEOF,
 	TOKEN_STATIC,
 	TOKEN_STRUCT,
 	TOKEN_SWITCH,
@@ -254,6 +255,7 @@ get_token_name(token_kind kind)
 	case TOKEN_RETURN:         return "'return'";
 	case TOKEN_SHORT:          return "'short'";
 	case TOKEN_SIGNED:         return "'signed'";
+	case TOKEN_SIZEOF:         return "'sizeof'";
 	case TOKEN_STATIC:         return "'static'";
 	case TOKEN_STRUCT:         return "'struct'";
 	case TOKEN_SWITCH:         return "'switch'";

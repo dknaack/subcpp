@@ -23,6 +23,7 @@ typedef enum {
 	AST_EXPR_MEMBER,   // {operand}
 	AST_EXPR_MEMBER_PTR, // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
+	AST_EXPR_SIZEOF,
 	AST_EXPR_STRING,
 	AST_EXPR_TERNARY1, // {expr, ternary2}
 	AST_EXPR_TERNARY2, // {expr, expr}

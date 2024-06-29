@@ -1297,6 +1297,7 @@ get_token(cpp_state *cpp)
 			{ TOKEN_RESTRICT,     S("restrict")      },
 			{ TOKEN_RETURN,       S("return")        },
 			{ TOKEN_SIGNED,       S("signed")        },
+			{ TOKEN_SIZEOF,       S("sizeof")        },
 			{ TOKEN_SHORT,        S("short")         },
 			{ TOKEN_STATIC,       S("static")        },
 			{ TOKEN_STRUCT,       S("struct")        },
