@@ -1239,6 +1239,7 @@ get_token(cpp_state *cpp)
 			list->token = token;
 
 			token_list **p = &list->next;
+			skip_whitespace(cpp);
 			while (cpp_accept(cpp, TOKEN_LPAREN)) {
 				*p = ALLOC(cpp->arena, 1, token_list);
 				(*p)->token.kind = TOKEN_LPAREN;
