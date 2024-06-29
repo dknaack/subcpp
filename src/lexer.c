@@ -1285,6 +1285,7 @@ get_token(cpp_state *cpp)
 			{ TOKEN_CONST,        S("const")         },
 			{ TOKEN_CONTINUE,     S("continue")      },
 			{ TOKEN_DO,           S("do")            },
+			{ TOKEN_DOUBLE,       S("double")        },
 			{ TOKEN_DEFAULT,      S("default")       },
 			{ TOKEN_ELSE,         S("else")          },
 			{ TOKEN_ENUM,         S("enum")          },
