@@ -615,7 +615,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 			get_token(lexer);
 		} else {
 			token.value.length = 0;
-			if (!(flags & PARSE_OPT_IDENT)) {
+			if (!((token.kind == TOKEN_COLON && (flags & PARSE_BITFIELD)) || (flags & PARSE_OPT_IDENT))) {
 				syntax_error(lexer, "Expected identifier, but found %s",
 					get_token_name(token.kind));
 			}
