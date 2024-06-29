@@ -78,6 +78,13 @@ is_digit(char c)
 }
 
 static b32
+is_hex_digit(char c)
+{
+	b32 result = (is_digit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F'));
+	return result;
+}
+
+static b32
 is_ident(char c)
 {
 	b32 result = (is_alpha(c) || is_digit(c) || c == '_');
@@ -360,15 +367,22 @@ read_token(lexer *l)
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 		token.kind = TOKEN_LITERAL_INT;
-		do {
-			advance(l, 1);
-		} while (is_digit(l->at[0]));
-
-		if (l->at[0] == '.') {
-			advance(l, 1);
-			token.kind = TOKEN_LITERAL_FLOAT;
-			while (is_digit(l->at[0])) {
+		if (l->at[0] == '0' && (l->at[1] == 'x' || l->at[1] == 'X')) {
+			advance(l, 2);
+			while (is_hex_digit(l->at[0])) {
 				advance(l, 1);
+			}
+		} else {
+			do {
+				advance(l, 1);
+			} while (is_digit(l->at[0]));
+
+			if (l->at[0] == '.') {
+				advance(l, 1);
+				token.kind = TOKEN_LITERAL_FLOAT;
+				while (is_digit(l->at[0])) {
+					advance(l, 1);
+				}
 			}
 		}
 
