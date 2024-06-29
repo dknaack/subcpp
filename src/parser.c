@@ -563,6 +563,8 @@ get_qualifier(token_kind token)
 		return AST_TYPEDEF;
 	case TOKEN_UNSIGNED:
 		return AST_UNSIGNED;
+	case TOKEN_VOLATILE:
+		return AST_VOLATILE;
 	default:
 		return 0;
 	}
