@@ -239,9 +239,10 @@ typedef enum {
 	PARSE_BITFIELD       = 1 << 1,
 	PARSE_NO_INITIALIZER = 1 << 2,
 	PARSE_NO_IDENT       = 1 << 3,
+	PARSE_OPT_IDENT      = 1 << 4,
 
 	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
-	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
+	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER | PARSE_OPT_IDENT,
 	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
 	PARSE_EXTERNAL_DECL = 0,
 } parse_decl_flags;
@@ -563,12 +564,14 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 		expect(lexer, TOKEN_RPAREN);
 	} else if (!(flags & PARSE_NO_IDENT)) {
 		token token = lexer->peek[0];
-		if (token.kind != TOKEN_IDENT) {
-			syntax_error(lexer, "Expected identifier, but found %s",
-				get_token_name(token.kind));
-			token.value.length = 0;
-		} else {
+		if (token.kind == TOKEN_IDENT) {
 			get_token(lexer);
+		} else {
+			token.value.length = 0;
+			if (!(flags & PARSE_OPT_IDENT)) {
+				syntax_error(lexer, "Expected identifier, but found %s",
+					get_token_name(token.kind));
+			}
 		}
 
 		ast_node node = ast_make_node(AST_DECL, get_location(lexer));
