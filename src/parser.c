@@ -293,9 +293,23 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			literal.value.i = 0;
 
 			isize i = 0;
-			for (i = 0; i < token.value.length && is_digit(token.value.at[i]); i++) {
-				literal.value.i *= 10;
-				literal.value.i += (token.value.at[i] - '0');
+			if (token.value.at[1] != 'x') {
+				for (i = 0; i < token.value.length && is_digit(token.value.at[i]); i++) {
+					literal.value.i *= 10;
+					literal.value.i += (token.value.at[i] - '0');
+				}
+			} else {
+				for (i = 2; i < token.value.length && is_hex_digit(token.value.at[i]); i++) {
+					literal.value.i *= 16;
+					char c = token.value.at[i];
+					if (is_digit(c)) {
+						literal.value.i += (c - '0');
+					} else if ('A' <= c && c <= 'F') {
+						literal.value.i += (c - 'A' + 10);
+					} else if ('a' <= c && c <= 'f') {
+						literal.value.i += (c - 'A' + 10);
+					}
+				}
 			}
 
 			for (; !lexer->error && i < token.value.length; i++) {
