@@ -355,6 +355,37 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 				expect(lexer, TOKEN_RPAREN);
 			}
 		} break;
+	case TOKEN_SIZEOF:
+		{
+			get_token(lexer);
+
+			if (accept(lexer, TOKEN_LPAREN)) {
+				ast_list decl = parse_decl(lexer, PARSE_CAST, s, pool, arena);
+				if (decl.first.value != 0) {
+					expect(lexer, TOKEN_RPAREN);
+					if (lexer->peek[0].kind == TOKEN_LBRACE) {
+						ASSERT(!"TODO: Parse initializer");
+					} else {
+						ast_node *decl_node = ast_get(pool, decl.first);
+						ast_id type = decl_node->child[0];
+
+						ast_node node = ast_make_node(AST_EXPR_SIZEOF, get_location(lexer));
+						node.child[0] = type;
+						expr = ast_push(pool, node);
+					}
+				} else {
+					expr = parse_expr(lexer, 0, s, pool, arena);
+					if (expr.value == 0) {
+						syntax_error(lexer, "Expected expression");
+						return expr;
+					}
+
+					expect(lexer, TOKEN_RPAREN);
+				}
+			} else {
+				parse_expr(lexer, PREC_PRIMARY, s, pool, arena);
+			}
+		} break;
 	case TOKEN_STAR:
 	case TOKEN_AMP:
 	case TOKEN_PLUS:
