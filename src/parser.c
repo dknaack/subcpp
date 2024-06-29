@@ -760,6 +760,9 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			}
 
 			if (accept(lexer, TOKEN_LBRACE)) {
+				scope tmp = new_scope(s);
+				s = &tmp;
+
 				ast_list members = {0};
 				while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
 					ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, s, pool, arena);
