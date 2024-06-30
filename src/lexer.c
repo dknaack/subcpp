@@ -1305,6 +1305,7 @@ get_token(cpp_state *cpp)
 		} keywords[] = {
 			{ TOKEN_AUTO,         S("auto")          },
 			{ TOKEN_BREAK,        S("break")         },
+			{ TOKEN_BOOL,         S("_Bool")         },
 			{ TOKEN_CASE,         S("case")          },
 			{ TOKEN_CHAR,         S("char")          },
 			{ TOKEN_CONST,        S("const")         },
