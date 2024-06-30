@@ -156,8 +156,13 @@ read_token(lexer *l)
 		advance(l, 1);
 		break;
 	case '^':
-		token.kind = TOKEN_CARET;
-		advance(l, 1);
+		if (l->at[1] == '=') {
+			token.kind = TOKEN_CARET_EQUAL;
+			advance(l, 2);
+		} else {
+			token.kind = TOKEN_CARET;
+			advance(l, 1);
+		}
 		break;
 	case '!':
 		if (l->at[1] == '=') {
