@@ -646,8 +646,6 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 				get_token(lexer);
 			} else {
 				scope tmp = new_scope(s);
-				s = &tmp;
-
 				ast_list params = {0};
 				do {
 					ast_list param = {0};
@@ -656,7 +654,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 						break;
 					}
 
-					param = parse_decl(lexer, PARSE_PARAM, s, pool, arena);
+					param = parse_decl(lexer, PARSE_PARAM, &tmp, pool, arena);
 					ast_concat(pool, &params, param);
 					if (param.first.value == 0) {
 						lexer->error = true;
