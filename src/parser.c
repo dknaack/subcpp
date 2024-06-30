@@ -269,6 +269,8 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			ast_node literal = ast_make_node(AST_EXPR_STRING, get_location(lexer));
 			literal.value.s = token.value;
 			expr = ast_push(pool, literal);
+			// TODO: implement string concatenation
+			while (accept(lexer, TOKEN_LITERAL_STRING)) {}
 		} break;
 	case TOKEN_LITERAL_CHAR:
 		{
