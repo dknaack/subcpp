@@ -586,7 +586,7 @@ expand(token_list *list, str_list *expanded_macros, macro *macros, arena *arena)
 			i32 param_index = 1;
 			i32 paren_depth = 1;
 			while (next && paren_depth > 0) {
-				if (next->token.kind == TOKEN_COMMA) {
+				if (paren_depth == 1 && next->token.kind == TOKEN_COMMA) {
 					if (param_index < m->param_count) {
 						*curr_param = NULL;
 						curr_param = &params[param_index++];
