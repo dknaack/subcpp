@@ -361,7 +361,7 @@ read_token(lexer *l)
 	case '\'':
 	case '"':
 		do {
-			if (l->at[1] == '\\') {
+			if (l->at[0] == '\\') {
 				advance(l, 2);
 			} else {
 				advance(l, 1);
