@@ -248,6 +248,7 @@ typedef enum {
 } parse_decl_flags;
 
 static ast_list parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena);
+static ast_id parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena);
 
 static ast_id
 parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *arena)
@@ -348,10 +349,13 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			get_token(lexer);
 
 			ast_list decl = parse_decl(lexer, PARSE_CAST, s, pool, arena);
+			// TODO: Add node type for compound initializers
+			ast_id initializer = {0};
 			if (decl.first.value != 0) {
 				expect(lexer, TOKEN_RPAREN);
 				if (lexer->peek[0].kind == TOKEN_LBRACE) {
-					ASSERT(!"TODO: Parse initializer");
+					initializer = parse_initializer(lexer, s, pool, arena);
+					(void)initializer;
 				} else {
 					ast_node *decl_node = ast_get(pool, decl.first);
 					ast_id type = decl_node->child[0];
@@ -377,10 +381,13 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 
 			if (accept(lexer, TOKEN_LPAREN)) {
 				ast_list decl = parse_decl(lexer, PARSE_CAST, s, pool, arena);
+				// TODO: Add node type for compound initializers
+				ast_id initializer = {0};
 				if (decl.first.value != 0) {
 					expect(lexer, TOKEN_RPAREN);
 					if (lexer->peek[0].kind == TOKEN_LBRACE) {
-						ASSERT(!"TODO: Parse initializer");
+						initializer = parse_initializer(lexer, s, pool, arena);
+						(void)initializer;
 					} else {
 						ast_node *decl_node = ast_get(pool, decl.first);
 						ast_id type = decl_node->child[0];
