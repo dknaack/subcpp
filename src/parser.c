@@ -436,12 +436,12 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			ast_id called = expr;
 			ast_node *called_node = ast_get(pool, called);
 			if (called_node->kind == AST_EXPR_IDENT
-				&& (equals(called_node->value.s, S("__builtin_va_start"))
-				 || equals(called_node->value.s, S("__builtin_va_end"))))
+				&& equals(called_node->value.s, S("__builtin_va_arg")))
 			{
 				ast_node expr = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 				expr.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				ast_append(pool, &params, expr);
+				expect(lexer, TOKEN_COMMA);
 
 				ast_node type = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 				type.child[0] = parse_decl(lexer, PARSE_CAST, s, pool, arena).first;
