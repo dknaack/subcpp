@@ -91,8 +91,9 @@ ast_push(ast_pool *p, ast_node node)
 			p->size = 1;
 		}
 
+		p->nodes = realloc(p->nodes, 2 * p->cap * sizeof(*p->nodes));
+		memset(p->nodes + p->cap, 0, p->cap * sizeof(*p->nodes));
 		p->cap *= 2;
-		p->nodes = realloc(p->nodes, p->cap * sizeof(*p->nodes));
 	}
 
 	ast_id id = {0};
