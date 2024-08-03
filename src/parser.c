@@ -702,6 +702,11 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			type_specifier = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
 			get_token(lexer);
 			break;
+		case TOKEN_BOOL:
+			// TODO: Define bool type in AST
+			type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
+			get_token(lexer);
+			break;
 		case TOKEN_INT:
 			type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
 			get_token(lexer);
