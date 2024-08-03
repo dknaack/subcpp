@@ -260,9 +260,12 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 	case TOKEN_IDENT:
 		{
 			get_token(lexer);
-			ast_node ident = ast_make_node(AST_EXPR_IDENT, get_location(lexer));
-			ident.value.s = token.value;
-			expr = ast_push(pool, ident);
+			scope_entry *e = scope_upsert_ident(s, token.value, NULL);
+			if (e) {
+				expr = e->node_id;
+			} else {
+				syntax_error(lexer, "unknown ident");
+			}
 		} break;
 	case TOKEN_LITERAL_STRING:
 		{
