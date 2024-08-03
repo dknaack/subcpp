@@ -1,7 +1,7 @@
 typedef struct scope_entry scope_entry;
 struct scope_entry {
 	str key;
-	ast_id value;
+	ast_id node_id;
 	b8 is_type;
 
 	i32 depth;
@@ -58,7 +58,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	scope_entry *e = NULL;
 	for (e = s->tags; e; e = e->next) {
 		if (equals(key, e->key)) {
-			return &e->value;
+			return &e->node_id;
 		}
 	}
 
@@ -70,7 +70,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	e->next = s->idents;
 	e->key = key;
 	s->tags = e;
-	return &e->value;
+	return &e->node_id;
 }
 
 static ast_node
@@ -686,45 +686,52 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 static ast_list
 parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_node type_specifier = {0};
+	ast_id type_id = {0};
 	u32 qualifiers = 0;
 
 	b32 found_qualifier = true;
 	while (found_qualifier) {
 		token token = lexer->peek[0];
+		ast_node node = {0};
 		switch (token.kind) {
 		case TOKEN_FLOAT:
-			type_specifier = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
+			node = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_DOUBLE:
 			// TODO: Define double type in AST
-			type_specifier = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
+			node = ast_make_node(AST_TYPE_FLOAT, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_BOOL:
 			// TODO: Define bool type in AST
-			type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
+			node = ast_make_node(AST_TYPE_INT, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_INT:
-			type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
+			node = ast_make_node(AST_TYPE_INT, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_CHAR:
-			type_specifier = ast_make_node(AST_TYPE_CHAR, get_location(lexer));
+			node = ast_make_node(AST_TYPE_CHAR, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_VOID:
-			type_specifier = ast_make_node(AST_TYPE_VOID, get_location(lexer));
+			node = ast_make_node(AST_TYPE_VOID, get_location(lexer));
+			type_id = ast_push(pool, node);
 			get_token(lexer);
 			break;
 		case TOKEN_IDENT:
 			{
 				scope_entry *e = scope_upsert_ident(s, token.value, NULL);
-				if (e && e->is_type) {
-					type_specifier = ast_make_node(AST_TYPE_IDENT, get_location(lexer));
-					type_specifier.value.s = token.value;
+				if (type_id.value == 0 && e && e->is_type) {
+					type_id = e->node_id;
+					ASSERT(type_id.value != 0);
 					get_token(lexer);
 				} else {
 					found_qualifier = false;
@@ -732,7 +739,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			} break;
 		case TOKEN_ENUM:
 			{
-				type_specifier = ast_make_node(AST_TYPE_ENUM, get_location(lexer));
+				node = ast_make_node(AST_TYPE_ENUM, get_location(lexer));
 				get_token(lexer);
 				accept(lexer, TOKEN_IDENT);
 				expect(lexer, TOKEN_LBRACE);
@@ -747,48 +754,49 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 						node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 					}
 
+					ast_append(pool, &enumerators, node);
 					if (!accept(lexer, TOKEN_COMMA)) {
 						break;
 					}
-
-					ast_append(pool, &enumerators, node);
 				}
 
-				type_specifier.child[0] = enumerators.first;
+				node.child[0] = enumerators.first;
+				type_id = ast_push(pool, node);
 				expect(lexer, TOKEN_RBRACE);
 			} break;
 		case TOKEN_STRUCT:
 		case TOKEN_UNION:
 			get_token(lexer);
-			type_specifier = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
+			node = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
 			if (token.kind == TOKEN_UNION) {
-				type_specifier.kind = AST_TYPE_UNION;
+				node.kind = AST_TYPE_UNION;
 			}
 
 			token = lexer->peek[0];
 			if (token.kind == TOKEN_IDENT) {
-				type_specifier.value.s = token.value;
+				node.value.s = token.value;
 				get_token(lexer);
 			}
 
 			if (accept(lexer, TOKEN_LBRACE)) {
 				scope tmp = new_scope(s);
-				s = &tmp;
-
 				ast_list members = {0};
 				while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
-					ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, s, pool, arena);
+					ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
 					if (decl.first.value != 0) {
 						ast_concat(pool, &members, decl);
 					} else {
+						syntax_error(lexer, "WTF");
 						lexer->error = true;
 					}
 
 					expect(lexer, TOKEN_SEMICOLON);
 				}
 
-				type_specifier.child[0] = members.first;
+				node.child[0] = members.first;
 			}
+
+			type_id = ast_push(pool, node);
 			break;
 		default:
 			{
@@ -819,12 +827,14 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		}
 	}
 
-	if (qualifiers & (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED)) {
-		type_specifier = ast_make_node(AST_TYPE_INT, get_location(lexer));
+	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
+	if (type_id.value == 0 && (qualifiers & int_mask) != 0) {
+		ast_node node = ast_make_node(AST_TYPE_INT, get_location(lexer));
+		type_id = ast_push(pool, node);
 	}
 
 	ast_list list = {0};
-	if (type_specifier.kind == AST_INVALID) {
+	if (type_id.value == 0) {
 		if (qualifiers != 0) {
 			syntax_error(lexer, "Expected type after qualifiers");
 		}
@@ -832,18 +842,22 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		return list;
 	}
 
-	type_specifier.flags = qualifiers;
+	if (qualifiers != 0) {
+		ast_node node = ast_make_node(AST_TYPE_QUAL, get_location(lexer));
+		node.flags = qualifiers;
+		node.child[0] = type_id;
+		type_id = ast_push(pool, node);
+	}
+
 	if (lexer->peek[0].kind == TOKEN_SEMICOLON) {
 		ast_node decl = ast_make_node(AST_DECL, get_location(lexer));
-		decl.child[0] = ast_push(pool, type_specifier);
+		decl.child[0] = type_id;
 
 		ast_node list_node = ast_make_node(AST_DECL_LIST, get_location(lexer));
 		list_node.child[0] = ast_push(pool, decl);
 		ast_append(pool, &list, list_node);
 		return list;
 	}
-
-	ast_id type_id = ast_push(pool, type_specifier);
 
 	do {
 		ast_node node = ast_make_node(AST_DECL_LIST, get_location(lexer));
@@ -855,12 +869,13 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		if (!(flags & PARSE_NO_IDENT)) {
 			ast_node *decl_node = ast_get(pool, decl.first);
 			ASSERT(decl_node->kind == AST_DECL);
-			decl_node->flags |= type_specifier.flags;
+			decl_node->flags |= qualifiers;
 			decl_node->child[0] = decl_node->child[1];
 			decl_node->child[1] = ast_id_nil;
 
 			scope_entry *e = scope_upsert_ident(s, decl_node->value.s, arena);
-			e->is_type = ((type_specifier.flags & AST_TYPEDEF) != 0);
+			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
+			e->node_id = decl.first;
 		}
 
 		if ((flags & PARSE_BITFIELD) && accept(lexer, TOKEN_COLON)) {
@@ -1127,8 +1142,13 @@ parse(cpp_state *lexer, arena *arena)
 	ast_list list = {0};
 	scope s = new_scope(NULL);
 
+	// Insert __builtin_va_list into scope
+	ast_node node = ast_make_node(AST_EXPR_IDENT, get_location(lexer));
+	node.value.s = S("__builtin_va_list");
+
 	scope_entry *e = scope_upsert_ident(&s, S("__builtin_va_list"), arena);
 	e->is_type = true;
+	e->node_id = ast_push(&pool, node);
 
 	do {
 		ast_list decls = parse_decl(lexer, PARSE_EXTERNAL_DECL, &s, &pool, arena);
