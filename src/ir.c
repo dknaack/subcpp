@@ -177,14 +177,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				operand_type = operand_type->children;
 			}
 
-			ir_type type = ir_type_from(node->type);
 			u32 offset = type_offsetof(operand_type, node->value.s);
 			u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
 			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
 			u32 base_reg = translate_node(ctx, pool, node->child[0], base_is_lvalue);
 			result = ir_emit2(ctx, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
-				result = ir_emit1_type(ctx, type, IR_LOAD, result);
+				if (node->type->kind != TYPE_STRUCT) {
+					ir_type type = ir_type_from(node->type);
+					result = ir_emit1_type(ctx, type, IR_LOAD, result);
+				} else {
+					isize size = type_sizeof(node->type);
+					u32 tmp = ir_emit_alloca(ctx, size);
+					ir_memcpy(ctx, tmp, result, size);
+					result = tmp;
+				}
 			}
 		} break;
 	case AST_EXPR_BINARY:
