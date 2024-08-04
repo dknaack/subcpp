@@ -160,16 +160,6 @@ ast_concat(ast_pool *p, ast_list *a, ast_list b)
 }
 
 static void
-ast_shrink(ast_pool *p)
-{
-	ast_node *nodes = realloc(p->nodes, p->size * sizeof(*nodes));
-	if (nodes) {
-		p->nodes = nodes;
-		p->cap = p->size;
-	}
-}
-
-static void
 vsyntax_error(cpp_state *lexer, char *fmt, va_list ap)
 {
 	if (lexer->error) {
@@ -1248,7 +1238,13 @@ parse(cpp_state *lexer, arena *arena)
 	} while (!lexer->error && !accept(lexer, TOKEN_EOF));
 
 	pool.root = list.first;
-	ast_shrink(&pool);
+
+	// shrink the pool to size
+	ast_node *nodes = realloc(pool.nodes, pool.size * sizeof(*nodes));
+	if (nodes) {
+		pool.nodes = nodes;
+		pool.cap = pool.size;
+	}
 
 	if (pool.root.value == 0) {
 		ASSERT(!"syntax error");
