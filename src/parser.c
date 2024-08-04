@@ -48,7 +48,7 @@ scope_upsert_ident(scope *s, str key, arena *perm)
 	return e;
 }
 
-static ast_id *
+static scope_entry *
 scope_upsert_tag(scope *s, str key, arena *perm)
 {
 	if (!s) {
@@ -58,7 +58,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	scope_entry *e = NULL;
 	for (e = s->tags; e; e = e->next) {
 		if (equals(key, e->key)) {
-			return &e->node_id;
+			return e;
 		}
 	}
 
@@ -70,7 +70,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	e->next = s->idents;
 	e->key = key;
 	s->tags = e;
-	return &e->node_id;
+	return e;
 }
 
 static ast_node
