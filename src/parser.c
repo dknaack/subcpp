@@ -806,10 +806,10 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 						node.flags |= AST_OPAQUE;
 					}
 
+					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
 					node.value.ref = e->node_id;
 				}
 
-				type_id = push_node(pool, node);
 				if (accept(lexer, TOKEN_LBRACE)) {
 					scope tmp = new_scope(s);
 					ast_list members = {0};
@@ -825,14 +825,20 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 						expect(lexer, TOKEN_SEMICOLON);
 					}
 
-					ast_node *def_node = get_node(pool, type_id);
+					ast_node *def_node = NULL;
 					if (e != NULL) {
 						def_node = get_node(pool, e->node_id);
+						ASSERT(def_node->kind == node.kind);
+						type_id = e->node_id;
+					} else {
+						type_id = push_node(pool, node);
+						def_node = get_node(pool, type_id);
 					}
 
 					def_node->child[0] = members.first;
+				} else {
+					type_id = push_node(pool, node);
 				}
-
 			} break;
 		default:
 			{
