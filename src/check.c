@@ -635,6 +635,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 
 				// TODO: Collect the members of the struct
+				ASSERT(node->type->members == NULL);
 				member **ptr = &node->type->members;
 				ast_id decl_id = node->child[0];
 				while (decl_id.value != 0) {
