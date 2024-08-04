@@ -136,7 +136,7 @@ append_node(ast_pool *p, ast_list *l, ast_node node)
 }
 
 static void
-ast_prepend(ast_pool *p, ast_list *l, ast_node node)
+prepend_node(ast_pool *p, ast_list *l, ast_node node)
 {
 	node.child[1] = l->first;
 	l->first = push_node(p, node);
@@ -629,7 +629,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 			break;
 		}
 
-		ast_prepend(pool, &pointer_declarator, node);
+		prepend_node(pool, &pointer_declarator, node);
 	}
 
 	ast_list declarator = {0};
