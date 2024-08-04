@@ -42,7 +42,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		return;
 	}
 
-	ast_node *node = ast_get(pool, node_id);
+	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
 	case AST_INVALID:
 	case AST_STMT_FOR2:
@@ -62,7 +62,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_DECL_LIST:
 		while (node_id.value != 0) {
 			for (int i = 0; i < indent - 1; i++) printf("    ");
-			node = ast_get(pool, node_id);
+			node = get_node(pool, node_id);
 			print_ast_node(pool, node->child[0], indent);
 			node_id = node->child[1];
 			printf(";\n");
@@ -77,7 +77,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 
 		printf("(");
 		for (node_id = node->child[1]; node_id.value != 0; node_id = node->child[1]) {
-			node = ast_get(pool, node_id);
+			node = get_node(pool, node_id);
 			print_ast_node(pool, node->child[0], indent);
 			if (node->child[1].value != 0) {
 				printf(", ");
@@ -193,13 +193,13 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("for (");
 		print_ast_node(pool, node->child[0], indent);
 		printf("; ");
-		node = ast_get(pool, node->child[1]);
+		node = get_node(pool, node->child[1]);
 		print_ast_node(pool, node->child[0], indent);
 		printf("; ");
-		node = ast_get(pool, node->child[1]);
+		node = get_node(pool, node->child[1]);
 		print_ast_node(pool, node->child[0], indent);
 		printf(") ");
-		node = ast_get(pool, node->child[1]);
+		node = get_node(pool, node->child[1]);
 		print_ast_node(pool, node->child[0], indent);
 		break;
 	case AST_STMT_IF1:
@@ -223,7 +223,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("{\n");
 		while (node_id.value != 0) {
 			for (int i = 0; i < indent + 1; i++) printf("    ");
-			node = ast_get(pool, node_id);
+			node = get_node(pool, node_id);
 			print_ast_node(pool, node->child[0], indent+1);
 			node_id = node->child[1];
 			printf(";\n");
@@ -265,7 +265,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		tmp = node->child[1];
 		printf("(");
 		for (node_id = node->child[0]; node_id.value != 0; node_id = node->child[1]) {
-			node = ast_get(pool, node_id);
+			node = get_node(pool, node_id);
 			print_ast_node(pool, node->child[0], indent);
 			if (node->child[1].value != 0) {
 				printf(", ");

@@ -107,7 +107,7 @@ ast_push(ast_pool *p, ast_node node)
 }
 
 static ast_node *
-ast_get(ast_pool *p, ast_id id)
+get_node(ast_pool *p, ast_id id)
 {
 	if (0 < id.value && id.value < p->size) {
 		return p->nodes + id.value;
@@ -121,7 +121,7 @@ static void
 ast_append_id(ast_pool *p, ast_list *l, ast_id node_id)
 {
 	if (l->last.value != 0) {
-		ast_node *last = ast_get(p, l->last);
+		ast_node *last = get_node(p, l->last);
 		l->last = last->child[1] = node_id;
 	} else {
 		l->last = l->first = node_id;
@@ -150,7 +150,7 @@ ast_concat(ast_pool *p, ast_list *a, ast_list b)
 {
 	if (b.first.value != 0) {
 		if (a->last.value != 0) {
-			ast_node *last = ast_get(p, a->last);
+			ast_node *last = get_node(p, a->last);
 			last->child[1] = b.first;
 			a->last = b.last;
 		} else {
@@ -362,7 +362,7 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			// TODO: Add node type for compound initializers
 			ast_id initializer = {0};
 			if (decl.first.value != 0) {
-				ast_node *decl_node = ast_get(pool, decl.first);
+				ast_node *decl_node = get_node(pool, decl.first);
 				ast_id type = decl_node->child[0];
 
 				expect(lexer, TOKEN_RPAREN);
@@ -405,7 +405,7 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 						initializer = parse_initializer(lexer, s, pool, arena);
 						(void)initializer;
 					} else {
-						ast_node *decl_node = ast_get(pool, decl.first);
+						ast_node *decl_node = get_node(pool, decl.first);
 						ast_id type = decl_node->child[0];
 
 						ast_node node = ast_make_node(AST_EXPR_SIZEOF, get_location(lexer));
@@ -461,7 +461,7 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			get_token(lexer);
 			ast_list params = {0};
 			ast_id called = expr;
-			ast_node *called_node = ast_get(pool, called);
+			ast_node *called_node = get_node(pool, called);
 			if (called_node->kind == AST_EXPR_IDENT
 				&& equals(called_node->value.s, S("__builtin_va_arg")))
 			{
@@ -835,9 +835,9 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 						expect(lexer, TOKEN_SEMICOLON);
 					}
 
-					ast_node *def_node = ast_get(pool, type_id);
+					ast_node *def_node = get_node(pool, type_id);
 					if (e != NULL) {
-						def_node = ast_get(pool, e->node_id);
+						def_node = get_node(pool, e->node_id);
 					}
 
 					def_node->child[0] = members.first;
@@ -906,7 +906,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		ast_append_id(pool, &decl, type_id);
 
 		if (!(flags & PARSE_NO_IDENT)) {
-			ast_node *decl_node = ast_get(pool, decl.first);
+			ast_node *decl_node = get_node(pool, decl.first);
 			ASSERT(decl_node->kind == AST_DECL);
 			decl_node->flags |= qualifiers;
 			decl_node->child[0] = decl_node->child[1];
@@ -918,13 +918,13 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		}
 
 		if ((flags & PARSE_BITFIELD) && accept(lexer, TOKEN_COLON)) {
-			ast_id type = ast_get(pool, decl.first)->child[0];
+			ast_id type = get_node(pool, decl.first)->child[0];
 			ast_node bitfield = ast_make_node(AST_TYPE_BITFIELD, get_location(lexer));
 			bitfield.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			bitfield.child[1] = type;
 
 			ast_id bitfield_id = ast_push(pool, bitfield);
-			ast_node *decl_node = ast_get(pool, decl.first);
+			ast_node *decl_node = get_node(pool, decl.first);
 			decl_node->child[0] = bitfield_id;
 		}
 
@@ -936,7 +936,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 				initializer = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 			}
 
-			ast_node *decl_node = ast_get(pool, decl.first);
+			ast_node *decl_node = get_node(pool, decl.first);
 			decl_node->child[1] = initializer;
 		}
 
@@ -1210,10 +1210,10 @@ parse(cpp_state *lexer, arena *arena)
 			break;
 		}
 
-		ast_node *decl_list = ast_get(&pool, decls.first);
+		ast_node *decl_list = get_node(&pool, decls.first);
 		ast_id decl_id = decl_list->child[0];
-		ast_node *decl = ast_get(&pool, decl_id);
-		ast_node *type = ast_get(&pool, decl->child[0]);
+		ast_node *decl = get_node(&pool, decl_id);
+		ast_node *type = get_node(&pool, decl->child[0]);
 		decl->kind = AST_EXTERN_DEF;
 
 		if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
@@ -1222,20 +1222,20 @@ parse(cpp_state *lexer, arena *arena)
 				// Introduce parameters in the new scope
 				scope tmp = new_scope(&s);
 				for (ast_id param = type->child[0]; param.value != 0;) {
-					ast_node *list_node = ast_get(&pool, param);
-					str param_name = ast_get(&pool, list_node->child[0])->value.s;
+					ast_node *list_node = get_node(&pool, param);
+					str param_name = get_node(&pool, list_node->child[0])->value.s;
 					param = list_node->child[1];
 
 					scope_entry *e = scope_upsert_ident(&tmp, param_name, arena);
 					e->node_id = list_node->child[0];
 					ASSERT(e->node_id.value != 0);
 
-					ast_node *node = ast_get(&pool, e->node_id);
+					ast_node *node = get_node(&pool, e->node_id);
 					ASSERT(node->kind == AST_DECL);
 				}
 
 				ast_id body = parse_stmt(lexer, &tmp, &pool, arena);
-				ast_node *decl = ast_get(&pool, decl_id);
+				ast_node *decl = get_node(&pool, decl_id);
 				decl->child[1] = body;
 			} else {
 				expect(lexer, TOKEN_SEMICOLON);
