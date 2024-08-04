@@ -118,7 +118,7 @@ get_node(ast_pool *p, ast_id id)
 }
 
 static void
-ast_append_id(ast_pool *p, ast_list *l, ast_id node_id)
+append_node_id(ast_pool *p, ast_list *l, ast_id node_id)
 {
 	if (l->last.value != 0) {
 		ast_node *last = get_node(p, l->last);
@@ -129,10 +129,10 @@ ast_append_id(ast_pool *p, ast_list *l, ast_id node_id)
 }
 
 static void
-ast_append(ast_pool *p, ast_list *l, ast_node node)
+append_node(ast_pool *p, ast_list *l, ast_node node)
 {
 	ast_id node_id = push_node(p, node);
-	ast_append_id(p, l, node_id);
+	append_node_id(p, l, node_id);
 }
 
 static void
@@ -467,17 +467,17 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			{
 				ast_node expr = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 				expr.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
-				ast_append(pool, &params, expr);
+				append_node(pool, &params, expr);
 				expect(lexer, TOKEN_COMMA);
 
 				ast_node type = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 				type.child[0] = parse_decl(lexer, PARSE_CAST, s, pool, arena).first;
-				ast_append(pool, &params, type);
+				append_node(pool, &params, type);
 			} else if (!accept(lexer, TOKEN_RPAREN)) {
 				do {
 					ast_node node = ast_make_node(AST_EXPR_LIST, get_location(lexer));
 					node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
-					ast_append(pool, &params, node);
+					append_node(pool, &params, node);
 				} while (!lexer->error && accept(lexer, TOKEN_COMMA));
 				expect(lexer, TOKEN_RPAREN);
 			}
@@ -566,7 +566,7 @@ parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 			node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 		}
 
-		ast_append(pool, &list, node);
+		append_node(pool, &list, node);
 		if (!accept(lexer, TOKEN_COMMA)) {
 			break;
 		}
@@ -650,7 +650,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 
 		ast_node node = ast_make_node(AST_DECL, get_location(lexer));
 		node.value.s = token.value;
-		ast_append(pool, &declarator, node);
+		append_node(pool, &declarator, node);
 	}
 
 	while (!lexer->error) {
@@ -661,7 +661,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 				expect(lexer, TOKEN_RBRACKET);
 			}
 
-			ast_append(pool, &declarator, node);
+			append_node(pool, &declarator, node);
 		} else if (accept(lexer, TOKEN_LPAREN)) {
 			ast_node node = ast_make_node(AST_TYPE_FUNC, get_location(lexer));
 			if (lexer->peek[0].kind == TOKEN_RPAREN) {
@@ -698,7 +698,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 				// would be the signal function.
 			}
 
-			ast_append(pool, &declarator, node);
+			append_node(pool, &declarator, node);
 		} else {
 			break;
 		}
@@ -783,7 +783,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 						node.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 					}
 
-					ast_append(pool, &enumerators, node);
+					append_node(pool, &enumerators, node);
 					scope_entry *e = scope_upsert_ident(s, node.value.s, arena);
 					e->node_id = enumerators.last;
 
@@ -894,7 +894,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 
 		ast_node list_node = ast_make_node(AST_DECL_LIST, get_location(lexer));
 		list_node.child[0] = push_node(pool, decl);
-		ast_append(pool, &list, list_node);
+		append_node(pool, &list, list_node);
 		return list;
 	}
 
@@ -903,7 +903,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		ast_list decl = parse_declarator(lexer, flags, s, pool, arena);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.first.value != 0);
 		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
-		ast_append_id(pool, &decl, type_id);
+		append_node_id(pool, &decl, type_id);
 
 		if (!(flags & PARSE_NO_IDENT)) {
 			ast_node *decl_node = get_node(pool, decl.first);
@@ -941,7 +941,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		}
 
 		node.child[0] = decl.first;
-		ast_append(pool, &list, node);
+		append_node(pool, &list, node);
 	} while (!lexer->error
 		&& !(flags & PARSE_SINGLE_DECL)
 		&& accept(lexer, TOKEN_COMMA));
@@ -1131,7 +1131,7 @@ parse_stmt(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 			while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
 				ast_node node = ast_make_node(AST_STMT_LIST, get_location(lexer));
 				node.child[0] = parse_stmt(lexer, s, pool, arena);
-				ast_append(pool, &list, node);
+				append_node(pool, &list, node);
 			}
 
 			if (list.first.value == 0) {
