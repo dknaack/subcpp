@@ -80,6 +80,7 @@ typedef enum {
 	AST_UNSIGNED     = 1 << 12,
 	AST_VARIADIC     = 1 << 13,
 	AST_VOLATILE     = 1 << 14,
+	AST_OPAQUE       = 1 << 15,
 } ast_node_flags;
 
 typedef struct {
@@ -95,6 +96,7 @@ struct ast_node {
 
 	union {
 		token_kind op;
+		ast_id ref;
 		intmax_t i;
 		double f;
 		str s;
@@ -147,6 +149,7 @@ get_precedence(token_kind token)
 	case TOKEN_PERCENT_EQUAL:
 	case TOKEN_AMP_EQUAL:
 	case TOKEN_BAR_EQUAL:
+	case TOKEN_CARET_EQUAL:
 		return PREC_ASSIGN;
 	case TOKEN_BAR_BAR:
 		return PREC_LOR;

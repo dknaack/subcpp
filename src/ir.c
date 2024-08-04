@@ -383,12 +383,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				}
 			}
 		} break;
+	case AST_EXPR_COMPOUND:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_EXPR_IDENT:
 		{
 			if (equals(node->value.s, S("__builtin_popcount"))) {
 				result = ir_emit1_type(ctx, IR_I64, IR_BUILTIN, BUILTIN_POPCOUNT);
 			} else {
-				ASSERT(!"Should have been removed by merge_identifiers");
+				result = translate_node(ctx, pool, node->child[0], is_lvalue);
 			}
 		} break;
 	case AST_EXPR_FLOAT:

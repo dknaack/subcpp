@@ -942,7 +942,7 @@ push_if(cpp_state *cpp, b32 value)
 	cpp->file.if_state[cpp->file.if_depth - 1] = 0;
 	cpp->file.if_loc[cpp->file.if_depth - 1] = get_location(cpp);
 	if (!cpp->ignore_token && value) {
-		cpp->file.if_state[cpp->file.if_depth - 1] = IF_TRUE;
+		cpp->file.if_state[cpp->file.if_depth - 1] = IF_CURR_TRUE;
 	} else {
 		cpp->ignore_token = true;
 	}
@@ -965,8 +965,8 @@ get_token(cpp_state *cpp)
 				fatalf(get_location(cpp), "Invalid preprocessing directive");
 			}
 
-			if_state curr_state = IF_TRUE;
-			if_state prev_state = IF_TRUE;
+			if_state curr_state = IF_CURR_TRUE;
+			if_state prev_state = IF_CURR_TRUE;
 			if (cpp->file.if_depth > 0) {
 				curr_state = cpp->file.if_state[cpp->file.if_depth - 1];
 				if (cpp->file.if_depth > 1) {
@@ -1012,10 +1012,12 @@ get_token(cpp_state *cpp)
 				}
 
 				cpp->ignore_token = true;
-				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
+				if (curr_state & IF_CURR_TRUE) {
+					cpp->file.if_state[cpp->file.if_depth - 1] |= IF_PREV_TRUE;
+				} else if ((prev_state & IF_CURR_TRUE) && !(prev_state & IF_PREV_TRUE)) {
 					i64 value = cpp_parse_expr(cpp);
 					if (value) {
-						cpp->file.if_state[cpp->file.if_depth - 1] |= IF_TRUE;
+						cpp->file.if_state[cpp->file.if_depth - 1] |= IF_CURR_TRUE;
 						cpp->ignore_token = false;
 					}
 				}
@@ -1032,8 +1034,10 @@ get_token(cpp_state *cpp)
 
 				cpp->ignore_token = true;
 				cpp->file.if_state[cpp->file.if_depth - 1] |= IF_HAS_ELSE;
-				if (!(curr_state & IF_TRUE) && (prev_state & IF_TRUE)) {
-					cpp->file.if_state[cpp->file.if_depth - 1] |= IF_TRUE;
+				if (curr_state & IF_CURR_TRUE) {
+					cpp->file.if_state[cpp->file.if_depth - 1] |= IF_PREV_TRUE;
+				} else if ((prev_state & IF_CURR_TRUE) && !(prev_state & IF_PREV_TRUE)) {
+					cpp->file.if_state[cpp->file.if_depth - 1] |= IF_CURR_TRUE;
 					cpp->ignore_token = false;
 				}
 
@@ -1043,7 +1047,7 @@ get_token(cpp_state *cpp)
 					fatalf(get_location(cpp), "#endif without #if");
 				}
 
-				cpp->ignore_token = !(prev_state & IF_TRUE);
+				cpp->ignore_token = !(prev_state & IF_CURR_TRUE);
 				cpp->file.if_depth--;
 
 				skip_line(cpp);

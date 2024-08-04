@@ -141,13 +141,13 @@ static isize
 ir_sizeof(ir_type type)
 {
 	switch (type) {
-	case IR_I8:  return 1;
-	case IR_I16: return 2;
-	case IR_I32: return 4;
-	case IR_I64: return 8;
-	case IR_F32: return 4;
-	case IR_F64: return 8;
-	case IR_VOID:
+	case IR_I8:   return 1;
+	case IR_I16:  return 2;
+	case IR_I32:  return 4;
+	case IR_I64:  return 8;
+	case IR_F32:  return 4;
+	case IR_F64:  return 8;
+	case IR_VOID: return 0;
 	}
 
 	return 0;

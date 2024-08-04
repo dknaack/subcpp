@@ -178,6 +178,7 @@ vsyntax_error(cpp_state *lexer, char *fmt, va_list ap)
 
 	vwarnf(get_location(lexer), fmt, ap);
 	lexer->error = true;
+	ASSERT(!"syntax error");
 }
 
 static void
@@ -254,7 +255,7 @@ static ast_id parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, aren
 static ast_id
 parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_id expr;
+	ast_id expr = {0};
 
 	token token = lexer->peek[0];
 	switch (token.kind) {
@@ -263,9 +264,14 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			get_token(lexer);
 			scope_entry *e = scope_upsert_ident(s, token.value, NULL);
 			if (e) {
-				expr = e->node_id;
+				ASSERT(e->node_id.value != 0);
+
+				ast_node node = ast_make_node(AST_EXPR_IDENT, get_location(lexer));
+				node.value.ref = e->node_id;
+				expr = ast_push(pool, node);
 			} else {
 				syntax_error(lexer, "unknown ident");
+				return expr;
 			}
 		} break;
 	case TOKEN_LITERAL_STRING:
@@ -356,14 +362,18 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			// TODO: Add node type for compound initializers
 			ast_id initializer = {0};
 			if (decl.first.value != 0) {
+				ast_node *decl_node = ast_get(pool, decl.first);
+				ast_id type = decl_node->child[0];
+
 				expect(lexer, TOKEN_RPAREN);
 				if (lexer->peek[0].kind == TOKEN_LBRACE) {
 					initializer = parse_initializer(lexer, s, pool, arena);
-					(void)initializer;
-				} else {
-					ast_node *decl_node = ast_get(pool, decl.first);
-					ast_id type = decl_node->child[0];
 
+					ast_node node = ast_make_node(AST_EXPR_COMPOUND, get_location(lexer));
+					node.child[0] = type;
+					node.child[1] = initializer;
+					expr = ast_push(pool, node);
+				} else {
 					ast_node node = ast_make_node(AST_EXPR_CAST, get_location(lexer));
 					node.child[0] = type;
 					node.child[1] = parse_expr(lexer, PREC_PRIMARY, s, pool, arena);
@@ -378,6 +388,8 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 
 				expect(lexer, TOKEN_RPAREN);
 			}
+
+			ASSERT(expr.value != 0);
 		} break;
 	case TOKEN_SIZEOF:
 		{
@@ -432,6 +444,8 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 		syntax_error(lexer, "Expected expression");
 		return ast_id_nil;
 	}
+
+	ASSERT(expr.value != 0);
 
 	for (;;) {
 		token = lexer->peek[0];
@@ -670,11 +684,18 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 					param = parse_decl(lexer, PARSE_PARAM, &tmp, pool, arena);
 					ast_concat(pool, &params, param);
 					if (param.first.value == 0) {
+						syntax_error(lexer, "I don't even know what this was supposed to catch :(");
 						lexer->error = true;
 					}
 				} while (!lexer->error && accept(lexer, TOKEN_COMMA));
 				expect(lexer, TOKEN_RPAREN);
 				node.child[0] = params.first;
+
+				// TODO: For a function definition, the scope that is generated
+				// here should be reused in the definition. The difficulty is
+				// that only the inner most function declaration should
+				// preserve its scope and not any outer functions. An example
+				// would be the signal function.
 			}
 
 			ast_append(pool, &declarator, node);
@@ -734,8 +755,10 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			{
 				scope_entry *e = scope_upsert_ident(s, token.value, NULL);
 				if (type_id.value == 0 && e && e->is_type) {
-					type_id = e->node_id;
-					ASSERT(type_id.value != 0);
+					node = ast_make_node(AST_TYPE_IDENT, get_location(lexer));
+					node.value.ref = e->node_id;
+					type_id = ast_push(pool, node);
+					ASSERT(e->node_id.value != 0);
 					get_token(lexer);
 				} else {
 					found_qualifier = false;
@@ -748,6 +771,8 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 				accept(lexer, TOKEN_IDENT);
 				expect(lexer, TOKEN_LBRACE);
 
+				// TODO: Enumerators declared in a function parameter should be
+				// visible from within the function.
 				ast_list enumerators = {0};
 				while (!lexer->error && lexer->peek[0].kind != TOKEN_RBRACE) {
 					ast_node node = ast_make_node(AST_ENUMERATOR, get_location(lexer));
@@ -759,6 +784,9 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 					}
 
 					ast_append(pool, &enumerators, node);
+					scope_entry *e = scope_upsert_ident(s, node.value.s, arena);
+					e->node_id = enumerators.last;
+
 					if (!accept(lexer, TOKEN_COMMA)) {
 						break;
 					}
@@ -770,38 +798,52 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			} break;
 		case TOKEN_STRUCT:
 		case TOKEN_UNION:
-			get_token(lexer);
-			node = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
-			if (token.kind == TOKEN_UNION) {
-				node.kind = AST_TYPE_UNION;
-			}
-
-			token = lexer->peek[0];
-			if (token.kind == TOKEN_IDENT) {
-				node.value.s = token.value;
-				get_token(lexer);
-			}
-
-			if (accept(lexer, TOKEN_LBRACE)) {
-				scope tmp = new_scope(s);
-				ast_list members = {0};
-				while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
-					ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
-					if (decl.first.value != 0) {
-						ast_concat(pool, &members, decl);
-					} else {
-						syntax_error(lexer, "WTF");
-						lexer->error = true;
-					}
-
-					expect(lexer, TOKEN_SEMICOLON);
+			{
+				node = ast_make_node(AST_TYPE_STRUCT, get_location(lexer));
+				if (token.kind == TOKEN_UNION) {
+					node.kind = AST_TYPE_UNION;
 				}
 
-				node.child[0] = members.first;
-			}
+				get_token(lexer);
+				token = lexer->peek[0];
+				scope_entry *e = NULL;
+				if (token.kind == TOKEN_IDENT) {
+					get_token(lexer);
+					e = scope_upsert_tag(s, token.value, arena);
+					if (e->node_id.value == 0) {
+						node.value.ref.value = 0;
+						e->node_id = ast_push(pool, node);
+						node.flags |= AST_OPAQUE;
+					}
 
-			type_id = ast_push(pool, node);
-			break;
+					node.value.ref = e->node_id;
+				}
+
+				type_id = ast_push(pool, node);
+				if (accept(lexer, TOKEN_LBRACE)) {
+					scope tmp = new_scope(s);
+					ast_list members = {0};
+					while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
+						ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
+						if (decl.first.value != 0) {
+							ast_concat(pool, &members, decl);
+						} else {
+							syntax_error(lexer, "WTF");
+							lexer->error = true;
+						}
+
+						expect(lexer, TOKEN_SEMICOLON);
+					}
+
+					ast_node *def_node = ast_get(pool, type_id);
+					if (e != NULL) {
+						def_node = ast_get(pool, e->node_id);
+					}
+
+					def_node->child[0] = members.first;
+				}
+
+			} break;
 		default:
 			{
 				u32 qualifier = get_qualifier(token.kind);
@@ -844,13 +886,6 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		}
 
 		return list;
-	}
-
-	if (qualifiers != 0) {
-		ast_node node = ast_make_node(AST_TYPE_QUAL, get_location(lexer));
-		node.flags = qualifiers;
-		node.child[0] = type_id;
-		type_id = ast_push(pool, node);
 	}
 
 	if (lexer->peek[0].kind == TOKEN_SEMICOLON) {
@@ -917,7 +952,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 static ast_id
 parse_stmt(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_id result;
+	ast_id result = {0};
 
 	token token = lexer->peek[0];
 	switch (token.kind) {
@@ -1139,6 +1174,21 @@ parse_stmt(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 	return result;
 }
 
+static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena *arena)
+{
+	static type type_builtin = {0};
+
+	location loc = {0};
+	ast_node node = ast_make_node(AST_DECL, loc);
+	node.value.s = name;
+	node.type = &type_builtin;
+
+	scope_entry *e = scope_upsert_ident(s, name, arena);
+	e->is_type = is_type;
+	e->node_id = ast_push(pool, node);
+	ASSERT(e->node_id.value != 0);
+}
+
 static ast_pool
 parse(cpp_state *lexer, arena *arena)
 {
@@ -1147,12 +1197,11 @@ parse(cpp_state *lexer, arena *arena)
 	scope s = new_scope(NULL);
 
 	// Insert __builtin_va_list into scope
-	ast_node node = ast_make_node(AST_EXPR_IDENT, get_location(lexer));
-	node.value.s = S("__builtin_va_list");
-
-	scope_entry *e = scope_upsert_ident(&s, S("__builtin_va_list"), arena);
-	e->is_type = true;
-	e->node_id = ast_push(&pool, node);
+	make_builtin(S("__builtin_va_list"),  true,  &pool, &s, arena);
+	make_builtin(S("__builtin_va_start"), false, &pool, &s, arena);
+	make_builtin(S("__builtin_va_end"),   false, &pool, &s, arena);
+	make_builtin(S("__builtin_va_arg"),   false, &pool, &s, arena);
+	make_builtin(S("asm"), false, &pool, &s, arena);
 
 	do {
 		ast_list decls = parse_decl(lexer, PARSE_EXTERNAL_DECL, &s, &pool, arena);
@@ -1170,7 +1219,22 @@ parse(cpp_state *lexer, arena *arena)
 		if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
 			token token = lexer->peek[0];
 			if (token.kind == TOKEN_LBRACE) {
-				ast_id body = parse_stmt(lexer, &s, &pool, arena);
+				// Introduce parameters in the new scope
+				scope tmp = new_scope(&s);
+				for (ast_id param = type->child[0]; param.value != 0;) {
+					ast_node *list_node = ast_get(&pool, param);
+					str param_name = ast_get(&pool, list_node->child[0])->value.s;
+					param = list_node->child[1];
+
+					scope_entry *e = scope_upsert_ident(&tmp, param_name, arena);
+					e->node_id = list_node->child[0];
+					ASSERT(e->node_id.value != 0);
+
+					ast_node *node = ast_get(&pool, e->node_id);
+					ASSERT(node->kind == AST_DECL);
+				}
+
+				ast_id body = parse_stmt(lexer, &tmp, &pool, arena);
 				ast_node *decl = ast_get(&pool, decl_id);
 				decl->child[1] = body;
 			} else {
@@ -1187,6 +1251,7 @@ parse(cpp_state *lexer, arena *arena)
 	ast_shrink(&pool);
 
 	if (pool.root.value == 0) {
+		ASSERT(!"syntax error");
 		lexer->error = true;
 	}
 

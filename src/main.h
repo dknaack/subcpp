@@ -11,6 +11,7 @@
 #endif
 #endif
 #define BREAK() asm("int3; nop")
+#define BREAK_IF(x) do { if ((x)) BREAK(); } while (0)
 #define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
 #define LENGTH(x) ((isize)(sizeof(x)/sizeof((x)[0])))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

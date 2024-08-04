@@ -909,7 +909,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 	stream_print(out, "\nsection .bss\n");
 	for (u32 i = 0; i < program.symtab->decl_count; i++) {
 		decl_symbol *sym = &program.symtab->decls[i];
-		if (sym->is_global && !sym->is_function) {
+		if (sym->is_global && sym->linkage != LINK_EXTERN && !sym->is_function) {
 			stream_print(out, "\t");
 			stream_prints(out, sym->name);
 			stream_print(out, " resb ");

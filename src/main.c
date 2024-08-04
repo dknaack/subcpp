@@ -106,11 +106,15 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
-	arena *arena = new_arena(5 * 1024 * 1024);
+	arena *arena = new_arena(1024 * 1024 * 1024);
 	str src = read_file(input, arena);
 	cpp_state cpp = tokenize(input, src, arena);
-	ast_pool pool = parse(&cpp.lexer, arena);
+
+	ast_pool pool = parse(&cpp, arena);
+	printf("parsing done\n");
+
 	symbol_table symbol_table = check(&pool, arena);
+	printf("type checking done\n");
 
 	if (!pool.error) {
 		ir_program ir_program = translate(&pool, &symbol_table, arena);

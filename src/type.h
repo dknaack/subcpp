@@ -89,6 +89,7 @@ typedef enum {
 	TYPE_POINTER,
 	TYPE_STRUCT,
 	TYPE_UNION,
+	TYPE_OPAQUE,
 
 	TYPE_UNSIGNED = 1,
 } type_kind;
@@ -147,6 +148,7 @@ type_get_name(type_kind type)
 	case TYPE_UNION:          return "(union)";
 	case TYPE_BITFIELD:       return "(bitfield)";
 	case TYPE_UNKNOWN:        return "(unknown)";
+	case TYPE_OPAQUE:         return "(opaque)";
 	}
 
 	return "(invalid)";
@@ -188,6 +190,7 @@ type_sizeof(type *type)
 	case TYPE_VOID:
 	case TYPE_FUNCTION:
 	case TYPE_UNKNOWN:
+	case TYPE_OPAQUE:
 		ASSERT(!"Type does not have a size");
 		return 0;
 	case TYPE_BITFIELD:

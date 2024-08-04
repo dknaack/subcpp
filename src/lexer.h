@@ -64,6 +64,7 @@ typedef enum {
 	// keywords
 	TOKEN_AUTO,
 	TOKEN_BREAK,
+	TOKEN_BOOL,
 	TOKEN_CASE,
 	TOKEN_CHAR,
 	TOKEN_CONST,
@@ -96,7 +97,6 @@ typedef enum {
 	TOKEN_VOID,
 	TOKEN_VOLATILE,
 	TOKEN_WHILE,
-
 	TOKEN_COUNT
 } token_kind;
 
@@ -111,9 +111,12 @@ typedef struct {
 } location;
 
 typedef enum {
-	IF_TRUE = 1 << 0,
-	IF_HAS_ELSE = 1 << 1,
-	IF_INIT = 1 << 2,
+	/* The current if directive is true */
+	IF_CURR_TRUE = 1 << 0,
+	/* A previous if directive was true */
+	IF_PREV_TRUE = 1 << 1,
+	/* The if directive has an else branch */
+	IF_HAS_ELSE  = 1 << 2,
 } if_state;
 
 typedef struct token_list token_list;
@@ -238,6 +241,7 @@ get_token_name(token_kind kind)
 	case TOKEN_LITERAL_STRING: return "string";
 	case TOKEN_AUTO:           return "'auto'";
 	case TOKEN_BREAK:          return "'break'";
+	case TOKEN_BOOL:           return "'_Bool'";
 	case TOKEN_CASE:           return "'case'";
 	case TOKEN_CHAR:           return "'char'";
 	case TOKEN_CONST:          return "'const'";
