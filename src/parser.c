@@ -146,7 +146,7 @@ prepend_node(ast_pool *p, ast_list *l, ast_node node)
 }
 
 static void
-ast_concat(ast_pool *p, ast_list *a, ast_list b)
+concat_nodes(ast_pool *p, ast_list *a, ast_list b)
 {
 	if (b.first.value != 0) {
 		if (a->last.value != 0) {
@@ -672,7 +672,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 					}
 
 					param = parse_decl(lexer, PARSE_PARAM, &tmp, pool, arena);
-					ast_concat(pool, &params, param);
+					concat_nodes(pool, &params, param);
 					if (param.first.value == 0) {
 						syntax_error(lexer, "I don't even know what this was supposed to catch :(");
 						lexer->error = true;
@@ -694,7 +694,7 @@ parse_declarator(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *a
 		}
 	}
 
-	ast_concat(pool, &declarator, pointer_declarator);
+	concat_nodes(pool, &declarator, pointer_declarator);
 	return declarator;
 }
 
@@ -816,7 +816,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 					while (!lexer->error && !accept(lexer, TOKEN_RBRACE)) {
 						ast_list decl = parse_decl(lexer, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
 						if (decl.first.value != 0) {
-							ast_concat(pool, &members, decl);
+							concat_nodes(pool, &members, decl);
 						} else {
 							syntax_error(lexer, "WTF");
 							lexer->error = true;
@@ -1234,7 +1234,7 @@ parse(cpp_state *lexer, arena *arena)
 			expect(lexer, TOKEN_SEMICOLON);
 		}
 
-		ast_concat(&pool, &list, decls);
+		concat_nodes(&pool, &list, decls);
 	} while (!lexer->error && !accept(lexer, TOKEN_EOF));
 
 	pool.root = list.first;
