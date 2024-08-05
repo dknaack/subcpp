@@ -1,17 +1,73 @@
 static b32
+is_integer(type_kind type)
+{
+	switch (type) {
+	case TYPE_CHAR:
+	case TYPE_CHAR_UNSIGNED:
+	case TYPE_SHORT:
+	case TYPE_SHORT_UNSIGNED:
+	case TYPE_INT:
+	case TYPE_INT_UNSIGNED:
+	case TYPE_LONG:
+	case TYPE_LONG_UNSIGNED:
+	case TYPE_LLONG:
+	case TYPE_LLONG_UNSIGNED:
+	case TYPE_BITFIELD:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static b32
+is_pointer(type *type)
+{
+	b32 result = type->kind == TYPE_POINTER || type->kind == TYPE_ARRAY;
+	return result;
+}
+
+static b32
 type_equals(type *lhs, type *rhs)
 {
 	member *l, *r;
+
+	if (lhs == rhs) {
+		return true;
+	}
+
 	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
 		return false;
 	}
 
-	if (lhs->kind != rhs->kind) {
-		return false;
+	if (is_integer(lhs->kind) && is_integer(rhs->kind)) {
+		return true;
+	}
+
+	if (lhs->kind == TYPE_OPAQUE) {
+		lhs = lhs->children;
+	}
+
+	if (rhs->kind == TYPE_OPAQUE) {
+		rhs = rhs->children;
 	}
 
 	switch (lhs->kind) {
+	case TYPE_ARRAY:
+	case TYPE_POINTER:
+		if (rhs->kind != TYPE_ARRAY && rhs->kind != TYPE_POINTER) {
+			return false;
+		}
+
+		if (rhs->children->kind == TYPE_VOID || lhs->children->kind == TYPE_VOID) {
+			return true;
+		}
+
+		return type_equals(lhs->children, rhs->children);
 	case TYPE_FUNCTION:
+		if (rhs->kind != TYPE_FUNCTION) {
+			return false;
+		}
+
 		l = lhs->members;
 		r = rhs->members;
 		while (l && r) {
@@ -26,35 +82,12 @@ type_equals(type *lhs, type *rhs)
 		b32 result = (!l && !r);
 		return result;
 	default:
+		if (lhs->kind != rhs->kind) {
+			return false;
+		}
+
 		return true;
 	}
-}
-
-static b32
-is_integer(type_kind type)
-{
-	switch (type) {
-	case TYPE_CHAR:
-	case TYPE_CHAR_UNSIGNED:
-	case TYPE_SHORT:
-	case TYPE_SHORT_UNSIGNED:
-	case TYPE_INT:
-	case TYPE_INT_UNSIGNED:
-	case TYPE_LONG:
-	case TYPE_LONG_UNSIGNED:
-	case TYPE_LLONG:
-	case TYPE_LLONG_UNSIGNED:
-		return true;
-	default:
-		return false;
-	}
-}
-
-static b32
-is_pointer(type *type)
-{
-	b32 result = type->kind == TYPE_POINTER || type->kind == TYPE_ARRAY;
-	return result;
 }
 
 static i64
@@ -150,11 +183,12 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	ast_node *node = get_node(pool, node_id);
 	if (node->kind == AST_INIT_LIST) {
 		if (node->type == NULL) {
+			BREAK();
 			return node->type;
 		}
 	} else if (node->type == NULL) {
 		node->type = &type_nil;
-	} else {
+	} else if (node->kind != AST_TYPE_STRUCT && node->kind != AST_TYPE_UNION) {
 		// This node has already been type checked.
 		return node->type;
 	}
@@ -209,18 +243,21 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 			ast_node *cond = get_node(pool, node->child[1]);
 			ast_node *post = get_node(pool, cond->child[1]);
-			ast_node *body = get_node(pool, post->child[1]);
 			ASSERT(cond->kind == AST_STMT_FOR2);
 			ASSERT(post->kind == AST_STMT_FOR3);
-			ASSERT(is_statement(body->kind));
 		} break;
 	case AST_INIT_LIST:
 		{
-			ASSERT(node->type->kind == TYPE_STRUCT || node->type->kind == TYPE_ARRAY);
-			member *member = node->type->members;
+			ASSERT(node->type != TYPE_NIL);
+			ASSERT(is_compound_type(node->type->kind) || node->type->kind == TYPE_ARRAY);
 
 			// TODO: Check the type of each field in the initializer
-			if (node->type->kind == TYPE_STRUCT) {
+			if (is_compound_type(node->type->kind)) {
+				if (node->type->kind == TYPE_OPAQUE) {
+					node->type = node->type->children;
+				}
+
+				member *member = node->type->members;
 				while (member && node_id.value != 0) {
 					ast_node *list_node = get_node(pool, node_id);
 					ast_node *value = get_node(pool, list_node->child[0]);
@@ -239,17 +276,29 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 
 				if (member == NULL && node_id.value != 0) {
+#if 0
 					errorf(node->loc, "Too many fields in the initializer");
+#endif
 				}
 			} else if (node->type->kind == TYPE_ARRAY) {
-				type *ty = node->type;
-				while (node != AST_NIL) {
-					check_type(pool, node->child[0], arena);
-					if (!type_equals(get_node(pool, node->child[0])->type, ty->children)) {
+				type *expected = node->type->children;
+				while (node_id.value != 0) {
+					ast_node *node = get_node(pool, node_id);
+					ASSERT(node->kind == AST_INIT_LIST);
+
+					ast_node *child = get_node(pool, node->child[0]);
+					if (child->kind == AST_INIT_LIST) {
+						child->type = expected;
+					}
+
+					type *found = check_type(pool, node->child[0], arena);
+					if (child->kind == AST_EXPR_INT && child->value.i == 0) {
+						// ignore
+					} else if (!type_equals(found, expected)) {
 						errorf(node->loc, "Invalid array member type");
 					}
 
-					node = get_node(pool, node->child[1]);
+					node_id = node->child[1];
 				}
 			}
 		} break;
@@ -270,7 +319,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				operand_type = operand_type->children;
 			}
 
-			if (operand_type->kind != TYPE_STRUCT) {
+			if (operand_type->kind != TYPE_STRUCT && operand_type->kind != TYPE_UNION) {
 				errorf(node->loc, "Left-hand side is not a struct");
 				pool->error = true;
 			}
@@ -328,36 +377,50 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_EXPR_CALL:
 		{
 			type *called = check_type(pool, node->child[0], arena);
-			if (called->kind != TYPE_FUNCTION) {
-				pool->error = true;
-				errorf(node->loc, "Not a function: %s", type_get_name(called->kind));
-				break;
+			ast_node *called_node = get_node(pool, node->child[0]);
+			str func_name = {0};
+			if (called_node->kind == AST_EXPR_IDENT) {
+				called_node = get_node(pool, called_node->value.ref);
+				func_name = called_node->value.s;
 			}
 
-			member *param_member = called->members;
-			ast_id param_id = node->child[1];
-			while (param_member && param_id.value != 0) {
-				ast_node *param_list = get_node(pool, param_id);
-				ast_node *param_node = get_node(pool, param_list->child[0]);
-				type *param = check_type(pool, param_list->child[0], arena);
-				if (!type_equals(param_member->type, param)) {
-					errorf(param_node->loc, "Invalid parameter type");
+			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
+				// TODO: Implement type checking for builtins
+			} else if (called->kind == TYPE_FUNCTION) {
+				member *param_member = called->members;
+				ast_id param_id = node->child[1];
+				while (param_member && param_id.value != 0) {
+					ast_node *param_list = get_node(pool, param_id);
+					ast_node *param_node = get_node(pool, param_list->child[0]);
+					type *param = check_type(pool, param_list->child[0], arena);
+					if (!type_equals(param_member->type, param)) {
+						errorf(param_node->loc, "Invalid parameter type");
+					}
+
+					param_member = param_member->next;
+					param_id = param_list->child[1];
 				}
 
-				param_member = param_member->next;
-				param_id = param_list->child[1];
-			}
+				while (param_id.value != 0) {
+					ast_node *param_list = get_node(pool, param_id);
+					check_type(pool, param_list->child[0], arena);
+					param_id = param_list->child[1];
+				}
 
 #if 0
-			if (param_member && param_id.value == 0) {
-				errorf(node->loc, "Too few arguments");
-			} else if (!param_member && param_id.value != 0) {
-				errorf(node->loc, "Too many arguments");
-			}
+				if (param_member && param_id.value == 0) {
+					errorf(node->loc, "Too few arguments");
+				} else if (!param_member && param_id.value != 0) {
+					errorf(node->loc, "Too many arguments");
+				}
 #endif
 
-			type *return_type = called->children;
-			node->type = return_type;
+				type *return_type = called->children;
+				node->type = return_type;
+			} else {
+				pool->error = true;
+				errorf(node->loc, "Not a function: %s", type_get_name(called->kind));
+			}
 		} break;
 	case AST_EXPR_CAST:
 		{
@@ -377,34 +440,36 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			if (equals(node->value.s, S("__builtin_popcount"))) {
 				member *param = ALLOC(arena, 1, member);
 				param->name = S("x");
-				param->type = &type_int;
+				param->type = type_create(TYPE_INT, arena);
 
 				node->type = type_create(TYPE_FUNCTION, arena);
 				node->type->members = param;
-				node->type->children = &type_int;
+				node->type->children = param->type;
 			} else {
 				node->type = get_node(pool, node->value.ref)->type;
 			}
 		} break;
 	case AST_EXPR_FLOAT:
 		{
-			node->type = &type_double;
+			node->type = type_create(TYPE_DOUBLE, arena);
 		} break;
 	case AST_EXPR_CHAR:
 		{
-			node->type = &type_char;
+			node->type = type_create(TYPE_CHAR, arena);
 		} break;
 	case AST_EXPR_INT:
 		{
-			node->type = &type_int;
+			node->type = type_create(TYPE_INT, arena);
 		} break;
 	case AST_EXPR_STRING:
 		{
-			node->type = &type_char_ptr;
+			type *char_type = type_create(TYPE_CHAR, arena);
+			node->type = type_create(TYPE_POINTER, arena);
+			node->type->children = char_type;
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			node->type = &type_int;
+			node->type = type_create(TYPE_INT, arena);
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
@@ -485,42 +550,42 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_TYPE_CHAR:
 		{
 			if (node->flags & AST_UNSIGNED) {
-				node->type = &type_char_unsigned;
+				node->type = type_create(TYPE_CHAR_UNSIGNED, arena);
 			} else {
-				node->type = &type_char;
+				node->type = type_create(TYPE_CHAR, arena);
 			}
 		} break;
 	case AST_TYPE_FLOAT:
 		{
-			node->type = &type_float;
+			node->type = type_create(TYPE_FLOAT, arena);
 		} break;
 	case AST_TYPE_INT:
 		{
 			u32 int_flags = AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED;
 			switch (node->flags & int_flags) {
 			case AST_LLONG | AST_UNSIGNED:
-				node->type = &type_llong_unsigned;
+				node->type = type_create(TYPE_LLONG_UNSIGNED, arena);
 				break;
 			case AST_LLONG:
-				node->type = &type_llong;
+				node->type = type_create(TYPE_LLONG, arena);
 				break;
 			case AST_LONG | AST_UNSIGNED:
-				node->type = &type_long_unsigned;
+				node->type = type_create(TYPE_LONG_UNSIGNED, arena);
 				break;
 			case AST_LONG:
-				node->type = &type_long;
+				node->type = type_create(TYPE_LONG, arena);
 				break;
 			case AST_SHORT | AST_UNSIGNED:
-				node->type = &type_short_unsigned;
+				node->type = type_create(TYPE_SHORT_UNSIGNED, arena);
 				break;
 			case AST_SHORT:
-				node->type = &type_short;
+				node->type = type_create(TYPE_SHORT, arena);
 				break;
 			case AST_UNSIGNED:
-				node->type = &type_int_unsigned;
+				node->type = type_create(TYPE_INT_UNSIGNED, arena);
 				break;
 			default:
-				node->type = &type_int;
+				node->type = type_create(TYPE_INT, arena);
 			}
 		} break;
 	case AST_TYPE_POINTER:
@@ -585,11 +650,11 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_ENUMERATOR:
 		{
-			node->type = &type_int;
+			node->type = type_create(TYPE_INT, arena);
 		} break;
 	case AST_TYPE_ENUM:
 		{
-			node->type = &type_int;
+			node->type = type_create(TYPE_INT, arena);
 
 			ast_id enum_id = node->child[0];
 			i32 value = 0;
@@ -604,7 +669,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				// easier for error handling...
 				enum_node->kind = AST_EXPR_INT;
 				enum_node->value.i = value++;
-				enum_node->type = &type_int;
+				enum_node->type = type_create(TYPE_INT, arena);
 				enum_id = enum_node->child[1];
 			}
 		} break;
@@ -625,7 +690,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 						|| node->type->kind == TYPE_UNION);
 				}
 			} else {
-				if (!node->type) {
+				if (node->type == TYPE_NIL) {
 					node->type = type_create(TYPE_STRUCT, arena);
 				}
 

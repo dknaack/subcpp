@@ -538,7 +538,7 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 	case IR_SEXT:
 		{
 			machine_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
-			ASSERT(src.size < dst.size);
+			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(out, inst, op0, src);
 			x86_select2(out, X86_MOVSX, dst, src);
@@ -546,7 +546,7 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 	case IR_ZEXT:
 		{
 			machine_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
-			ASSERT(src.size < dst.size);
+			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(out, inst, op0, src);
 			x86_select2(out, X86_MOVZX, dst, src);
@@ -643,7 +643,7 @@ static machine_program
 x86_select_instructions(ir_program program, arena *arena)
 {
 	machine_program out = {0};
-	out.max_size = 1024 * 8;
+	out.max_size = 8 * 1024 * 1024;
 	out.functions = ALLOC(arena, program.function_count, machine_function);
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;

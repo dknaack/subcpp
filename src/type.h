@@ -109,20 +109,8 @@ struct type {
 };
 
 static type type_nil = {0, &type_nil, &type_nil};
+static type type_builtin = {0};
 static type type_void = {TYPE_VOID};
-static type type_char  = {TYPE_CHAR};
-static type type_short = {TYPE_SHORT};
-static type type_int   = {TYPE_INT};
-static type type_long  = {TYPE_LONG};
-static type type_llong = {TYPE_LLONG};
-static type type_char_unsigned  = {TYPE_CHAR_UNSIGNED};
-static type type_short_unsigned = {TYPE_SHORT_UNSIGNED};
-static type type_int_unsigned   = {TYPE_INT_UNSIGNED};
-static type type_long_unsigned  = {TYPE_LONG_UNSIGNED};
-static type type_llong_unsigned = {TYPE_LLONG_UNSIGNED};
-static type type_float = {TYPE_FLOAT};
-static type type_double = {TYPE_DOUBLE};
-static type type_char_ptr  = {TYPE_POINTER, &type_nil, &type_char};
 
 static char *
 type_get_name(type_kind type)
@@ -164,6 +152,18 @@ type_create(type_kind kind, arena *arena)
 
 static usize type_alignof(type *type);
 
+static b32 is_compound_type(type_kind kind)
+{
+	switch (kind) {
+	case TYPE_STRUCT:
+	case TYPE_UNION:
+	case TYPE_OPAQUE:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static usize
 type_sizeof(type *type)
 {
@@ -190,12 +190,11 @@ type_sizeof(type *type)
 	case TYPE_VOID:
 	case TYPE_FUNCTION:
 	case TYPE_UNKNOWN:
-	case TYPE_OPAQUE:
 		ASSERT(!"Type does not have a size");
 		return 0;
 	case TYPE_BITFIELD:
-		ASSERT(!"TODO");
-		return 0;
+		// TODO: Implement bitfield size
+		return 8;
 	case TYPE_ARRAY:
 		{
 			usize target_size = type_sizeof(type->children);
@@ -221,6 +220,12 @@ type_sizeof(type *type)
 				size += type_sizeof(s->type);
 			}
 			return size;
+		} break;
+	case TYPE_OPAQUE:
+		{
+			if (type->children) {
+				return type_sizeof(type->children);
+			}
 		} break;
 	}
 
@@ -274,6 +279,8 @@ type_offsetof(type *type, str member_name)
 
 			offset += type_sizeof(s->type);
 		}
+	} else if (type->kind == TYPE_OPAQUE && type->children) {
+		offset = type_offsetof(type->children, member_name);
 	} else {
 		// TODO: report error
 		ASSERT(!"Type must be struct or union");

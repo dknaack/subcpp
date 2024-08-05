@@ -67,7 +67,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	}
 
 	e = ALLOC(perm, 1, scope_entry);
-	e->next = s->idents;
+	e->next = s->tags;
 	e->key = key;
 	s->tags = e;
 	return e;
@@ -410,6 +410,10 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 					}
 
 					expect(lexer, TOKEN_RPAREN);
+
+					ast_node node = make_node(AST_EXPR_SIZEOF, get_location(lexer));
+					node.child[0] = expr;
+					expr = push_node(pool, node);
 				}
 			} else {
 				parse_expr(lexer, PREC_PRIMARY, s, pool, arena);
@@ -509,9 +513,9 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 				expr = push_node(pool, node);
 			} else if (operator == TOKEN_QMARK) {
 				ast_node node2 = make_node(AST_EXPR_TERNARY2, get_location(lexer));
-				node2.child[0] = parse_expr(lexer, PREC_COMMA, s, pool, arena);
+				node2.child[0] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 				expect(lexer, TOKEN_COLON);
-				node2.child[1] = parse_expr(lexer, PREC_COMMA, s, pool, arena);
+				node2.child[1] = parse_expr(lexer, PREC_ASSIGN, s, pool, arena);
 
 				ast_node node1 = make_node(AST_EXPR_TERNARY1, get_location(lexer));
 				node1.child[0] = expr;
@@ -1172,8 +1176,6 @@ parse_stmt(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 
 static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena *arena)
 {
-	static type type_builtin = {0};
-
 	location loc = {0};
 	ast_node node = make_node(AST_DECL, loc);
 	node.value.s = name;

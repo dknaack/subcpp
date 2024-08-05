@@ -24,6 +24,7 @@ ir_emit2_type(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 	inst->op0 = op0;
 	inst->op1 = op1;
 	u32 result = ctx->program->register_count++;
+	if (opcode == IR_STORE) ASSERT(op1 != 0);
 	return result;
 }
 
@@ -53,6 +54,7 @@ static u32
 ir_emit0_type(ir_context *ctx, ir_type type, ir_opcode opcode)
 {
 	u32 result = ir_emit2_type(ctx, type, opcode, 0, 0);
+	if (opcode == IR_VAR) ASSERT(type != IR_VOID);
 	return result;
 }
 
@@ -105,8 +107,8 @@ ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 	u32 comparison = ir_emit2(ctx, IR_LT, counter_reg, size_reg);
 	ir_emit2(ctx, IR_JIZ, comparison, break_label);
 
-	u32 dst_ptr = ir_emit2(ctx, IR_ADD, dst, counter_reg);
-	u32 src_ptr = ir_emit2(ctx, IR_ADD, src, counter_reg);
+	u32 dst_ptr = ir_emit2_type(ctx, IR_I64, IR_ADD, dst, counter_reg);
+	u32 src_ptr = ir_emit2_type(ctx, IR_I64, IR_ADD, src, counter_reg);
 	u32 src_byte = ir_emit1_type(ctx, IR_I8, IR_LOAD, src_ptr);
 	ir_emit2_type(ctx, IR_I8, IR_STORE, dst_ptr, src_byte);
 
@@ -114,6 +116,48 @@ ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 	ir_emit2(ctx, IR_MOV, counter_reg, next);
 	ir_emit1(ctx, IR_JMP, continue_label);
 	ir_emit1(ctx, IR_LABEL, break_label);
+}
+
+static u32
+ir_load(ir_context *ctx, u32 addr, type *type)
+{
+	u32 result = 0;
+
+	if (is_compound_type(type->kind)) {
+		isize size = type_sizeof(type);
+		result = ir_emit_alloca(ctx, size);
+		ir_memcpy(ctx, result, addr, size);
+	} else {
+		ir_type ir_type = ir_type_from(type);
+		result = ir_emit1_type(ctx, ir_type, IR_LOAD, addr);
+	}
+
+	return result;
+}
+
+static void
+ir_store(ir_context *ctx, u32 dst, u32 src, type *type)
+{
+	ASSERT(src != 0);
+	if (is_compound_type(type->kind)) {
+		isize size = type_sizeof(type);
+		ir_memcpy(ctx, dst, src, size);
+	} else {
+		ir_type ir_type = ir_type_from(type);
+		ir_emit2_type(ctx, ir_type, IR_STORE, dst, src);
+	}
+}
+
+static void
+ir_mov(ir_context *ctx, u32 dst, u32 src, type *type)
+{
+	if (is_compound_type(type->kind)) {
+		isize size = type_sizeof(type);
+		ir_memcpy(ctx, dst, src, size);
+	} else {
+		ir_type ir_type = ir_type_from(type);
+		ir_emit2_type(ctx, ir_type, IR_MOV, dst, src);
+	}
 }
 
 // TODO: This only works for initializers with a correct set of braces,
@@ -145,8 +189,7 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 	default:
 		{
 			u32 expr = translate_node(ctx, pool, node_id, false);
-			ir_type type = ir_type_from(node->type);
-			ir_emit2_type(ctx, type, IR_STORE, result, expr);
+			ir_store(ctx, result, expr, node->type);
 		} break;
 	}
 }
@@ -183,7 +226,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 base_reg = translate_node(ctx, pool, node->child[0], base_is_lvalue);
 			result = ir_emit2(ctx, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
-				if (node->type->kind != TYPE_STRUCT) {
+				if (!is_compound_type(node->type->kind)) {
 					ir_type type = ir_type_from(node->type);
 					result = ir_emit1_type(ctx, type, IR_LOAD, result);
 				} else {
@@ -193,6 +236,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					result = tmp;
 				}
 			}
+
+			ASSERT(result != 0);
 		} break;
 	case AST_EXPR_BINARY:
 		{
@@ -215,6 +260,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
 			case TOKEN_EQUAL:         opcode = IR_STORE; break;
 			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
+			case TOKEN_BANG_EQUAL:    opcode = IR_EQL;   break;
 			case TOKEN_LESS:          opcode = IR_LT;    break;
 			case TOKEN_GREATER:       opcode = IR_GT;    break;
 			case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
@@ -236,6 +282,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (operator == TOKEN_AMP_AMP) {
+				// NOTE: Logical and operation
 				u32 end_label = new_label(ctx);
 				u32 zero_label = new_label(ctx);
 
@@ -255,6 +302,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ir_emit2(ctx, IR_MOV, result, zero);
 				ir_emit1(ctx, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
+				// NOTE: Logical or operation
 				u32 end_label = new_label(ctx);
 				u32 one_label = new_label(ctx);
 
@@ -274,6 +322,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ir_emit2(ctx, IR_MOV, result, one);
 				ir_emit1(ctx, IR_LABEL, end_label);
 			} else if (opcode == IR_STORE) {
+				// NOTE: Assignment operation
 				switch (operator) {
 				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
 				case TOKEN_MINUS_EQUAL:   opcode = IR_SUB; break;
@@ -294,25 +343,38 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					u32 value = ir_emit1_type(ctx, type, IR_LOAD, lhs_reg);
 					result = ir_emit2(ctx, opcode, value, rhs_reg);
 					ir_emit2(ctx, IR_STORE, lhs_reg, result);
-				} else if (node->type->kind == TYPE_STRUCT) {
-					ir_memcpy(ctx, lhs_reg, rhs_reg, type_sizeof(node->type));
 				} else {
-					ir_emit2(ctx, IR_STORE, lhs_reg, rhs_reg);
+					ir_store(ctx, lhs_reg, rhs_reg, node->type);
+					if (!is_lvalue) {
+						result = ir_load(ctx, lhs_reg, node->type);
+					} else {
+						result = lhs_reg;
+					}
 				}
+
+				ASSERT(result != 0);
 			} else if (operator == TOKEN_LBRACKET) {
+				// NOTE: Array access
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				isize size = type_sizeof(node->type);
 				u32 size_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, size);
-				rhs_reg = ir_emit2(ctx, IR_MUL, rhs_reg, size_reg);
-				result = ir_emit2(ctx, IR_ADD, lhs_reg, rhs_reg);
-				ir_type type = ir_type_from(node->type);
-				result = ir_emit1_type(ctx, type, IR_LOAD, result);
+				u32 offset = ir_emit2(ctx, IR_MUL, rhs_reg, size_reg);
+				result = ir_emit2(ctx, IR_ADD, lhs_reg, offset);
+				if (!is_lvalue) {
+					result = ir_load(ctx, result, node->type);
+				}
 			} else {
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
+				if (operator == TOKEN_BANG_EQUAL) {
+					lhs_reg = ir_emit1(ctx, IR_NOT, lhs_reg);
+				}
+
 				result = ir_emit2(ctx, opcode, lhs_reg, rhs_reg);
 			}
+
+			ASSERT(result != 0);
 		} break;
 	case AST_EXPR_CALL:
 		{
@@ -320,72 +382,89 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_opcode opcode = IR_CALL;
 			u32 called_reg = translate_node(ctx, pool, node->child[0], false);
 
-			i32 param_count = 0;
-			u32 param_register[128] = {0};
-			type *return_type = called->type->children;
-			ir_type result_type = IR_I64;
-			if (return_type->kind == TYPE_STRUCT) {
-				isize size = type_sizeof(return_type);
-				param_register[param_count++] = ir_emit_alloca(ctx, size);
-			} else {
-				result_type = ir_type_from(return_type);
+			str func_name = {0};
+			if (called->kind == AST_EXPR_IDENT) {
+				ast_node *ref = get_node(pool, called->value.ref);
+				func_name = ref->value.s;
 			}
 
-			ast_id param_id = node->child[1];
-			while (param_id.value != 0) {
-				ASSERT(param_count < 128);
-				ast_node *param_list = get_node(pool, param_id);
-				u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
-				ast_node *param_node = get_node(pool, param_list->child[0]);
-				if (param_node->type->kind == TYPE_STRUCT) {
-					isize size = type_sizeof(param_node->type);
-					u32 copy = ir_emit_alloca(ctx, size);
-					ir_memcpy(ctx, copy, param_reg, size);
-					param_reg = copy;
+			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
+				// TODO: Implement translation for builtins
+			} else if (called->type->kind == TYPE_FUNCTION) {
+				i32 param_count = 0;
+				u32 param_register[128] = {0};
+				type *return_type = called->type->children;
+				ir_type result_type = IR_I64;
+				if (is_compound_type(return_type->kind)) {
+					isize size = type_sizeof(return_type);
+					param_register[param_count++] = ir_emit_alloca(ctx, size);
+				} else {
+					result_type = ir_type_from(return_type);
 				}
 
-				param_register[param_count++ & 127] = param_reg;
-				param_id = param_list->child[1];
-			}
+				ast_id param_id = node->child[1];
+				while (param_id.value != 0) {
+					ASSERT(param_count < 128);
+					ast_node *param_list = get_node(pool, param_id);
+					u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
+					ast_node *param_node = get_node(pool, param_list->child[0]);
+					if (is_compound_type(param_node->type->kind)) {
+						isize size = type_sizeof(param_node->type);
+						u32 copy = ir_emit_alloca(ctx, size);
+						ir_memcpy(ctx, copy, param_reg, size);
+						param_reg = copy;
+					}
 
-			for (i32 i = 0; i < param_count; i++) {
-				ir_emit1(ctx, IR_PARAM, param_register[i]);
-			}
+					param_register[param_count++ & 127] = param_reg;
+					param_id = param_list->child[1];
+				}
 
-			u32 return_reg = ir_emit2_type(ctx, result_type, opcode, called_reg, param_count);
-			result = ir_emit0_type(ctx, result_type, IR_VAR);
-			ir_emit2(ctx, IR_MOV, result, return_reg);
+				for (i32 i = 0; i < param_count; i++) {
+					ir_emit1(ctx, IR_PARAM, param_register[i]);
+				}
+
+				if (node->type->kind != TYPE_VOID) {
+					u32 return_reg = ir_emit2_type(ctx, result_type, opcode, called_reg, param_count);
+					result = ir_emit0_type(ctx, result_type, IR_VAR);
+					ir_emit2(ctx, IR_MOV, result, return_reg);
+				}
+			}
 		} break;
 	case AST_EXPR_CAST:
 		{
 			ast_node *cast_node = get_node(pool, node->child[0]);
 			ast_node *expr_node = get_node(pool, node->child[1]);
-			isize cast_size = type_sizeof(cast_node->type);
-			isize expr_size = type_sizeof(expr_node->type);
+			if (cast_node->type->kind != TYPE_VOID) {
+				isize cast_size = type_sizeof(cast_node->type);
+				isize expr_size = type_sizeof(expr_node->type);
 
-			result = translate_node(ctx, pool, node->child[1], false);
-			ir_type cast_type = ir_type_from(cast_node->type);
-			ir_type expr_type = ir_type_from(expr_node->type);
-			if (expr_type != cast_type) {
-				if (cast_type == IR_F32 || cast_type == IR_F64
-					|| expr_type == IR_F32 || expr_type == IR_F64)
-				{
-					// TODO: Unsigned conversion
-					result = ir_emit1_type(ctx, cast_type, IR_CAST, result);
-				} else if (cast_size < expr_size) {
-					result = ir_emit1_type(ctx, cast_type, IR_TRUNC, result);
-				} else if (cast_size > expr_size) {
-					if (expr_node->type->kind & TYPE_UNSIGNED) {
-						result = ir_emit1_type(ctx, cast_type, IR_ZEXT, result);
-					} else {
-						result = ir_emit1_type(ctx, cast_type, IR_SEXT, result);
+				result = translate_node(ctx, pool, node->child[1], false);
+				ir_type cast_type = ir_type_from(cast_node->type);
+				ir_type expr_type = ir_type_from(expr_node->type);
+				if (expr_type != cast_type) {
+					if (cast_type == IR_F32 || cast_type == IR_F64
+						|| expr_type == IR_F32 || expr_type == IR_F64)
+					{
+						// TODO: Unsigned conversion
+						result = ir_emit1_type(ctx, cast_type, IR_CAST, result);
+					} else if (cast_size < expr_size) {
+						result = ir_emit1_type(ctx, cast_type, IR_TRUNC, result);
+					} else if (cast_size > expr_size) {
+						if (expr_node->type->kind & TYPE_UNSIGNED) {
+							result = ir_emit1_type(ctx, cast_type, IR_ZEXT, result);
+						} else {
+							result = ir_emit1_type(ctx, cast_type, IR_SEXT, result);
+						}
 					}
 				}
+
+				ASSERT(result != 0);
 			}
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
-			ASSERT(!"TODO");
+			result = ir_emit_alloca(ctx, type_sizeof(node->type));
+			translate_initializer(ctx, pool, node->child[1], result);
 		} break;
 	case AST_EXPR_IDENT:
 		{
@@ -394,6 +473,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			} else {
 				result = translate_node(ctx, pool, node->value.ref, is_lvalue);
 			}
+
+			ASSERT(result != 0);
 		} break;
 	case AST_EXPR_FLOAT:
 		{
@@ -452,12 +533,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, pool, node->child[0], false);
-					if (!is_lvalue
-						&& node->type->kind != TYPE_STRUCT
-						&& node->type->kind != TYPE_FUNCTION)
-					{
-						ir_type type = ir_type_from(node->type);
-						result = ir_emit1_type(ctx, type, IR_LOAD, result);
+					if (!is_lvalue && node->type->kind != TYPE_FUNCTION) {
+						result = ir_load(ctx, result, node->type);
 					}
 				} break;
 			case TOKEN_PLUS_PLUS:
@@ -472,7 +549,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					u32 addr = translate_node(ctx, pool, node->child[0], true);
 					u32 value = ir_emit1_type(ctx, type, IR_LOAD, addr);
 					u32 one = ir_emit1_type(ctx, type, IR_CONST, 1);
-					result = ir_emit2(ctx, opcode, value, one);
+					result = ir_emit2_type(ctx, type, opcode, value, one);
 					ir_emit2(ctx, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
@@ -490,18 +567,22 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id cond = node->child[0];
 			ast_node *branches = get_node(pool, node->child[1]);
 			u32 cond_reg = translate_node(ctx, pool, cond, false);
-			result = ir_emit0_type(ctx, ir_type_from(node->type), IR_VAR);
+			if (is_compound_type(node->type->kind)) {
+				result = ir_emit_alloca(ctx, type_sizeof(node->type));
+			} else {
+				result = ir_emit0_type(ctx, ir_type_from(node->type), IR_VAR);
+			}
 			ir_emit2(ctx, IR_JIZ, cond_reg, else_label);
 
 			ast_id if_branch = branches->child[0];
 			u32 if_reg = translate_node(ctx, pool, if_branch, false);
-			ir_emit2(ctx, IR_MOV, result, if_reg);
+			ir_mov(ctx, result, if_reg, node->type);
 			ir_emit1(ctx, IR_JMP, endif_label);
 
 			ir_emit1(ctx, IR_LABEL, else_label);
 			ast_id else_branch = branches->child[1];
 			u32 else_reg = translate_node(ctx, pool, else_branch, false);
-			ir_emit2(ctx, IR_MOV, result, else_reg);
+			ir_mov(ctx, result, else_reg, node->type);
 
 			ir_emit1(ctx, IR_LABEL, endif_label);
 		} break;
@@ -521,7 +602,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					u32 addr = translate_node(ctx, pool, node->child[0], true);
 					result = ir_emit1_type(ctx, type, IR_LOAD, addr);
 					u32 one = ir_emit1_type(ctx, type, IR_CONST, 1);
-					u32 value = ir_emit2(ctx, opcode, result, one);
+					u32 value = ir_emit2_type(ctx, type, opcode, result, one);
 					ir_emit2(ctx, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;
@@ -610,7 +691,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 						i32 param_count = 0;
 						type *return_type = node->type->children;
-						if (return_type->kind == TYPE_STRUCT) {
+						if (is_compound_type(return_type->kind)) {
 							isize size = type_sizeof(return_type);
 							ir_emit_alloca(ctx, size);
 							param_count++;
@@ -642,7 +723,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					} else {
 						// TODO: Initialize the variable
 					}
-				} else {
+				} else if (node->type != &type_builtin) {
 					isize size = type_sizeof(node->type);
 					result = ir_emit_alloca(ctx, size);
 					ctx->symbol_registers[sym_id.value] = result;
@@ -657,7 +738,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ast_node *expr = get_node(pool, node->child[1]);
 						if (expr->kind == AST_INIT_LIST) {
 							translate_initializer(ctx, pool, node->child[1], result);
-						} else if (node->type->kind == TYPE_STRUCT) {
+						} else if (is_compound_type(node->type->kind)) {
 							u32 value = translate_node(ctx, pool, node->child[1], false);
 							ir_memcpy(ctx, result, value, size);
 						} else {
@@ -666,6 +747,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 							ir_emit2_type(ctx, type, IR_STORE, result, value);
 						}
 					}
+				} else {
+					result = ir_emit_alloca(ctx, 32);
 				}
 			}
 
@@ -675,7 +758,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			if (!is_lvalue
 				&& node->type->kind != TYPE_FUNCTION
-				&& node->type->kind != TYPE_STRUCT)
+				&& node->type != &type_builtin
+				&& !is_compound_type(node->type->kind))
 			{
 				ir_type type = ir_type_from(node->type);
 				result = ir_emit1_type(ctx, type, IR_LOAD, result);
@@ -773,7 +857,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			if (node->child[0].value != 0) {
 				value = translate_node(ctx, pool, node->child[0], false);
 				ast_node *value_node = get_node(pool, node->child[0]);
-				returns_struct = (value_node->type->kind == TYPE_STRUCT);
+				returns_struct = is_compound_type(value_node->type->kind);
 				struct_size = type_sizeof(value_node->type);
 			}
 
@@ -946,14 +1030,15 @@ get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
 static ir_program
 translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 {
+	isize max_inst_count = 1024 * 1024;
 	ir_program program = {0};
-	program.insts = ALLOC(arena, 1024, ir_inst);
+	program.insts = ALLOC(arena, max_inst_count, ir_inst);
 	program.register_count++;
 	program.label_count++;
 
 	ir_context ctx = {0};
 	ctx.program = &program;
-	ctx.max_inst_count = 1024;
+	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
 	ctx.symbol_registers = ALLOC(arena, symtab->decl_count, u32);
 	ctx.symtab = symtab;

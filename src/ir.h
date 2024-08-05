@@ -185,6 +185,9 @@ ir_type_from(type *type)
 		return IR_I64;
 	case TYPE_FUNCTION:
 		return IR_I64;
+	case TYPE_BITFIELD:
+		// TODO: Implement bit fields properly
+		return IR_I64;
 	default:
 		ASSERT(!"Invalid type");
 	}
