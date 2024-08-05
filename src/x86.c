@@ -604,6 +604,16 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 							machine_operand rcx = make_operand(MOP_MREG, X86_RCX, param_size);
 							x86_select_inst(out, inst, param_inst.op0, rcx);
 						} break;
+					case 4:
+						{
+							machine_operand r8 = make_operand(MOP_MREG, X86_R8, param_size);
+							x86_select_inst(out, inst, param_inst.op0, r8);
+						} break;
+					case 5:
+						{
+							machine_operand r9 = make_operand(MOP_MREG, X86_R9, param_size);
+							x86_select_inst(out, inst, param_inst.op0, r9);
+						} break;
 					default:
 						ASSERT(!"Too many arguments");
 						break;
@@ -696,6 +706,14 @@ x86_select_instructions(ir_program program, arena *arena)
 				break;
 			case 3:
 				src = make_operand(MOP_MREG, X86_RCX, 8);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			case 4:
+				src = make_operand(MOP_MREG, X86_R8, 8);
+				x86_select2(&out, X86_MOV, dst, src);
+				break;
+			case 5:
+				src = make_operand(MOP_MREG, X86_R9, 8);
 				x86_select2(&out, X86_MOV, dst, src);
 				break;
 			default:
