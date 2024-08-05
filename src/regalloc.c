@@ -6,7 +6,7 @@ typedef struct {
 } live_interval;
 
 typedef struct {
-	b32 *bits;
+	b8 *bits;
 	u32 width;
 	u32 height;
 } bit_matrix;
@@ -16,7 +16,8 @@ static bit_matrix
 bit_matrix_init(u32 width, u32 height, arena *arena)
 {
 	bit_matrix matrix = {0};
-	matrix.bits = ALLOC(arena, width * height, b32);
+	matrix.bits = ALLOC_NOZERO(arena, width * height, b8);
+	memset(matrix.bits, 0, width * height * sizeof(b8));
 	matrix.width = width;
 	matrix.height = height;
 	return matrix;
