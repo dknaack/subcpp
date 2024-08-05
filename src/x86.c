@@ -912,7 +912,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		stream_print(out, ": db \"");
 		for (isize j = 0; j < sym.length; j++) {
 			b32 is_printable = (0x20 <= sym.at[j] && sym.at[j] < 0x7F);
-			if (is_printable) {
+			if (is_printable && sym.at[j] != '"') {
 				stream_write(out, sym.at[j]);
 			} else {
 				stream_print(out, "\", ");
