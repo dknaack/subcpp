@@ -375,9 +375,9 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 				x86_select_inst(out, inst, op1, dst);
 				x86_select1(out, X86_NEG, dst);
 			} else if (inst[op1].opcode == IR_CONST) {
+				isize src_size = ir_sizeof(inst[op1].type);
 				op1 = inst[op1].op0;
 				x86_select_inst(out, inst, op0, dst);
-				isize src_size = ir_sizeof(inst[op1].type);
 				machine_operand src = make_operand(MOP_IMMEDIATE, op1, src_size);
 				x86_select2(out, X86_SUB, dst, src);
 			} else {
