@@ -814,7 +814,11 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 			case SYM_DECL:
 				{
 					decl_symbol *sym = get_decl_symbol(*symtab, node_id);
-					stream_prints(out, sym->name);
+					if (equals(sym->name, S("wait"))) {
+						stream_print(out, "_wait");
+					} else {
+						stream_prints(out, sym->name);
+					}
 				} break;
 			case SYM_STRING:
 				{
@@ -860,7 +864,11 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 		{
 			ast_id node_id = {operand.value};
 			decl_symbol *sym = get_decl_symbol(*symtab, node_id);
-			stream_prints(out, sym->name);
+			if (equals(sym->name, S("wait"))) {
+				stream_print(out, "_wait");
+			} else {
+				stream_prints(out, sym->name);
+			}
 		} break;
 	case MOP_VREG:
 		stream_print(out, "v");
