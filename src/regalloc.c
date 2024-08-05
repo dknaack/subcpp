@@ -23,6 +23,16 @@ bit_matrix_init(u32 width, u32 height, arena *arena)
 	return matrix;
 }
 
+static b32
+get_bit(bit_matrix matrix, u32 y, u32 x)
+{
+	ASSERT(x < matrix.width);
+	ASSERT(y < matrix.height);
+	isize i = y * matrix.width + x;
+	b32 value = matrix.bits[i];
+	return value;
+}
+
 static void
 set_bit(bit_matrix matrix, u32 y, u32 x, b32 value)
 {
@@ -82,59 +92,57 @@ allocate_function_registers(machine_function func, void *code,
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
 		arena_temp temp = arena_temp_begin(arena);
-		bit_matrix prev_live_matrix = bit_matrix_init(reg_count, func.inst_count, arena);
+		bit_matrix in = live_matrix;
+		bit_matrix out = bit_matrix_init(reg_count, func.inst_count, arena);
 
 		b32 has_matrix_changed = false;
+		isize iteration_count = 0;
 		do {
-			u32 i = func.inst_count;
+			has_matrix_changed = false;
+			isize i = func.inst_count;
 			while (i-- > 0) {
-				clear_row(live_matrix, i);
-				/* TODO: successor of jump instructions */
-				if (i + 1 != func.inst_count) {
-					union_rows(live_matrix, i, i + 1);
-				}
-
+				iteration_count++;
 				machine_inst *inst = get_inst(code, func.inst_offsets, i);
 				machine_operand *operands = (machine_operand *)(inst + 1);
-				for (u32 j = 0; j < inst->operand_count; j++) {
-					if (operands[j].kind == MOP_LABEL) {
-						u32 inst_index = operands[j].value;
-						ASSERT(inst_index < func.inst_count);
-						union_rows(live_matrix, i, inst_index);
+				for (isize x = 0; x < reg_count; x++) {
+					b32 new_bit = false;
+					isize succ = i + 1;
+					if (succ < func.inst_count) {
+						new_bit |= get_bit(in, succ, x);
+					}
+
+					for (isize j = 0; j < inst->operand_count; j++) {
+						if (operands[j].kind == MOP_LABEL) {
+							isize succ = operands[j].value;
+							new_bit |= get_bit(in, succ, x);
+						}
+					}
+
+					b32 old_bit = get_bit(out, i, x);
+					if (new_bit != old_bit) {
+						has_matrix_changed = true;
+						set_bit(out, i, x, new_bit);
 					}
 				}
 
-				for (u32 j = 0; j < inst->operand_count; j++) {
+				for (isize j = 0; j < inst->operand_count; j++) {
 					if (operands[j].kind != MOP_FUNC) {
 						continue;
 					}
 
-					for (u32 k = 0; k < reg_info.volatile_register_count; k++) {
+					for (isize k = 0; k < reg_info.volatile_register_count; k++) {
 						u32 mreg = reg_info.volatile_registers[k];
-						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
+						set_bit(in, i, live_matrix.width - 1 - mreg, 0);
 					}
 				}
 
-				for (u32 j = 0; j < inst->operand_count; j++) {
-					u32 value = operands[j].value;
+				for (isize j = 0; j < inst->operand_count; j++) {
+					u32 x = operands[j].value;
 					switch (operands[j].kind) {
 					case MOP_VREG:
-						if (operands[j].flags & MOP_DEF) {
-							set_bit(live_matrix, i, value, 1);
-						}
-
-						if (operands[j].flags & MOP_USE) {
-							set_bit(live_matrix, i, value, 1);
-						}
 						break;
 					case MOP_MREG:
-						if (operands[j].flags & MOP_DEF) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - value, 1);
-						}
-
-						if (operands[j].flags & MOP_USE) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - value, 1);
-						}
+						x = in.width - 1 - x;
 						break;
 					case MOP_SPILL:
 					case MOP_LABEL:
@@ -142,20 +150,32 @@ allocate_function_registers(machine_function func, void *code,
 					case MOP_FLOAT:
 					case MOP_FUNC:
 					case MOP_GLOBAL:
-						break;
+						continue;
 					default:
 						ASSERT(!"Invalid operand type");
 					}
+
+					b32 new_bit = get_bit(out, i, x);
+					if (operands[j].flags & MOP_DEF) {
+						new_bit = false;
+					}
+
+					if (operands[j].flags & MOP_USE) {
+						new_bit = true;
+					}
+
+					b32 old_bit = get_bit(in, i, x);
+					if (new_bit != old_bit) {
+						has_matrix_changed = true;
+						set_bit(in, i, x, new_bit);
+					}
 				}
 			}
-
-			usize matrix_size = live_matrix.width * live_matrix.height * sizeof(b32);
-			has_matrix_changed = memcmp(live_matrix.bits, prev_live_matrix.bits, matrix_size);
-			memcpy(prev_live_matrix.bits, live_matrix.bits, matrix_size);
 		} while (has_matrix_changed);
 
 		arena_temp_end(temp);
 	}
+
 
 	// NOTE: Calculate the live intervals of the virtual registers
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
