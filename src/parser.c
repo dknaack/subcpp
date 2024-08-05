@@ -260,7 +260,8 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 				node.value.ref = e->node_id;
 				expr = push_node(pool, node);
 			} else {
-				syntax_error(lexer, "unknown ident");
+				syntax_error(lexer, "unknown ident: %.*s",
+					(int)token.value.length, token.value.at);
 				return expr;
 			}
 		} break;
