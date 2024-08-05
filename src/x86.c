@@ -516,9 +516,6 @@ x86_select_inst(machine_program *out, ir_inst *inst,
 				x86_opcode cmp_opcode = (is_float ? X86_COMISS : X86_CMP);
 				x86_select2(out, cmp_opcode, dst, src);
 				jcc = x86_get_jcc_opcode(inst[op0].opcode, is_jiz);
-			} else if (inst[op0].opcode == IR_SUB) {
-				machine_operand src = {0};
-				x86_select_inst(out, inst, op0, src);
 			} else {
 				machine_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
 				x86_select_inst(out, inst, op0, src);
