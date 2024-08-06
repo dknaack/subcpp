@@ -115,21 +115,21 @@ static const ast_node ast_nil = {0};
 static const ast_id ast_id_nil = {0};
 
 typedef enum {
-	PREC_NONE,
-	PREC_COMMA,
-	PREC_ASSIGN,
-	PREC_TERNARY,
-	PREC_LOR,
-	PREC_LAND,
-	PREC_BOR,
-	PREC_XOR,
-	PREC_BAND,
-	PREC_EQUAL,
-	PREC_COMPARE,
-	PREC_SHIFT,
-	PREC_TERM,
-	PREC_FACTOR,
-	PREC_PRIMARY,
+	PREC_NONE    =  0,
+	PREC_COMMA   =  2,
+	PREC_ASSIGN  =  4,
+	PREC_TERNARY =  6,
+	PREC_LOR     =  8,
+	PREC_LAND    = 10,
+	PREC_BOR     = 12,
+	PREC_XOR     = 14,
+	PREC_BAND    = 16,
+	PREC_EQUAL   = 18,
+	PREC_COMPARE = 20,
+	PREC_SHIFT   = 22,
+	PREC_TERM    = 24,
+	PREC_FACTOR  = 26,
+	PREC_PRIMARY = 28,
 } precedence;
 
 /* NOTE: An operator with negative precedence is right associative. */

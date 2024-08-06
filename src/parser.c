@@ -204,13 +204,13 @@ expect(cpp_state *lexer, token_kind expected_token)
 }
 
 static b32
-is_right_associative(token_kind token)
+is_left_associative(token_kind token)
 {
 	switch (token) {
 	case TOKEN_EQUAL:
-		return true;
-	default:
 		return false;
+	default:
+		return true;
 	}
 }
 
@@ -527,8 +527,8 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 					prec = PREC_NONE;
 				}
 
-				prec -= is_right_associative(operator);
-				ast_id rhs = parse_expr(lexer, prec, s, pool, arena);
+				precedence new_prec = prec + is_left_associative(operator);
+				ast_id rhs = parse_expr(lexer, new_prec, s, pool, arena);
 				ASSERT(rhs.value != 0);
 
 				ast_node node = make_node(AST_EXPR_BINARY, get_location(lexer));
