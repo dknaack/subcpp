@@ -174,6 +174,17 @@ static b32 is_ident_node(ast_node_kind kind)
 }
 
 static type *
+get_type(ast_pool *p, ast_id id)
+{
+	if (0 < id.value && id.value < p->size) {
+		return p->types + id.value;
+	}
+
+	ASSERT(!"ID is out of bounds");
+	return NULL;
+}
+
+static type *
 check_type(ast_pool *pool, ast_id node_id, arena *arena)
 {
 	if (pool->error) {
