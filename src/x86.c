@@ -1016,9 +1016,12 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				if (operands[0].kind == MOP_SPILL
 					&& operands[1].kind == MOP_SPILL)
 				{
-					stream_print(out, "\tmov rax, ");
+					machine_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
+					stream_print(out, "\tmov ");
+					x86_emit_operand(out, rax, program.symtab);
+					stream_print(out, ", ");
 					x86_emit_operand(out, operands[1], program.symtab);
-					operands[1] = make_operand(MOP_MREG, X86_RAX, operands[0].size);
+					operands[1] = rax;
 					stream_print(out, "\n");
 				}
 
