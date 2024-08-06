@@ -686,7 +686,7 @@ x86_select_instructions(ir_program program, arena *arena)
 
 		for (u32 i = 0; i < ir_func->parameter_count; i++) {
 			// TODO: Set the correct size of the parameters
-			machine_operand dst = make_operand(MOP_VREG, i, 8);
+			machine_operand dst = make_operand(MOP_VREG, i+1, 8);
 			machine_operand src;
 			switch (i) {
 			case 0:
