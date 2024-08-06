@@ -726,7 +726,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				} else if (node->type != &type_builtin) {
 					isize size = type_sizeof(node->type);
 					result = ir_emit_alloca(ctx, size);
-					ctx->symbol_registers[sym_id.value] = result;
 
 					if (node->type->kind == TYPE_ARRAY) {
 						u32 addr = ir_emit_alloca(ctx, 8);
@@ -734,6 +733,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						result = addr;
 					}
 
+					ctx->symbol_registers[sym_id.value] = result;
 					if (node->child[1].value != 0) {
 						ast_node *expr = get_node(pool, node->child[1]);
 						if (expr->kind == AST_INIT_LIST) {
