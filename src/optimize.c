@@ -34,6 +34,11 @@ promote_stack_variables(ir_program program, arena *arena)
 			u32 op0 = insts[i].op0;
 			u32 op1 = insts[i].op1;
 
+			// Can only turn scalars into registers, not arrays or structs
+			if (insts[i].opcode == IR_ALLOC && insts[i].op0 > 8) {
+				addr_used[i] = true;
+			}
+
 			ir_opcode_info info = get_opcode_info(opcode);
 			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
 				&& insts[op0].opcode == IR_ALLOC)
