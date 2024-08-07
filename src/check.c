@@ -44,11 +44,11 @@ type_equals(type *lhs, type *rhs)
 	}
 
 	if (lhs->kind == TYPE_OPAQUE) {
-		lhs = lhs->children;
+		lhs = lhs->base_type;
 	}
 
 	if (rhs->kind == TYPE_OPAQUE) {
-		rhs = rhs->children;
+		rhs = rhs->base_type;
 	}
 
 	switch (lhs->kind) {
@@ -58,11 +58,11 @@ type_equals(type *lhs, type *rhs)
 			return false;
 		}
 
-		if (rhs->children->kind == TYPE_VOID || lhs->children->kind == TYPE_VOID) {
+		if (rhs->base_type->kind == TYPE_VOID || lhs->base_type->kind == TYPE_VOID) {
 			return true;
 		}
 
-		return type_equals(lhs->children, rhs->children);
+		return type_equals(lhs->base_type, rhs->base_type);
 	case TYPE_FUNCTION:
 		if (rhs->kind != TYPE_FUNCTION) {
 			return false;
@@ -266,7 +266,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			// TODO: Check the type of each field in the initializer
 			if (is_compound_type(node_type->kind)) {
 				if (node_type->kind == TYPE_OPAQUE) {
-					memcpy(node_type, node_type->children, sizeof(*node_type));
+					memcpy(node_type, node_type->base_type, sizeof(*node_type));
 				}
 
 				member *member = node_type->members;
@@ -294,7 +294,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 #endif
 				}
 			} else if (node_type->kind == TYPE_ARRAY) {
-				type *expected = node_type->children;
+				type *expected = node_type->base_type;
 				while (node_id.value != 0) {
 					ast_node *node = get_node(pool, node_id);
 					ASSERT(node->kind == AST_INIT_LIST);
@@ -326,11 +326,11 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					pool->error = true;
 				}
 
-				operand_type = operand_type->children;
+				operand_type = operand_type->base_type;
 			}
 
 			if (operand_type->kind == TYPE_OPAQUE) {
-				operand_type = operand_type->children;
+				operand_type = operand_type->base_type;
 			}
 
 			if (operand_type->kind != TYPE_STRUCT && operand_type->kind != TYPE_UNION) {
@@ -357,9 +357,9 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
 				if (is_pointer(lhs)) {
-					memcpy(node_type, lhs->children, sizeof(*node_type));
+					memcpy(node_type, lhs->base_type, sizeof(*node_type));
 				} else if (is_pointer(rhs)) {
-					memcpy(node_type, rhs->children, sizeof(*node_type));
+					memcpy(node_type, rhs->base_type, sizeof(*node_type));
 				} else {
 					pool->error = true;
 					errorf(node->loc, "Incompatible types: %s, %s",
@@ -428,7 +428,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 #endif
 
-				type *return_type = called->children;
+				type *return_type = called->base_type;
 				memcpy(node_type, return_type, sizeof(*node_type));
 			} else {
 				pool->error = true;
@@ -459,7 +459,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 				node_type->kind = TYPE_FUNCTION;
 				node_type->members = param;
-				node_type->children = param->type;
+				node_type->base_type = param->type;
 			} else {
 				type *ref_type = get_type(pool, node->value.ref);
 				memcpy(node_type, ref_type, sizeof(*node_type));
@@ -480,7 +480,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_EXPR_STRING:
 		{
 			node_type->kind = TYPE_POINTER;
-			node_type->children = type_create(TYPE_CHAR, arena);
+			node_type->base_type = type_create(TYPE_CHAR, arena);
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
@@ -495,7 +495,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			switch (node->value.i) {
 			case TOKEN_STAR:
 				if (operand_type->kind == TYPE_POINTER) {
-					node_type = operand_type->children;
+					node_type = operand_type->base_type;
 				} else {
 					pool->error = true;
 					errorf(node->loc, "Expected pointer type");
@@ -503,7 +503,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				break;
 			case TOKEN_AMP:
 				node_type = type_create(TYPE_POINTER, arena);
-				node_type->children = operand_type;
+				node_type->base_type = operand_type;
 				break;
 			case TOKEN_BANG:
 			case TOKEN_PLUS:
@@ -608,7 +608,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		{
 			type *base_type = check_type(pool, node->child[1], arena);
 			node_type->kind = TYPE_POINTER;
-			node_type->children = base_type;
+			node_type->base_type = base_type;
 		} break;
 	case AST_TYPE_ARRAY:
 		{
@@ -621,7 +621,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			}
 
 			type *base_type = check_type(pool, node->child[1], arena);
-			node_type->children = base_type;
+			node_type->base_type = base_type;
 		} break;
 	case AST_TYPE_BITFIELD:
 		{
@@ -629,7 +629,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			node_type->kind = TYPE_BITFIELD;
 			// TODO: Evaluate the expression
 			node_type->size = 1;
-			node_type->children = type;
+			node_type->base_type = type;
 		} break;
 	case AST_TYPE_FUNC:
 		{
@@ -656,7 +656,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 			}
 
-			node_type->children = return_type;
+			node_type->base_type = return_type;
 		} break;
 	case AST_TYPE_IDENT:
 		{
@@ -700,7 +700,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				if (node->flags & AST_OPAQUE) {
 					ref_type->kind = TYPE_STRUCT;
 					node_type->kind = TYPE_OPAQUE;
-					node_type->children = ref_type;
+					node_type->base_type = ref_type;
 				} else {
 					memcpy(node_type, ref_type, sizeof(*node_type));
 					ASSERT(node_type->kind == TYPE_STRUCT

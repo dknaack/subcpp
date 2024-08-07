@@ -101,7 +101,7 @@ struct member {
 struct type {
 	type_kind kind;
 	type *next;
-	type *children;
+	type *base_type;
 	member *members;
 	i64 size;
 };
@@ -191,7 +191,7 @@ type_sizeof(type *type)
 		return 8;
 	case TYPE_ARRAY:
 		{
-			usize target_size = type_sizeof(type->children);
+			usize target_size = type_sizeof(type->base_type);
 			return type->size * target_size;
 		} break;
 	case TYPE_UNION:
@@ -217,8 +217,8 @@ type_sizeof(type *type)
 		} break;
 	case TYPE_OPAQUE:
 		{
-			if (type->children) {
-				return type_sizeof(type->children);
+			if (type->base_type) {
+				return type_sizeof(type->base_type);
 			}
 		} break;
 	}
@@ -273,8 +273,8 @@ type_offsetof(type *type, str member_name)
 
 			offset += type_sizeof(s->type);
 		}
-	} else if (type->kind == TYPE_OPAQUE && type->children) {
-		offset = type_offsetof(type->children, member_name);
+	} else if (type->kind == TYPE_OPAQUE && type->base_type) {
+		offset = type_offsetof(type->base_type, member_name);
 	} else {
 		// TODO: report error
 		ASSERT(!"Type must be struct or union");

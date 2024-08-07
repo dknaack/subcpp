@@ -217,7 +217,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			type *operand_type = get_type(pool, node->child[0]);
 			if (node->kind == AST_EXPR_MEMBER_PTR) {
-				operand_type = operand_type->children;
+				operand_type = operand_type->base_type;
 			}
 
 			u32 offset = type_offsetof(operand_type, node->value.s);
@@ -398,7 +398,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				i32 param_count = 0;
 				u32 param_register[128] = {0};
-				type *return_type = called_type->children;
+				type *return_type = called_type->base_type;
 				ir_type result_type = IR_I64;
 				if (is_compound_type(return_type->kind)) {
 					isize size = type_sizeof(return_type);
@@ -705,7 +705,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ir_emit1(ctx, IR_LABEL, new_label(ctx));
 
 						i32 param_count = 0;
-						type *return_type = node_type->children;
+						type *return_type = node_type->base_type;
 						if (is_compound_type(return_type->kind)) {
 							isize size = type_sizeof(return_type);
 							ir_emit_alloca(ctx, size);
