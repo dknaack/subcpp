@@ -70,7 +70,11 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 
 		break;
 	case AST_EXPR_BINARY:
-		printf("binary");
+		printf("(");
+		print_ast_node(pool, node->child[0], indent);
+		printf(") <*> (");
+		print_ast_node(pool, node->child[1], indent);
+		printf(")");
 		break;
 	case AST_EXPR_CALL:
 		print_ast_node(pool, node->child[0], indent);
@@ -472,46 +476,55 @@ print_ir_program(ir_program program)
 }
 
 static void
+print_x86_operand(machine_operand operand)
+{
+	u32 value = operand.value;
+	switch (operand.kind) {
+	case MOP_VREG:
+		printf("%%%d%s", value, operand.size == 4 ? "d" : "");
+		break;
+	case MOP_MREG:
+		printf("%s", x86_get_register_name(value, operand.size));
+		break;
+	case MOP_LABEL:
+		printf("L%d:", value);
+		break;
+	case MOP_IMMEDIATE:
+		printf("%d", value);
+		break;
+	case MOP_GLOBAL:
+		printf("global_%d", value);
+		break;
+	case MOP_SPILL:
+		printf("spill");
+		break;
+	default:
+		printf("?");
+		break;
+	}
+
+}
+
+static void
 print_x86_program(machine_program program)
 {
 	char *code = program.code;
 	char *end = code + program.size;
-	u32 i = 0;
+	isize i = 0;
 	while (code < end) {
-		printf("%2d|", i++);
+		printf("%2ld|", i++);
 
 		machine_inst *inst = (machine_inst *)code;
+		code += sizeof(*inst) + inst->operand_count * sizeof(machine_operand);
 		if (inst->opcode != X86_LABEL) {
 			printf("\tX86.%s ", x86_get_opcode_name(inst->opcode));
+		} else {
+			printf("L");
 		}
 
 		machine_operand *operands = (machine_operand *)(inst + 1);
 		for (u32 j = 0; j < inst->operand_count; j++) {
-			u32 value = operands[j].value;
-			switch (operands[j].kind) {
-			case MOP_VREG:
-				printf("%%%d", value);
-				break;
-			case MOP_MREG:
-				printf("%s", x86_get_register_name(value, 8));
-				break;
-			case MOP_LABEL:
-				printf("L%d:", value);
-				break;
-			case MOP_IMMEDIATE:
-				printf("%d", value);
-				break;
-			case MOP_GLOBAL:
-				printf("global_%d", value);
-				break;
-			case MOP_SPILL:
-				printf("spill");
-				break;
-			default:
-				printf("?");
-				break;
-			}
-
+			print_x86_operand(operands[j]);
 			if (j + 1 < inst->operand_count) {
 				printf(", ");
 			}
@@ -519,6 +532,8 @@ print_x86_program(machine_program program)
 
 		putchar('\n');
 	}
+
+	printf("\n");
 }
 
 static void
