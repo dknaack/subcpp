@@ -133,6 +133,7 @@ type_get_name(type_kind type)
 	case TYPE_OPAQUE:         return "(opaque)";
 	}
 
+	ASSERT(!"Invalid type");
 	return "(invalid)";
 }
 
