@@ -102,14 +102,15 @@ typedef enum {
 } token_kind;
 
 typedef struct {
-	token_kind kind;
-	str value;
-} token;
-
-typedef struct {
 	char *file;
 	isize offset;
 } location;
+
+typedef struct {
+	token_kind kind;
+	str value;
+	location loc;
+} token;
 
 typedef enum {
 	/* The current if directive is true */
