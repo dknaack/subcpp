@@ -266,29 +266,12 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 			}
 		} break;
 	case TOKEN_LITERAL_STRING:
-		{
-			get_token(lexer);
-			ast_node literal = make_node(AST_EXPR_STRING, token);
-			expr = push_node(pool, literal);
-			// TODO: implement string concatenation
-			while (accept(lexer, TOKEN_LITERAL_STRING)) {}
-		} break;
 	case TOKEN_LITERAL_CHAR:
-		{
-			get_token(lexer);
-			ast_node literal = make_node(AST_EXPR_CHAR, token);
-			expr = push_node(pool, literal);
-		} break;
 	case TOKEN_LITERAL_FLOAT:
-		{
-			get_token(lexer);
-			ast_node literal = make_node(AST_EXPR_FLOAT, token);
-			expr = push_node(pool, literal);
-		} break;
 	case TOKEN_LITERAL_INT:
 		{
 			get_token(lexer);
-			ast_node literal = make_node(AST_EXPR_INT, token);
+			ast_node literal = make_node(AST_EXPR_LITERAL, token);
 			expr = push_node(pool, literal);
 		} break;
 	case TOKEN_LPAREN:
