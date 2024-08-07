@@ -52,4 +52,5 @@ typedef struct {
 #include "ast.h"
 #include "ir.h"
 #include "codegen.h"
+#include "regalloc.h"
 #include "x86.h"
