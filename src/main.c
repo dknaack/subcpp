@@ -11,10 +11,10 @@
 #include "check.c"
 #include "ir.c"
 #include "optimize.c"
+#include "debug.c"
 #include "regalloc.c"
 #include "stream.c"
 #include "x86.c"
-#include "debug.c"
 
 static void
 run_command(char **args)
