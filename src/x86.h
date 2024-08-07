@@ -169,6 +169,7 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_XOR:   return "xor";
 	}
 
+	ASSERT(!"Invalid instruction");
 	return "(invalid)";
 }
 
