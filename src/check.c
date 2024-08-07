@@ -96,15 +96,15 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	i64 result = 0;
 	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
-	case AST_EXPR_INT:
+	case AST_EXPR_LITERAL:
 		{
-			result = node->value.i;
+			ASSERT(!"TODO");
 		} break;
 	case AST_EXPR_BINARY:
 		{
 			i64 lhs = eval_ast(pool, node->child[0]);
 			i64 rhs = eval_ast(pool, node->child[1]);
-			switch (node->value.op) {
+			switch (node->token.kind) {
 			case TOKEN_PLUS:          result = lhs +  rhs; break;
 			case TOKEN_MINUS:         result = lhs -  rhs; break;
 			case TOKEN_STAR:          result = lhs *  rhs; break;
@@ -127,7 +127,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			switch (node->value.op) {
+			switch (node->token.kind) {
 			case TOKEN_MINUS: result = -result; break;
 			case TOKEN_BANG:  result = !result; break;
 			case TOKEN_TILDE: result = ~result; break;
@@ -158,7 +158,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			result = eval_ast(pool, node->value.ref);
+			result = eval_ast(pool, node->child[0]);
 		} break;
 	default:
 		ASSERT(!"Invalid node");
@@ -281,7 +281,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					type *value_type = check_type(pool, list_node->child[0], arena);
 					// TODO: Type conversion
 					if (!type_equals(member->type, value_type)) {
-						//errorf(list_node->loc, "Invalid type");
+						//errorf(list_node->token.loc, "Invalid type");
 					}
 
 					member = member->next;
@@ -290,7 +290,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 				if (member == NULL && node_id.value != 0) {
 #if 0
-					errorf(node->loc, "Too many fields in the initializer");
+					errorf(node->token.loc, "Too many fields in the initializer");
 #endif
 				}
 			} else if (node_type->kind == TYPE_ARRAY) {
@@ -306,10 +306,12 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					}
 
 					type *found = check_type(pool, node->child[0], arena);
-					if (child->kind == AST_EXPR_INT && child->value.i == 0) {
+					if (child->kind == AST_EXPR_LITERAL
+						&& child->token.kind == TOKEN_ZERO)
+					{
 						// ignore
 					} else if (!type_equals(found, expected)) {
-						errorf(node->loc, "Invalid array member type");
+						errorf(node->token.loc, "Invalid array member type");
 					}
 
 					node_id = node->child[1];
@@ -322,7 +324,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			type *operand_type = check_type(pool, node->child[0], arena);
 			if (node->kind == AST_EXPR_MEMBER_PTR) {
 				if (operand_type->kind != TYPE_POINTER) {
-					errorf(node->loc, "Left-hand side is not a pointer");
+					errorf(node->token.loc, "Left-hand side is not a pointer");
 					pool->error = true;
 				}
 
@@ -334,15 +336,15 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			}
 
 			if (operand_type->kind != TYPE_STRUCT && operand_type->kind != TYPE_UNION) {
-				errorf(node->loc, "Left-hand side is not a struct");
+				errorf(node->token.loc, "Left-hand side is not a struct");
 				pool->error = true;
 			}
 
-			member *s = get_member(operand_type->members, node->value.s);
+			member *s = get_member(operand_type->members, node->token.value);
 			if (s) {
 				memcpy(node_type, s->type, sizeof(*node_type));
 			} else {
-				errorf(node->loc, "Member does not exist");
+				errorf(node->token.loc, "Member does not exist");
 			}
 		} break;
 	case AST_EXPR_BINARY:
@@ -351,7 +353,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			type *rhs = check_type(pool, node->child[1], arena);
 			memcpy(node_type, lhs, sizeof(*node_type));
 
-			u32 operator = node->value.i;
+			u32 operator = node->token.kind;
 			if (operator == TOKEN_LBRACKET) {
 
 				// NOTE: ensure that one operand is a pointer and the other one
@@ -362,7 +364,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					memcpy(node_type, rhs->base_type, sizeof(*node_type));
 				} else {
 					pool->error = true;
-					errorf(node->loc, "Incompatible types: %s, %s",
+					errorf(node->token.loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->kind),
 						type_get_name(rhs->kind));
 				}
@@ -394,7 +396,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			str func_name = {0};
 			if (called_node->kind == AST_EXPR_IDENT) {
 				called_node = get_node(pool, called_node->value.ref);
-				func_name = called_node->value.s;
+				func_name = called_node->token.value;
 			}
 
 			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
@@ -407,7 +409,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					ast_node *param_node = get_node(pool, param_list->child[0]);
 					type *param = check_type(pool, param_list->child[0], arena);
 					if (!type_equals(param_member->type, param)) {
-						errorf(param_node->loc, "Invalid parameter type");
+						errorf(param_node->token.loc, "Invalid parameter type");
 					}
 
 					param_member = param_member->next;
@@ -422,9 +424,9 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 #if 0
 				if (param_member && param_id.value == 0) {
-					errorf(node->loc, "Too few arguments");
+					errorf(node->token.loc, "Too few arguments");
 				} else if (!param_member && param_id.value != 0) {
-					errorf(node->loc, "Too many arguments");
+					errorf(node->token.loc, "Too many arguments");
 				}
 #endif
 
@@ -432,7 +434,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				memcpy(node_type, return_type, sizeof(*node_type));
 			} else {
 				pool->error = true;
-				errorf(node->loc, "Not a function: %s", type_get_name(called->kind));
+				errorf(node->token.loc, "Not a function: %s", type_get_name(called->kind));
 			}
 		} break;
 	case AST_EXPR_CAST:
@@ -452,7 +454,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			if (equals(node->value.s, S("__builtin_popcount"))) {
+			if (equals(node->token.value, S("__builtin_popcount"))) {
 				member *param = ALLOC(arena, 1, member);
 				param->name = S("x");
 				param->type = type_create(TYPE_INT, arena);
@@ -465,22 +467,9 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				memcpy(node_type, ref_type, sizeof(*node_type));
 			}
 		} break;
-	case AST_EXPR_FLOAT:
+	case AST_EXPR_LITERAL:
 		{
-			node_type->kind = TYPE_DOUBLE;
-		} break;
-	case AST_EXPR_CHAR:
-		{
-			node_type->kind = TYPE_CHAR;
-		} break;
-	case AST_EXPR_INT:
-		{
-			node_type->kind = TYPE_INT;
-		} break;
-	case AST_EXPR_STRING:
-		{
-			node_type->kind = TYPE_POINTER;
-			node_type->base_type = type_create(TYPE_CHAR, arena);
+			ASSERT(!"TODO");
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
@@ -492,13 +481,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			check_type(pool, node->child[0], arena);
 
 			type *operand_type = get_type(pool, node->child[0]);
-			switch (node->value.i) {
+			switch (node->token.kind) {
 			case TOKEN_STAR:
 				if (operand_type->kind == TYPE_POINTER) {
 					node_type = operand_type->base_type;
 				} else {
 					pool->error = true;
-					errorf(node->loc, "Expected pointer type");
+					errorf(node->token.loc, "Expected pointer type");
 				}
 				break;
 			case TOKEN_AMP:
@@ -530,14 +519,14 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			type *cond_type = get_type(pool, node->child[0]);
 			if (!is_integer(cond_type->kind)) {
 				ast_node *cond = get_node(pool, node->child[0]);
-				errorf(cond->loc, "Not an integer expression");
+				errorf(cond->token.loc, "Not an integer expression");
 			}
 
 			type *lhs_type = check_type(pool, node2->child[0], arena);
 			type *rhs_type = check_type(pool, node2->child[1], arena);
 			if (!type_equals(lhs_type, rhs_type)) {
 				ast_node *lhs = get_node(pool, node2->child[0]);
-				errorf(lhs->loc, "Invalid type in ternary expression");
+				errorf(lhs->token.loc, "Invalid type in ternary expression");
 			}
 
 			memcpy(node_type, lhs_type, sizeof(*node_type));
@@ -644,7 +633,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					ast_node *param = get_node(pool, param_list->child[0]);
 					type *param_type = get_type(pool, param_list->child[0]);
 					*m = ALLOC(arena, 1, member);
-					(*m)->name = param->value.s;
+					(*m)->name = param->token.value;
 					(*m)->type = param_type;
 					m = &(*m)->next;
 
@@ -729,12 +718,12 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					ast_node *decl_node = get_node(pool, list_node->child[0]);
 					type *decl_type = get_type(pool, list_node->child[0]);
 					*ptr = ALLOC(arena, 1, member);
-					(*ptr)->name = decl_node->value.s;
+					(*ptr)->name = decl_node->token.value;
 					(*ptr)->type = decl_type;
 					ptr = &(*ptr)->next;
 				}
 
-				ASSERT(node->value.s.at != NULL || node_type->members != NULL);
+				ASSERT(node->token.value.at != NULL || node_type->members != NULL);
 			}
 		} break;
 	}
@@ -776,7 +765,7 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 		break;
 	case AST_STMT_CASE:
 		if (switch_id.value == 0) {
-			errorf(node->loc, "case outside switch");
+			errorf(node->token.loc, "case outside switch");
 		} else {
 			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
 			case_symbol *case_sym = get_case_symbol(symtab, node_id);
@@ -792,11 +781,11 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 		} break;
 	case AST_STMT_DEFAULT:
 		if (switch_id.value == 0) {
-			errorf(node->loc, "default outside switch");
+			errorf(node->token.loc, "default outside switch");
 		} else {
 			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
 			if (switch_sym->default_case.value != 0) {
-				errorf(node->loc, "Duplicate default label");
+				errorf(node->token.loc, "Duplicate default label");
 			}
 
 			switch_sym->default_case = node_id;
@@ -835,7 +824,7 @@ check(ast_pool *pool, arena *perm)
 			symtab.kind[i] = SYM_LABEL;
 			break;
 		case AST_TYPE_STRUCT:
-			if (node->value.s.at == NULL || node->child[0].value == 0) {
+			if (node->token.value.at == NULL || node->child[0].value == 0) {
 				break;
 			}
 
@@ -884,8 +873,8 @@ check(ast_pool *pool, arena *perm)
 							continue;
 						}
 
-						if (equals(label_node->value.s, node->value.s)) {
-							errorf(node->loc, "Label was already defined");
+						if (equals(label_node->token.value, node->token.value)) {
+							errorf(node->token.loc, "Label was already defined");
 						}
 					}
 				}
@@ -899,14 +888,14 @@ check(ast_pool *pool, arena *perm)
 
 				for (isize k = 0; k < l; k++) {
 					ast_node *label_node = &pool->nodes[label_id[k].value];
-					if (equals(label_node->value.s, node->value.s)) {
+					if (equals(label_node->token.value, node->token.value)) {
 						symtab.symbols[j] = symtab.symbols[label_id[k].value];
 						break;
 					}
 				}
 
 				if (symtab.symbols[j].value == 0) {
-					errorf(node->loc, "No label was found");
+					errorf(node->token.loc, "No label was found");
 				}
 			}
 		}
@@ -918,7 +907,7 @@ check(ast_pool *pool, arena *perm)
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXPR_STRING) {
-			str escaped = node->value.s;
+			str escaped = node->token.value;
 			str unescaped = {0};
 			unescaped.at = ALLOC(perm, escaped.length, char);
 			for (isize i = 1; i < escaped.length - 1; i++) {
@@ -974,7 +963,7 @@ check(ast_pool *pool, arena *perm)
 			ASSERT(node_type->kind != TYPE_UNKNOWN);
 
 			decl_symbol *sym = get_decl_symbol(symtab, node_id);
-			sym->name = node->value.s;
+			sym->name = node->token.value;
 			sym->type = node_type;
 			sym->is_global = true;
 			sym->is_function = (node_type->kind == TYPE_FUNCTION);
