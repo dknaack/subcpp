@@ -1180,7 +1180,6 @@ static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena 
 	location loc = {0};
 	ast_node node = make_node(AST_DECL, loc);
 	node.value.s = name;
-	node.type = &type_builtin;
 
 	scope_entry *e = scope_upsert_ident(s, name, arena);
 	e->is_type = is_type;
@@ -1252,6 +1251,7 @@ parse(cpp_state *lexer, arena *arena)
 	ast_node *nodes = realloc(pool.nodes, pool.size * sizeof(*nodes));
 	if (nodes) {
 		pool.nodes = nodes;
+		pool.types = calloc(pool.size, sizeof(*nodes));
 		pool.cap = pool.size;
 	}
 

@@ -1,5 +1,3 @@
-#define TYPE_NIL (&type_nil)
-
 typedef struct member member;
 typedef struct type type;
 typedef struct ast_node ast_node;
@@ -107,10 +105,6 @@ struct type {
 	member *members;
 	i64 size;
 };
-
-static type type_nil = {0, &type_nil, &type_nil};
-static type type_builtin = {0};
-static type type_void = {TYPE_VOID};
 
 static char *
 type_get_name(type_kind type)

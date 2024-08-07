@@ -92,7 +92,6 @@ struct ast_node {
 	ast_node_flags flags;
 	ast_id child[2];
 	location loc;
-	type *type;
 
 	union {
 		token_kind op;

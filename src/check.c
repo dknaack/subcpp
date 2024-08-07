@@ -188,20 +188,21 @@ static type *
 check_type(ast_pool *pool, ast_id node_id, arena *arena)
 {
 	if (pool->error) {
-		return TYPE_NIL;
+		return &pool->types[0];
 	}
 
 	ast_node *node = get_node(pool, node_id);
+	type *node_type = get_type(pool, node_id);
 	if (node->kind == AST_INIT_LIST) {
-		if (node->type == NULL) {
+		if (node_type->kind == TYPE_UNKNOWN) {
 			BREAK();
-			return node->type;
+			return node_type;
 		}
-	} else if (node->type == NULL) {
-		node->type = &type_nil;
-	} else if (node->kind != AST_TYPE_STRUCT && node->kind != AST_TYPE_UNION) {
+	} else if (node_type->kind != TYPE_UNKNOWN &&
+		node->kind != AST_TYPE_STRUCT && node->kind != AST_TYPE_UNION)
+	{
 		// This node has already been type checked.
-		return node->type;
+		return node_type;
 	}
 
 	switch (node->kind) {
@@ -259,26 +260,27 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_INIT_LIST:
 		{
-			ASSERT(node->type != TYPE_NIL);
-			ASSERT(is_compound_type(node->type->kind) || node->type->kind == TYPE_ARRAY);
+			ASSERT(node_type->kind != TYPE_UNKNOWN);
+			ASSERT(is_compound_type(node_type->kind) || node_type->kind == TYPE_ARRAY);
 
 			// TODO: Check the type of each field in the initializer
-			if (is_compound_type(node->type->kind)) {
-				if (node->type->kind == TYPE_OPAQUE) {
-					node->type = node->type->children;
+			if (is_compound_type(node_type->kind)) {
+				if (node_type->kind == TYPE_OPAQUE) {
+					memcpy(node_type, node_type->children, sizeof(*node_type));
 				}
 
-				member *member = node->type->members;
+				member *member = node_type->members;
 				while (member && node_id.value != 0) {
 					ast_node *list_node = get_node(pool, node_id);
 					ast_node *value = get_node(pool, list_node->child[0]);
 					if (value->kind == AST_INIT_LIST) {
-						value->type = member->type;
+						type *value_type = get_type(pool, list_node->child[0]);
+						memcpy(value_type, member->type, sizeof(*value_type));
 					}
 
-					check_type(pool, list_node->child[0], arena);
+					type *value_type = check_type(pool, list_node->child[0], arena);
 					// TODO: Type conversion
-					if (!type_equals(member->type, value->type)) {
+					if (!type_equals(member->type, value_type)) {
 						//errorf(list_node->loc, "Invalid type");
 					}
 
@@ -291,15 +293,16 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					errorf(node->loc, "Too many fields in the initializer");
 #endif
 				}
-			} else if (node->type->kind == TYPE_ARRAY) {
-				type *expected = node->type->children;
+			} else if (node_type->kind == TYPE_ARRAY) {
+				type *expected = node_type->children;
 				while (node_id.value != 0) {
 					ast_node *node = get_node(pool, node_id);
 					ASSERT(node->kind == AST_INIT_LIST);
 
 					ast_node *child = get_node(pool, node->child[0]);
 					if (child->kind == AST_INIT_LIST) {
-						child->type = expected;
+						type *child_type = get_type(pool, node->child[0]);
+						memcpy(child_type, expected, sizeof(*expected));
 					}
 
 					type *found = check_type(pool, node->child[0], arena);
@@ -337,7 +340,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 			member *s = get_member(operand_type->members, node->value.s);
 			if (s) {
-				node->type = s->type;
+				memcpy(node_type, s->type, sizeof(*node_type));
 			} else {
 				errorf(node->loc, "Member does not exist");
 			}
@@ -346,7 +349,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		{
 			type *lhs = check_type(pool, node->child[0], arena);
 			type *rhs = check_type(pool, node->child[1], arena);
-			node->type = lhs;
+			memcpy(node_type, lhs, sizeof(*node_type));
 
 			u32 operator = node->value.i;
 			if (operator == TOKEN_LBRACKET) {
@@ -354,11 +357,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
 				if (is_pointer(lhs)) {
-					node->type = lhs->children;
+					memcpy(node_type, lhs->children, sizeof(*node_type));
 				} else if (is_pointer(rhs)) {
-					node->type = rhs->children;
+					memcpy(node_type, rhs->children, sizeof(*node_type));
 				} else {
-					node->type = TYPE_NIL;
 					pool->error = true;
 					errorf(node->loc, "Incompatible types: %s, %s",
 						type_get_name(lhs->kind),
@@ -427,7 +429,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 #endif
 
 				type *return_type = called->children;
-				node->type = return_type;
+				memcpy(node_type, return_type, sizeof(*node_type));
 			} else {
 				pool->error = true;
 				errorf(node->loc, "Not a function: %s", type_get_name(called->kind));
@@ -435,15 +437,17 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_CAST:
 		{
-			node->type = check_type(pool, node->child[0], arena);
+			type *cast_type = check_type(pool, node->child[0], arena);
+			memcpy(node_type, cast_type, sizeof(*node_type));
 			check_type(pool, node->child[1], arena);
 			// TODO: Ensure that this cast is valid.
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
-			node->type = check_type(pool, node->child[0], arena);
-			ast_node *init_list = get_node(pool, node->child[1]);
-			init_list->type = node->type;
+			type *expr_type = check_type(pool, node->child[0], arena);
+			type *init_type = get_type(pool, node->child[1]);
+			memcpy(node_type, expr_type, sizeof(*expr_type));
+			memcpy(init_type, expr_type, sizeof(*expr_type));
 			check_type(pool, node->child[1], arena);
 		} break;
 	case AST_EXPR_IDENT:
@@ -453,66 +457,65 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				param->name = S("x");
 				param->type = type_create(TYPE_INT, arena);
 
-				node->type = type_create(TYPE_FUNCTION, arena);
-				node->type->members = param;
-				node->type->children = param->type;
+				node_type->kind = TYPE_FUNCTION;
+				node_type->members = param;
+				node_type->children = param->type;
 			} else {
-				node->type = get_node(pool, node->value.ref)->type;
+				type *ref_type = get_type(pool, node->value.ref);
+				memcpy(node_type, ref_type, sizeof(*node_type));
 			}
 		} break;
 	case AST_EXPR_FLOAT:
 		{
-			node->type = type_create(TYPE_DOUBLE, arena);
+			node_type->kind = TYPE_DOUBLE;
 		} break;
 	case AST_EXPR_CHAR:
 		{
-			node->type = type_create(TYPE_CHAR, arena);
+			node_type->kind = TYPE_CHAR;
 		} break;
 	case AST_EXPR_INT:
 		{
-			node->type = type_create(TYPE_INT, arena);
+			node_type->kind = TYPE_INT;
 		} break;
 	case AST_EXPR_STRING:
 		{
-			type *char_type = type_create(TYPE_CHAR, arena);
-			node->type = type_create(TYPE_POINTER, arena);
-			node->type->children = char_type;
+			node_type->kind = TYPE_POINTER;
+			node_type->children = type_create(TYPE_CHAR, arena);
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			node->type = type_create(TYPE_INT, arena);
+			node_type->kind = TYPE_INT;
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
 		{
 			check_type(pool, node->child[0], arena);
 
-			ast_node *operand = get_node(pool, node->child[0]);
+			type *operand_type = get_type(pool, node->child[0]);
 			switch (node->value.i) {
 			case TOKEN_STAR:
-				if (operand->type->kind == TYPE_POINTER) {
-					node->type = operand->type->children;
+				if (operand_type->kind == TYPE_POINTER) {
+					node_type = operand_type->children;
 				} else {
-					node->type = TYPE_NIL;
 					pool->error = true;
 					errorf(node->loc, "Expected pointer type");
 				}
 				break;
 			case TOKEN_AMP:
-				node->type = type_create(TYPE_POINTER, arena);
-				node->type->children = operand->type;
+				node_type = type_create(TYPE_POINTER, arena);
+				node_type->children = operand_type;
 				break;
 			case TOKEN_BANG:
 			case TOKEN_PLUS:
 			case TOKEN_MINUS:
 			case TOKEN_TILDE:
 				// TODO: ensure that type is integer
-				node->type = operand->type;
+				memcpy(node_type, operand_type, sizeof(*node_type));
 				break;
 			case TOKEN_PLUS_PLUS:
 			case TOKEN_MINUS_MINUS:
 				// TODO: ensure that type is integer or pointer
-				node->type = operand->type;
+				memcpy(node_type, operand_type, sizeof(*node_type));
 				break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -524,31 +527,33 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			ast_node *node2 = get_node(pool, node->child[1]);
 
 			check_type(pool, node->child[0], arena);
-			ast_node *cond = get_node(pool, node->child[0]);
-			if (!is_integer(cond->type->kind)) {
+			type *cond_type = get_type(pool, node->child[0]);
+			if (!is_integer(cond_type->kind)) {
+				ast_node *cond = get_node(pool, node->child[0]);
 				errorf(cond->loc, "Not an integer expression");
 			}
 
-			check_type(pool, node2->child[0], arena);
-			check_type(pool, node2->child[1], arena);
-			ast_node *lhs = get_node(pool, node2->child[0]);
-			ast_node *rhs = get_node(pool, node2->child[1]);
-			if (!type_equals(lhs->type, rhs->type)) {
+			type *lhs_type = check_type(pool, node2->child[0], arena);
+			type *rhs_type = check_type(pool, node2->child[1], arena);
+			if (!type_equals(lhs_type, rhs_type)) {
+				ast_node *lhs = get_node(pool, node2->child[0]);
 				errorf(lhs->loc, "Invalid type in ternary expression");
 			}
 
-			node->type = lhs->type;
+			memcpy(node_type, lhs_type, sizeof(*node_type));
 		} break;
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			node->type = check_type(pool, node->child[0], arena);
+			type *decl_type = check_type(pool, node->child[0], arena);
+			memcpy(node_type, decl_type, sizeof(*node_type));
 
-			ASSERT(node->type);
+			ASSERT(node_type->kind != TYPE_UNKNOWN);
 			if (node->child[1].value != 0) {
 				ast_node *initializer = get_node(pool, node->child[1]);
 				if (initializer->kind == AST_INIT_LIST) {
-					initializer->type = node->type;
+					type *initializer_type = get_type(pool, node->child[1]);
+					memcpy(initializer_type, node_type, sizeof(*node_type));
 				}
 
 				check_type(pool, node->child[1], arena);
@@ -556,92 +561,91 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_TYPE_VOID:
 		{
-			node->type = &type_void;
+			node_type->kind = TYPE_VOID;
 		} break;
 	case AST_TYPE_CHAR:
 		{
 			if (node->flags & AST_UNSIGNED) {
-				node->type = type_create(TYPE_CHAR_UNSIGNED, arena);
+				node_type->kind = TYPE_CHAR_UNSIGNED;
 			} else {
-				node->type = type_create(TYPE_CHAR, arena);
+				node_type->kind = TYPE_CHAR;
 			}
 		} break;
 	case AST_TYPE_FLOAT:
 		{
-			node->type = type_create(TYPE_FLOAT, arena);
+			node_type->kind = TYPE_FLOAT;
 		} break;
 	case AST_TYPE_INT:
 		{
 			u32 int_flags = AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED;
 			switch (node->flags & int_flags) {
 			case AST_LLONG | AST_UNSIGNED:
-				node->type = type_create(TYPE_LLONG_UNSIGNED, arena);
+				node_type->kind = TYPE_LLONG_UNSIGNED;
 				break;
 			case AST_LLONG:
-				node->type = type_create(TYPE_LLONG, arena);
+				node_type->kind = TYPE_LLONG;
 				break;
 			case AST_LONG | AST_UNSIGNED:
-				node->type = type_create(TYPE_LONG_UNSIGNED, arena);
+				node_type->kind = TYPE_LONG_UNSIGNED;
 				break;
 			case AST_LONG:
-				node->type = type_create(TYPE_LONG, arena);
+				node_type->kind = TYPE_LONG;
 				break;
 			case AST_SHORT | AST_UNSIGNED:
-				node->type = type_create(TYPE_SHORT_UNSIGNED, arena);
+				node_type->kind = TYPE_SHORT_UNSIGNED;
 				break;
 			case AST_SHORT:
-				node->type = type_create(TYPE_SHORT, arena);
+				node_type->kind = TYPE_SHORT;
 				break;
 			case AST_UNSIGNED:
-				node->type = type_create(TYPE_INT_UNSIGNED, arena);
+				node_type->kind = TYPE_INT_UNSIGNED;
 				break;
 			default:
-				node->type = type_create(TYPE_INT, arena);
+				node_type->kind = TYPE_INT;
 			}
 		} break;
 	case AST_TYPE_POINTER:
 		{
 			type *base_type = check_type(pool, node->child[1], arena);
-			node->type = type_create(TYPE_POINTER, arena);
-			node->type->children = base_type;
+			node_type->kind = TYPE_POINTER;
+			node_type->children = base_type;
 		} break;
 	case AST_TYPE_ARRAY:
 		{
-			node->type = type_create(TYPE_ARRAY, arena);
+			node_type->kind = TYPE_ARRAY;
 			if (node->child[0].value != 0) {
 				check_type(pool, node->child[0], arena);
-				node->type->size = eval_ast(pool, node->child[0]);
+				node_type->size = eval_ast(pool, node->child[0]);
 			} else {
 				// TODO: Evaluate the size based on the expression or error.
 			}
 
 			type *base_type = check_type(pool, node->child[1], arena);
-			node->type->children = base_type;
+			node_type->children = base_type;
 		} break;
 	case AST_TYPE_BITFIELD:
 		{
-			check_type(pool, node->child[1], arena);
-			ast_node *type = get_node(pool, node->child[1]);
-			node->type = type_create(TYPE_BITFIELD, arena);
+			type *type = check_type(pool, node->child[1], arena);
+			node_type->kind = TYPE_BITFIELD;
 			// TODO: Evaluate the expression
-			node->type->size = 1;
-			node->type->children = type->type;
+			node_type->size = 1;
+			node_type->children = type;
 		} break;
 	case AST_TYPE_FUNC:
 		{
-			node->type = type_create(TYPE_FUNCTION, arena);
-			member **m = &node->type->members;
-			check_type(pool, node->child[1], arena);
-			ast_node *return_type = get_node(pool, node->child[1]);
+			node_type->kind = TYPE_FUNCTION;
+			member **m = &node_type->members;
+			type *return_type = check_type(pool, node->child[1], arena);
 
 			if (node->child[0].value != 0) {
 				check_type(pool, node->child[0], arena);
 				ast_node *param_list = get_node(pool, node->child[0]);
 				for (;;) {
 					ast_node *param = get_node(pool, param_list->child[0]);
+					type *param_type = get_type(pool, param_list->child[0]);
 					*m = ALLOC(arena, 1, member);
 					(*m)->name = param->value.s;
-					(*m)->type = param->type;
+					(*m)->type = param_type;
 					m = &(*m)->next;
 
 					if (param_list->child[1].value == 0) {
@@ -652,25 +656,27 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 			}
 
-			node->type->children = return_type->type;
+			node_type->children = return_type;
 		} break;
 	case AST_TYPE_IDENT:
 		{
 			ASSERT(node->value.ref.value != 0);
-			node->type = get_node(pool, node->value.ref)->type;
+			type *ref_type = get_type(pool, node->value.ref);
+			memcpy(node_type, ref_type, sizeof(*node_type));
 		} break;
 	case AST_ENUMERATOR:
 		{
-			node->type = type_create(TYPE_INT, arena);
+			node_type->kind = TYPE_INT;
 		} break;
 	case AST_TYPE_ENUM:
 		{
-			node->type = type_create(TYPE_INT, arena);
+			node_type->kind = TYPE_INT;
 
 			ast_id enum_id = node->child[0];
 			i32 value = 0;
 			while (enum_id.value != 0) {
 				ast_node *enum_node = get_node(pool, enum_id);
+				type *enum_type = get_type(pool, enum_id);
 				if (enum_node->child[0].value != 0) {
 					value = eval_ast(pool, enum_node->child[0]);
 				}
@@ -680,7 +686,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				// easier for error handling...
 				enum_node->kind = AST_EXPR_INT;
 				enum_node->value.i = value++;
-				enum_node->type = type_create(TYPE_INT, arena);
+				enum_type->kind = TYPE_INT;
 				enum_id = enum_node->child[1];
 			}
 		} break;
@@ -690,29 +696,29 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
 			if (node->child[0].value == 0) {
-				ast_node *ref = get_node(pool, node->value.ref);
+				type *ref_type = get_type(pool, node->value.ref);
 				if (node->flags & AST_OPAQUE) {
-					ref->type = type_create(TYPE_STRUCT, arena);
-					node->type = type_create(TYPE_OPAQUE, arena);
-					node->type->children = ref->type;
+					ref_type->kind = TYPE_STRUCT;
+					node_type->kind = TYPE_OPAQUE;
+					node_type->children = ref_type;
 				} else {
-					node->type = get_node(pool, node->value.ref)->type;
-					ASSERT(node->type->kind == TYPE_STRUCT
-						|| node->type->kind == TYPE_UNION);
+					memcpy(node_type, ref_type, sizeof(*node_type));
+					ASSERT(node_type->kind == TYPE_STRUCT
+						|| node_type->kind == TYPE_UNION);
 				}
 			} else {
-				if (node->type == TYPE_NIL) {
-					node->type = type_create(TYPE_STRUCT, arena);
+				if (node_type->kind == TYPE_UNKNOWN) {
+					node_type->kind = TYPE_STRUCT;
 				}
 
-				node->type->kind = TYPE_STRUCT;
+				node_type->kind = TYPE_STRUCT;
 				if (node->kind == AST_TYPE_UNION) {
-					node->type->kind = TYPE_UNION;
+					node_type->kind = TYPE_UNION;
 				}
 
 				// TODO: Collect the members of the struct
-				ASSERT(node->type->members == NULL);
-				member **ptr = &node->type->members;
+				ASSERT(node_type->members == NULL);
+				member **ptr = &node_type->members;
 				ast_id decl_id = node->child[0];
 				while (decl_id.value != 0) {
 					check_type(pool, decl_id, arena);
@@ -721,19 +727,19 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					decl_id = list_node->child[1];
 
 					ast_node *decl_node = get_node(pool, list_node->child[0]);
+					type *decl_type = get_type(pool, list_node->child[0]);
 					*ptr = ALLOC(arena, 1, member);
 					(*ptr)->name = decl_node->value.s;
-					(*ptr)->type = decl_node->type;
+					(*ptr)->type = decl_type;
 					ptr = &(*ptr)->next;
 				}
 
-				ASSERT(node->value.s.at != NULL || node->type->members != NULL);
+				ASSERT(node->value.s.at != NULL || node_type->members != NULL);
 			}
 		} break;
 	}
 
-	ASSERT(node->type != NULL);
-	return node->type;
+	return node_type;
 }
 
 static void
@@ -964,13 +970,14 @@ check(ast_pool *pool, arena *perm)
 		ast_node *node = &pool->nodes[i];
 		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)) {
 			ast_id node_id = {i};
-			ASSERT(node->type);
+			type *node_type = get_type(pool, node_id);
+			ASSERT(node_type->kind != TYPE_UNKNOWN);
 
 			decl_symbol *sym = get_decl_symbol(symtab, node_id);
 			sym->name = node->value.s;
-			sym->type = node->type;
+			sym->type = node_type;
 			sym->is_global = true;
-			sym->is_function = (node->type->kind == TYPE_FUNCTION);
+			sym->is_function = (node_type->kind == TYPE_FUNCTION);
 			sym->definition = node->child[1];
 
 			sym->linkage = LINK_DEFAULT;
