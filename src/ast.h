@@ -88,18 +88,10 @@ typedef struct {
 } ast_list;
 
 struct ast_node {
+	ast_id child[2];
 	ast_node_kind kind;
 	ast_node_flags flags;
-	ast_id child[2];
-	location loc;
-
-	union {
-		token_kind op;
-		ast_id ref;
-		intmax_t i;
-		double f;
-		str s;
-	} value;
+	token token;
 };
 
 typedef struct {
