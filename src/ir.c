@@ -199,12 +199,15 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 {
 	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
-	case AST_INIT_LIST:
+	case AST_INIT:
 		{
 			usize offset = 0;
 
+			node_id = node->child[0];
 			while (node_id.value != 0) {
 				ast_node *node = get_node(pool, node_id);
+				ASSERT(node->kind == AST_LIST);
+
 				type *child_type = get_type(pool, node->child[0]);
 				isize child_align = type_alignof(child_type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
@@ -235,7 +238,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
 	case AST_INVALID:
-	case AST_INIT_LIST: // Should be handled in DECL
+	case AST_INIT: // Should be handled in DECL
 	case AST_STMT_IF2:
 	case AST_STMT_FOR2:
 	case AST_STMT_FOR3:
@@ -790,7 +793,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ctx->symbol_registers[sym_id.value] = result;
 					if (node->child[1].value != 0) {
 						ast_node *expr = get_node(pool, node->child[1]);
-						if (expr->kind == AST_INIT_LIST) {
+						if (expr->kind == AST_INIT) {
 							translate_initializer(ctx, pool, node->child[1], result);
 						} else if (is_compound_type(node_type->kind)) {
 							u32 value = translate_node(ctx, pool, node->child[1], false);

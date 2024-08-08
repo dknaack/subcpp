@@ -193,13 +193,8 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 
 	ast_node *node = get_node(pool, node_id);
 	type *node_type = get_type(pool, node_id);
-	if (node->kind == AST_INIT_LIST) {
-		if (node_type->kind == TYPE_UNKNOWN) {
-			BREAK();
-			return node_type;
-		}
-	} else if (node_type->kind != TYPE_UNKNOWN &&
-		node->kind != AST_TYPE_STRUCT && node->kind != AST_TYPE_UNION)
+	if (node->kind != AST_INIT && node_type->kind != TYPE_UNKNOWN
+		&& node->kind != AST_TYPE_STRUCT && node->kind != AST_TYPE_UNION)
 	{
 		// This node has already been type checked.
 		return node_type;
@@ -256,11 +251,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			ASSERT(cond->kind == AST_STMT_FOR2);
 			ASSERT(post->kind == AST_STMT_FOR3);
 		} break;
-	case AST_INIT_LIST:
+	case AST_INIT:
 		{
-			ASSERT(node_type->kind != TYPE_UNKNOWN);
-			ASSERT(is_compound_type(node_type->kind) || node_type->kind == TYPE_ARRAY);
+			if (node_type->kind == TYPE_UNKNOWN) {
+				return NULL;
+			}
 
+			ASSERT(is_compound_type(node_type->kind) || node_type->kind == TYPE_ARRAY);
 			// TODO: Check the type of each field in the initializer
 			if (is_compound_type(node_type->kind)) {
 				if (node_type->kind == TYPE_OPAQUE) {
@@ -268,10 +265,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 
 				member *member = node_type->members;
+				node_id = node->child[0];
 				while (member && node_id.value != 0) {
 					ast_node *list_node = get_node(pool, node_id);
+					ASSERT(list_node->kind == AST_LIST);
+
 					ast_node *value = get_node(pool, list_node->child[0]);
-					if (value->kind == AST_INIT_LIST) {
+					if (value->kind == AST_INIT) {
 						type *value_type = get_type(pool, list_node->child[0]);
 						memcpy(value_type, member->type, sizeof(*value_type));
 					}
@@ -293,12 +293,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 			} else if (node_type->kind == TYPE_ARRAY) {
 				type *expected = node_type->base_type;
+				node_id = node->child[0];
 				while (node_id.value != 0) {
-					ast_node *node = get_node(pool, node_id);
-					ASSERT(node->kind == AST_INIT_LIST);
+					ast_node *list_node = get_node(pool, node_id);
+					ASSERT(list_node->kind == AST_LIST);
 
-					ast_node *child = get_node(pool, node->child[0]);
-					if (child->kind == AST_INIT_LIST) {
+					ast_node *child = get_node(pool, list_node->child[0]);
+					if (child->kind == AST_INIT) {
 						type *child_type = get_type(pool, node->child[0]);
 						memcpy(child_type, expected, sizeof(*expected));
 					}
@@ -537,7 +538,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			ASSERT(node_type->kind != TYPE_UNKNOWN);
 			if (node->child[1].value != 0) {
 				ast_node *initializer = get_node(pool, node->child[1]);
-				if (initializer->kind == AST_INIT_LIST) {
+				if (initializer->kind == AST_INIT) {
 					type *initializer_type = get_type(pool, node->child[1]);
 					memcpy(initializer_type, node_type, sizeof(*node_type));
 				}

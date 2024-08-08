@@ -6,10 +6,10 @@ typedef struct type type;
 typedef enum {
 	AST_INVALID,
 	AST_LIST,
-	AST_EXTERN_DEF,    // {type_specifier, ...declarators}
+	AST_EXTERN_DEF,    // {type, name}
 	AST_ENUMERATOR,    // {value, next}
-	AST_INIT_LIST,     // {expr, list}
-	AST_DECL,          // {type, value?}
+	AST_INIT,          // {first, last}
+	AST_DECL,          // {type, name}
 
 	// expressions
 	AST_EXPR_BINARY,   // {lhs, rhs}

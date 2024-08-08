@@ -476,6 +476,7 @@ static ast_id
 parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 {
 	ast_list list = {0};
+	ast_node init = make_node(AST_INIT, lexer->peek[0]);
 	expect(lexer, TOKEN_LBRACE);
 
 	do {
@@ -493,8 +494,11 @@ parse_initializer(cpp_state *lexer, scope *s, ast_pool *pool, arena *arena)
 		}
 	} while (!lexer->error && lexer->peek[0].kind != TOKEN_RBRACE);
 
+	init.child[0] = list.first;
+	init.child[1] = list.last;
+	ast_id init_id = push_node(pool, init);
 	expect(lexer, TOKEN_RBRACE);
-	return list.first;
+	return init_id;
 }
 
 static ast_node_flags
