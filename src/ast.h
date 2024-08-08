@@ -1,5 +1,3 @@
-#define AST_NIL ((ast_node *)&ast_nil)
-
 typedef struct ast_node ast_node;
 typedef struct type type;
 
@@ -98,7 +96,6 @@ typedef struct {
 	b32 error;
 } ast_pool;
 
-static const ast_node ast_nil = {0};
 static const ast_id ast_id_nil = {0};
 
 typedef enum {
