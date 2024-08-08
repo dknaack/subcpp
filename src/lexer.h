@@ -101,7 +101,11 @@ typedef enum {
 } token_kind;
 
 typedef struct {
-	char *file;
+	i32 value;
+} file_id;
+
+typedef struct {
+	file_id file;
 	isize offset;
 } location;
 
@@ -110,15 +114,6 @@ typedef struct {
 	str value;
 	location loc;
 } token;
-
-typedef enum {
-	/* The current if directive is true */
-	IF_CURR_TRUE = 1 << 0,
-	/* A previous if directive was true */
-	IF_PREV_TRUE = 1 << 1,
-	/* The if directive has an else branch */
-	IF_HAS_ELSE  = 1 << 2,
-} if_state;
 
 typedef struct token_list token_list;
 struct token_list {
@@ -145,37 +140,61 @@ struct macro {
 };
 
 typedef struct {
-	str data;
-	isize pos;
-	char at[4];
 	char *filename;
 } lexer;
 
-typedef struct file_context file_context;
-struct file_context {
-	file_context *prev;
-	lexer lexer;
-	i32 if_depth;
-	if_state if_state[64];
-	location if_loc[64];
+typedef struct file file;
+struct file {
+	char *name;
+	str contents;
+	file *next;
+	file *prev;
 };
 
-typedef struct {
-	file_context file;
+typedef enum {
+	DIR_OTHER,
+	DIR_INCLUDE,
+	DIR_IF_FALSE,
+	DIR_IF_TRUE,
+	DIR_ELIF_FALSE,
+	DIR_ELIF_TRUE,
+	DIR_ELSE,
+
+	DIR_TRUE = 1,
+} directive;
+
+typedef struct lexer_state lexer_state;
+struct lexer_state {
+	str data;
+	isize pos;
+	char at[4];
+	b8 ignore_token;
+	file_id file;
+	directive last_directive;
+	lexer_state *prev;
+};
+
+typedef struct parse_context parse_context;
+struct parse_context {
+	lexer_state *lexer;
+	token peek[2];
+	b8 error;
+
+	/* internal */
 	arena *arena;
 	token_list *tokens;
-	token peek[2];
-	b32 error;
-	b32 ignore_token;
 	macro *macros;
-} cpp_state;
+	file *files_head;
+	file *files_tail;
+	i32 file_count;
+};
 
 static location
-get_location(cpp_state *cpp)
+get_location(parse_context *ctx)
 {
 	location loc = {0};
-	loc.file = cpp->file.lexer.filename;
-	loc.offset = cpp->file.lexer.pos;
+	loc.file = ctx->lexer->file;
+	loc.offset = ctx->lexer->pos;
 	return loc;
 }
 

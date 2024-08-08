@@ -108,9 +108,9 @@ main(int argc, char *argv[])
 
 	arena *arena = new_arena(1024 * 1024 * 1024);
 	str src = read_file(input, arena);
-	cpp_state cpp = tokenize(input, src, arena);
+	parse_context pc = tokenize(input, src, arena);
 
-	ast_pool pool = parse(&cpp, arena);
+	ast_pool pool = parse(&pc, arena);
 	printf("parsing done\n");
 
 	symbol_table symbol_table = check(&pool, arena);

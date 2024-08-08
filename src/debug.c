@@ -553,13 +553,13 @@ print_matrix(bit_matrix matrix)
 }
 
 static void
-print_tokens(cpp_state *cpp)
+print_tokens(parse_context *ctx)
 {
 	i32 indent = 0;
 	b32 newline = true;
 	b32 requires_space = false;
 	for (;;) {
-		token token = get_token(cpp);
+		token token = get_token(ctx);
 		if (token.kind == TOKEN_EOF) break;
 		if (token.kind == TOKEN_RBRACE) {
 			newline = true;
