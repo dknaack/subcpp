@@ -208,6 +208,14 @@ is_left_associative(token_kind token)
 {
 	switch (token) {
 	case TOKEN_EQUAL:
+	case TOKEN_PLUS_EQUAL:
+	case TOKEN_MINUS_EQUAL:
+	case TOKEN_STAR_EQUAL:
+	case TOKEN_SLASH_EQUAL:
+	case TOKEN_PERCENT_EQUAL:
+	case TOKEN_AMP_EQUAL:
+	case TOKEN_BAR_EQUAL:
+	case TOKEN_CARET_EQUAL:
 		return false;
 	default:
 		return true;
