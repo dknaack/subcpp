@@ -83,10 +83,10 @@ typedef struct {
 } ast_list;
 
 struct ast_node {
-	ast_id child[2];
 	ast_node_kind kind;
 	ast_node_flags flags;
 	token token;
+	ast_id child[2];
 };
 
 typedef struct {
