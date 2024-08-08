@@ -994,12 +994,16 @@ push_file(parse_context *ctx, char *filename, str contents)
 
 	// push new state on the stack
 	lexer_state *new_state = ALLOC(ctx->arena, 1, lexer_state);
+	lexer_state *old_state = ctx->lexer;
 	new_state->data = contents;
 	new_state->pos = 0;
 	new_state->ignore_token = false;
 	new_state->file = file_id;
 	new_state->last_directive = DIR_OTHER;
-	new_state->prev = ctx->lexer;
+	new_state->prev = old_state;
+	if (old_state) {
+		old_state->last_directive = DIR_INCLUDE;
+	}
 	ctx->lexer = new_state;
 }
 
@@ -1050,10 +1054,10 @@ get_token(parse_context *ctx)
 			} else if (equals(token.value, S("include"))) {
 				char end_char = '\0';
 				b32 is_system_header = false;
-				if (lexer->at[0] == '<') {
+				if (ctx->lexer->at[0] == '<') {
 					is_system_header = true;
 					end_char = '>';
-				} else if (lexer->at[0] == '"') {
+				} else if (ctx->lexer->at[0] == '"') {
 					end_char = '"';
 				} else {
 					ASSERT(!"Macro filenames have not been implement yet");
@@ -1063,7 +1067,7 @@ get_token(parse_context *ctx)
 				isize start = lexer->pos;
 				do {
 					advance(lexer, 1);
-				} while (lexer->at[0] != '\n' && lexer->at[0] != end_char);
+				} while (ctx->lexer->at[0] != '\n' && ctx->lexer->at[0] != end_char);
 
 				str path = substr(lexer->data, start, lexer->pos);
 				if (path.length == 0) {
@@ -1248,8 +1252,8 @@ get_token(parse_context *ctx)
 				}
 
 				new_state->last_directive = DIR_OTHER;
-				ASSERT(!"TODO");
 				ctx->lexer = new_state;
+				token.kind = TOKEN_NEWLINE;
 			}
 		} else if (token.kind == TOKEN_NEWLINE) {
 			at_line_start = true;
