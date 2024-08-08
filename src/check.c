@@ -167,12 +167,6 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	return result;
 }
 
-static b32 is_ident_node(ast_node_kind kind)
-{
-	b32 result = (kind == AST_TYPE_IDENT || kind == AST_EXPR_IDENT);
-	return result;
-}
-
 static type *
 get_type(ast_pool *p, ast_id id)
 {
