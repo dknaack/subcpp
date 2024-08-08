@@ -100,7 +100,6 @@ struct member {
 
 struct type {
 	type_kind kind;
-	type *next;
 	type *base_type;
 	member *members;
 	i64 size;
