@@ -59,16 +59,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		}
 
 		break;
-	case AST_DECL_LIST:
-		while (node_id.value != 0) {
-			for (int i = 0; i < indent - 1; i++) printf("    ");
-			node = get_node(pool, node_id);
-			print_ast_node(pool, node->child[0], indent);
-			node_id = node->child[1];
-			printf(";\n");
-		}
-
-		break;
 	case AST_EXPR_BINARY:
 		printf("(");
 		print_ast_node(pool, node->child[0], indent);
@@ -98,9 +88,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_EXPR_LITERAL:
 		printf("%.*s", (int)node->token.value.length, node->token.value.at);
-		break;
-	case AST_EXPR_LIST:
-		printf("(list)");
 		break;
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
@@ -218,7 +205,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("%.*s:\n", (int)node->token.value.length, node->token.value.at);
 		print_ast_node(pool, node->child[0], indent);
 		break;
-	case AST_STMT_LIST:
+	case AST_LIST:
 		printf("{\n");
 		while (node_id.value != 0) {
 			for (int i = 0; i < indent + 1; i++) printf("    ");

@@ -209,9 +209,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_INVALID:
 		pool->error = true;
 		break;
-	case AST_EXPR_LIST:
-	case AST_STMT_LIST:
-	case AST_DECL_LIST:
+	case AST_LIST:
 		while (node_id.value != 0) {
 			ast_node *node = get_node(pool, node_id);
 			check_type(pool, node->child[0], arena);
@@ -712,7 +710,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				while (decl_id.value != 0) {
 					check_type(pool, decl_id, arena);
 					ast_node *list_node = get_node(pool, decl_id);
-					ASSERT(list_node->kind == AST_DECL_LIST);
+					ASSERT(list_node->kind == AST_LIST);
 					decl_id = list_node->child[1];
 
 					ast_node *decl_node = get_node(pool, list_node->child[0]);
@@ -751,8 +749,7 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 		check_switch_stmt(pool, node->child[0], symtab, switch_id, perm);
 		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
 		break;
-	case AST_STMT_LIST:
-	case AST_DECL_LIST:
+	case AST_LIST:
 		while (node_id.value != 0) {
 			ast_node *node = get_node(pool, node_id);
 			check_switch_stmt(pool, node->child[0], symtab, switch_id, perm);

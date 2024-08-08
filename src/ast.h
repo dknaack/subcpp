@@ -5,10 +5,10 @@ typedef struct type type;
 
 typedef enum {
 	AST_INVALID,
+	AST_LIST,
 	AST_EXTERN_DEF,    // {type_specifier, ...declarators}
 	AST_ENUMERATOR,    // {value, next}
 	AST_INIT_LIST,     // {expr, list}
-	AST_DECL_LIST,     // {decl, decl_list}
 	AST_DECL,          // {type, value?}
 
 	// expressions
@@ -17,7 +17,6 @@ typedef enum {
 	AST_EXPR_CAST,     // {type, expr}
 	AST_EXPR_COMPOUND, // {type, expr}
 	AST_EXPR_IDENT,    // value.s
-	AST_EXPR_LIST,     // {expr, list}
 	AST_EXPR_MEMBER,   // {operand}
 	AST_EXPR_MEMBER_PTR, // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
@@ -41,7 +40,6 @@ typedef enum {
 	AST_STMT_IF1,      // {cond, if2}
 	AST_STMT_IF2,      // {if, else?}
 	AST_STMT_LABEL,    // {stmt}
-	AST_STMT_LIST,     // {stmt, stmt_list}
 	AST_STMT_SWITCH,   // {expr, stmt}
 	AST_STMT_RETURN,   // {expr?}
 	AST_STMT_WHILE,    // {cond, body}

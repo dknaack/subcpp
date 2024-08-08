@@ -239,7 +239,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_IF2:
 	case AST_STMT_FOR2:
 	case AST_STMT_FOR3:
-	case AST_EXPR_LIST:
 	case AST_EXPR_TERNARY2:
 		{
 			ASSERT(!"Invalid node");
@@ -669,8 +668,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			ir_emit1(ctx, IR_JMP, ctx->break_label);
 		} break;
-	case AST_DECL_LIST:
-	case AST_STMT_LIST:
+	case AST_LIST:
 		{
 			ast_id child = node_id;
 			while (child.value != 0) {
