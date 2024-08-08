@@ -305,11 +305,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 					}
 
 					type *found = check_type(pool, node->child[0], arena);
-					if (child->kind == AST_EXPR_LITERAL
-						&& child->token.kind == TOKEN_ZERO)
-					{
-						// ignore
-					} else if (!type_equals(found, expected)) {
+					if (!type_equals(found, expected)) {
 						errorf(node->token.loc, "Invalid array member type");
 					}
 
