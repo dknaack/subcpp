@@ -138,13 +138,6 @@ append_node_id(ast_pool *p, ast_list *l, ast_id node_id)
 }
 
 static void
-append_node(ast_pool *p, ast_list *l, ast_node node)
-{
-	ast_id node_id = push_node(p, node);
-	append_node_id(p, l, node_id);
-}
-
-static void
 append_list_node(ast_pool *p, ast_list *l, ast_id node_id)
 {
 	token empty_token = {0};
