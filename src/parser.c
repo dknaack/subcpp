@@ -74,7 +74,7 @@ upsert_tag(scope *s, str key, arena *perm)
 }
 
 static ast_id
-push_node(ast_pool *p, ast_node node)
+new_node_(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id child1)
 {
 	if (p->size + 1 >= p->cap) {
 		if (!p->cap) {
@@ -93,15 +93,18 @@ push_node(ast_pool *p, ast_node node)
 	}
 
 	id.value = p->size++;
-	memcpy(&p->nodes[id.value], &node, sizeof(node));
+	ast_node *node = &p->nodes[id.value];
+	node->kind = kind;
+	node->token = token;
+	node->child[0] = child0;
+	node->child[1] = child1;
 	return id;
 }
 
 static ast_id
 new_node0(ast_pool *p, ast_node_kind kind, token token)
 {
-	ast_node node = {kind, 0, token};
-	ast_id id = push_node(p, node);
+	ast_id id = new_node_(p, kind, token, ast_id_nil, ast_id_nil);
 	return id;
 }
 
@@ -109,9 +112,7 @@ static ast_id
 new_node1(ast_pool *p, ast_node_kind kind, token token, ast_id child0)
 {
 	ASSERT(child0.value != 0);
-
-	ast_node node = {kind, 0, token, {child0}};
-	ast_id id = push_node(p, node);
+	ast_id id = new_node_(p, kind, token, child0, ast_id_nil);
 	return id;
 }
 
@@ -120,9 +121,7 @@ new_node2(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id ch
 {
 	ASSERT(child0.value != 0);
 	ASSERT(child1.value != 0);
-
-	ast_node node = {kind, 0, token, {child0, child1}};
-	ast_id id = push_node(p, node);
+	ast_id id = new_node_(p, kind, token, child0, child1);
 	return id;
 }
 
