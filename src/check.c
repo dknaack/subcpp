@@ -91,6 +91,22 @@ type_equals(type *lhs, type *rhs)
 }
 
 static i64
+parse_i64(str input)
+{
+	i64 result = 0;
+
+	while (input.length > 0 && is_digit(*input.at)) {
+		result *= 10;
+		result += *input.at - '0';
+
+		input.at++;
+		input.length--;
+	}
+
+	return result;
+}
+
+static i64
 eval_ast(ast_pool *pool, ast_id node_id)
 {
 	i64 result = 0;
@@ -98,7 +114,13 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	switch (node->kind) {
 	case AST_EXPR_LITERAL:
 		{
-			ASSERT(!"TODO");
+			switch (node->token.kind) {
+			case TOKEN_LITERAL_INT:
+				result = parse_i64(node->token.value);
+				break;
+			default:
+				ASSERT(!"TODO");
+			}
 		} break;
 	case AST_EXPR_BINARY:
 		{

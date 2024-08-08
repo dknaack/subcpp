@@ -160,22 +160,6 @@ ir_mov(ir_context *ctx, u32 dst, u32 src, type *type)
 	}
 }
 
-static i64
-parse_i64(str input)
-{
-	i64 result = 0;
-
-	while (input.length > 0 && is_digit(*input.at)) {
-		result *= 10;
-		result += *input.at - '0';
-
-		input.at++;
-		input.length--;
-	}
-
-	return result;
-}
-
 static f64
 parse_f64(str input)
 {
