@@ -463,7 +463,24 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_LITERAL:
 		{
-			ASSERT(!"TODO");
+			switch (node->token.kind) {
+			case TOKEN_LITERAL_INT:
+				// TODO: If zero, set type to zero
+				node_type->kind = TYPE_INT;
+				break;
+			case TOKEN_LITERAL_CHAR:
+				node_type->kind = TYPE_CHAR;
+				break;
+			case TOKEN_LITERAL_FLOAT:
+				node_type->kind = TYPE_FLOAT;
+				break;
+			case TOKEN_LITERAL_STRING:
+				node_type->kind = TYPE_POINTER;
+				node_type->base_type = type_create(TYPE_CHAR, arena);
+				break;
+			default:
+				ASSERT(!"Invalid literal");
+			}
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
