@@ -177,25 +177,3 @@ get_precedence(token_kind token)
 		return PREC_NONE;
 	}
 }
-
-static b32
-is_statement(ast_node_kind node_kind)
-{
-	switch (node_kind) {
-	case AST_STMT_BREAK:
-	case AST_STMT_CONTINUE:
-	case AST_STMT_DO_WHILE:
-	case AST_STMT_EMPTY:
-	case AST_STMT_FOR1:
-	case AST_STMT_FOR2:
-	case AST_STMT_FOR3:
-	case AST_STMT_IF1:
-	case AST_STMT_IF2:
-	case AST_STMT_LIST:
-	case AST_STMT_RETURN:
-	case AST_STMT_WHILE:
-		return true;
-	default:
-		return false;
-	}
-}
