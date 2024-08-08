@@ -12,16 +12,6 @@ bit_matrix_init(u32 width, u32 height, arena *arena)
 	return matrix;
 }
 
-static b32
-get_bit(bit_matrix matrix, u32 y, u32 x)
-{
-	ASSERT(x < matrix.width);
-	ASSERT(y < matrix.height);
-	isize i = y * matrix.width + x;
-	b32 value = matrix.bits[i];
-	return value;
-}
-
 static void
 set_bit(bit_matrix matrix, u32 y, u32 x, b32 value)
 {
