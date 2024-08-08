@@ -412,6 +412,8 @@ read_token(lexer *l)
 
 	isize end = l->pos;
 	token.value = substr(l->data, start, end);
+	token.loc.offset = start;
+	token.loc.file = l->filename;
 	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
 }
@@ -1139,7 +1141,7 @@ get_token(cpp_state *cpp)
 					b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 					if (is_relative_path) {
 						errno = 0;
-						str dir = dirname(make_str(cpp->file.name));
+						str dir = dirname(make_str(cpp->file.lexer.filename));
 						filename = concat_paths(dir, path, cpp->arena);
 						contents = read_file(filename.at, cpp->arena);
 						i32 error_value = errno;
@@ -1175,7 +1177,7 @@ get_token(cpp_state *cpp)
 				}
 
 				file_context *f = push_file(cpp);
-				f->name = cstr(filename, cpp->arena);
+				f->lexer.filename = cstr(filename, cpp->arena);
 				f->lexer.data = contents;
 				f->lexer.pos = 0;
 			} else if (equals(token.value, S("define"))) {
@@ -1364,7 +1366,7 @@ tokenize(char *filename, str src, arena *arena)
 {
 	cpp_state cpp = {0};
 	cpp.arena = arena;
-	cpp.file.name = filename;
+	cpp.file.lexer.filename = filename;
 	cpp.file.lexer.data = src;
 
 #if 0

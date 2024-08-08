@@ -149,12 +149,12 @@ typedef struct {
 	str data;
 	isize pos;
 	char at[4];
+	char *filename;
 } lexer;
 
 typedef struct file_context file_context;
 struct file_context {
 	file_context *prev;
-	char *name;
 	lexer lexer;
 	i32 if_depth;
 	if_state if_state[64];
@@ -175,7 +175,7 @@ static location
 get_location(cpp_state *cpp)
 {
 	location loc = {0};
-	loc.file = cpp->file.name;
+	loc.file = cpp->file.lexer.filename;
 	loc.offset = cpp->file.lexer.pos;
 	return loc;
 }
