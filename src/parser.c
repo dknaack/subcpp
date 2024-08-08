@@ -257,7 +257,7 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 				ASSERT(e->node_id.value != 0);
 
 				ast_node node = make_node(AST_EXPR_IDENT, token);
-				//node.value.ref = e->node_id;
+				node.child[0] = e->node_id;
 				expr = push_node(pool, node);
 			} else {
 				syntax_error(lexer, "unknown ident: %.*s",
@@ -680,7 +680,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 				scope_entry *e = scope_upsert_ident(s, token.value, NULL);
 				if (type_id.value == 0 && e && e->is_type) {
 					node = make_node(AST_TYPE_IDENT, token);
-					//node.value.ref = e->node_id;
+					node.child[0] = e->node_id;
 					type_id = push_node(pool, node);
 					ASSERT(e->node_id.value != 0);
 					get_token(lexer);
@@ -735,13 +735,13 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 					get_token(lexer);
 					e = scope_upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
-						//node.value.ref.value = 0;
+						node.child[0].value = 0;
 						e->node_id = push_node(pool, node);
 						node.flags |= AST_OPAQUE;
 					}
 
 					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
-					//node.value.ref = e->node_id;
+					node.child[0] = e->node_id;
 				}
 
 				if (accept(lexer, TOKEN_LBRACE)) {

@@ -160,6 +160,38 @@ ir_mov(ir_context *ctx, u32 dst, u32 src, type *type)
 	}
 }
 
+static i64
+parse_i64(str input)
+{
+	i64 result = 0;
+
+	while (input.length > 0 && is_digit(*input.at)) {
+		result *= 10;
+		result += *input.at - '0';
+
+		input.at++;
+		input.length--;
+	}
+
+	return result;
+}
+
+static f64
+parse_f64(str input)
+{
+	f64 result = 0;
+	(void)input;
+	return result;
+}
+
+static char
+parse_char(str input)
+{
+	char result = 0;
+	(void)input;
+	return result;
+}
+
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
@@ -220,7 +252,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				operand_type = operand_type->base_type;
 			}
 
-			u32 offset = type_offsetof(operand_type, node->value.s);
+			u32 offset = type_offsetof(operand_type, node->token.value);
 			u32 offset_reg = ir_emit1_type(ctx, IR_I64, IR_CONST, offset);
 			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
 			u32 base_reg = translate_node(ctx, pool, node->child[0], base_is_lvalue);
@@ -242,7 +274,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			token_kind operator = node->value.op;
+			token_kind operator = node->token.kind;
 			ir_opcode opcode = IR_NOP;
 
 			switch (operator) {
@@ -386,8 +418,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			str func_name = {0};
 			if (called->kind == AST_EXPR_IDENT) {
-				ast_node *ref = get_node(pool, called->value.ref);
-				func_name = ref->value.s;
+				func_name = called->token.value;
 			}
 
 			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
@@ -475,31 +506,40 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			if (equals(node->value.s, S("__builtin_popcount"))) {
+			if (equals(node->token.value, S("__builtin_popcount"))) {
 				result = ir_emit1_type(ctx, IR_I64, IR_BUILTIN, BUILTIN_POPCOUNT);
 			} else {
-				result = translate_node(ctx, pool, node->value.ref, is_lvalue);
+				result = translate_node(ctx, pool, node->child[0], is_lvalue);
 			}
 
 			ASSERT(result != 0);
 		} break;
-	case AST_EXPR_FLOAT:
+	case AST_EXPR_LITERAL:
 		{
-			union { float f; i32 i; } value;
-			value.f = node->value.f;
-			result = ir_emit1_type(ctx, IR_F32, IR_CONST, value.i);
-		} break;
-	case AST_EXPR_STRING:
-		{
-			result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
-		} break;
-	case AST_EXPR_CHAR:
-		{
-			result = ir_emit1_type(ctx, IR_I8, IR_CONST, node->value.i);
-		} break;
-	case AST_EXPR_INT:
-		{
-			result = ir_emit1_type(ctx, IR_I32, IR_CONST, node->value.i);
+			switch (node->token.kind) {
+			case TOKEN_LITERAL_STRING:
+				{
+					result = ir_emit1_type(ctx, IR_I64, IR_GLOBAL, node_id.value);
+				} break;
+			case TOKEN_LITERAL_INT:
+				{
+					i64 value = parse_i64(node->token.value);
+					result = ir_emit1_type(ctx, IR_I32, IR_CONST, value);
+				} break;
+			case TOKEN_LITERAL_FLOAT:
+				{
+					f64 value = parse_f64(node->token.value);
+					result = ir_emit1_type(ctx, IR_F32, IR_CONST, value);
+				} break;
+			case TOKEN_LITERAL_CHAR:
+				{
+					char value = parse_char(node->token.value);
+					result = ir_emit1_type(ctx, IR_I8, IR_CONST, value);
+				} break;
+			default:
+				ASSERT(!"Invalid literal");
+				break;
+			}
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
@@ -508,7 +548,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			u32 operator = node->value.op;
+			token_kind operator = node->token.kind;
 			switch (operator) {
 			case TOKEN_AMP:
 				{
@@ -600,7 +640,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_POSTFIX:
 		{
-			u32 operator = node->value.op;
+			token_kind operator = node->token.kind;
 			switch (operator) {
 			case TOKEN_PLUS_PLUS:
 			case TOKEN_MINUS_MINUS:
@@ -700,7 +740,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ctx->program->register_count = 0;
 						ctx->stack_size = 0;
 
-						ir_function *func = add_function(ctx, node->value.s, ctx->arena);
+						ir_function *func = add_function(ctx, node->token.value, ctx->arena);
 						func->inst_index = ctx->program->inst_count;
 						ir_emit1(ctx, IR_LABEL, new_label(ctx));
 

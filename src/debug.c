@@ -51,7 +51,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_EXTERN_DEF:
 	case AST_DECL:
-		printf("%.*s: ", (int)node->value.s.length, node->value.s.at);
+		printf("%.*s: ", (int)node->token.value.length, node->token.value.at);
 		print_ast_node(pool, node->child[0], indent);
 		if (node->child[1].value != 0) {
 			printf(" = ");
@@ -96,14 +96,8 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf(")");
 		print_ast_node(pool, node->child[1], indent);
 		break;
-	case AST_EXPR_CHAR:
-		printf("'%c'", (char)node->value.i);
-		break;
-	case AST_EXPR_FLOAT:
-		printf("%f", node->value.f);
-		break;
-	case AST_EXPR_INT:
-		printf("%jd", node->value.i);
+	case AST_EXPR_LITERAL:
+		printf("%.*s", (int)node->token.value.length, node->token.value.at);
 		break;
 	case AST_EXPR_LIST:
 		printf("(list)");
@@ -111,22 +105,21 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		print_ast_node(pool, node->child[0], indent);
-		printf(".%.*s", (int)node->value.s.length, node->value.s.at);
+		printf(".%.*s", (int)node->token.value.length, node->token.value.at);
 		break;
 	case AST_EXPR_POSTFIX:
 		print_ast_node(pool, node->child[0], indent);
-		switch (node->value.i) {
+		switch (node->token.kind) {
 		case TOKEN_PLUS_PLUS:
 			printf("++");
 			break;
 		case TOKEN_MINUS_MINUS:
 			printf("--");
 			break;
+		default:
+			ASSERT(!"Invalid postfix expression");
 		}
 
-		break;
-	case AST_EXPR_STRING:
-		printf("%.*s", (int)node->value.s.length, node->value.s.at);
 		break;
 	case AST_EXPR_TERNARY1:
 		print_ast_node(pool, node->child[0], indent);
@@ -139,7 +132,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		print_ast_node(pool, node->child[1], indent);
 		break;
 	case AST_EXPR_UNARY:
-		switch (node->value.i) {
+		switch (node->token.kind) {
 		case TOKEN_PLUS_PLUS:
 			printf("++");
 			break;
@@ -161,6 +154,8 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		case TOKEN_AMP:
 			printf("&");
 			break;
+		default:
+			ASSERT(!"Invalid unary expression");
 		}
 
 		print_ast_node(pool, node->child[0], indent);
@@ -191,7 +186,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_GOTO:
-		printf("goto %.*s", (int)node->value.s.length, node->value.s.at);
+		printf("goto %.*s", (int)node->token.value.length, node->token.value.at);
 		break;
 	case AST_STMT_FOR1:
 		printf("for (");
@@ -220,7 +215,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		}
 		break;
 	case AST_STMT_LABEL:
-		printf("%.*s:\n", (int)node->value.s.length, node->value.s.at);
+		printf("%.*s:\n", (int)node->token.value.length, node->token.value.at);
 		print_ast_node(pool, node->child[0], indent);
 		break;
 	case AST_STMT_LIST:
@@ -281,7 +276,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_TYPE_IDENT:
 	case AST_EXPR_IDENT:
-		printf("%.*s", (int)node->value.s.length, node->value.s.at);
+		printf("%.*s", (int)node->token.value.length, node->token.value.at);
 		break;
 	case AST_TYPE_INT:
 		printf("int");

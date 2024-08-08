@@ -395,7 +395,6 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			ast_node *called_node = get_node(pool, node->child[0]);
 			str func_name = {0};
 			if (called_node->kind == AST_EXPR_IDENT) {
-				called_node = get_node(pool, called_node->value.ref);
 				func_name = called_node->token.value;
 			}
 
@@ -463,7 +462,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				node_type->members = param;
 				node_type->base_type = param->type;
 			} else {
-				type *ref_type = get_type(pool, node->value.ref);
+				type *ref_type = get_type(pool, node->child[0]);
 				memcpy(node_type, ref_type, sizeof(*node_type));
 			}
 		} break;
@@ -649,8 +648,8 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_TYPE_IDENT:
 		{
-			ASSERT(node->value.ref.value != 0);
-			type *ref_type = get_type(pool, node->value.ref);
+			ASSERT(node->child[0].value != 0);
+			type *ref_type = get_type(pool, node->child[0]);
 			memcpy(node_type, ref_type, sizeof(*node_type));
 		} break;
 	case AST_ENUMERATOR:
@@ -673,8 +672,9 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				// TODO: Should we replace the whole enumerator or just the
 				// underlying value. Modifying just the value would likely be
 				// easier for error handling...
-				enum_node->kind = AST_EXPR_INT;
-				enum_node->value.i = value++;
+				enum_node->kind = AST_EXPR_LITERAL;
+				// TODO: Set the value of the enumerator
+				(void)value;
 				enum_type->kind = TYPE_INT;
 				enum_id = enum_node->child[1];
 			}
@@ -685,7 +685,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
 			if (node->child[0].value == 0) {
-				type *ref_type = get_type(pool, node->value.ref);
+				type *ref_type = get_type(pool, node->child[0]);
 				if (node->flags & AST_OPAQUE) {
 					ref_type->kind = TYPE_STRUCT;
 					node_type->kind = TYPE_OPAQUE;
@@ -838,9 +838,11 @@ check(ast_pool *pool, arena *perm)
 			}
 
 			break;
-		case AST_EXPR_STRING:
-			symtab.symbols[i].value = symtab.string_count++;
-			symtab.kind[i] = SYM_STRING;
+		case AST_EXPR_LITERAL:
+			if (node->token.kind == TOKEN_LITERAL_STRING) {
+				symtab.symbols[i].value = symtab.string_count++;
+				symtab.kind[i] = SYM_STRING;
+			}
 			break;
 		default:
 			break;
@@ -906,7 +908,7 @@ check(ast_pool *pool, arena *perm)
 	// NOTE: Collect all strings.
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
-		if (node->kind == AST_EXPR_STRING) {
+		if (node->token.kind == TOKEN_LITERAL_STRING) {
 			str escaped = node->token.value;
 			str unescaped = {0};
 			unescaped.at = ALLOC(perm, escaped.length, char);
