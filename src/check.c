@@ -206,7 +206,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		break;
 	case AST_LIST:
 		while (node_id.value != 0) {
-			ast_node *node = get_node(pool, node_id);
+			ast_node *node = get_node_of_kind(pool, node_id, AST_LIST);
 			check_type(pool, node->child[0], arena);
 			node_id = node->child[1];
 		}
@@ -267,9 +267,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				member *member = node_type->members;
 				node_id = node->child[0];
 				while (member && node_id.value != 0) {
-					ast_node *list_node = get_node(pool, node_id);
-					ASSERT(list_node->kind == AST_LIST);
-
+					ast_node *list_node = get_node_of_kind(pool, node_id, AST_LIST);
 					ast_node *value = get_node(pool, list_node->child[0]);
 					if (value->kind == AST_INIT) {
 						type *value_type = get_type(pool, list_node->child[0]);
@@ -295,9 +293,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				type *expected = node_type->base_type;
 				node_id = node->child[0];
 				while (node_id.value != 0) {
-					ast_node *list_node = get_node(pool, node_id);
-					ASSERT(list_node->kind == AST_LIST);
-
+					ast_node *list_node = get_node_of_kind(pool, node_id, AST_LIST);
 					ast_node *child = get_node(pool, list_node->child[0]);
 					if (child->kind == AST_INIT) {
 						type *child_type = get_type(pool, node->child[0]);
@@ -723,8 +719,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				ast_id decl_id = node->child[0];
 				while (decl_id.value != 0) {
 					check_type(pool, decl_id, arena);
-					ast_node *list_node = get_node(pool, decl_id);
-					ASSERT(list_node->kind == AST_LIST);
+					ast_node *list_node = get_node_of_kind(pool, decl_id, AST_LIST);
 					decl_id = list_node->child[1];
 
 					ast_node *decl_node = get_node(pool, list_node->child[0]);

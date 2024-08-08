@@ -175,3 +175,22 @@ get_precedence(token_kind token)
 		return PREC_NONE;
 	}
 }
+
+static ast_node *
+get_node(ast_pool *p, ast_id id)
+{
+	if (0 < id.value && id.value < p->size) {
+		return p->nodes + id.value;
+	}
+
+	ASSERT(!"ID is out of bounds");
+	return NULL;
+}
+
+static ast_node *
+get_node_of_kind(ast_pool *p, ast_id id, ast_node_kind kind)
+{
+	ast_node *node = get_node(p, id);
+	ASSERT(node->kind == kind);
+	return node;
+}

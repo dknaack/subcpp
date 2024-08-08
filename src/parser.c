@@ -138,17 +138,6 @@ new_node2(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id ch
 	return id;
 }
 
-static ast_node *
-get_node(ast_pool *p, ast_id id)
-{
-	if (0 < id.value && id.value < p->size) {
-		return p->nodes + id.value;
-	}
-
-	ASSERT(!"ID is out of bounds");
-	return NULL;
-}
-
 static void
 append_node_id(ast_pool *p, ast_list *l, ast_id node_id)
 {
@@ -775,8 +764,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 
 					ast_node *def_node = NULL;
 					if (e != NULL) {
-						def_node = get_node(pool, e->node_id);
-						ASSERT(def_node->kind == node.kind);
+						def_node = get_node_of_kind(pool, e->node_id, node.kind);
 						type_id = e->node_id;
 					} else {
 						type_id = push_node(pool, node);
@@ -853,8 +841,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 		append_node_id(pool, &decl, type_id);
 
 		if (!(flags & PARSE_NO_IDENT)) {
-			ast_node *decl_node = get_node(pool, decl.first);
-			ASSERT(decl_node->kind == AST_DECL);
+			ast_node *decl_node = get_node_of_kind(pool, decl.first, AST_DECL);
 			decl_node->flags |= qualifiers;
 			decl_node->child[0] = decl_node->child[1];
 			decl_node->child[1] = ast_id_nil;

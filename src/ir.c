@@ -205,9 +205,7 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 
 			node_id = node->child[0];
 			while (node_id.value != 0) {
-				ast_node *node = get_node(pool, node_id);
-				ASSERT(node->kind == AST_LIST);
-
+				ast_node *node = get_node_of_kind(pool, node_id, AST_LIST);
 				type *child_type = get_type(pool, node->child[0]);
 				isize child_align = type_alignof(child_type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
@@ -732,8 +730,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					type *node_type = get_type(pool, node_id);
 					if (node_type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
 						ast_id body = node->child[1];
-						ast_node *type_node = get_node(pool, node->child[0]);
-						ASSERT(type_node->kind == AST_TYPE_FUNC);
+						ast_node *type_node = get_node_of_kind(pool, node->child[0], AST_TYPE_FUNC);
 
 						u32 prev_label_count = ctx->program->label_count;
 						u32 prev_register_count = ctx->program->register_count;
