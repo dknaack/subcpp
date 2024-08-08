@@ -967,13 +967,15 @@ pop_if(parse_context *ctx)
 	}
 
 	new_state->pos = old_state->pos;
-	new_state->prev = old_state;
 	ctx->lexer = new_state;
 }
 
 static void
 push_file(parse_context *ctx, char *filename, str contents)
 {
+	// Include directives are automatically ignored by the get_token function.
+	ASSERT(!ctx->lexer || !ctx->lexer->ignore_token);
+
 	// push new file on list
 	file *f = ALLOC(ctx->arena, 1, file);
 	f->name = filename;
@@ -1033,13 +1035,15 @@ get_token(parse_context *ctx)
 				b32 cond = (macro == NULL);
 				push_if(ctx, cond ? DIR_IF_TRUE : DIR_IF_FALSE);
 			} else if (equals(token.value, S("elif"))) {
-				b32 cond = cpp_parse_expr(ctx);
 				pop_if(ctx);
+				b32 cond = cpp_parse_expr(ctx);
 				push_if(ctx, cond ? DIR_ELIF_TRUE : DIR_ELIF_FALSE);
 			} else if (equals(token.value, S("else"))) {
+				pop_if(ctx);
 				push_if(ctx, DIR_ELSE);
 			} else if (equals(token.value, S("endif"))) {
 				pop_if(ctx);
+				ctx->lexer->last_directive = DIR_OTHER;
 			} else if (ctx->lexer->ignore_token) {
 				skip_line(ctx);
 				token.kind = TOKEN_NEWLINE;
