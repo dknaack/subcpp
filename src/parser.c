@@ -24,7 +24,7 @@ new_scope(scope *parent)
 }
 
 static scope_entry *
-scope_upsert_ident(scope *s, str key, arena *perm)
+upsert_ident(scope *s, str key, arena *perm)
 {
 	if (!s) {
 		return NULL;
@@ -38,7 +38,7 @@ scope_upsert_ident(scope *s, str key, arena *perm)
 	}
 
 	if (!perm) {
-		return scope_upsert_ident(s->parent, key, NULL);
+		return upsert_ident(s->parent, key, NULL);
 	}
 
 	e = ALLOC(perm, 1, scope_entry);
@@ -49,7 +49,7 @@ scope_upsert_ident(scope *s, str key, arena *perm)
 }
 
 static scope_entry *
-scope_upsert_tag(scope *s, str key, arena *perm)
+upsert_tag(scope *s, str key, arena *perm)
 {
 	if (!s) {
 		return NULL;
@@ -63,7 +63,7 @@ scope_upsert_tag(scope *s, str key, arena *perm)
 	}
 
 	if (!perm) {
-		return scope_upsert_tag(s->parent, key, NULL);
+		return upsert_tag(s->parent, key, NULL);
 	}
 
 	e = ALLOC(perm, 1, scope_entry);
@@ -281,7 +281,7 @@ parse_expr(cpp_state *lexer, precedence prev_prec, scope *s, ast_pool *pool, are
 	case TOKEN_IDENT:
 		{
 			get_token(lexer);
-			scope_entry *e = scope_upsert_ident(s, token.value, NULL);
+			scope_entry *e = upsert_ident(s, token.value, NULL);
 			if (e) {
 				ASSERT(e->node_id.value != 0);
 				expr = new_node1(pool, AST_EXPR_IDENT, token, e->node_id);
@@ -680,7 +680,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			break;
 		case TOKEN_IDENT:
 			{
-				scope_entry *e = scope_upsert_ident(s, token.value, NULL);
+				scope_entry *e = upsert_ident(s, token.value, NULL);
 				if (type_id.value == 0 && e && e->is_type) {
 					node = make_node(AST_TYPE_IDENT, token);
 					node.child[0] = e->node_id;
@@ -711,7 +711,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 					}
 
 					append_node(pool, &enumerators, node);
-					//scope_entry *e = scope_upsert_ident(s, node.value.s, arena);
+					//scope_entry *e = upsert_ident(s, node.value.s, arena);
 					//e->node_id = enumerators.last;
 
 					if (!accept(lexer, TOKEN_COMMA)) {
@@ -736,7 +736,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 				scope_entry *e = NULL;
 				if (token.kind == TOKEN_IDENT) {
 					get_token(lexer);
-					e = scope_upsert_tag(s, token.value, arena);
+					e = upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
 						node.child[0].value = 0;
 						e->node_id = push_node(pool, node);
@@ -846,7 +846,7 @@ parse_decl(cpp_state *lexer, u32 flags, scope *s, ast_pool *pool, arena *arena)
 			decl_node->child[0] = decl_node->child[1];
 			decl_node->child[1] = ast_id_nil;
 
-			scope_entry *e = scope_upsert_ident(s, decl_node->token.value, arena);
+			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
 			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
 			e->node_id = decl.first;
 		}
@@ -1108,7 +1108,7 @@ static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena 
 	token.value = name;
 	ast_node node = make_node(AST_DECL, token);
 
-	scope_entry *e = scope_upsert_ident(s, name, arena);
+	scope_entry *e = upsert_ident(s, name, arena);
 	e->is_type = is_type;
 	e->node_id = push_node(pool, node);
 	ASSERT(e->node_id.value != 0);
@@ -1151,7 +1151,7 @@ parse(cpp_state *lexer, arena *arena)
 					str param_name = get_node(&pool, list_node->child[0])->token.value;
 					param = list_node->child[1];
 
-					scope_entry *e = scope_upsert_ident(&tmp, param_name, arena);
+					scope_entry *e = upsert_ident(&tmp, param_name, arena);
 					e->node_id = list_node->child[0];
 					ASSERT(e->node_id.value != 0);
 
