@@ -941,6 +941,10 @@ push_if(parse_context *ctx, directive new_dir)
 		} else if (old_dir == DIR_INCLUDE || old_dir == DIR_OTHER) {
 			fatalf(get_location(ctx), "#elif without #if");
 		}
+
+		// NOTE: If a previous if/elif directive was true, then all future
+		// directives should evaluate to false as if this directive was true.
+		old_state->last_directive |= (old_dir & DIR_TRUE);
 	} else if (new_dir == DIR_ELSE) {
 		if (old_dir == DIR_ELSE) {
 			fatalf(get_location(ctx), "#else after #else");
@@ -951,8 +955,6 @@ push_if(parse_context *ctx, directive new_dir)
 		value = true;
 	}
 
-	// NOTE: If a previous if/elif directive was true, then all future
-	// directives should evaluate to false as if this directive was true.
 	value &= !(old_dir & DIR_TRUE);
 
 	lexer_state *new_state = ALLOC(ctx->arena, 1, lexer_state);
