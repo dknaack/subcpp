@@ -635,7 +635,6 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	b32 found_qualifier = true;
 	while (found_qualifier) {
 		token token = ctx->peek[0];
-		ast_node node = {0};
 		switch (token.kind) {
 		case TOKEN_FLOAT:
 			type_id = new_node0(pool, AST_TYPE_FLOAT, token);
@@ -722,13 +721,12 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					get_token(ctx);
 					e = upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
-						node.child[0].value = 0;
 						e->node_id = new_node0(pool, node_kind, token);
-						node.flags |= AST_OPAQUE;
+						type_id = new_node1(pool, node_kind, token, e->node_id);
+						get_node(pool, type_id)->flags |= AST_OPAQUE;
 					}
 
 					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
-					node.child[0] = e->node_id;
 				}
 
 				if (accept(ctx, TOKEN_LBRACE)) {
@@ -748,7 +746,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 
 					ast_node *def_node = NULL;
 					if (e != NULL) {
-						def_node = get_node_of_kind(pool, e->node_id, node.kind);
+						def_node = get_node_of_kind(pool, e->node_id, node_kind);
 						type_id = e->node_id;
 					} else {
 						type_id = new_node0(pool, node_kind, token);
