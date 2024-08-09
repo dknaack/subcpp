@@ -1,11 +1,3 @@
-static ir_context
-ir_push_context(ir_context *parent)
-{
-	ir_context ctx = {0};
-	memcpy(&ctx, parent, sizeof(ctx));
-	return ctx;
-}
-
 static u32
 new_label(ir_context *ctx)
 {
@@ -665,7 +657,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_DO_WHILE:
 		{
-			ir_context new_ctx = ir_push_context(ctx);
+			ir_context new_ctx = *ctx;
 			ctx = &new_ctx;
 
 			ctx->break_label = new_label(ctx);
@@ -797,7 +789,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		break;
 	case AST_STMT_FOR1:
 		{
-			ir_context new_ctx = ir_push_context(ctx);
+			ir_context new_ctx = *ctx;
 			ctx = &new_ctx;
 
 			ctx->break_label = new_label(ctx);
@@ -859,7 +851,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_WHILE:
 		{
-			ir_context new_ctx = ir_push_context(ctx);
+			ir_context new_ctx = *ctx;
 			ctx = &new_ctx;
 
 			ctx->break_label = new_label(ctx);
@@ -897,7 +889,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_SWITCH:
 		{
-			ir_context new_ctx = ir_push_context(ctx);
+			ir_context new_ctx = *ctx;
 			ctx = &new_ctx;
 
 			u32 switch_reg = translate_node(ctx, pool, node->child[0], false);
