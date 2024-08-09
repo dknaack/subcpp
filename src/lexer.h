@@ -169,6 +169,7 @@ struct lexer_state {
 	isize pos;
 	char at[4];
 	b8 ignore_token;
+	char *filename;
 	file_id file;
 	directive last_directive;
 	lexer_state *prev;
