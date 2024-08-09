@@ -933,27 +933,35 @@ push_if(parse_context *ctx, directive new_dir)
 	lexer_state *old_state = ctx->lexer;
 	directive old_dir = old_state->last_directive;
 	old_state->last_directive = new_dir;
+
+	b32 value = ((new_dir & DIR_TRUE) == DIR_TRUE);
 	if ((new_dir & ~DIR_TRUE) == DIR_ELIF_FALSE) {
 		if (old_dir == DIR_ELSE) {
 			fatalf(get_location(ctx), "#elif after #else");
 		} else if (old_dir == DIR_INCLUDE || old_dir == DIR_OTHER) {
 			fatalf(get_location(ctx), "#elif without #if");
 		}
+	} else if (new_dir == DIR_ELSE) {
+		if (old_dir == DIR_ELSE) {
+			fatalf(get_location(ctx), "#else after #else");
+		} else if (old_dir == DIR_INCLUDE || old_dir == DIR_OTHER) {
+			fatalf(get_location(ctx), "#else without #if");
+		}
 
-		// NOTE: If a previous if/elif directive was true, then all future
-		// directives should evaluate to false as if this directive was true.
-		old_state->last_directive |= (old_dir & DIR_TRUE);
-	} else if (new_dir == DIR_ELSE && old_dir == DIR_ELSE) {
-		fatalf(get_location(ctx), "#else after #else");
+		value = true;
 	}
+
+	// NOTE: If a previous if/elif directive was true, then all future
+	// directives should evaluate to false as if this directive was true.
+	value &= !(old_dir & DIR_TRUE);
 
 	lexer_state *new_state = ALLOC(ctx->arena, 1, lexer_state);
 	memcpy(new_state, old_state, sizeof(*new_state));
 	new_state->prev = old_state;
 	new_state->last_directive = DIR_OTHER;
-	new_state->ignore_token = old_state->ignore_token
-		|| !(new_dir & DIR_TRUE) || (old_dir & DIR_TRUE);
+	new_state->ignore_token = old_state->ignore_token || !value;
 	ctx->lexer = new_state;
+	fill_chars(new_state);
 }
 
 static void
@@ -968,6 +976,7 @@ pop_if(parse_context *ctx)
 
 	new_state->pos = old_state->pos;
 	ctx->lexer = new_state;
+	fill_chars(new_state);
 }
 
 static void
@@ -999,18 +1008,19 @@ push_file(parse_context *ctx, char *filename, str contents)
 	new_state->pos = 0;
 	new_state->ignore_token = false;
 	new_state->file = file_id;
+	new_state->filename = filename;
 	new_state->last_directive = DIR_OTHER;
 	new_state->prev = old_state;
 	if (old_state) {
 		old_state->last_directive = DIR_INCLUDE;
 	}
 	ctx->lexer = new_state;
+	fill_chars(new_state);
 }
 
 static token
 get_token(parse_context *ctx)
 {
-	lexer_state *lexer = ctx->lexer;
 	token tmp, token = {TOKEN_INVALID};
 	b32 at_line_start = (ctx->lexer->pos == 0);
 	do {
@@ -1052,12 +1062,13 @@ get_token(parse_context *ctx)
 				skip_line(ctx);
 				token.kind = TOKEN_NEWLINE;
 			} else if (equals(token.value, S("include"))) {
+				lexer_state *lexer = ctx->lexer;
 				char end_char = '\0';
 				b32 is_system_header = false;
-				if (ctx->lexer->at[0] == '<') {
+				if (lexer->at[0] == '<') {
 					is_system_header = true;
 					end_char = '>';
-				} else if (ctx->lexer->at[0] == '"') {
+				} else if (lexer->at[0] == '"') {
 					end_char = '"';
 				} else {
 					ASSERT(!"Macro filenames have not been implement yet");
@@ -1067,7 +1078,9 @@ get_token(parse_context *ctx)
 				isize start = lexer->pos;
 				do {
 					advance(lexer, 1);
-				} while (ctx->lexer->at[0] != '\n' && ctx->lexer->at[0] != end_char);
+				} while (lexer->at[0] != '\n'
+					&& lexer->at[0] != '\0'
+					&& lexer->at[0] != end_char);
 
 				str path = substr(lexer->data, start, lexer->pos);
 				if (path.length == 0) {
@@ -1136,7 +1149,7 @@ get_token(parse_context *ctx)
 					b32 is_relative_path = path.length <= 0 || path.at[0] != '/';
 					if (is_relative_path) {
 						errno = 0;
-						str dir = S("(TODO)");
+						str dir = dirname(make_str(ctx->lexer->filename));
 						filename = concat_paths(dir, path, ctx->arena);
 						contents = read_file(filename.at, ctx->arena);
 						i32 error_value = errno;
