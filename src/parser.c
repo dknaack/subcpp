@@ -865,6 +865,12 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 	token token = ctx->peek[0];
 	switch (token.kind) {
+	case TOKEN_ASM:
+		{
+			get_token(ctx);
+			result = new_node0(pool, AST_STMT_ASM, ctx->peek[0]);
+			expect(ctx, TOKEN_LITERAL_STRING);
+		} break;
 	case TOKEN_BREAK:
 		{
 			get_token(ctx);
@@ -1074,7 +1080,6 @@ parse(parse_context *ctx, arena *arena)
 	make_builtin(S("__builtin_va_start"), false, &pool, &s, arena);
 	make_builtin(S("__builtin_va_end"),   false, &pool, &s, arena);
 	make_builtin(S("__builtin_va_arg"),   false, &pool, &s, arena);
-	make_builtin(S("asm"), false, &pool, &s, arena);
 
 	do {
 		ast_list decls = parse_decl(ctx, PARSE_EXTERNAL_DECL, &s, &pool, arena);

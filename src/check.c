@@ -252,6 +252,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			check_type(pool, node->child[1], arena);
 		}
 		break;
+	case AST_STMT_ASM:
+		{
+			ASSERT(node->token.kind == TOKEN_LITERAL_STRING);
+		} break;
 	case AST_STMT_FOR1:
 		{
 			if (node->child[0].value != 0) {

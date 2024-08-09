@@ -62,6 +62,7 @@ typedef enum {
 	TOKEN_LITERAL_STRING,
 
 	// keywords
+	TOKEN_ASM,
 	TOKEN_AUTO,
 	TOKEN_BREAK,
 	TOKEN_BOOL,
@@ -260,6 +261,7 @@ get_token_name(token_kind kind)
 	case TOKEN_LITERAL_FLOAT:  return "float";
 	case TOKEN_LITERAL_INT:    return "integer";
 	case TOKEN_LITERAL_STRING: return "string";
+	case TOKEN_ASM:            return "'asm'";
 	case TOKEN_AUTO:           return "'auto'";
 	case TOKEN_BREAK:          return "'break'";
 	case TOKEN_BOOL:           return "'_Bool'";

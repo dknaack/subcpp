@@ -628,6 +628,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ASSERT(!"Invalid postfix operator");
 			}
 		} break;
+	case AST_STMT_ASM:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_STMT_BREAK:
 		{
 			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->break_label);

@@ -25,6 +25,7 @@ typedef enum {
 	AST_EXPR_LITERAL,
 
 	// statements
+	AST_STMT_ASM,
 	AST_STMT_BREAK,    // {}
 	AST_STMT_CASE,     // {expr, stmt}
 	AST_STMT_CONTINUE, // {}
