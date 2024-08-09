@@ -936,9 +936,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			}
 
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
-			ast_id node3 = new_node2(pool, AST_STMT_FOR3, token, post, stmt);
-			ast_id node2 = new_node2(pool, AST_STMT_FOR2, token, cond, node3);
-			ast_id node1 = new_node2(pool, AST_STMT_FOR1, token, init, node2);
+			ast_id node3 = new_node_(pool, AST_STMT_FOR3, token, post, stmt);
+			ast_id node2 = new_node_(pool, AST_STMT_FOR2, token, cond, node3);
+			ast_id node1 = new_node_(pool, AST_STMT_FOR1, token, init, node2);
 			result = node1;
 		} break;
 	case TOKEN_GOTO:
