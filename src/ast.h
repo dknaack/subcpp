@@ -4,6 +4,7 @@ typedef struct type type;
 typedef enum {
 	AST_INVALID,
 	AST_LIST,
+	AST_BUILTIN,
 	AST_EXTERN_DEF,    // {type, name}
 	AST_ENUMERATOR,    // {value, next}
 	AST_INIT,          // {first, last}

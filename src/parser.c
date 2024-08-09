@@ -354,6 +354,26 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			ast_id operand = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
 			expr = new_node1(pool, AST_EXPR_UNARY, token, operand);
 		} break;
+	case TOKEN_BUILTIN_VA_ARG:
+		{
+			get_token(ctx);
+			expect(ctx, TOKEN_LPAREN);
+			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			expect(ctx, TOKEN_COMMA);
+			ast_id type = parse_decl(ctx, PARSE_CAST, s, pool, arena).first;
+			expect(ctx, TOKEN_RPAREN);
+
+			ast_list params = {0};
+			ast_id called = new_node0(pool, AST_BUILTIN, token);
+			append_list_node(pool, &params, expr);
+			append_list_node(pool, &params, type);
+			expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
+		} break;
+	case TOKEN_BUILTIN_VA_START:
+	case TOKEN_BUILTIN_VA_END:
+		{
+			expr = new_node0(pool, AST_BUILTIN, token);
+		} break;
 	default:
 		syntax_error(ctx, "Expected expression");
 		return ast_id_nil;
@@ -379,14 +399,6 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			if (called_node->kind == AST_EXPR_IDENT
 				&& equals(called_node->token.value, S("__builtin_va_arg")))
 			{
-				ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-				append_list_node(pool, &params, expr);
-				expect(ctx, TOKEN_COMMA);
-
-				ast_id type = parse_decl(ctx, PARSE_CAST, s, pool, arena).first;
-				append_list_node(pool, &params, type);
-
-				expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
 			} else if (accept(ctx, TOKEN_RPAREN)) {
 				expr = new_node1(pool, AST_EXPR_CALL, token, called);
 			} else {

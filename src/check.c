@@ -228,6 +228,10 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		}
 
 		break;
+	case AST_BUILTIN:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_STMT_BREAK:
 	case AST_STMT_CASE:
 	case AST_STMT_CONTINUE:
@@ -403,49 +407,41 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_EXPR_CALL:
 		{
 			type *called = check_type(pool, node->child[0], arena);
-			ast_node *called_node = get_node(pool, node->child[0]);
-			str func_name = {0};
-			if (called_node->kind == AST_EXPR_IDENT) {
-				func_name = called_node->token.value;
-			}
-
-			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
-				// TODO: Implement type checking for builtins
-			} else if (called->kind == TYPE_FUNCTION) {
-				member *param_member = called->members;
-				ast_id param_id = node->child[1];
-				while (param_member && param_id.value != 0) {
-					ast_node *param_list = get_node(pool, param_id);
-					ast_node *param_node = get_node(pool, param_list->child[0]);
-					type *param = check_type(pool, param_list->child[0], arena);
-					if (!type_equals(param_member->type, param)) {
-						errorf(param_node->token.loc, "Invalid parameter type");
-					}
-
-					param_member = param_member->next;
-					param_id = param_list->child[1];
-				}
-
-				while (param_id.value != 0) {
-					ast_node *param_list = get_node(pool, param_id);
-					check_type(pool, param_list->child[0], arena);
-					param_id = param_list->child[1];
-				}
-
-#if 0
-				if (param_member && param_id.value == 0) {
-					errorf(node->token.loc, "Too few arguments");
-				} else if (!param_member && param_id.value != 0) {
-					errorf(node->token.loc, "Too many arguments");
-				}
-#endif
-
-				type *return_type = called->base_type;
-				memcpy(node_type, return_type, sizeof(*node_type));
-			} else {
+			if (called->kind != TYPE_FUNCTION) {
 				pool->error = true;
 				errorf(node->token.loc, "Not a function: %s", type_get_name(called->kind));
 			}
+
+			member *param_member = called->members;
+			ast_id param_id = node->child[1];
+			while (param_member && param_id.value != 0) {
+				ast_node *param_list = get_node(pool, param_id);
+				ast_node *param_node = get_node(pool, param_list->child[0]);
+				type *param = check_type(pool, param_list->child[0], arena);
+				if (!type_equals(param_member->type, param)) {
+					errorf(param_node->token.loc, "Invalid parameter type");
+				}
+
+				param_member = param_member->next;
+				param_id = param_list->child[1];
+			}
+
+			while (param_id.value != 0) {
+				ast_node *param_list = get_node(pool, param_id);
+				check_type(pool, param_list->child[0], arena);
+				param_id = param_list->child[1];
+			}
+
+#if 0
+			if (param_member && param_id.value == 0) {
+				errorf(node->token.loc, "Too few arguments");
+			} else if (!param_member && param_id.value != 0) {
+				errorf(node->token.loc, "Too many arguments");
+			}
+#endif
+
+			type *return_type = called->base_type;
+			memcpy(node_type, return_type, sizeof(*node_type));
 		} break;
 	case AST_EXPR_CAST:
 		{

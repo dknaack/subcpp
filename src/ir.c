@@ -206,6 +206,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			ASSERT(!"Invalid node");
 		} break;
+	case AST_BUILTIN:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		{
