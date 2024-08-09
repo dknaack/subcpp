@@ -919,13 +919,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
 		} break;
 	case AST_ENUMERATOR:
-	case AST_TYPE_VOID:
-	case AST_TYPE_CHAR:
-	case AST_TYPE_INT:
+	case AST_TYPE_BASIC:
 	case AST_TYPE_ENUM:
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_UNION:
-	case AST_TYPE_FLOAT:
 	case AST_TYPE_FUNC:
 	case AST_TYPE_IDENT:
 	case AST_TYPE_ARRAY:

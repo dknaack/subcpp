@@ -244,9 +244,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf(":");
 		print_ast_node(pool, node->child[0], indent);
 		break;
-	case AST_TYPE_CHAR:
-		printf("char");
-		break;
 	case AST_TYPE_FUNC:
 		tmp = node->child[1];
 		printf("(");
@@ -265,9 +262,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_EXPR_IDENT:
 		printf("%.*s", (int)node->token.value.length, node->token.value.at);
 		break;
-	case AST_TYPE_INT:
-		printf("int");
-		break;
 	case AST_TYPE_POINTER:
 		printf("*");
 		print_ast_node(pool, node->child[1], indent);
@@ -281,11 +275,24 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_TYPE_ENUM:
 		printf("(enum)");
 		break;
-	case AST_TYPE_FLOAT:
-		printf("float");
-		break;
-	case AST_TYPE_VOID:
-		printf("void");
+	case AST_TYPE_BASIC:
+		switch (node->token.kind) {
+		case TOKEN_CHAR:
+			printf("char");
+			break;
+		case TOKEN_FLOAT:
+			printf("float");
+			break;
+		case TOKEN_INT:
+			printf("int");
+			break;
+		case TOKEN_VOID:
+			printf("void");
+			break;
+		default:
+			ASSERT(!"Invalid basic type");
+		}
+
 		break;
 	default:
 		printf("(TODO)");

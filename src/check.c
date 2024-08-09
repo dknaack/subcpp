@@ -575,26 +575,25 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				check_type(pool, node->child[1], arena);
 			}
 		} break;
-	case AST_TYPE_VOID:
-		{
+	case AST_TYPE_BASIC:
+		switch (node->token.kind) {
+		case TOKEN_VOID:
 			node_type->kind = TYPE_VOID;
-		} break;
-	case AST_TYPE_CHAR:
-		{
+			break;
+		case TOKEN_FLOAT:
+		case TOKEN_DOUBLE:
+			node_type->kind = TYPE_FLOAT;
+			break;
+		case TOKEN_CHAR:
 			if (node->flags & AST_UNSIGNED) {
 				node_type->kind = TYPE_CHAR_UNSIGNED;
 			} else {
 				node_type->kind = TYPE_CHAR;
 			}
-		} break;
-	case AST_TYPE_FLOAT:
-		{
-			node_type->kind = TYPE_FLOAT;
-		} break;
-	case AST_TYPE_INT:
-		{
-			u32 int_flags = AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED;
-			switch (node->flags & int_flags) {
+
+			break;
+		case TOKEN_INT:
+			switch (node->flags & (AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED)) {
 			case AST_LLONG | AST_UNSIGNED:
 				node_type->kind = TYPE_LLONG_UNSIGNED;
 				break;
@@ -619,7 +618,13 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			default:
 				node_type->kind = TYPE_INT;
 			}
-		} break;
+
+			break;
+		default:
+			ASSERT(!"Invalid basic type");
+		}
+
+		break;
 	case AST_TYPE_POINTER:
 		{
 			type *base_type = check_type(pool, node->child[1], arena);

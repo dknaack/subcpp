@@ -637,29 +637,12 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		token token = ctx->peek[0];
 		switch (token.kind) {
 		case TOKEN_FLOAT:
-			type_id = new_node0(pool, AST_TYPE_FLOAT, token);
-			get_token(ctx);
-			break;
 		case TOKEN_DOUBLE:
-			// TODO: Define double type in AST
-			type_id = new_node0(pool, AST_TYPE_FLOAT, token);
-			get_token(ctx);
-			break;
 		case TOKEN_BOOL:
-			// TODO: Define bool type in AST
-			type_id = new_node0(pool, AST_TYPE_INT, token);
-			get_token(ctx);
-			break;
 		case TOKEN_INT:
-			type_id = new_node0(pool, AST_TYPE_INT, token);
-			get_token(ctx);
-			break;
 		case TOKEN_CHAR:
-			type_id = new_node0(pool, AST_TYPE_CHAR, token);
-			get_token(ctx);
-			break;
 		case TOKEN_VOID:
-			type_id = new_node0(pool, AST_TYPE_VOID, token);
+			type_id = new_node0(pool, AST_TYPE_BASIC, token);
 			get_token(ctx);
 			break;
 		case TOKEN_IDENT:
@@ -794,7 +777,8 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 
 	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
 	if (type_id.value == 0 && (qualifiers & int_mask) != 0) {
-		type_id = new_node0(pool, AST_TYPE_INT, qualifier_token);
+		qualifier_token.kind = TOKEN_INT;
+		type_id = new_node0(pool, AST_TYPE_BASIC, qualifier_token);
 	}
 
 	ast_list list = {0};
