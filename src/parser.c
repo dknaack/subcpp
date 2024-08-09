@@ -701,6 +701,8 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					if (!accept(ctx, TOKEN_COMMA)) {
 						break;
 					}
+
+					token = ctx->peek[0];
 				}
 
 				type_id = new_node1(pool, AST_TYPE_ENUM, token, enumerators.first);
