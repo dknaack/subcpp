@@ -1382,8 +1382,8 @@ get_token(parse_context *ctx)
 	}
 
 	result = ctx->peek[0];
-	ctx->peek[0] = ctx->peek[1];
-	ctx->peek[1] = token;
+	memmove(ctx->peek, ctx->peek + 1, (LENGTH(ctx->peek) - 1) * sizeof(token));
+	ctx->peek[LENGTH(ctx->peek) - 1] = token;
 	return result;
 }
 
@@ -1411,7 +1411,9 @@ tokenize(char *filename, str src, arena *arena)
 	}
 #endif
 
-	get_token(&ctx);
-	get_token(&ctx);
+	for (isize i = 0; i < LENGTH(ctx.peek); i++) {
+		get_token(&ctx);
+	}
+
 	return ctx;
 }
