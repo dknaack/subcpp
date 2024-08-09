@@ -385,15 +385,19 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 
 				ast_id type = parse_decl(ctx, PARSE_CAST, s, pool, arena).first;
 				append_list_node(pool, &params, type);
-			} else if (!accept(ctx, TOKEN_RPAREN)) {
+
+				expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
+			} else if (accept(ctx, TOKEN_RPAREN)) {
+				expr = new_node1(pool, AST_EXPR_CALL, token, called);
+			} else {
 				do {
 					ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 					append_list_node(pool, &params, expr);
 				} while (!ctx->error && accept(ctx, TOKEN_COMMA));
 				expect(ctx, TOKEN_RPAREN);
+				expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
 			}
 
-			expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
 		} else if (token.kind == TOKEN_DOT || token.kind == TOKEN_ARROW) {
 			ast_node_kind kind = AST_EXPR_MEMBER;
 			if (token.kind == TOKEN_ARROW) {
