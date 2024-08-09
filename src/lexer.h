@@ -98,6 +98,13 @@ typedef enum {
 	TOKEN_VOID,
 	TOKEN_VOLATILE,
 	TOKEN_WHILE,
+
+	// builtins
+	TOKEN_BUILTIN_VA_LIST,
+	TOKEN_BUILTIN_VA_ARG,
+	TOKEN_BUILTIN_VA_START,
+	TOKEN_BUILTIN_VA_END,
+
 	TOKEN_COUNT
 } token_kind;
 
@@ -390,6 +397,14 @@ get_token_name(token_kind kind)
 		return "'volatile'";
 	case TOKEN_WHILE:
 		return "'while'";
+	case TOKEN_BUILTIN_VA_ARG:
+		return "'__builtin_va_arg'";
+	case TOKEN_BUILTIN_VA_END:
+		return "'__builtin_va_end'";
+	case TOKEN_BUILTIN_VA_LIST:
+		return "'__builtin_va_list'";
+	case TOKEN_BUILTIN_VA_START:
+		return "'__builtin_va_start'";
 	case TOKEN_COUNT:
 		return "invalid token";
 	}

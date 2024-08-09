@@ -1353,6 +1353,12 @@ get_token_without_string_concat(parse_context *ctx)
 			{ TOKEN_VOID,         S("void")          },
 			{ TOKEN_VOLATILE,     S("volatile")      },
 			{ TOKEN_WHILE,        S("while")         },
+
+			// builtins
+			{ TOKEN_BUILTIN_VA_LIST,  S("__builtin_va_list")  },
+			{ TOKEN_BUILTIN_VA_ARG,   S("__builtin_va_arg")   },
+			{ TOKEN_BUILTIN_VA_START, S("__builtin_va_start") },
+			{ TOKEN_BUILTIN_VA_END,   S("__builtin_va_end")   },
 		};
 
 		for (usize i = 0; i < LENGTH(keywords); i++) {
