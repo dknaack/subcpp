@@ -327,7 +327,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 					}
 				} else {
 					ast_id subexpr = parse_expr(ctx, 0, s, pool, arena);
-					if (expr.value == 0) {
+					if (subexpr.value == 0) {
 						syntax_error(ctx, "Expected expression");
 						return expr;
 					}
