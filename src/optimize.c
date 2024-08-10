@@ -22,7 +22,8 @@ multiply(u32 a, u32 b)
 static void
 promote_stack_variables(ir_program program, arena *arena)
 {
-	for (ir_function *func = program.function_list; func; func = func->next) {
+	for (isize f = 0; f < program.function_count; f++) {
+		ir_function *func = &program.functions[f];
 		// Mark all stack variables which address is used by a different
 		// instruction than load/store.
 		ir_inst *insts = program.insts + func->inst_index;
@@ -102,7 +103,8 @@ static void
 remove_unused_registers(ir_program program, arena *arena)
 {
 	// Remove unused registers
-	for (ir_function *func = program.function_list; func; func = func->next) {
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
 		arena_temp temp = arena_temp_begin(arena);
 		ir_inst *insts = program.insts + func->inst_index;
 
@@ -153,7 +155,8 @@ optimize(ir_program program, arena *arena)
 {
 	promote_stack_variables(program, arena);
 
-	for (ir_function *func = program.function_list; func; func = func->next) {
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
 		ir_inst *insts = program.insts + func->inst_index;
 		for (u32 i = 0; i < func->inst_count; i++) {
 			u32 op0 = insts[i].op0;
@@ -237,7 +240,8 @@ optimize(ir_program program, arena *arena)
 		b8 *reachable = ALLOC(arena, program.label_count, b8);
 		u32 *stack = ALLOC(arena, program.label_count, u32);
 		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
-		for (ir_function *func = program.function_list; func; func = func->next) {
+		for (isize i = 0; i < program.function_count; i++) {
+			ir_function *func = &program.functions[i];
 			memset(reachable, 0, program.label_count * sizeof(*reachable));
 			ir_inst *inst = program.insts + func->inst_index;
 
@@ -306,7 +310,8 @@ next_block:
 	}
 
 	// Remove register copies from the IR tree
-	for (ir_function *func = program.function_list; func; func = func->next) {
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
 		ir_inst *insts = program.insts + func->inst_index;
 		for (u32 i = 0; i < func->inst_count; i++) {
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);

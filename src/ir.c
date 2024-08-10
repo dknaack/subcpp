@@ -45,28 +45,6 @@ ir_emit_alloca(ir_context *ctx, u32 size)
 	return result;
 }
 
-static ir_function *
-add_function(ir_context *ctx, str name, arena *perm)
-{
-	ir_function **ptr = &ctx->program->function_list;
-	while (*ptr) {
-		if (equals((*ptr)->name, name)) {
-			return *ptr;
-		}
-
-		ptr = &(*ptr)->next;
-	}
-
-	if (!perm) {
-		return NULL;
-	}
-
-	ctx->program->function_count++;
-	*ptr = ALLOC(perm, 1, ir_function);
-	(*ptr)->name = name;
-	return *ptr;
-}
-
 static u32 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue);
 
 static void
@@ -709,7 +687,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ctx->program->register_count = 0;
 						ctx->stack_size = 0;
 
-						ir_function *func = add_function(ctx, node->token.value, ctx->arena);
+						ir_function *func = &ctx->program->functions[ctx->program->function_count++];
+						func->name = node->token.value;
 						func->inst_index = ctx->program->inst_count;
 						ir_emit1(ctx, IR_VOID, IR_LABEL, new_label(ctx));
 
@@ -1053,9 +1032,22 @@ get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
 static ir_program
 translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 {
+	isize function_count = 0;
+	for (isize i = 0; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		type *node_type = &pool->types[i];
+		b32 is_function_decl = ((node->kind == AST_DECL
+			|| node->kind == AST_EXTERN_DEF)
+			&& (node_type->kind == TYPE_FUNCTION));
+		if (is_function_decl) {
+			function_count++;
+		}
+	}
+
 	isize max_inst_count = 1024 * 1024;
 	ir_program program = {0};
 	program.insts = ALLOC(arena, max_inst_count, ir_inst);
+	program.functions = ALLOC(arena, function_count, ir_function);
 	program.register_count++;
 	program.label_count++;
 
@@ -1068,7 +1060,8 @@ translate(ast_pool *pool, symbol_table *symtab, arena *arena)
 
 	translate_node(&ctx, pool, pool->root, false);
 
-	for (ir_function *func = program.function_list; func; func = func->next) {
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
 		ir_inst *inst = program.insts + func->inst_index;
 		for (u32 i = 0; i < func->inst_count; i++) {
 			if (inst[i].type != IR_VOID || inst[i].opcode == IR_CAST

@@ -650,7 +650,8 @@ x86_select_instructions(ir_program program, arena *arena)
 	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
 
 	machine_function *mach_func = out.functions;
-	for (ir_function *ir_func = program.function_list; ir_func; ir_func = ir_func->next) {
+	for (isize f = 0; f < program.function_count; f++) {
+		ir_function *ir_func = &program.functions[f];
 		b8 *is_toplevel = get_toplevel_instructions(ir_func, program.insts + ir_func->inst_index, arena);
 
 		out.function_count++;

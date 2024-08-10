@@ -446,9 +446,9 @@ print_ir_inst(ir_inst inst, u32 i)
 static void
 print_ir_program(ir_program program)
 {
-	u32 i = 0;
-	for (ir_function *func = program.function_list; func; func = func->next) {
-		printf("function[%d]:\n", i++);
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
+		printf("function[%ld]:\n", i);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  parameter_count: %d\n", func->parameter_count);
 		printf("  inst_index: %d\n", func->inst_index);

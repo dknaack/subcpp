@@ -85,8 +85,6 @@ typedef struct {
 
 typedef struct ir_function ir_function;
 struct ir_function {
-	ir_function *next;
-
 	str name;
 	u32 parameter_count;
 	u32 inst_index;
@@ -97,7 +95,7 @@ struct ir_function {
 
 typedef struct {
 	ir_inst *insts;
-	ir_function *function_list;
+	ir_function *functions;
 
 	u32 register_count;
 	u32 function_count;
