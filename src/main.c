@@ -113,17 +113,17 @@ main(int argc, char *argv[])
 	ast_pool pool = parse(&pc, arena);
 	printf("parsing done\n");
 
-	symbol_table symbol_table = check(&pool, arena);
+	semantic_info info = check(&pool, arena);
 	printf("type checking done\n");
 
 	if (!pool.error) {
-		ir_program ir_program = translate(&pool, &symbol_table, arena);
+		ir_program ir_program = translate(&pool, &info, arena);
 		print_ir_program(ir_program);
 		optimize(ir_program, arena);
 		print_ir_program(ir_program);
 
 		machine_program machine_program = x86_select_instructions(ir_program, arena);
-		machine_program.symtab = &symbol_table;
+		machine_program.info = &info;
 		allocation_info *info = allocate_registers(machine_program, arena);
 		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
 		x86_generate(&out, machine_program, info);

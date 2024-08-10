@@ -778,7 +778,7 @@ x86_select_instructions(ir_program program, arena *arena)
 }
 
 static void
-x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
+x86_emit_operand(stream *out, machine_operand operand, semantic_info *info)
 {
 	x86_register reg;
 
@@ -808,21 +808,21 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 	case MOP_GLOBAL:
 		{
 			ast_id node_id = {operand.value};
-			switch (symtab->kind[node_id.value]) {
-			case SYM_DECL:
+			switch (info->kind[node_id.value]) {
+			case INFO_DECL:
 				{
-					decl_symbol *sym = get_decl_symbol(*symtab, node_id);
+					decl_info *sym = get_decl_info(*info, node_id);
 					if (equals(sym->name, S("wait"))) {
 						stream_print(out, "_wait");
 					} else {
 						stream_prints(out, sym->name);
 					}
 				} break;
-			case SYM_STRING:
+			case INFO_STRING:
 				{
 					stream_print(out, "str#");
-					symbol_id sym_id = symtab->symbols[node_id.value];
-					stream_printu(out, sym_id.value);
+					info_id node_info = info->of[node_id.value];
+					stream_printu(out, node_info.value);
 				} break;
 			default:
 				ASSERT(!"Invalid symbol");
@@ -861,7 +861,7 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 	case MOP_FUNC:
 		{
 			ast_id node_id = {operand.value};
-			decl_symbol *sym = get_decl_symbol(*symtab, node_id);
+			decl_info *sym = get_decl_info(*info, node_id);
 			if (equals(sym->name, S("wait"))) {
 				stream_print(out, "_wait");
 			} else {
@@ -897,8 +897,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 	stream_print(out, "\n");
 
-	for (u32 i = 0; i < program.symtab->decl_count; i++) {
-		decl_symbol *sym = &program.symtab->decls[i];
+	for (u32 i = 0; i < program.info->decl_count; i++) {
+		decl_info *sym = &program.info->decls[i];
 		if (sym->is_function && sym->linkage != LINK_STATIC) {
 			if (sym->linkage == LINK_EXTERN || sym->definition.value == 0) {
 				stream_print(out, "extern ");
@@ -911,8 +911,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 		}
 	}
 
-	for (u32 i = 1; i < program.symtab->string_count; i++) {
-		str sym = program.symtab->strings[i];
+	for (u32 i = 1; i < program.info->string_count; i++) {
+		str sym = program.info->strings[i];
 		stream_print(out, "str#");
 		stream_printu(out, i);
 		stream_print(out, ": db \"");
@@ -931,8 +931,8 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 	}
 
 	stream_print(out, "\nsection .bss\n");
-	for (u32 i = 0; i < program.symtab->decl_count; i++) {
-		decl_symbol *sym = &program.symtab->decls[i];
+	for (u32 i = 0; i < program.info->decl_count; i++) {
+		decl_info *sym = &program.info->decls[i];
 		if (sym->is_global && sym->linkage != LINK_EXTERN && !sym->is_function) {
 			stream_print(out, "\t");
 			stream_prints(out, sym->name);
@@ -954,7 +954,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.symtab);
+				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
 				stream_print(out, "\n");
 				used_volatile_register_count++;
 			}
@@ -1003,7 +1003,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 					"\tcall printf wrt ..plt\n");
 			} else if (opcode == X86_LABEL) {
 				stream_print(out, ".L");
-				x86_emit_operand(out, operands[0], program.symtab);
+				x86_emit_operand(out, operands[0], program.info);
 				stream_print(out, ":\n");
 			} else if (opcode == X86_RET) {
 				stream_print(out, "\tjmp .exit\n");
@@ -1019,9 +1019,9 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 				{
 					machine_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
 					stream_print(out, "\tmov ");
-					x86_emit_operand(out, rax, program.symtab);
+					x86_emit_operand(out, rax, program.info);
 					stream_print(out, ", ");
-					x86_emit_operand(out, operands[1], program.symtab);
+					x86_emit_operand(out, operands[1], program.info);
 					operands[1] = rax;
 					stream_print(out, "\n");
 				}
@@ -1038,7 +1038,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 						stream_print(out, ", ");
 					}
 
-					x86_emit_operand(out, operands[j], program.symtab);
+					x86_emit_operand(out, operands[j], program.info);
 				}
 
 				stream_print(out, "\n");
@@ -1057,7 +1057,7 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 			u32 mreg = x86_preserved_regs[j];
 			if (info[function_index].used[mreg]) {
 				stream_print(out, "\tpop ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.symtab);
+				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
 				stream_print(out, "\n");
 			}
 		}

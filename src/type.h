@@ -8,31 +8,31 @@ typedef enum {
 	LINK_STATIC,
 } linkage;
 
-typedef struct symbol_id {
+typedef struct info_id {
 	i32 value;
-} symbol_id;
+} info_id;
 
 typedef enum {
-	SYM_NONE,
-	SYM_CASE,
-	SYM_DECL,
-	SYM_LABEL,
-	SYM_SWITCH,
-	SYM_STRING,
-} symbol_kind;
+	INFO_NONE,
+	INFO_CASE,
+	INFO_DECL,
+	INFO_LABEL,
+	INFO_SWITCH,
+	INFO_STRING,
+} info_kind;
 
-typedef struct case_symbol case_symbol;
-struct case_symbol {
-	case_symbol *next;
+typedef struct case_info case_info;
+struct case_info {
+	case_info *next;
 	ast_id case_id;
 	u32 label;
 };
 
 typedef struct {
-	case_symbol *first;
-	case_symbol *last;
+	case_info *first;
+	case_info *last;
 	ast_id default_case;
-} switch_symbol;
+} switch_info;
 
 typedef struct {
 	str name;
@@ -41,24 +41,24 @@ typedef struct {
 	linkage linkage;
 	b8 is_global;
 	b8 is_function;
-} decl_symbol;
+} decl_info;
 
 typedef struct {
-	symbol_id *symbols;
-	symbol_kind *kind;
+	info_id *of;
+	info_kind *kind;
 
 	u32 *labels;
 	str *strings;
-	decl_symbol *decls;
-	case_symbol *cases;
-	switch_symbol *switches;
+	decl_info *decls;
+	case_info *cases;
+	switch_info *switches;
 
 	isize decl_count;
 	isize switch_count;
 	isize case_count;
 	isize label_count;
 	isize string_count;
-} symbol_table;
+} semantic_info;
 
 typedef enum {
 	TYPE_UNKNOWN,
@@ -295,46 +295,46 @@ get_member(member *list, str key)
 	return NULL;
 }
 
-static decl_symbol *
-get_decl_symbol(symbol_table symtab, ast_id node_id)
+static decl_info *
+get_decl_info(semantic_info info, ast_id node_id)
 {
-	ASSERT(symtab.kind[node_id.value] == SYM_DECL);
-	symbol_id sym_id = symtab.symbols[node_id.value];
+	ASSERT(info.kind[node_id.value] == INFO_DECL);
+	info_id sym_id = info.of[node_id.value];
 
-	ASSERT(sym_id.value < symtab.decl_count);
-	decl_symbol *symbol = &symtab.decls[sym_id.value];
-	return symbol;
+	ASSERT(sym_id.value < info.decl_count);
+	decl_info *decl = &info.decls[sym_id.value];
+	return decl;
 }
 
-static switch_symbol *
-get_switch_symbol(symbol_table symtab, ast_id node_id)
+static switch_info *
+get_switch_info(semantic_info info, ast_id node_id)
 {
-	ASSERT(symtab.kind[node_id.value] == SYM_SWITCH);
-	symbol_id sym_id = symtab.symbols[node_id.value];
+	ASSERT(info.kind[node_id.value] == INFO_SWITCH);
+	info_id sym_id = info.of[node_id.value];
 
-	ASSERT(sym_id.value < symtab.switch_count);
-	switch_symbol *symbol = &symtab.switches[sym_id.value];
-	return symbol;
+	ASSERT(sym_id.value < info.switch_count);
+	switch_info *_switch = &info.switches[sym_id.value];
+	return _switch;
 }
 
-static case_symbol *
-get_case_symbol(symbol_table symtab, ast_id node_id)
+static case_info *
+get_case_info(semantic_info info, ast_id node_id)
 {
-	ASSERT(symtab.kind[node_id.value] == SYM_CASE);
-	symbol_id sym_id = symtab.symbols[node_id.value];
+	ASSERT(info.kind[node_id.value] == INFO_CASE);
+	info_id sym_id = info.of[node_id.value];
 
-	ASSERT(sym_id.value < symtab.case_count);
-	case_symbol *symbol = &symtab.cases[sym_id.value];
-	return symbol;
+	ASSERT(sym_id.value < info.case_count);
+	case_info *_case = &info.cases[sym_id.value];
+	return _case;
 }
 
 static str *
-get_string_symbol(symbol_table symtab, ast_id node_id)
+get_string_info(semantic_info info, ast_id node_id)
 {
-	ASSERT(symtab.kind[node_id.value] == SYM_STRING);
-	symbol_id sym_id = symtab.symbols[node_id.value];
+	ASSERT(info.kind[node_id.value] == INFO_STRING);
+	info_id sym_id = info.of[node_id.value];
 
-	ASSERT(sym_id.value < symtab.string_count);
-	str *symbol = &symtab.strings[sym_id.value];
-	return symbol;
+	ASSERT(sym_id.value < info.string_count);
+	str *s = &info.strings[sym_id.value];
+	return s;
 }

@@ -760,7 +760,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 }
 
 static void
-check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id switch_id, arena *perm)
+check_switch_stmt(ast_pool *pool, ast_id node_id, semantic_info info, ast_id switch_id, arena *perm)
 {
 	if (node_id.value == 0) {
 		return;
@@ -776,26 +776,26 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 	case AST_STMT_IF2:
 	case AST_STMT_WHILE:
 	case AST_EXTERN_DEF:
-		check_switch_stmt(pool, node->child[0], symtab, switch_id, perm);
-		check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
+		check_switch_stmt(pool, node->child[0], info, switch_id, perm);
+		check_switch_stmt(pool, node->child[1], info, switch_id, perm);
 		break;
 	case AST_LIST:
 		while (node_id.value != 0) {
 			ast_node *node = get_node(pool, node_id);
-			check_switch_stmt(pool, node->child[0], symtab, switch_id, perm);
+			check_switch_stmt(pool, node->child[0], info, switch_id, perm);
 			node_id = node->child[1];
 		}
 
 		break;
 	case AST_STMT_SWITCH:
-		check_switch_stmt(pool, node->child[1], symtab, node_id, perm);
+		check_switch_stmt(pool, node->child[1], info, node_id, perm);
 		break;
 	case AST_STMT_CASE:
 		if (switch_id.value == 0) {
 			errorf(node->token.loc, "case outside switch");
 		} else {
-			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
-			case_symbol *case_sym = get_case_symbol(symtab, node_id);
+			switch_info *switch_sym = get_switch_info(info, switch_id);
+			case_info *case_sym = get_case_info(info, node_id);
 			case_sym->case_id = node_id;
 
 			if (switch_sym->last) {
@@ -804,51 +804,51 @@ check_switch_stmt(ast_pool *pool, ast_id node_id, symbol_table symtab, ast_id sw
 				switch_sym->first = switch_sym->last = case_sym;
 			}
 
-			check_switch_stmt(pool, node->child[1], symtab, switch_id, perm);
+			check_switch_stmt(pool, node->child[1], info, switch_id, perm);
 		} break;
 	case AST_STMT_DEFAULT:
 		if (switch_id.value == 0) {
 			errorf(node->token.loc, "default outside switch");
 		} else {
-			switch_symbol *switch_sym = get_switch_symbol(symtab, switch_id);
+			switch_info *switch_sym = get_switch_info(info, switch_id);
 			if (switch_sym->default_case.value != 0) {
 				errorf(node->token.loc, "Duplicate default label");
 			}
 
 			switch_sym->default_case = node_id;
-			check_switch_stmt(pool, node->child[0], symtab, switch_id, perm);
+			check_switch_stmt(pool, node->child[0], info, switch_id, perm);
 		} break;
 	default:
 		break;
 	}
 }
 
-static symbol_table
+static semantic_info
 check(ast_pool *pool, arena *perm)
 {
-	symbol_table symtab = {0};
-	symtab.symbols = ALLOC(perm, pool->size, symbol_id);
-	symtab.kind = ALLOC(perm, pool->size, symbol_kind);
-	symtab.switch_count = 1;
-	symtab.decl_count = 1;
-	symtab.case_count = 1;
-	symtab.label_count = 1;
-	symtab.string_count = 1;
+	semantic_info info = {0};
+	info.of = ALLOC(perm, pool->size, info_id);
+	info.kind = ALLOC(perm, pool->size, info_kind);
+	info.switch_count = 1;
+	info.decl_count = 1;
+	info.case_count = 1;
+	info.label_count = 1;
+	info.string_count = 1;
 
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		switch (node->kind) {
 		case AST_STMT_SWITCH:
-			symtab.symbols[i].value = symtab.switch_count++;
-			symtab.kind[i] = SYM_SWITCH;
+			info.of[i].value = info.switch_count++;
+			info.kind[i] = INFO_SWITCH;
 			break;
 		case AST_STMT_CASE:
-			symtab.symbols[i].value = symtab.case_count++;
-			symtab.kind[i] = SYM_CASE;
+			info.of[i].value = info.case_count++;
+			info.kind[i] = INFO_CASE;
 			break;
 		case AST_STMT_LABEL:
-			symtab.symbols[i].value = symtab.label_count++;
-			symtab.kind[i] = SYM_LABEL;
+			info.of[i].value = info.label_count++;
+			info.kind[i] = INFO_LABEL;
 			break;
 		case AST_TYPE_STRUCT:
 			if (node->token.value.at == NULL || node->child[0].value == 0) {
@@ -860,15 +860,15 @@ check(ast_pool *pool, arena *perm)
 		case AST_ENUMERATOR:
 		case AST_DECL:
 			if (!(node->flags & AST_TYPEDEF)) {
-				symtab.symbols[i].value = symtab.decl_count++;
-				symtab.kind[i] = SYM_DECL;
+				info.of[i].value = info.decl_count++;
+				info.kind[i] = INFO_DECL;
 			}
 
 			break;
 		case AST_EXPR_LITERAL:
 			if (node->token.kind == TOKEN_LITERAL_STRING) {
-				symtab.symbols[i].value = symtab.string_count++;
-				symtab.kind[i] = SYM_STRING;
+				info.of[i].value = info.string_count++;
+				info.kind[i] = INFO_STRING;
 			}
 			break;
 		default:
@@ -876,17 +876,17 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
-	symtab.labels   = ALLOC(perm, symtab.label_count, u32);
-	symtab.strings  = ALLOC(perm, symtab.string_count, str);
-	symtab.decls    = ALLOC(perm, symtab.decl_count, decl_symbol);
-	symtab.cases    = ALLOC(perm, symtab.case_count, case_symbol);
-	symtab.switches = ALLOC(perm, symtab.switch_count, switch_symbol);
+	info.labels   = ALLOC(perm, info.label_count, u32);
+	info.strings  = ALLOC(perm, info.string_count, str);
+	info.decls    = ALLOC(perm, info.decl_count, decl_info);
+	info.cases    = ALLOC(perm, info.case_count, case_info);
+	info.switches = ALLOC(perm, info.switch_count, switch_info);
 
 	// NOTE: Check labels, ensure that no label is defined twice and merge
 	// gotos with their corresponding label.
-	if (symtab.label_count > 1) {
+	if (info.label_count > 1) {
 		arena_temp temp = arena_temp_begin(perm);
-		ast_id *label_id = ALLOC(perm, symtab.label_count, ast_id);
+		ast_id *label_id = ALLOC(perm, info.label_count, ast_id);
 		for (isize i = 1; i < pool->size; i++) {
 			isize j = i;
 			isize l = 0;
@@ -918,12 +918,12 @@ check(ast_pool *pool, arena *perm)
 				for (isize k = 0; k < l; k++) {
 					ast_node *label_node = &pool->nodes[label_id[k].value];
 					if (equals(label_node->token.value, node->token.value)) {
-						symtab.symbols[j] = symtab.symbols[label_id[k].value];
+						info.of[j] = info.of[label_id[k].value];
 						break;
 					}
 				}
 
-				if (symtab.symbols[j].value == 0) {
+				if (info.of[j].value == 0) {
 					errorf(node->token.loc, "No label was found");
 				}
 			}
@@ -974,13 +974,13 @@ check(ast_pool *pool, arena *perm)
 			}
 
 			ast_id node_id = {i};
-			str *sym = get_string_symbol(symtab, node_id);
+			str *sym = get_string_info(info, node_id);
 			*sym = unescaped;
 		}
 	}
 
 	// NOTE: Collect all switch statements.
-	check_switch_stmt(pool, pool->root, symtab, ast_id_nil, perm);
+	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
 	check_type(pool, pool->root, perm);
 
 	// Add global symbols to the symbol table
@@ -991,7 +991,7 @@ check(ast_pool *pool, arena *perm)
 			type *node_type = get_type(pool, node_id);
 			ASSERT(node_type->kind != TYPE_UNKNOWN);
 
-			decl_symbol *sym = get_decl_symbol(symtab, node_id);
+			decl_info *sym = get_decl_info(info, node_id);
 			sym->name = node->token.value;
 			sym->type = node_type;
 			sym->is_global = true;
@@ -1007,5 +1007,5 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
-	return symtab;
+	return info;
 }

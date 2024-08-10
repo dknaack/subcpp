@@ -49,7 +49,7 @@ typedef struct {
 
 typedef struct {
 	void *code;
-	symbol_table *symtab;
+	semantic_info *info;
 	machine_function *functions;
 	machine_register_info register_info;
 

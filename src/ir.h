@@ -105,7 +105,7 @@ typedef struct {
 
 typedef struct {
 	ir_program *program;
-	symbol_table *symtab;
+	semantic_info *info;
 	arena *arena;
 
 	u32 *symbol_registers;
