@@ -897,171 +897,162 @@ x86_generate(stream *out, machine_program program, allocation_info *info)
 
 	stream_print(out, "\n");
 
-	for (u32 i = 0; i < program.info->decl_count; i++) {
-		decl_info *sym = &program.info->decls[i];
-		if (sym->is_function && sym->linkage != LINK_STATIC) {
-			if (sym->linkage == LINK_EXTERN || sym->definition.value == 0) {
-				stream_print(out, "extern ");
-			} else {
-				stream_print(out, "global ");
-			}
+	symbol_table *symtab = NULL;
+	for (isize i = 0; i < symtab->symbol_count; i++) {
+		symbol *sym = &symtab->symbols[i];
 
+		if (i == symtab->text_offset) {
+				stream_print(out, "section .text\n");
+		} else if (i == symtab->data_offset) {
+				stream_print(out, "section .data\n");
+		} else if (i == symtab->rodata_offset) {
+				stream_print(out, "section .rodata\n");
+		} else if (i == symtab->bss_offset) {
+				stream_print(out, "section .bss\n");
+		}
+
+		if (sym->linkage == LINK_STATIC) {
+			stream_print(out, "static ");
 			stream_prints(out, sym->name);
-			stream_print(out, "\n");
-		}
-	}
-
-	for (u32 i = 1; i < program.info->string_count; i++) {
-		str sym = program.info->strings[i];
-		stream_print(out, "str#");
-		stream_printu(out, i);
-		stream_print(out, ": db \"");
-		for (isize j = 0; j < sym.length; j++) {
-			b32 is_printable = (0x20 <= sym.at[j] && sym.at[j] < 0x7F);
-			if (is_printable && sym.at[j] != '"') {
-				stream_write(out, sym.at[j]);
-			} else {
-				stream_print(out, "\", ");
-				stream_print_hex(out, sym.at[j]);
-				stream_print(out, ", \"");
-			}
-		}
-
-		stream_print(out, "\", 0x0\n");
-	}
-
-	stream_print(out, "\nsection .bss\n");
-	for (u32 i = 0; i < program.info->decl_count; i++) {
-		decl_info *sym = &program.info->decls[i];
-		if (sym->is_global && sym->linkage != LINK_EXTERN && !sym->is_function) {
-			stream_print(out, "\t");
+		} else if (sym->linkage == LINK_EXTERN) {
+			stream_print(out, "extern ");
 			stream_prints(out, sym->name);
-			stream_print(out, " resb ");
-			u32 size = type_sizeof(sym->type);
-			stream_printu(out, size);
-			stream_print(out, "\n");
-		}
-	}
-
-	stream_print(out, "\nsection .text\n");
-	for (u32 function_index = 0; function_index < program.function_count; function_index++) {
-		machine_function *function = &program.functions[function_index];
-		stream_prints(out, function->name);
-		stream_print(out, ":\n");
-
-		u32 used_volatile_register_count = 0;
-		for (u32 j = 0; j < LENGTH(x86_preserved_regs); j++) {
-			u32 mreg = x86_preserved_regs[j];
-			if (info[function_index].used[mreg]) {
-				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
-				stream_print(out, "\n");
-				used_volatile_register_count++;
-			}
 		}
 
-		u32 stack_size = function->stack_size;
-		stack_size += 8 * info[function_index].spill_count;
+		if (symtab->text_offset <= i && i < symtab->data_offset) {
+			// NOTE: Inside text section, symbols contain x86 instructions
+			stream_prints(out, sym->name);
+			stream_print(out, ":\n");
 
-		u32 total_stack_size = (stack_size + 8 * used_volatile_register_count);
-		b32 stack_is_aligned = ((total_stack_size & 15) == 8);
-		if (!stack_is_aligned) {
-			stack_size += 24 - (total_stack_size & 15);
-		}
-
-		if (stack_size > 0) {
-			stream_print(out, "\tsub rsp, ");
-			stream_printu(out, stack_size);
-			stream_print(out, "\n");
-		}
-
-		// Convert label instruction indices back to label indices
-		char *code = (char *)program.code;
-		for (u32 i = 0; i < function->inst_count; i++) {
-			machine_inst *inst = (machine_inst *)(code + function->inst_offsets[i]);
-			machine_operand *operands = (machine_operand *)(inst + 1);
-
-			for (u32 j = 0; j < inst->operand_count; j++) {
-				if (operands[j].kind == MOP_LABEL) {
-					isize label_offset = function->inst_offsets[operands[j].value];
-					machine_inst *label = (machine_inst *)(code + label_offset);
-					machine_operand *label_index = (machine_operand *)(label + 1);
-					operands[j].value = label_index->value;
+			isize function_index = i - symtab->text_offset;
+			isize used_volatile_register_count = 0;
+			for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
+				u32 mreg = x86_preserved_regs[j];
+				if (info[function_index].used[mreg]) {
+					stream_print(out, "\tpush ");
+					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
+					stream_print(out, "\n");
+					used_volatile_register_count++;
 				}
 			}
-		}
 
-		for (u32 i = 0; i < function->inst_count; i++) {
-			machine_inst *inst = get_inst(program.code, function->inst_offsets, i);
-			machine_operand *operands = (machine_operand *)(inst + 1);
-			x86_opcode opcode = (x86_opcode)inst->opcode;
-			u32 operand_count = inst->operand_count;
+			// TODO: Set function stack size
+			ASSERT(!"TODO");
+			machine_inst *first_inst = (machine_inst *)sym->data;
+			isize stack_size = 0;
+			if (first_inst->opcode == X86_SUB) {
+				machine_operand *operands = (machine_operand *)(first_inst + 1);
+				if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
+					ASSERT(operands[1].kind == MOP_IMMEDIATE);
+					stack_size = operands[1].value;
 
-			if (opcode == X86_PRINT) {
-				stream_print(out,
-					"\tmov rdi, fmt\n"
-					"\tcall printf wrt ..plt\n");
-			} else if (opcode == X86_LABEL) {
-				stream_print(out, ".L");
-				x86_emit_operand(out, operands[0], program.info);
-				stream_print(out, ":\n");
-			} else if (opcode == X86_RET) {
-				stream_print(out, "\tjmp .exit\n");
-			} else {
-				if (opcode == X86_MOV || opcode == X86_MOVSS) {
-					if  (equals_operand(operands[0], operands[1])) {
-						continue;
+					stack_size += 8 * info[function_index].spill_count;
+					stack_size += used_volatile_register_count;
+					b32 is_stack_aligned = ((stack_size & 15) == 8);
+					if (!is_stack_aligned) {
+						stack_size += 24 - (stack_size & 15);
 					}
-				}
 
-				if (operands[0].kind == MOP_SPILL
-					&& operands[1].kind == MOP_SPILL)
-				{
-					machine_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
-					stream_print(out, "\tmov ");
-					x86_emit_operand(out, rax, program.info);
-					stream_print(out, ", ");
-					x86_emit_operand(out, operands[1], program.info);
-					operands[1] = rax;
+					operands[1].value = stack_size;
+				}
+			}
+
+			char *code = (char *)sym->data;
+			isize size = sym->size;
+			while (size > 0) {
+				machine_inst *inst = (machine_inst *)code;
+				machine_operand *operands = (machine_operand *)(inst + 1);
+				isize operand_count = inst->operand_count;
+				isize inst_size = sizeof(*inst) + operand_count * sizeof(*operands);
+
+				x86_opcode opcode = (x86_opcode)inst->opcode;
+				if (opcode == X86_PRINT) {
+					stream_print(out,
+						"\tmov rdi, fmt\n"
+						"\tcall printf wrt ..plt\n");
+				} else if (opcode == X86_LABEL) {
+					stream_print(out, ".L");
+					x86_emit_operand(out, operands[0], program.info);
+					stream_print(out, ":\n");
+				} else if (opcode == X86_RET) {
+					stream_print(out, "\tjmp .exit\n");
+				} else {
+					if (opcode == X86_MOV || opcode == X86_MOVSS) {
+						if  (equals_operand(operands[0], operands[1])) {
+							continue;
+						}
+					}
+
+					b32 both_spill = (operands[0].kind == MOP_SPILL
+						&& operands[1].kind == MOP_SPILL);
+					if (both_spill) {
+						machine_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
+						stream_print(out, "\tmov ");
+						x86_emit_operand(out, rax, program.info);
+						stream_print(out, ", ");
+						x86_emit_operand(out, operands[1], program.info);
+						operands[1] = rax;
+						stream_print(out, "\n");
+					}
+
+					stream_print(out, "\t");
+					stream_print(out, x86_get_opcode_name(opcode));
+					stream_print(out, " ");
+					for (isize j = 0; j < operand_count; j++) {
+						if (operands[j].flags & MOP_IMPLICIT) {
+							continue;
+						}
+
+						if (j != 0) {
+							stream_print(out, ", ");
+						}
+
+						x86_emit_operand(out, operands[j], program.info);
+					}
+
 					stream_print(out, "\n");
 				}
 
-				stream_print(out, "\t");
-				stream_print(out, x86_get_opcode_name(opcode));
-				stream_print(out, " ");
-				for (u32 j = 0; j < operand_count; j++) {
-					if (operands[j].flags & MOP_IMPLICIT) {
-						continue;
-					}
+				size -= inst_size;
+				code += inst_size;
+			}
 
-					if (j != 0) {
-						stream_print(out, ", ");
-					}
+			stream_print(out, ".exit:\n");
+			if (stack_size > 0) {
+				stream_print(out, "\tadd rsp, ");
+				stream_printu(out, stack_size);
+				stream_print(out, "\n");
+			}
 
-					x86_emit_operand(out, operands[j], program.info);
+			u32 j = LENGTH(x86_preserved_regs);
+			while (j-- > 0) {
+				u32 mreg = x86_preserved_regs[j];
+				if (info[function_index].used[mreg]) {
+					stream_print(out, "\tpop ");
+					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
+					stream_print(out, "\n");
+				}
+			}
+
+			stream_print(out, "\tret\n\n");
+		} else if (i < symtab->bss_offset) {
+			// NOTE: Inside data or rodata section, symbols contain byte data
+			stream_prints(out, sym->name);
+			stream_print(out, ": db ");
+
+			char *byte = sym->data;
+			for (isize i = 0; i < sym->size; i++) {
+				if (i != 0) {
+					stream_print(out, ", ");
 				}
 
-				stream_print(out, "\n");
+				stream_print_hex(out, byte[i]);
 			}
+		} else {
+			// NOTE; Inside bss section, symbols have no data
+			stream_prints(out, sym->name);
+			stream_print(out, " resb ");
+			stream_print_hex(out, sym->size);
 		}
-
-		stream_print(out, ".exit:\n");
-		if (stack_size > 0) {
-			stream_print(out, "\tadd rsp, ");
-			stream_printu(out, stack_size);
-			stream_print(out, "\n");
-		}
-
-		u32 j = LENGTH(x86_preserved_regs);
-		while (j-- > 0) {
-			u32 mreg = x86_preserved_regs[j];
-			if (info[function_index].used[mreg]) {
-				stream_print(out, "\tpop ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.info);
-				stream_print(out, "\n");
-			}
-		}
-
-		stream_print(out, "\tret\n\n");
 	}
 }
