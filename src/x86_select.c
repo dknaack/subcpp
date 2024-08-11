@@ -776,5 +776,3 @@ x86_select(ir_program program, arena *arena)
 
 	return out;
 }
-
-
