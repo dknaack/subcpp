@@ -963,7 +963,6 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	ctx.program = &program;
 	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
-	ctx.symbol_registers = ALLOC(arena, info->decl_count, u32);
 	ctx.info = info;
 
 	translate_node(&ctx, pool, pool->root, false);
