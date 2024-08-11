@@ -449,18 +449,8 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			if (equals(node->token.value, S("__builtin_popcount"))) {
-				member *param = ALLOC(arena, 1, member);
-				param->name = S("x");
-				param->type = type_create(TYPE_INT, arena);
-
-				node_type->kind = TYPE_FUNCTION;
-				node_type->members = param;
-				node_type->base_type = param->type;
-			} else {
-				type *ref_type = get_type(pool, node->child[0]);
-				memcpy(node_type, ref_type, sizeof(*node_type));
-			}
+			type *ref_type = get_type(pool, node->child[0]);
+			memcpy(node_type, ref_type, sizeof(*node_type));
 		} break;
 	case AST_EXPR_LITERAL:
 		{
