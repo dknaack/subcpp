@@ -3,6 +3,7 @@ typedef enum {
 
 	// declarations
 	IR_ALLOC,
+	IR_BUILTIN,
 	IR_CONST,
 	IR_GLOBAL,
 	IR_LABEL,
@@ -122,23 +123,6 @@ typedef struct {
 	u32 break_label;
 	u32 case_label;
 } ir_context;
-
-typedef struct {
-	linkage linkage;
-	str name;
-	void *data;
-	isize size;
-} symbol;
-
-typedef struct {
-	symbol *symbols;
-
-	isize symbol_count;
-	isize text_offset;
-	isize data_offset;
-	isize rodata_offset;
-	isize bss_offset;
-} symbol_table;
 
 static b32
 is_comparison_opcode(ir_opcode ir_opcode)

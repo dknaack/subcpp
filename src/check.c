@@ -932,10 +932,73 @@ check(ast_pool *pool, arena *perm)
 		arena_temp_end(temp);
 	}
 
-	// NOTE: Collect all strings.
+	// NOTE: Gather symbol information
+	symbol_table symtab = {0};
+	isize symbol_count = 0;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
-		if (node->token.kind == TOKEN_LITERAL_STRING) {
+		switch (node->kind) {
+		case AST_EXTERN_DEF:
+			symbol_count++;
+			break;
+		case AST_EXPR_LITERAL:
+			if (node->token.kind == TOKEN_LITERAL_FLOAT
+				|| node->token.kind == TOKEN_LITERAL_STRING)
+			{
+				symbol_count++;
+			}
+
+			break;
+		default:
+			break;
+		}
+	}
+
+	symtab.symbols = ALLOC(perm, symbol_count, symbol);
+
+	// NOTE: Collect extern functions
+	isize symbol_index = 0;
+	for (isize i = 1; i < pool->size; i++) {
+	}
+
+	// NOTE: Collect function definitions
+	symtab.text_offset = symbol_index;
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		type *type = &pool->types[i];
+		if (node->kind == AST_EXTERN_DEF
+			&& type->kind == TYPE_FUNCTION
+			&& node->child[1].value != 0)
+		{
+			info.of[i].value = symbol_index;
+			symbol *sym = &symtab.symbols[symbol_index++];
+			sym->name = node->token.value;
+		}
+	}
+
+
+	// NOTE: Collect global initialized variables
+	symtab.data_offset = symbol_index;
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		type *type = &pool->types[i];
+		if (node->kind == AST_EXTERN_DEF
+			&& type->kind != TYPE_FUNCTION
+			&& node->child[1].value != 0)
+		{
+			info.of[i].value = symbol_index;
+			symbol *sym = &symtab.symbols[symbol_index++];
+			sym->name = node->token.value;
+			sym->data = NULL; // TODO: Translate value into memory
+		}
+	}
+
+	// NOTE: Collect constants
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		if (node->token.kind == TOKEN_LITERAL_FLOAT) {
+			ASSERT(!"TODO");
+		} else if (node->token.kind == TOKEN_LITERAL_STRING) {
 			str escaped = node->token.value;
 			str unescaped = {0};
 			unescaped.at = ALLOC(perm, escaped.length, char);
@@ -973,39 +1036,33 @@ check(ast_pool *pool, arena *perm)
 				}
 			}
 
-			ast_id node_id = {i};
-			str *sym = get_string_info(info, node_id);
-			*sym = unescaped;
+			info.of[i].value = symbol_index;
+			symbol *sym = &symtab.symbols[symbol_index++];
+			sym->name = node->token.value;
+			sym->data = unescaped.at;
+			sym->size = unescaped.length;
+		}
+	}
+
+	// NOTE: Collect global uninitialized variables
+	symtab.rodata_offset = symbol_index;
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		type *type = &pool->types[i];
+		if (node->kind == AST_EXTERN_DEF
+			&& type->kind != TYPE_FUNCTION
+			&& node->child[1].value == 0)
+		{
+			info.of[i].value = symbol_index;
+			symbol *sym = &symtab.symbols[symbol_index++];
+			sym->name = node->token.value;
+			sym->data = NULL; // TODO: Translate value into memory
 		}
 	}
 
 	// NOTE: Collect all switch statements.
 	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
 	check_type(pool, pool->root, perm);
-
-	// Add global symbols to the symbol table
-	for (isize i = 0; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)) {
-			ast_id node_id = {i};
-			type *node_type = get_type(pool, node_id);
-			ASSERT(node_type->kind != TYPE_UNKNOWN);
-
-			decl_info *sym = get_decl_info(info, node_id);
-			sym->name = node->token.value;
-			sym->type = node_type;
-			sym->is_global = true;
-			sym->is_function = (node_type->kind == TYPE_FUNCTION);
-			sym->definition = node->child[1];
-
-			sym->linkage = LINK_DEFAULT;
-			if (node->flags & AST_EXTERN) {
-				sym->linkage = LINK_EXTERN;
-			} else if (node->flags & AST_STATIC) {
-				sym->linkage = LINK_STATIC;
-			}
-		}
-	}
 
 	return info;
 }

@@ -123,7 +123,7 @@ main(int argc, char *argv[])
 		print_ir_program(ir_program);
 
 		machine_program machine_program = x86_select_instructions(ir_program, arena);
-		machine_program.info = &info;
+		machine_program.symtab = &info.symtab;
 		allocation_info *info = allocate_registers(machine_program, arena);
 		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
 		x86_generate(&out, machine_program, info);

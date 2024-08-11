@@ -45,8 +45,6 @@ ir_emit_alloca(ir_context *ctx, u32 size)
 	return result;
 }
 
-static u32 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue);
-
 static void
 ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 {
@@ -132,6 +130,8 @@ parse_char(str input)
 	return result;
 }
 
+static u32 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue);
+
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
@@ -177,10 +177,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	switch (node->kind) {
 	case AST_INVALID:
 	case AST_INIT: // Should be handled in DECL
-	case AST_STMT_IF2:
-	case AST_STMT_FOR2:
-	case AST_STMT_FOR3:
-	case AST_EXPR_TERNARY2:
 		{
 			ASSERT(!"Invalid node");
 		} break;
@@ -463,18 +459,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			switch (node->token.kind) {
 			case TOKEN_LITERAL_STRING:
+			case TOKEN_LITERAL_FLOAT:
 				{
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_id.value);
+					info_id node_info = ctx->info->of[node_id.value];
+					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
 				} break;
 			case TOKEN_LITERAL_INT:
 				{
 					i64 value = parse_i64(node->token.value);
 					result = ir_emit1(ctx, IR_I32, IR_CONST, value);
-				} break;
-			case TOKEN_LITERAL_FLOAT:
-				{
-					f64 value = parse_f64(node->token.value);
-					result = ir_emit1(ctx, IR_F32, IR_CONST, value);
 				} break;
 			case TOKEN_LITERAL_CHAR:
 				{
@@ -583,6 +576,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
 		} break;
+	case AST_EXPR_TERNARY2:
+		ASSERT(!"Should have been handled by TERNARY1");
+		break;
 	case AST_EXPR_POSTFIX:
 		{
 			token_kind operator = node->token.kind;
@@ -638,9 +634,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->continue_label);
 		} break;
 	case AST_STMT_DEFAULT:
-		{
-			// NOTE: Handled by switch statement
-		} break;
+		ASSERT(!"Should have been handled by SWITCH");
+		break;
 	case AST_STMT_DO_WHILE:
 		{
 			ir_context new_ctx = *ctx;
@@ -673,8 +668,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			if (!is_initialized) {
 				b32 is_builtin = false;
 				if (sym->is_global) {
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_id.value);
-					ctx->symbol_registers[node_info.value] = node_info.value;
+					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
+					ctx->symbol_registers[node_id.value] = node_info.value;
 
 					type *node_type = get_type(pool, node_id);
 					if (node_type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
@@ -757,7 +752,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (sym->is_global) {
-				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_id.value);
+				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
 			}
 
 			type *node_type = get_type(pool, node_id);
@@ -799,6 +794,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(ctx, IR_VOID, IR_JMP, cond_label);
 			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
 		} break;
+	case AST_STMT_FOR2:
+	case AST_STMT_FOR3:
+		ASSERT(!"Should have been handled by FOR1");
+		break;
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
 		{
@@ -836,6 +835,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
 		} break;
+	case AST_STMT_IF2:
+		ASSERT(!"Should have been handled by IF1");
+		break;
 	case AST_STMT_WHILE:
 		{
 			ir_context new_ctx = *ctx;
@@ -1032,6 +1034,7 @@ get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
 static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
+	// NOTE: Translate node to IR code
 	isize function_count = 0;
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
@@ -1060,6 +1063,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 
 	translate_node(&ctx, pool, pool->root, false);
 
+	// NOTE: Propagate types through the instructions
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		ir_inst *inst = program.insts + func->inst_index;

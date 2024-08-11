@@ -44,6 +44,23 @@ typedef struct {
 } decl_info;
 
 typedef struct {
+	linkage linkage;
+	str name;
+	void *data;
+	isize size;
+} symbol;
+
+typedef struct {
+	symbol *symbols;
+
+	isize symbol_count;
+	isize text_offset;
+	isize data_offset;
+	isize rodata_offset;
+	isize bss_offset;
+} symbol_table;
+
+typedef struct {
 	info_id *of;
 	info_kind *kind;
 
@@ -52,6 +69,7 @@ typedef struct {
 	decl_info *decls;
 	case_info *cases;
 	switch_info *switches;
+	symbol_table symtab;
 
 	isize decl_count;
 	isize switch_count;
