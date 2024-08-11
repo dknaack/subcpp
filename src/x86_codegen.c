@@ -83,9 +83,10 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 }
 
 static void
-x86_generate(stream *out, mach_program program, regalloc_info *info)
+x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_info *info)
 {
-	symbol_table *symtab = program.symtab;
+	(void)program;
+
 	for (isize i = 0; i < symtab->symbol_count; i++) {
 		symbol *sym = &symtab->symbols[i];
 
@@ -118,7 +119,7 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 				u32 mreg = x86_preserved_regs[j];
 				if (info[function_index].used[mreg]) {
 					stream_print(out, "\tpush ");
-					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.symtab);
+					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
 					stream_print(out, "\n");
 					used_volatile_register_count++;
 				}
@@ -156,7 +157,7 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 				x86_opcode opcode = (x86_opcode)inst->opcode;
 				if (opcode == X86_LABEL) {
 					stream_print(out, ".L");
-					x86_emit_operand(out, operands[0], program.symtab);
+					x86_emit_operand(out, operands[0], symtab);
 					stream_print(out, ":\n");
 				} else if (opcode == X86_RET) {
 					stream_print(out, "\tjmp .exit\n");
@@ -172,9 +173,9 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 					if (both_spill) {
 						mach_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
 						stream_print(out, "\tmov ");
-						x86_emit_operand(out, rax, program.symtab);
+						x86_emit_operand(out, rax, symtab);
 						stream_print(out, ", ");
-						x86_emit_operand(out, operands[1], program.symtab);
+						x86_emit_operand(out, operands[1], symtab);
 						operands[1] = rax;
 						stream_print(out, "\n");
 					}
@@ -191,7 +192,7 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 							stream_print(out, ", ");
 						}
 
-						x86_emit_operand(out, operands[j], program.symtab);
+						x86_emit_operand(out, operands[j], symtab);
 					}
 
 					stream_print(out, "\n");
@@ -213,7 +214,7 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 				u32 mreg = x86_preserved_regs[j];
 				if (info[function_index].used[mreg]) {
 					stream_print(out, "\tpop ");
-					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), program.symtab);
+					x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
 					stream_print(out, "\n");
 				}
 			}

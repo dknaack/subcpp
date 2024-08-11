@@ -107,32 +107,29 @@ main(int argc, char *argv[])
 		return 1;
 	}
 
+	// NOTE: front-end
 	arena *arena = new_arena(1024 * 1024 * 1024);
 	str src = read_file(input, arena);
 	parse_context pc = tokenize(input, src, arena);
-
 	ast_pool pool = parse(&pc, arena);
-	printf("parsing done\n");
+	semantic_info sem_info = check(&pool, arena);
+	ir_program ir_program = translate(&pool, &sem_info, arena);
+	symbol_table symtab = sem_info.symtab;
 
-	semantic_info info = check(&pool, arena);
-	printf("type checking done\n");
+	// NOTE: middle-end
+	print_ir_program(ir_program);
+	optimize(ir_program, arena);
+	print_ir_program(ir_program);
 
-	if (!pool.error) {
-		ir_program ir_program = translate(&pool, &info, arena);
-		print_ir_program(ir_program);
-		optimize(ir_program, arena);
-		print_ir_program(ir_program);
+	// NOTE: back-end
+	mach_program mach_program = x86_select_instructions(ir_program, arena);
+	regalloc_info *reg_info = regalloc(mach_program, arena);
+	stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
+	x86_generate(&out, mach_program, &symtab, reg_info);
+	stream_close(&out);
 
-		mach_program mach_program = x86_select_instructions(ir_program, arena);
-		mach_program.symtab = &info.symtab;
-		regalloc_info *info = regalloc(mach_program, arena);
-		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
-		x86_generate(&out, mach_program, info);
-		stream_close(&out);
-
-		run_assembler("/tmp/out.s", "/tmp/out.o");
-		run_linker("/tmp/out.o", output);
-	}
+	run_assembler("/tmp/out.s", "/tmp/out.o");
+	run_linker("/tmp/out.o", output);
 
 	free(arena);
 	return 0;
