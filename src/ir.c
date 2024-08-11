@@ -353,19 +353,18 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			i32 param_count = 0;
-			u32 param_register[128] = {0};
 			type *called_type = get_type(pool, node->child[0]);
-			type *return_type = called_type->base_type;
 			ASSERT(called_type->kind == TYPE_FUNCTION);
-
 			u32 called_reg = translate_node(ctx, pool, node->child[0], false);
 
 			// Make struct return value first argument
 			ir_type result_type;
+			isize param_count = 0;
+			type *return_type = called_type->base_type;
 			if (is_compound_type(return_type->kind)) {
 				isize size = type_sizeof(return_type);
-				param_register[param_count++] = ir_emit_alloca(ctx, size);
+				u32 param = ir_emit_alloca(ctx, size);
+				ir_emit2(ctx, IR_VOID, IR_PARAM, param_count++, param);
 				result_type = IR_I64;
 			} else {
 				result_type = ir_type_from(return_type);
@@ -374,24 +373,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			// Load parameters
 			ast_id param_id = node->child[1];
 			while (param_id.value != 0) {
-				ASSERT(param_count < 128);
-				ast_node *param_list = get_node(pool, param_id);
-				u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
-				type *param_type = get_type(pool, param_list->child[0]);
+				ast_node *list_node = get_node(pool, param_id);
+				u32 param = translate_node(ctx, pool, list_node->child[0], false);
+
+				type *param_type = get_type(pool, list_node->child[0]);
 				if (is_compound_type(param_type->kind)) {
 					isize size = type_sizeof(param_type);
-					u32 copy = ir_emit_alloca(ctx, size);
-					ir_memcpy(ctx, copy, param_reg, size);
-					param_reg = copy;
+					u32 tmp = ir_emit_alloca(ctx, size);
+					ir_memcpy(ctx, tmp, param, size);
+					param = tmp;
 				}
 
-				param_register[param_count++ & 127] = param_reg;
-				param_id = param_list->child[1];
-			}
-
-			// Set parameters
-			for (i32 i = 0; i < param_count; i++) {
-				ir_emit1(ctx, IR_VOID, IR_PARAM, param_register[i]);
+				ir_emit2(ctx, IR_VOID, IR_PARAM, param_count++, param);
+				param_id = list_node->child[1];
 			}
 
 			// Call the function
@@ -844,7 +838,6 @@ get_opcode_info(ir_opcode opcode)
 		break;
 	case IR_CAST:
 	case IR_CASTU:
-	case IR_PARAM:
 	case IR_RET:
 	case IR_LOAD:
 	case IR_COPY:
@@ -897,6 +890,10 @@ get_opcode_info(ir_opcode opcode)
 	case IR_CALL:
 		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_CONST;
+		break;
+	case IR_PARAM:
+		info.op0 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_GLOBAL:
 		info.op0 = IR_OPERAND_GLOBAL;
