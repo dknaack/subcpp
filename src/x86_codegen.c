@@ -154,11 +154,7 @@ x86_generate(stream *out, mach_program program, regalloc_info *info)
 				isize inst_size = sizeof(*inst) + operand_count * sizeof(*operands);
 
 				x86_opcode opcode = (x86_opcode)inst->opcode;
-				if (opcode == X86_PRINT) {
-					stream_print(out,
-						"\tmov rdi, fmt\n"
-						"\tcall printf wrt ..plt\n");
-				} else if (opcode == X86_LABEL) {
+				if (opcode == X86_LABEL) {
 					stream_print(out, ".L");
 					x86_emit_operand(out, operands[0], program.symtab);
 					stream_print(out, ":\n");

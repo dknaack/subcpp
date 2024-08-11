@@ -84,7 +84,6 @@ typedef enum {
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
 	X86_LABEL,
-	X86_PRINT
 } x86_opcode;
 
 static u32 x86_temp_regs[] = {
@@ -150,7 +149,6 @@ x86_get_opcode_name(x86_opcode opcode)
 	case X86_NOP:   return "nop";
 	case X86_POPCNT: return "popcnt";
 	case X86_OR:    return "or";
-	case X86_PRINT: return "print";
 	case X86_RET:   return "ret";
 	case X86_SETA:  return "seta";
 	case X86_SETAE: return "setae";
