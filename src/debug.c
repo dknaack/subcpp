@@ -478,7 +478,7 @@ print_x86_operand(mach_operand operand)
 	case MOP_LABEL:
 		printf("L%d:", value);
 		break;
-	case MOP_IMMEDIATE:
+	case MOP_CONST:
 		printf("%d", value);
 		break;
 	case MOP_GLOBAL:

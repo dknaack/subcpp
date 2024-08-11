@@ -137,13 +137,12 @@ static void x86_select_inst(mach_program *out,
 	ir_inst *inst, u32 inst_index, mach_operand dst);
 
 static mach_operand
-x86_select_immediate(mach_program *out,
-	ir_inst *inst, u32 inst_index)
+x86_select_const(mach_program *out, ir_inst *inst, u32 inst_index)
 {
 	mach_operand result;
 	u32 size = ir_sizeof(inst[inst_index].type);
 	if (inst[inst_index].opcode == IR_CONST) {
-		result = make_operand(MOP_IMMEDIATE, inst[inst_index].op0, size);
+		result = make_operand(MOP_CONST, inst[inst_index].op0, size);
 	} else {
 		result = make_operand(MOP_VREG, inst_index, size);
 		x86_select_inst(out, inst, inst_index, result);
@@ -207,7 +206,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				mach_operand src = make_float(op0);
 				x86_emit2(out, X86_MOVSS, dst, src);
 			} else {
-				mach_operand src = make_operand(MOP_IMMEDIATE, op0, size);
+				mach_operand src = make_operand(MOP_CONST, op0, size);
 				x86_emit2(out, X86_MOV, dst, src);
 			}
 		} break;
@@ -270,7 +269,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 			if (inst[op1].opcode != IR_CONST) {
 				x86_select_inst(out, inst, op1, src);
 			} else {
-				src = make_operand(MOP_IMMEDIATE, inst[op1].op0, size);
+				src = make_operand(MOP_CONST, inst[op1].op0, size);
 			}
 
 			src.size = ir_sizeof(inst[op1].type);
@@ -321,12 +320,12 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				} else if (inst[op1].opcode == IR_CONST) {
 					x86_select_inst(out, inst, op0, dst);
 					op1 = inst[op1].op0;
-					mach_operand src = make_operand(MOP_IMMEDIATE, op1, size);
+					mach_operand src = make_operand(MOP_CONST, op1, size);
 					x86_emit2(out, X86_ADD, dst, src);
 				} else if (inst[op0].opcode == IR_CONST) {
 					x86_select_inst(out, inst, op1, dst);
 					op0 = inst[op0].op0;
-					mach_operand src = make_operand(MOP_IMMEDIATE, op0, size);
+					mach_operand src = make_operand(MOP_CONST, op0, size);
 					x86_emit2(out, X86_ADD, dst, src);
 				} else {
 					mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
@@ -356,7 +355,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				isize src_size = ir_sizeof(inst[op1].type);
 				op1 = inst[op1].op0;
 				x86_select_inst(out, inst, op0, dst);
-				mach_operand src = make_operand(MOP_IMMEDIATE, op1, src_size);
+				mach_operand src = make_operand(MOP_CONST, op1, src_size);
 				x86_emit2(out, X86_SUB, dst, src);
 			} else {
 				mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
@@ -402,7 +401,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 			mach_operand rax = make_operand(MOP_MREG, X86_RAX, ir_sizeof(inst[op0].type));
 			mach_operand rcx = make_operand(MOP_MREG, X86_RCX, ir_sizeof(inst[op1].type));
 			mach_operand rdx = make_operand(MOP_MREG, X86_RDX, dst.size);
-			mach_operand zero = make_operand(MOP_IMMEDIATE, 0, dst.size);
+			mach_operand zero = make_operand(MOP_CONST, 0, dst.size);
 
 			x86_select_inst(out, inst, op0, rax);
 			x86_select_inst(out, inst, op1, rcx);
@@ -455,11 +454,11 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				opcode == IR_OR ? X86_OR : X86_XOR;
 
 			if (inst[op1].opcode == IR_CONST) {
-				src = make_operand(MOP_IMMEDIATE, inst[op1].op0, src.size);
+				src = make_operand(MOP_CONST, inst[op1].op0, src.size);
 				x86_select_inst(out, inst, op0, dst);
 				x86_emit2(out, x86_opcode, dst, src);
 			} else if (inst[op0].opcode == IR_CONST) {
-				src = make_operand(MOP_IMMEDIATE, inst[op0].op0, src.size);
+				src = make_operand(MOP_CONST, inst[op0].op0, src.size);
 				x86_select_inst(out, inst, op1, dst);
 				x86_emit2(out, x86_opcode, dst, src);
 			} else {
@@ -484,7 +483,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 			if (is_comparison_opcode(inst[op0].opcode)) {
 				dst = make_operand(MOP_VREG, inst[op0].op0, ir_sizeof(inst[op0].type));
 				x86_select_inst(out, inst, inst[op0].op0, dst);
-				mach_operand src = x86_select_immediate(out, inst, inst[op0].op1);
+				mach_operand src = x86_select_const(out, inst, inst[op0].op1);
 				src.size = dst.size;
 				if (is_float) {
 					dst.flags |= MOP_ISFLOAT;
@@ -605,7 +604,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 	case IR_LABEL:
 		{
 			isize src_size = ir_sizeof(inst[op0].type);
-			mach_operand src = make_operand(MOP_IMMEDIATE, op0, src_size);
+			mach_operand src = make_operand(MOP_CONST, op0, src_size);
 			x86_emit1(out, X86_LABEL, src);
 		} break;
 	case IR_NOP:
@@ -730,7 +729,7 @@ x86_select(ir_program program, arena *arena)
 			mach_operand *operands = (mach_operand *)(inst + 1);
 			if (inst->opcode == X86_LABEL) {
 				// A label should only have one operand: The index of the label.
-				ASSERT(operands[0].kind == MOP_IMMEDIATE);
+				ASSERT(operands[0].kind == MOP_CONST);
 				ASSERT(operands[0].value < ir_func->label_count);
 
 				label_indices[operands[0].value] = i;

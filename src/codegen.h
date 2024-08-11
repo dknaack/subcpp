@@ -12,7 +12,7 @@ typedef enum {
 	MOP_FLOAT,
 	MOP_FUNC,
 	MOP_GLOBAL,
-	MOP_IMMEDIATE,
+	MOP_CONST,
 } mach_operand_kind;
 
 typedef enum {

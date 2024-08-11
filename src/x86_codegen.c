@@ -59,7 +59,7 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 			stream_print(out, "]");
 		}
 		break;
-	case MOP_IMMEDIATE:
+	case MOP_CONST:
 		stream_printu(out, operand.value);
 		break;
 	case MOP_FLOAT:
@@ -132,7 +132,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 			if (first_inst->opcode == X86_SUB) {
 				mach_operand *operands = (mach_operand *)(first_inst + 1);
 				if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
-					ASSERT(operands[1].kind == MOP_IMMEDIATE);
+					ASSERT(operands[1].kind == MOP_CONST);
 					stack_size = operands[1].value;
 
 					stack_size += 8 * info[function_index].spill_count;

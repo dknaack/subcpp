@@ -127,7 +127,7 @@ regalloc_func(mach_function func, void *code,
 						break;
 					case MOP_SPILL:
 					case MOP_LABEL:
-					case MOP_IMMEDIATE:
+					case MOP_CONST:
 					case MOP_FLOAT:
 					case MOP_FUNC:
 					case MOP_GLOBAL:
