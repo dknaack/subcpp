@@ -465,8 +465,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			// TODO: implement sizeof operator
-			result = ir_emit1(ctx, IR_I64, IR_CONST, 8);
+			isize size = eval_ast(pool, node_id);
+			result = ir_emit1(ctx, IR_I64, IR_CONST, size);
 		} break;
 	case AST_EXPR_UNARY:
 		{

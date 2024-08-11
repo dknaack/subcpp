@@ -170,8 +170,8 @@ eval_ast(ast_pool *pool, ast_id node_id)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			// TODO: Implement sizeof operator
-			result = 8;
+			type *type = get_type(pool, node->child[0]);
+			result = type_sizeof(type);
 		} break;
 	case AST_EXPR_CAST:
 		{
@@ -187,17 +187,6 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	}
 
 	return result;
-}
-
-static type *
-get_type(ast_pool *p, ast_id id)
-{
-	if (0 < id.value && id.value < p->size) {
-		return p->types + id.value;
-	}
-
-	ASSERT(!"ID is out of bounds");
-	return NULL;
 }
 
 static type *

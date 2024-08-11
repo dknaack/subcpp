@@ -356,3 +356,14 @@ get_string_info(semantic_info info, ast_id node_id)
 	str *s = &info.strings[sym_id.value];
 	return s;
 }
+
+static type *
+get_type(ast_pool *p, ast_id id)
+{
+	if (0 < id.value && id.value < p->size) {
+		return p->types + id.value;
+	}
+
+	ASSERT(!"ID is out of bounds");
+	return NULL;
+}
