@@ -1,26 +1,4 @@
 static void
-push_inst(mach_program *program, u32 opcode, u32 operand_count)
-{
-	mach_inst inst = {0};
-	inst.opcode = opcode;
-	inst.operand_count = operand_count;
-	ASSERT(program->size + sizeof(inst) + operand_count
-		* sizeof(mach_operand) <= program->max_size);
-	memcpy((char *)program->code + program->size, &inst, sizeof(inst));
-	program->size += sizeof(inst);
-	program->inst_count++;
-}
-
-static void
-push_operand(mach_program *program, mach_operand operand)
-{
-	mach_function *func = &program->functions[program->function_count - 1];
-	ASSERT(operand.kind != MOP_VREG || operand.value < func->register_count);
-	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
-	program->size += sizeof(operand);
-}
-
-static void
 x86_emit1(mach_program *out, x86_opcode opcode, mach_operand dst)
 {
 	dst.flags |= MOP_DEF | MOP_USE;
