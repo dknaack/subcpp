@@ -122,11 +122,11 @@ main(int argc, char *argv[])
 		optimize(ir_program, arena);
 		print_ir_program(ir_program);
 
-		machine_program machine_program = x86_select_instructions(ir_program, arena);
-		machine_program.symtab = &info.symtab;
-		regalloc_info *info = regalloc(machine_program, arena);
+		mach_program mach_program = x86_select_instructions(ir_program, arena);
+		mach_program.symtab = &info.symtab;
+		regalloc_info *info = regalloc(mach_program, arena);
 		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
-		x86_generate(&out, machine_program, info);
+		x86_generate(&out, mach_program, info);
 		stream_close(&out);
 
 		run_assembler("/tmp/out.s", "/tmp/out.o");

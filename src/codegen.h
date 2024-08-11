@@ -1,7 +1,7 @@
 typedef struct {
 	u32 opcode:24;
 	u32 operand_count:8;
-} machine_inst;
+} mach_inst;
 
 typedef enum {
 	MOP_INVALID,
@@ -13,7 +13,7 @@ typedef enum {
 	MOP_FUNC,
 	MOP_GLOBAL,
 	MOP_IMMEDIATE,
-} machine_operand_kind;
+} mach_operand_kind;
 
 typedef enum {
 	MOP_USE      = (1 << 0),
@@ -21,14 +21,14 @@ typedef enum {
 	MOP_IMPLICIT = (1 << 2),
 	MOP_INDIRECT = (1 << 3),
 	MOP_ISFLOAT  = (1 << 4),
-} machine_operand_flags;
+} mach_operand_flags;
 
 typedef struct {
 	uint8_t kind;
 	uint8_t size;
 	uint16_t flags;
 	u32 value;
-} machine_operand;
+} mach_operand;
 
 typedef struct {
 	str name;
@@ -38,39 +38,39 @@ typedef struct {
 	u32 *inst_offsets;
 	i32 *floats;
 	i32 float_count;
-} machine_function;
+} mach_function;
 
 typedef struct {
 	u32 *volatile_registers;
 	u32 volatile_register_count;
 	u32 int_register_count;
 	u32 register_count;
-} machine_register_info;
+} mach_register_info;
 
 typedef struct {
 	void *code;
 	symbol_table *symtab;
-	machine_function *functions;
-	machine_register_info register_info;
+	mach_function *functions;
+	mach_register_info register_info;
 
 	u32 size;
 	u32 max_size;
 	u32 vreg_count;
 	u32 inst_count;
 	u32 function_count;
-} machine_program;
+} mach_program;
 
 static b32
-equals_operand(machine_operand a, machine_operand b)
+equals_operand(mach_operand a, mach_operand b)
 {
 	b32 result = (a.kind == b.kind && a.value == b.value);
 	return result;
 }
 
-static machine_operand
+static mach_operand
 make_operand(u32 kind, u32 value, u32 size)
 {
-	machine_operand operand = {0};
+	mach_operand operand = {0};
 	operand.kind = kind;
 	operand.value = value;
 	operand.size = size;
@@ -78,44 +78,44 @@ make_operand(u32 kind, u32 value, u32 size)
 	return operand;
 }
 
-static machine_operand
+static mach_operand
 make_spill(u32 index)
 {
-	machine_operand operand = make_operand(MOP_SPILL, index, 8);
+	mach_operand operand = make_operand(MOP_SPILL, index, 8);
 	return operand;
 }
 
-static machine_operand
+static mach_operand
 make_float(u32 index)
 {
-	machine_operand operand = make_operand(MOP_FLOAT, index, 4);
+	mach_operand operand = make_operand(MOP_FLOAT, index, 4);
 	return operand;
 }
 
-static machine_operand
+static mach_operand
 make_label(u32 value)
 {
-	machine_operand operand = make_operand(MOP_LABEL, value, 0);
+	mach_operand operand = make_operand(MOP_LABEL, value, 0);
 	return operand;
 }
 
-static machine_operand
+static mach_operand
 make_func(u32 index)
 {
-	machine_operand operand = make_operand(MOP_FUNC, index, 8);
+	mach_operand operand = make_operand(MOP_FUNC, index, 8);
 	return operand;
 }
 
-static machine_operand
+static mach_operand
 make_global(u32 index)
 {
-	machine_operand operand = make_operand(MOP_GLOBAL, index, 8);
+	mach_operand operand = make_operand(MOP_GLOBAL, index, 8);
 	return operand;
 }
 
-static machine_inst *
+static mach_inst *
 get_inst(void *code, u32 *offsets, u32 index)
 {
-	machine_inst *inst = (machine_inst *)((char *)code + offsets[index]);
+	mach_inst *inst = (mach_inst *)((char *)code + offsets[index]);
 	return inst;
 }

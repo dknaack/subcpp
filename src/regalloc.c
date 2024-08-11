@@ -55,8 +55,8 @@ typedef struct {
 } regalloc_info;
 
 static regalloc_info
-regalloc_func(machine_function func, void *code,
-	machine_register_info reg_info, arena *arena)
+regalloc_func(mach_function func, void *code,
+	mach_register_info reg_info, arena *arena)
 {
 	regalloc_info info = {0};
 	info.used = ALLOC(arena, reg_info.register_count, b32);
@@ -83,8 +83,8 @@ regalloc_func(machine_function func, void *code,
 					union_rows(live_matrix, i, i + 1);
 				}
 
-				machine_inst *inst = get_inst(code, func.inst_offsets, i);
-				machine_operand *operands = (machine_operand *)(inst + 1);
+				mach_inst *inst = get_inst(code, func.inst_offsets, i);
+				mach_operand *operands = (mach_operand *)(inst + 1);
 				for (u32 j = 0; j < inst->operand_count; j++) {
 					if (operands[j].kind == MOP_LABEL) {
 						u32 inst_index = operands[j].value;
@@ -184,10 +184,10 @@ regalloc_func(machine_function func, void *code,
 	// Determine floating-pointer registers
 	b32 *is_float_vreg = ALLOC(arena, func.register_count, b32);
 	for (u32 i = 0; i < func.inst_count; i++) {
-		machine_inst *inst = get_inst(code, func.inst_offsets, i);
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
 		u32 operand_count = inst->operand_count;
 
-		machine_operand *operands = (machine_operand *)(inst + 1);
+		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (u32 j = 0; j < operand_count; j++) {
 			b32 is_vreg = (operands[j].kind == MOP_VREG);
 			if (is_vreg && (operands[j].flags & MOP_ISFLOAT)) {
@@ -209,7 +209,7 @@ regalloc_func(machine_function func, void *code,
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	machine_operand *mreg_map = ALLOC(arena, func.register_count, machine_operand);
+	mach_operand *mreg_map = ALLOC(arena, func.register_count, mach_operand);
 	for (u32 i = 0; i < func.register_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
@@ -305,10 +305,10 @@ regalloc_func(machine_function func, void *code,
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < func.inst_count; i++) {
-		machine_inst *inst = get_inst(code, func.inst_offsets, i);
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
 		u32 operand_count = inst->operand_count;
 
-		machine_operand *operands = (machine_operand *)(inst + 1);
+		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
@@ -325,7 +325,7 @@ regalloc_func(machine_function func, void *code,
 }
 
 static regalloc_info *
-regalloc(machine_program program, arena *arena)
+regalloc(mach_program program, arena *arena)
 {
 	regalloc_info *info = ALLOC(arena, program.function_count, regalloc_info);
 	for (u32 i = 0; i < program.function_count; i++) {

@@ -465,7 +465,7 @@ print_ir_program(ir_program program)
 }
 
 static void
-print_x86_operand(machine_operand operand)
+print_x86_operand(mach_operand operand)
 {
 	u32 value = operand.value;
 	switch (operand.kind) {
@@ -495,7 +495,7 @@ print_x86_operand(machine_operand operand)
 }
 
 static void
-print_x86_program(machine_program program)
+print_x86_program(mach_program program)
 {
 	char *code = program.code;
 	char *end = code + program.size;
@@ -503,15 +503,15 @@ print_x86_program(machine_program program)
 	while (code < end) {
 		printf("%2ld|", i++);
 
-		machine_inst *inst = (machine_inst *)code;
-		code += sizeof(*inst) + inst->operand_count * sizeof(machine_operand);
+		mach_inst *inst = (mach_inst *)code;
+		code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
 		if (inst->opcode != X86_LABEL) {
 			printf("\tX86.%s ", x86_get_opcode_name(inst->opcode));
 		} else {
 			printf("L");
 		}
 
-		machine_operand *operands = (machine_operand *)(inst + 1);
+		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (u32 j = 0; j < inst->operand_count; j++) {
 			print_x86_operand(operands[j]);
 			if (j + 1 < inst->operand_count) {
