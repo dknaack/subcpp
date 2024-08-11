@@ -649,119 +649,37 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit2(ctx, IR_VOID, IR_JNZ, cond_reg, ctx->continue_label);
 			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
 		} break;
-	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			// do not generate code for typedef declarations
-			if (node->flags & AST_TYPEDEF) {
-				break;
+			type *type = get_type(pool, node_id);
+			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
+			if (is_func_def) {
+				ir_inst *start = ctx->program->insts + ctx->program->inst_count;
+				translate_node(ctx, pool, node->child[1], false);
+				ir_inst *end = ctx->program->insts + ctx->program->inst_count;
+
+				info_id node_info = ctx->info->of[node_id.value];
+				symbol *symbol = &ctx->info->symtab.symbols[node_info.value];
+				symbol->name = node->token.value;
+				symbol->data = start;
+				symbol->size = (char *)end - (char *)start;
 			}
+		} break;
+	case AST_DECL:
+		{
+			type *type = get_type(pool, node_id);
+			isize size = type_sizeof(type);
+			u32 addr = ir_emit_alloca(ctx, size);
 
-			decl_info *sym = get_decl_info(*ctx->info, node_id);
-			info_id node_info = ctx->info->of[node_id.value];
-			result = ctx->symbol_registers[node_info.value];
-			b32 is_initialized = (result != 0);
-			if (!is_initialized) {
-				b32 is_builtin = false;
-				if (sym->is_global) {
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
-					ctx->symbol_registers[node_id.value] = node_info.value;
-
-					type *node_type = get_type(pool, node_id);
-					if (node_type->kind == TYPE_FUNCTION && node->child[1].value != 0) {
-						ast_id body = node->child[1];
-						ast_node *type_node = get_node_of_kind(pool, node->child[0], AST_TYPE_FUNC);
-
-						u32 prev_label_count = ctx->program->label_count;
-						u32 prev_register_count = ctx->program->register_count;
-						ctx->program->label_count = 1;
-						ctx->program->register_count = 0;
-						ctx->stack_size = 0;
-
-						ir_function *func = &ctx->program->functions[ctx->program->function_count++];
-						func->name = node->token.value;
-						func->inst_index = ctx->program->inst_count;
-						ir_emit1(ctx, IR_VOID, IR_LABEL, new_label(ctx));
-
-						i32 param_count = 0;
-						type *return_type = node_type->base_type;
-						if (is_compound_type(return_type->kind)) {
-							isize size = type_sizeof(return_type);
-							ir_emit_alloca(ctx, size);
-							param_count++;
-						}
-
-						ast_id param_id = type_node->child[0];
-						while (param_id.value != 0) {
-							ast_node *param_list = get_node(pool, param_id);
-							info_id param_info = ctx->info->of[param_list->child[0].value];
-							ASSERT(ctx->symbol_registers[param_info.value] == 0);
-							translate_node(ctx, pool, param_list->child[0], false);
-
-							param_id = param_list->child[1];
-							param_count++;
-						}
-
-						func->parameter_count = param_count;
-						if (body.value != 0) {
-							translate_node(ctx, pool, body, false);
-						}
-
-						func->stack_size = ctx->stack_size;
-						func->label_count = ctx->program->label_count;
-						func->inst_count = ctx->program->inst_count - func->inst_index;
-
-						u32 curr_register_count = ctx->program->register_count;
-						ctx->program->label_count = MAX(func->label_count, prev_label_count);
-						ctx->program->register_count = MAX(curr_register_count, prev_register_count);
-					} else {
-						// TODO: Initialize the variable
-					}
-				} else if (!is_builtin) {
-					type *node_type = get_type(pool, node_id);
-					isize size = type_sizeof(node_type);
-					result = ir_emit_alloca(ctx, size);
-
-					if (node_type->kind == TYPE_ARRAY) {
-						u32 addr = ir_emit_alloca(ctx, 8);
-						ir_emit2(ctx, IR_VOID, IR_STORE, addr, result);
-						result = addr;
-					}
-
-					ctx->symbol_registers[node_info.value] = result;
-					if (node->child[1].value != 0) {
-						ast_node *expr = get_node(pool, node->child[1]);
-						if (expr->kind == AST_INIT) {
-							translate_initializer(ctx, pool, node->child[1], result);
-						} else if (is_compound_type(node_type->kind)) {
-							u32 value = translate_node(ctx, pool, node->child[1], false);
-							ir_memcpy(ctx, result, value, size);
-						} else {
-							u32 value = translate_node(ctx, pool, node->child[1], false);
-							ir_type type = ir_type_from(node_type);
-							ir_emit2(ctx, type, IR_STORE, result, value);
-						}
-					}
+			if (node->child[1].value != 0) {
+				ast_node *init_expr = get_node(pool, node->child[1]);
+				if (init_expr->kind == AST_INIT) {
+					translate_initializer(ctx, pool, node->child[1], addr);
 				} else {
-					result = ir_emit_alloca(ctx, 32);
+					u32 value = translate_node(ctx, pool, node->child[1], false);
+					ir_store(ctx, addr, value, type);
 				}
 			}
-
-			if (sym->is_global) {
-				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
-			}
-
-			type *node_type = get_type(pool, node_id);
-			b32 is_builtin = false;
-			if (!is_lvalue && !is_builtin
-				&& node_type->kind != TYPE_FUNCTION
-				&& !is_compound_type(node_type->kind))
-			{
-				ir_type type = ir_type_from(node_type);
-				result = ir_emit1(ctx, type, IR_LOAD, result);
-			}
-
-			ASSERT(result != 0);
 		} break;
 	case AST_STMT_EMPTY:
 		break;
