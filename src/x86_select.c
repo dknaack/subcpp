@@ -202,13 +202,8 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 		} break;
 	case IR_CONST:
 		{
-			if (type == IR_F32 || type == IR_F64) {
-				mach_operand src = make_float(op0);
-				x86_emit2(out, X86_MOVSS, dst, src);
-			} else {
-				mach_operand src = make_operand(MOP_CONST, op0, size);
-				x86_emit2(out, X86_MOV, dst, src);
-			}
+			mach_operand src = make_operand(MOP_CONST, op0, size);
+			x86_emit2(out, X86_MOV, dst, src);
 		} break;
 	case IR_BUILTIN:
 		{
