@@ -353,59 +353,55 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			ast_node *called = get_node(pool, node->child[0]);
-			ir_opcode opcode = IR_CALL;
+			i32 param_count = 0;
+			u32 param_register[128] = {0};
+			type *called_type = get_type(pool, node->child[0]);
+			type *return_type = called_type->base_type;
+			ASSERT(called_type->kind == TYPE_FUNCTION);
+
 			u32 called_reg = translate_node(ctx, pool, node->child[0], false);
 
-			str func_name = {0};
-			if (called->kind == AST_EXPR_IDENT) {
-				func_name = called->token.value;
+			// Make struct return value first argument
+			ir_type result_type;
+			if (is_compound_type(return_type->kind)) {
+				isize size = type_sizeof(return_type);
+				param_register[param_count++] = ir_emit_alloca(ctx, size);
+				result_type = IR_I64;
+			} else {
+				result_type = ir_type_from(return_type);
 			}
 
-			if (starts_with(func_name, S("__builtin_")) || equals(func_name, S("asm"))) {
-				// TODO: Implement translation for builtins
+			// Load parameters
+			ast_id param_id = node->child[1];
+			while (param_id.value != 0) {
+				ASSERT(param_count < 128);
+				ast_node *param_list = get_node(pool, param_id);
+				u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
+				type *param_type = get_type(pool, param_list->child[0]);
+				if (is_compound_type(param_type->kind)) {
+					isize size = type_sizeof(param_type);
+					u32 copy = ir_emit_alloca(ctx, size);
+					ir_memcpy(ctx, copy, param_reg, size);
+					param_reg = copy;
+				}
+
+				param_register[param_count++ & 127] = param_reg;
+				param_id = param_list->child[1];
+			}
+
+			// Set parameters
+			for (i32 i = 0; i < param_count; i++) {
+				ir_emit1(ctx, IR_VOID, IR_PARAM, param_register[i]);
+			}
+
+			// Call the function
+			type *node_type = get_type(pool, node_id);
+			if (node_type->kind != TYPE_VOID) {
+				u32 return_reg = ir_emit2(ctx, result_type, IR_CALL, called_reg, param_count);
+				result = ir_emit0(ctx, result_type, IR_VAR);
+				ir_emit2(ctx, IR_VOID, IR_MOV, result, return_reg);
 			} else {
-				type *called_type = get_type(pool, node->child[0]);
-				ASSERT(called_type->kind == TYPE_FUNCTION);
-
-				i32 param_count = 0;
-				u32 param_register[128] = {0};
-				type *return_type = called_type->base_type;
-				ir_type result_type = IR_I64;
-				if (is_compound_type(return_type->kind)) {
-					isize size = type_sizeof(return_type);
-					param_register[param_count++] = ir_emit_alloca(ctx, size);
-				} else {
-					result_type = ir_type_from(return_type);
-				}
-
-				ast_id param_id = node->child[1];
-				while (param_id.value != 0) {
-					ASSERT(param_count < 128);
-					ast_node *param_list = get_node(pool, param_id);
-					u32 param_reg = translate_node(ctx, pool, param_list->child[0], false);
-					type *param_type = get_type(pool, param_list->child[0]);
-					if (is_compound_type(param_type->kind)) {
-						isize size = type_sizeof(param_type);
-						u32 copy = ir_emit_alloca(ctx, size);
-						ir_memcpy(ctx, copy, param_reg, size);
-						param_reg = copy;
-					}
-
-					param_register[param_count++ & 127] = param_reg;
-					param_id = param_list->child[1];
-				}
-
-				for (i32 i = 0; i < param_count; i++) {
-					ir_emit1(ctx, IR_VOID, IR_PARAM, param_register[i]);
-				}
-
-				type *node_type = get_type(pool, node_id);
-				if (node_type->kind != TYPE_VOID) {
-					u32 return_reg = ir_emit2(ctx, result_type, opcode, called_reg, param_count);
-					result = ir_emit0(ctx, result_type, IR_VAR);
-					ir_emit2(ctx, IR_VOID, IR_MOV, result, return_reg);
-				}
+				ASSERT(!"TODO");
 			}
 		} break;
 	case AST_EXPR_CAST:
