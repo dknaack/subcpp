@@ -912,7 +912,7 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// NOTE: Gather symbol information
-	symbol_table symtab = {0};
+	symbol_table *symtab = &info.symtab;
 	isize symbol_count = 0;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
@@ -933,15 +933,13 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
-	symtab.symbols = ALLOC(perm, symbol_count, symbol);
+	symtab->symbols = ALLOC(perm, symbol_count, symbol);
 
-	// NOTE: Collect extern functions
+	// TODO: Collect extern functions
 	isize symbol_index = 0;
-	for (isize i = 1; i < pool->size; i++) {
-	}
 
 	// NOTE: Collect function definitions
-	symtab.text_offset = symbol_index;
+	symtab->text_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		type *type = &pool->types[i];
@@ -950,14 +948,14 @@ check(ast_pool *pool, arena *perm)
 			&& node->child[1].value != 0)
 		{
 			info.of[i].value = symbol_index;
-			symbol *sym = &symtab.symbols[symbol_index++];
+			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->name = node->token.value;
 		}
 	}
 
 
 	// NOTE: Collect global initialized variables
-	symtab.data_offset = symbol_index;
+	symtab->data_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		type *type = &pool->types[i];
@@ -966,7 +964,7 @@ check(ast_pool *pool, arena *perm)
 			&& node->child[1].value != 0)
 		{
 			info.of[i].value = symbol_index;
-			symbol *sym = &symtab.symbols[symbol_index++];
+			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->name = node->token.value;
 			sym->data = NULL; // TODO: Translate value into memory
 		}
@@ -1016,7 +1014,7 @@ check(ast_pool *pool, arena *perm)
 			}
 
 			info.of[i].value = symbol_index;
-			symbol *sym = &symtab.symbols[symbol_index++];
+			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->name = node->token.value;
 			sym->data = unescaped.at;
 			sym->size = unescaped.length;
@@ -1024,7 +1022,7 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// NOTE: Collect global uninitialized variables
-	symtab.rodata_offset = symbol_index;
+	symtab->rodata_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		type *type = &pool->types[i];
@@ -1033,7 +1031,7 @@ check(ast_pool *pool, arena *perm)
 			&& node->child[1].value == 0)
 		{
 			info.of[i].value = symbol_index;
-			symbol *sym = &symtab.symbols[symbol_index++];
+			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->name = node->token.value;
 			sym->data = NULL; // TODO: Translate value into memory
 		}
