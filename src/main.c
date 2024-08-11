@@ -122,7 +122,7 @@ main(int argc, char *argv[])
 	print_ir_program(ir_program);
 
 	// NOTE: back-end
-	mach_program mach_program = x86_select_instructions(ir_program, arena);
+	mach_program mach_program = x86_select(ir_program, arena);
 	regalloc_info *reg_info = regalloc(mach_program, arena);
 	stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
 	x86_generate(&out, mach_program, &symtab, reg_info);

@@ -637,7 +637,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 }
 
 static mach_program
-x86_select_instructions(ir_program program, arena *arena)
+x86_select(ir_program program, arena *arena)
 {
 	mach_program out = {0};
 	out.max_size = 8 * 1024 * 1024;
