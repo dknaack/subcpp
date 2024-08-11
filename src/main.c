@@ -124,7 +124,7 @@ main(int argc, char *argv[])
 
 		machine_program machine_program = x86_select_instructions(ir_program, arena);
 		machine_program.symtab = &info.symtab;
-		allocation_info *info = allocate_registers(machine_program, arena);
+		regalloc_info *info = regalloc(machine_program, arena);
 		stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
 		x86_generate(&out, machine_program, info);
 		stream_close(&out);

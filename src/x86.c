@@ -862,7 +862,7 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 }
 
 static void
-x86_generate(stream *out, machine_program program, allocation_info *info)
+x86_generate(stream *out, machine_program program, regalloc_info *info)
 {
 	symbol_table *symtab = program.symtab;
 	for (isize i = 0; i < symtab->symbol_count; i++) {

@@ -52,13 +52,13 @@ swap_u32(u32 *a, isize i, isize j)
 typedef struct {
 	b32 *used;
 	u32 spill_count;
-} allocation_info;
+} regalloc_info;
 
-static allocation_info
-allocate_function_registers(machine_function func, void *code,
+static regalloc_info
+regalloc_func(machine_function func, void *code,
 	machine_register_info reg_info, arena *arena)
 {
-	allocation_info info = {0};
+	regalloc_info info = {0};
 	info.used = ALLOC(arena, reg_info.register_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
@@ -324,12 +324,12 @@ allocate_function_registers(machine_function func, void *code,
 	return info;
 }
 
-static allocation_info *
-allocate_registers(machine_program program, arena *arena)
+static regalloc_info *
+regalloc(machine_program program, arena *arena)
 {
-	allocation_info *info = ALLOC(arena, program.function_count, allocation_info);
+	regalloc_info *info = ALLOC(arena, program.function_count, regalloc_info);
 	for (u32 i = 0; i < program.function_count; i++) {
-		info[i] = allocate_function_registers(program.functions[i],
+		info[i] = regalloc_func(program.functions[i],
 			program.code, program.register_info, arena);
 	}
 
