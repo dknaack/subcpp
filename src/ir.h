@@ -94,11 +94,11 @@ typedef struct {
 typedef struct ir_function ir_function;
 struct ir_function {
 	str name;
-	u32 parameter_count;
-	u32 inst_index;
-	u32 inst_count;
-	u32 label_count;
-	u32 stack_size;
+	i32 parameter_count;
+	i32 inst_index;
+	i32 inst_count;
+	i32 label_count;
+	i32 stack_size;
 };
 
 typedef struct {

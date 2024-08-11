@@ -134,10 +134,10 @@ x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 }
 
 static void x86_select_inst(mach_program *out,
-	ir_inst *inst, u32 inst_index, mach_operand dst);
+	ir_inst *inst, isize inst_index, mach_operand dst);
 
 static mach_operand
-x86_select_const(mach_program *out, ir_inst *inst, u32 inst_index)
+x86_select_const(mach_program *out, ir_inst *inst, isize inst_index)
 {
 	mach_operand result;
 	u32 size = ir_sizeof(inst[inst_index].type);
@@ -153,7 +153,7 @@ x86_select_const(mach_program *out, ir_inst *inst, u32 inst_index)
 
 static void
 x86_select_inst(mach_program *out, ir_inst *inst,
-	u32 inst_index, mach_operand dst)
+	isize inst_index, mach_operand dst)
 {
 	ir_type type = inst[inst_index].type;
 	u32 size = ir_sizeof(type);
@@ -630,7 +630,7 @@ x86_select(ir_program program, arena *arena)
 		isize first_inst_offset = out.size;
 
 		// NOTE: Initialize the parameter registers
-		for (u32 i = 0; i < ir_func->parameter_count; i++) {
+		for (isize i = 0; i < ir_func->parameter_count; i++) {
 			// TODO: Set the correct size of the parameters
 			mach_operand dst = make_operand(MOP_VREG, i+1, 8);
 			mach_operand src;
@@ -670,7 +670,7 @@ x86_select(ir_program program, arena *arena)
 		// NOTE: Do the instruction selection
 		ir_inst *inst = program.insts + ir_func->inst_index;
 		b8 *is_toplevel = get_toplevel_instructions(ir_func, inst, arena);
-		for (u32 i = ir_func->parameter_count; i < ir_func->inst_count; i++) {
+		for (isize i = ir_func->parameter_count; i < ir_func->inst_count; i++) {
 			if (is_toplevel[i]) {
 				mach_operand dst = make_operand(MOP_VREG, i, ir_sizeof(inst[i].type));
 				if (inst[i].opcode == IR_MOV || inst[i].opcode == IR_STORE) {
@@ -688,7 +688,7 @@ x86_select(ir_program program, arena *arena)
 		mach_func->inst_count = out.inst_count - first_inst_index;
 		mach_func->inst_offsets = ALLOC(arena, mach_func->inst_count, u32);
 		char *code = (char *)out.code + first_inst_offset;
-		for (u32 i = 0; i < mach_func->inst_count; i++) {
+		for (isize i = 0; i < mach_func->inst_count; i++) {
 			mach_func->inst_offsets[i] = code - (char *)out.code;
 			mach_inst *inst = (mach_inst *)code;
 			code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
@@ -697,25 +697,25 @@ x86_select(ir_program program, arena *arena)
 
 		// NOTE: Compute the instruction index of each label
 		u32 *label_indices = ALLOC(arena, ir_func->label_count, u32);
-		for (u32 i = 0; i < mach_func->inst_count; i++) {
+		for (isize i = 0; i < mach_func->inst_count; i++) {
 			mach_inst *inst = (mach_inst *)((char *)out.code
 				+ mach_func->inst_offsets[i]);
 			mach_operand *operands = (mach_operand *)(inst + 1);
 			if (inst->opcode == X86_LABEL) {
 				// A label should only have one operand: The index of the label.
 				ASSERT(operands[0].kind == MOP_CONST);
-				ASSERT(operands[0].value < ir_func->label_count);
+				ASSERT((i32)operands[0].value < ir_func->label_count);
 
 				label_indices[operands[0].value] = i;
 			}
 		}
 
 		// Replace label operands with the instruction index
-		for (u32 i = 0; i < mach_func->inst_count; i++) {
+		for (isize i = 0; i < mach_func->inst_count; i++) {
 			mach_inst *inst = (mach_inst *)((char *)out.code
 				+ mach_func->inst_offsets[i]);
 			mach_operand *operands = (mach_operand *)(inst + 1);
-			for (u32 j = 0; j < inst->operand_count; j++) {
+			for (isize j = 0; j < inst->operand_count; j++) {
 				if (operands[j].kind == MOP_LABEL) {
 					operands[j].value = label_indices[operands[j].value];
 				}

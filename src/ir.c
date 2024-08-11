@@ -916,11 +916,11 @@ static b8 *
 get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
 {
 	b8 *is_toplevel = ALLOC(arena, func->inst_count, b8);
-	for (u32 i = 0; i < func->inst_count; i++) {
+	for (isize i = 0; i < func->inst_count; i++) {
 		is_toplevel[i] = true;
 	}
 
-	for (u32 i = 0; i < func->inst_count; i++) {
+	for (isize i = 0; i < func->inst_count; i++) {
 		ir_opcode_info info = get_opcode_info(insts[i].opcode);
 		if (insts[i].opcode == IR_GLOBAL) {
 			is_toplevel[i] = false;
@@ -973,21 +973,21 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		ir_inst *inst = program.insts + func->inst_index;
-		for (u32 i = 0; i < func->inst_count; i++) {
-			if (inst[i].type != IR_VOID || inst[i].opcode == IR_CAST
-				|| inst[i].opcode == IR_CASTU)
+		for (isize j = 0; j < func->inst_count; j++) {
+			if (inst[j].type != IR_VOID || inst[j].opcode == IR_CAST
+				|| inst[j].opcode == IR_CASTU)
 			{
 				continue;
 			}
 
-			u32 op0 = inst[i].op0;
-			u32 op1 = inst[i].op1;
+			u32 op0 = inst[j].op0;
+			u32 op1 = inst[j].op1;
 
-			ir_opcode_info info = get_opcode_info(inst[i].opcode);
+			ir_opcode_info info = get_opcode_info(inst[j].opcode);
 			if (is_register_operand(info.op0)) {
-				inst[i].type = inst[op0].type;
+				inst[j].type = inst[op0].type;
 			} else if (is_register_operand(info.op1)) {
-				inst[i].type = inst[op1].type;
+				inst[j].type = inst[op1].type;
 			}
 		}
 	}

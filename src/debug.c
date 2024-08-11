@@ -454,8 +454,8 @@ print_ir_program(ir_program program)
 		printf("  inst_index: %d\n", func->inst_index);
 		printf("  stack_size: %d\n", func->stack_size);
 
-		for (u32 i = 0; i < func->inst_count; i++) {
-			printf("%2d| ", i);
+		for (isize i = 0; i < func->inst_count; i++) {
+			printf("%2ld| ", i);
 			ir_inst inst = program.insts[func->inst_index + i];
 			print_ir_inst(inst, i);
 		}
@@ -512,7 +512,7 @@ print_x86_program(mach_program program)
 		}
 
 		mach_operand *operands = (mach_operand *)(inst + 1);
-		for (u32 j = 0; j < inst->operand_count; j++) {
+		for (isize j = 0; j < inst->operand_count; j++) {
 			print_x86_operand(operands[j]);
 			if (j + 1 < inst->operand_count) {
 				printf(", ");

@@ -30,7 +30,7 @@ promote_stack_variables(ir_program program, arena *arena)
 		arena_temp temp = arena_temp_begin(arena);
 		b32 *addr_used = ALLOC(arena, func->inst_count, b32);
 		ir_type *types = ALLOC(arena, func->inst_count, b32);
-		for (u32 i = 0; i < func->inst_count; i++) {
+		for (isize i = 0; i < func->inst_count; i++) {
 			u32 opcode = insts[i].opcode;
 			u32 op0 = insts[i].op0;
 			u32 op1 = insts[i].op1;
@@ -53,7 +53,7 @@ promote_stack_variables(ir_program program, arena *arena)
 		}
 
 		// Promote stack variables to registers
-		for (u32 i = 0; i < func->inst_count; i++) {
+		for (isize i = 0; i < func->inst_count; i++) {
 			if (insts[i].opcode == IR_LOAD) {
 				u32 op0 = insts[i].op0;
 				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
@@ -70,7 +70,7 @@ promote_stack_variables(ir_program program, arena *arena)
 			}
 		}
 
-		for (u32 i = 0; i < func->inst_count; i++) {
+		for (isize i = 0; i < func->inst_count; i++) {
 			if (insts[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
 					insts[i].opcode = IR_VAR;
@@ -84,7 +84,7 @@ promote_stack_variables(ir_program program, arena *arena)
 
 		// Reallocate all stack allocations and fix the stack size for each function
 		u32 stack_size = 0;
-		for (u32 j = 0; j < func->inst_count; j++) {
+		for (isize j = 0; j < func->inst_count; j++) {
 			ir_inst *inst = &insts[j];
 			if (inst->opcode == IR_ALLOC) {
 				// TODO: Alignment
@@ -109,8 +109,8 @@ remove_unused_registers(ir_program program, arena *arena)
 		ir_inst *insts = program.insts + func->inst_index;
 
 		b32 *used = ALLOC(arena, func->inst_count, b32);
-		for (u32 j = 0; j < func->inst_count; j++) {
-			u32 i = func->inst_count - 1 - j;
+		for (isize j = 0; j < func->inst_count; j++) {
+			isize i = func->inst_count - 1 - j;
 			ir_inst inst = insts[i];
 			switch (inst.opcode) {
 			case IR_STORE:
@@ -140,7 +140,7 @@ remove_unused_registers(ir_program program, arena *arena)
 			}
 		}
 
-		for (u32 i = func->parameter_count; i < func->inst_count; i++) {
+		for (isize i = func->parameter_count; i < func->inst_count; i++) {
 			if (!used[i]) {
 				insts[i].opcode = IR_NOP;
 			}
@@ -158,7 +158,7 @@ optimize(ir_program program, arena *arena)
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		ir_inst *insts = program.insts + func->inst_index;
-		for (u32 i = 0; i < func->inst_count; i++) {
+		for (isize i = 0; i < func->inst_count; i++) {
 			u32 op0 = insts[i].op0;
 			u32 op1 = insts[i].op1;
 
@@ -246,7 +246,7 @@ optimize(ir_program program, arena *arena)
 			ir_inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
-			for (u32 i = 0; i < func->inst_count; i++) {
+			for (isize i = 0; i < func->inst_count; i++) {
 				if (inst[i].opcode == IR_LABEL) {
 					label_addresses[inst[i].op0] = i;
 				}
@@ -259,11 +259,11 @@ optimize(ir_program program, arena *arena)
 			reachable[1] = true;
 next_block:
 			while (stack_pos > 0) {
-				u32 label = stack[--stack_pos];
+				isize label = stack[--stack_pos];
 
 				// NOTE: The first instruction is the label itself
 				u32 start = label_addresses[label] + 1;
-				for (u32 i = start; i < func->inst_count; i++) {
+				for (isize i = start; i < func->inst_count; i++) {
 					u32 new_label = 0;
 					switch (inst[i].opcode) {
 					case IR_JMP:
@@ -291,14 +291,14 @@ next_block:
 				}
 			}
 
-			for (u32 label = 1; label < func->label_count; label++) {
+			for (isize label = 1; label < func->label_count; label++) {
 				if (reachable[label]) {
 					continue;
 				}
 
 				u32 start = label_addresses[label];
 				inst[start].opcode = IR_NOP;
-				for (u32 i = start; i < func->inst_count; i++) {
+				for (isize i = start; i < func->inst_count; i++) {
 					if (inst[i].opcode == IR_LABEL) {
 						break;
 					}
@@ -313,7 +313,7 @@ next_block:
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		ir_inst *insts = program.insts + func->inst_index;
-		for (u32 i = 0; i < func->inst_count; i++) {
+		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);
 
 			u32 op0 = insts[i].op0;
