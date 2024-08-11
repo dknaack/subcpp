@@ -14,7 +14,8 @@
 #include "debug.c"
 #include "regalloc.c"
 #include "stream.c"
-#include "x86.c"
+#include "x86_select.c"
+#include "x86_codegen.c"
 
 static void
 run_command(char **args)
