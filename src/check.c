@@ -90,6 +90,19 @@ type_equals(type *lhs, type *rhs)
 	}
 }
 
+static linkage
+get_linkage(ast_node_flags flags)
+{
+	linkage result = LINK_DEFAULT;
+	if (flags & AST_EXTERN) {
+		result = LINK_EXTERN;
+	} else if (flags & AST_STATIC) {
+		result = LINK_STATIC;
+	}
+
+	return result;
+}
+
 static i64
 parse_i64(str input)
 {
@@ -949,6 +962,7 @@ check(ast_pool *pool, arena *perm)
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
+			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
 		}
 	}
@@ -965,6 +979,7 @@ check(ast_pool *pool, arena *perm)
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
+			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
 			sym->data = NULL; // TODO: Translate value into memory
 		}
@@ -1015,6 +1030,7 @@ check(ast_pool *pool, arena *perm)
 
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
+			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
 			sym->data = unescaped.at;
 			sym->size = unescaped.length;
@@ -1032,6 +1048,7 @@ check(ast_pool *pool, arena *perm)
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
+			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
 			sym->data = NULL; // TODO: Translate value into memory
 		}
