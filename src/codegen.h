@@ -49,7 +49,6 @@ typedef struct {
 
 typedef struct {
 	void *code;
-	symbol_table *symtab;
 	mach_function *functions;
 	mach_register_info register_info;
 
