@@ -3,12 +3,12 @@ typedef struct type type;
 
 typedef enum {
 	AST_INVALID,
-	AST_LIST,
 	AST_BUILTIN,
-	AST_EXTERN_DEF,    // {type, name}
-	AST_ENUMERATOR,    // {value, next}
-	AST_INIT,          // {first, last}
 	AST_DECL,          // {type, name}
+	AST_ENUMERATOR,    // {value, next}
+	AST_EXTERN_DEF,    // {type, name}
+	AST_INIT,          // {first, last}
+	AST_LIST,          // {value, next}
 
 	// expressions
 	AST_EXPR_BINARY,   // {lhs, rhs}
@@ -16,6 +16,7 @@ typedef enum {
 	AST_EXPR_CAST,     // {type, expr}
 	AST_EXPR_COMPOUND, // {type, expr}
 	AST_EXPR_IDENT,    // value.s
+	AST_EXPR_LITERAL,
 	AST_EXPR_MEMBER,   // {operand}
 	AST_EXPR_MEMBER_PTR, // {operand}
 	AST_EXPR_POSTFIX,  // {operand}
@@ -23,7 +24,6 @@ typedef enum {
 	AST_EXPR_TERNARY1, // {expr, ternary2}
 	AST_EXPR_TERNARY2, // {expr, expr}
 	AST_EXPR_UNARY,    // {operand}
-	AST_EXPR_LITERAL,
 
 	// statements
 	AST_STMT_ASM,
@@ -33,15 +33,15 @@ typedef enum {
 	AST_STMT_DEFAULT,  // {stmt}
 	AST_STMT_DO_WHILE, // {cond, body}
 	AST_STMT_EMPTY,    // {}
-	AST_STMT_GOTO,     // {}
 	AST_STMT_FOR1,     // {init, for2}
 	AST_STMT_FOR2,     // {cond, for3}
 	AST_STMT_FOR3,     // {post, body}
+	AST_STMT_GOTO,     // {}
 	AST_STMT_IF1,      // {cond, if2}
 	AST_STMT_IF2,      // {if, else?}
 	AST_STMT_LABEL,    // {stmt}
-	AST_STMT_SWITCH,   // {expr, stmt}
 	AST_STMT_RETURN,   // {expr?}
+	AST_STMT_SWITCH,   // {expr, stmt}
 	AST_STMT_WHILE,    // {cond, body}
 
 	// types

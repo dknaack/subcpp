@@ -176,41 +176,55 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
 	case AST_INVALID:
-	case AST_INIT: // Should be handled in DECL
-		{
-			ASSERT(!"Invalid node");
-		} break;
+		ASSERT(!"Invalid node");
+		break;
 	case AST_BUILTIN:
 		{
 			ASSERT(!"TODO");
 		} break;
-	case AST_EXPR_MEMBER:
-	case AST_EXPR_MEMBER_PTR:
+	case AST_DECL:
 		{
-			type *operand_type = get_type(pool, node->child[0]);
-			if (node->kind == AST_EXPR_MEMBER_PTR) {
-				operand_type = operand_type->base_type;
-			}
+			type *type = get_type(pool, node_id);
+			isize size = type_sizeof(type);
+			u32 addr = ir_emit_alloca(ctx, size);
 
-			u32 offset = type_offsetof(operand_type, node->token.value);
-			u32 offset_reg = ir_emit1(ctx, IR_I64, IR_CONST, offset);
-			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
-			u32 base_reg = translate_node(ctx, pool, node->child[0], base_is_lvalue);
-			result = ir_emit2(ctx, IR_I64, IR_ADD, base_reg, offset_reg);
-			if (!is_lvalue) {
-				type *node_type = get_type(pool, node_id);
-				if (!is_compound_type(node_type->kind)) {
-					ir_type type = ir_type_from(node_type);
-					result = ir_emit1(ctx, type, IR_LOAD, result);
+			if (node->child[1].value != 0) {
+				ast_node *init_expr = get_node(pool, node->child[1]);
+				if (init_expr->kind == AST_INIT) {
+					translate_initializer(ctx, pool, node->child[1], addr);
 				} else {
-					isize size = type_sizeof(node_type);
-					u32 tmp = ir_emit_alloca(ctx, size);
-					ir_memcpy(ctx, tmp, result, size);
-					result = tmp;
+					u32 value = translate_node(ctx, pool, node->child[1], false);
+					ir_store(ctx, addr, value, type);
 				}
 			}
+		} break;
+	case AST_EXTERN_DEF:
+		{
+			type *type = get_type(pool, node_id);
+			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
+			if (is_func_def) {
+				ir_inst *start = ctx->program->insts + ctx->program->inst_count;
+				translate_node(ctx, pool, node->child[1], false);
+				ir_inst *end = ctx->program->insts + ctx->program->inst_count;
 
-			ASSERT(result != 0);
+				info_id node_info = ctx->info->of[node_id.value];
+				symbol *symbol = &ctx->info->symtab.symbols[node_info.value];
+				symbol->name = node->token.value;
+				symbol->data = start;
+				symbol->size = (char *)end - (char *)start;
+			}
+		} break;
+	case AST_INIT:
+		ASSERT(!"Should have been handled by DECL");
+		break;
+	case AST_LIST:
+		{
+			ast_id child = node_id;
+			while (child.value != 0) {
+				ast_node *child_node = get_node(pool, child);
+				translate_node(ctx, pool, child_node->child[0], false);
+				child = child_node->child[1];
+			}
 		} break;
 	case AST_EXPR_BINARY:
 		{
@@ -464,11 +478,97 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				break;
 			}
 		} break;
+	case AST_EXPR_MEMBER:
+	case AST_EXPR_MEMBER_PTR:
+		{
+			type *operand_type = get_type(pool, node->child[0]);
+			if (node->kind == AST_EXPR_MEMBER_PTR) {
+				operand_type = operand_type->base_type;
+			}
+
+			u32 offset = type_offsetof(operand_type, node->token.value);
+			u32 offset_reg = ir_emit1(ctx, IR_I64, IR_CONST, offset);
+			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
+			u32 base_reg = translate_node(ctx, pool, node->child[0], base_is_lvalue);
+			result = ir_emit2(ctx, IR_I64, IR_ADD, base_reg, offset_reg);
+			if (!is_lvalue) {
+				type *node_type = get_type(pool, node_id);
+				if (!is_compound_type(node_type->kind)) {
+					ir_type type = ir_type_from(node_type);
+					result = ir_emit1(ctx, type, IR_LOAD, result);
+				} else {
+					isize size = type_sizeof(node_type);
+					u32 tmp = ir_emit_alloca(ctx, size);
+					ir_memcpy(ctx, tmp, result, size);
+					result = tmp;
+				}
+			}
+
+			ASSERT(result != 0);
+		} break;
+	case AST_EXPR_POSTFIX:
+		{
+			token_kind operator = node->token.kind;
+			switch (operator) {
+			case TOKEN_PLUS_PLUS:
+			case TOKEN_MINUS_MINUS:
+				{
+					ir_opcode opcode = IR_ADD;
+					if (operator == TOKEN_MINUS_MINUS) {
+						opcode = IR_SUB;
+					}
+
+					type *node_type = get_type(pool, node_id);
+					ir_type type = ir_type_from(node_type);
+					u32 addr = translate_node(ctx, pool, node->child[0], true);
+					result = ir_emit1(ctx, type, IR_LOAD, addr);
+					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
+					u32 value = ir_emit2(ctx, type, opcode, result, one);
+					ir_emit2(ctx, IR_VOID, IR_STORE, addr, value);
+					if (is_lvalue) {
+						result = addr;
+					}
+				} break;
+			default:
+				ASSERT(!"Invalid postfix operator");
+			}
+		} break;
 	case AST_EXPR_SIZEOF:
 		{
 			isize size = eval_ast(pool, node_id);
 			result = ir_emit1(ctx, IR_I64, IR_CONST, size);
 		} break;
+	case AST_EXPR_TERNARY1:
+		{
+			u32 endif_label = new_label(ctx);
+			u32 else_label = new_label(ctx);
+
+			ast_id cond = node->child[0];
+			ast_node *branches = get_node(pool, node->child[1]);
+			u32 cond_reg = translate_node(ctx, pool, cond, false);
+			type *node_type = get_type(pool, node_id);
+			if (is_compound_type(node_type->kind)) {
+				result = ir_emit_alloca(ctx, type_sizeof(node_type));
+			} else {
+				result = ir_emit0(ctx, ir_type_from(node_type), IR_VAR);
+			}
+			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
+
+			ast_id if_branch = branches->child[0];
+			u32 if_reg = translate_node(ctx, pool, if_branch, false);
+			ir_mov(ctx, result, if_reg, node_type);
+			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
+
+			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
+			ast_id else_branch = branches->child[1];
+			u32 else_reg = translate_node(ctx, pool, else_branch, false);
+			ir_mov(ctx, result, else_reg, node_type);
+
+			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
+		} break;
+	case AST_EXPR_TERNARY2:
+		ASSERT(!"Should have been handled by TERNARY1");
+		break;
 	case AST_EXPR_UNARY:
 		{
 			token_kind operator = node->token.kind;
@@ -533,64 +633,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ASSERT(!"Invalid operator");
 			}
 		} break;
-	case AST_EXPR_TERNARY1:
-		{
-			u32 endif_label = new_label(ctx);
-			u32 else_label = new_label(ctx);
-
-			ast_id cond = node->child[0];
-			ast_node *branches = get_node(pool, node->child[1]);
-			u32 cond_reg = translate_node(ctx, pool, cond, false);
-			type *node_type = get_type(pool, node_id);
-			if (is_compound_type(node_type->kind)) {
-				result = ir_emit_alloca(ctx, type_sizeof(node_type));
-			} else {
-				result = ir_emit0(ctx, ir_type_from(node_type), IR_VAR);
-			}
-			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
-
-			ast_id if_branch = branches->child[0];
-			u32 if_reg = translate_node(ctx, pool, if_branch, false);
-			ir_mov(ctx, result, if_reg, node_type);
-			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
-
-			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
-			ast_id else_branch = branches->child[1];
-			u32 else_reg = translate_node(ctx, pool, else_branch, false);
-			ir_mov(ctx, result, else_reg, node_type);
-
-			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
-		} break;
-	case AST_EXPR_TERNARY2:
-		ASSERT(!"Should have been handled by TERNARY1");
-		break;
-	case AST_EXPR_POSTFIX:
-		{
-			token_kind operator = node->token.kind;
-			switch (operator) {
-			case TOKEN_PLUS_PLUS:
-			case TOKEN_MINUS_MINUS:
-				{
-					ir_opcode opcode = IR_ADD;
-					if (operator == TOKEN_MINUS_MINUS) {
-						opcode = IR_SUB;
-					}
-
-					type *node_type = get_type(pool, node_id);
-					ir_type type = ir_type_from(node_type);
-					u32 addr = translate_node(ctx, pool, node->child[0], true);
-					result = ir_emit1(ctx, type, IR_LOAD, addr);
-					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
-					u32 value = ir_emit2(ctx, type, opcode, result, one);
-					ir_emit2(ctx, IR_VOID, IR_STORE, addr, value);
-					if (is_lvalue) {
-						result = addr;
-					}
-				} break;
-			default:
-				ASSERT(!"Invalid postfix operator");
-			}
-		} break;
 	case AST_STMT_ASM:
 		{
 			ASSERT(!"TODO");
@@ -598,15 +640,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_BREAK:
 		{
 			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->break_label);
-		} break;
-	case AST_LIST:
-		{
-			ast_id child = node_id;
-			while (child.value != 0) {
-				ast_node *child_node = get_node(pool, child);
-				translate_node(ctx, pool, child_node->child[0], false);
-				child = child_node->child[1];
-			}
 		} break;
 	case AST_STMT_CASE:
 		{
@@ -637,38 +670,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 cond_reg = translate_node(ctx, pool, cond, false);
 			ir_emit2(ctx, IR_VOID, IR_JNZ, cond_reg, ctx->continue_label);
 			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
-		} break;
-	case AST_EXTERN_DEF:
-		{
-			type *type = get_type(pool, node_id);
-			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
-			if (is_func_def) {
-				ir_inst *start = ctx->program->insts + ctx->program->inst_count;
-				translate_node(ctx, pool, node->child[1], false);
-				ir_inst *end = ctx->program->insts + ctx->program->inst_count;
-
-				info_id node_info = ctx->info->of[node_id.value];
-				symbol *symbol = &ctx->info->symtab.symbols[node_info.value];
-				symbol->name = node->token.value;
-				symbol->data = start;
-				symbol->size = (char *)end - (char *)start;
-			}
-		} break;
-	case AST_DECL:
-		{
-			type *type = get_type(pool, node_id);
-			isize size = type_sizeof(type);
-			u32 addr = ir_emit_alloca(ctx, size);
-
-			if (node->child[1].value != 0) {
-				ast_node *init_expr = get_node(pool, node->child[1]);
-				if (init_expr->kind == AST_INIT) {
-					translate_initializer(ctx, pool, node->child[1], addr);
-				} else {
-					u32 value = translate_node(ctx, pool, node->child[1], false);
-					ir_store(ctx, addr, value, type);
-				}
-			}
 		} break;
 	case AST_STMT_EMPTY:
 		break;
@@ -741,24 +742,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_IF2:
 		ASSERT(!"Should have been handled by IF1");
 		break;
-	case AST_STMT_WHILE:
-		{
-			ir_context new_ctx = *ctx;
-			ctx = &new_ctx;
-
-			ctx->break_label = new_label(ctx);
-			ctx->continue_label = new_label(ctx);
-
-			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->continue_label);
-			ast_id cond = node->child[0];
-			u32 cond_reg = translate_node(ctx, pool, cond, false);
-			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, ctx->break_label);
-
-			ast_id body = node->child[1];
-			translate_node(ctx, pool, body, false);
-			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->continue_label);
-			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
-		} break;
 	case AST_STMT_RETURN:
 		{
 			u32 value = 0;
@@ -806,6 +789,24 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(ctx, pool, node->child[1], false);
 			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
 		} break;
+	case AST_STMT_WHILE:
+		{
+			ir_context new_ctx = *ctx;
+			ctx = &new_ctx;
+
+			ctx->break_label = new_label(ctx);
+			ctx->continue_label = new_label(ctx);
+
+			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->continue_label);
+			ast_id cond = node->child[0];
+			u32 cond_reg = translate_node(ctx, pool, cond, false);
+			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, ctx->break_label);
+
+			ast_id body = node->child[1];
+			translate_node(ctx, pool, body, false);
+			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, ctx->break_label);
+		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
 	case AST_TYPE_ENUM:
@@ -816,7 +817,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_POINTER:
 	case AST_TYPE_BITFIELD:
-		ASSERT(false);
+		ASSERT(!"Invalid node");
 		break;
 	}
 

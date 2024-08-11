@@ -322,35 +322,6 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 			}
 		} break;
-	case AST_EXPR_MEMBER:
-	case AST_EXPR_MEMBER_PTR:
-		{
-			type *operand_type = check_type(pool, node->child[0], arena);
-			if (node->kind == AST_EXPR_MEMBER_PTR) {
-				if (operand_type->kind != TYPE_POINTER) {
-					errorf(node->token.loc, "Left-hand side is not a pointer");
-					pool->error = true;
-				}
-
-				operand_type = operand_type->base_type;
-			}
-
-			if (operand_type->kind == TYPE_OPAQUE) {
-				operand_type = operand_type->base_type;
-			}
-
-			if (operand_type->kind != TYPE_STRUCT && operand_type->kind != TYPE_UNION) {
-				errorf(node->token.loc, "Left-hand side is not a struct");
-				pool->error = true;
-			}
-
-			member *s = get_member(operand_type->members, node->token.value);
-			if (s) {
-				memcpy(node_type, s->type, sizeof(*node_type));
-			} else {
-				errorf(node->token.loc, "Member does not exist");
-			}
-		} break;
 	case AST_EXPR_BINARY:
 		{
 			type *lhs = check_type(pool, node->child[0], arena);
@@ -471,6 +442,35 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				break;
 			default:
 				ASSERT(!"Invalid literal");
+			}
+		} break;
+	case AST_EXPR_MEMBER:
+	case AST_EXPR_MEMBER_PTR:
+		{
+			type *operand_type = check_type(pool, node->child[0], arena);
+			if (node->kind == AST_EXPR_MEMBER_PTR) {
+				if (operand_type->kind != TYPE_POINTER) {
+					errorf(node->token.loc, "Left-hand side is not a pointer");
+					pool->error = true;
+				}
+
+				operand_type = operand_type->base_type;
+			}
+
+			if (operand_type->kind == TYPE_OPAQUE) {
+				operand_type = operand_type->base_type;
+			}
+
+			if (operand_type->kind != TYPE_STRUCT && operand_type->kind != TYPE_UNION) {
+				errorf(node->token.loc, "Left-hand side is not a struct");
+				pool->error = true;
+			}
+
+			member *s = get_member(operand_type->members, node->token.value);
+			if (s) {
+				memcpy(node_type, s->type, sizeof(*node_type));
+			} else {
+				errorf(node->token.loc, "Member does not exist");
 			}
 		} break;
 	case AST_EXPR_SIZEOF:
