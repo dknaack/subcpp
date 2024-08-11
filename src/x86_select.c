@@ -617,8 +617,9 @@ static mach_program
 x86_select(ir_program program, arena *arena)
 {
 	mach_program out = {0};
-	out.max_size = 8 * 1024 * 1024;
 	out.functions = ALLOC(arena, program.function_count, mach_function);
+	// TODO: This should be a dynamic array
+	out.max_size = 8 * 1024 * 1024;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
 	out.register_info.register_count = X86_REGISTER_COUNT;
@@ -626,42 +627,14 @@ x86_select(ir_program program, arena *arena)
 	out.register_info.volatile_registers = x86_temp_regs;
 	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
 
-	mach_function *mach_func = out.functions;
-	for (isize f = 0; f < program.function_count; f++) {
-		ir_function *ir_func = &program.functions[f];
-		b8 *is_toplevel = get_toplevel_instructions(ir_func, program.insts + ir_func->inst_index, arena);
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *ir_func = &program.functions[i];
+		mach_function *mach_func = &out.functions[i];
 
-		out.function_count++;
-		mach_func->name = ir_func->name;
-		mach_func->stack_size = ir_func->stack_size;
-		mach_func->register_count = ir_func->inst_count;
-		u32 first_inst_offset = out.size;
-		u32 first_inst_index = out.inst_count;
-		ir_inst *inst = program.insts + ir_func->inst_index;
+		isize first_inst_index = out.inst_count;
+		isize first_inst_offset = out.size;
 
-		i32 float_count = 0;
-		for (u32 i = 0; i < ir_func->inst_count; i++) {
-			if (inst[i].opcode == IR_CONST
-				&& (inst[i].type == IR_F32 || inst[i].type == IR_F64))
-			{
-				float_count++;
-			}
-		}
-
-		f32 *floats = alloc(arena, 1, sizeof(*floats));
-		i32 j = 0;
-		for (u32 i = 0; i < ir_func->inst_count; i++) {
-			if (inst[i].opcode == IR_CONST
-				&& (inst[i].type == IR_F32 || inst[i].type == IR_F64))
-			{
-				floats[j] = inst[i].op0;
-				inst[i].op0 = j++;
-			}
-		}
-
-		mach_func->float_count = float_count;
-		mach_func->floats = (i32 *)floats;
-
+		// NOTE: Initialize the parameter registers
 		for (u32 i = 0; i < ir_func->parameter_count; i++) {
 			// TODO: Set the correct size of the parameters
 			mach_operand dst = make_operand(MOP_VREG, i+1, 8);
@@ -692,20 +665,26 @@ x86_select(ir_program program, arena *arena)
 				x86_emit2(&out, X86_MOV, dst, src);
 				break;
 			default:
+				// TODO: The function should store the parameter offsets of
+				// each argument. Then, we can calculate the offset for this
+				// parameter.
 				ASSERT(!"Too many parameters");
 			}
 		}
 
+		// NOTE: Do the instruction selection
+		ir_inst *inst = program.insts + ir_func->inst_index;
+		b8 *is_toplevel = get_toplevel_instructions(ir_func, inst, arena);
 		for (u32 i = ir_func->parameter_count; i < ir_func->inst_count; i++) {
-			mach_operand dst = make_operand(MOP_VREG, i, ir_sizeof(inst[i].type));
-			if (inst[i].opcode == IR_MOV || inst[i].opcode == IR_STORE) {
-				dst = make_operand(MOP_VREG, inst[i].op0, ir_sizeof(inst[inst[i].op0].type));
-				if (inst[i].type == IR_F32 || inst[i].type == IR_F64) {
-					dst.flags |= MOP_ISFLOAT;
-				}
-			}
-
 			if (is_toplevel[i]) {
+				mach_operand dst = make_operand(MOP_VREG, i, ir_sizeof(inst[i].type));
+				if (inst[i].opcode == IR_MOV || inst[i].opcode == IR_STORE) {
+					dst = make_operand(MOP_VREG, inst[i].op0, ir_sizeof(inst[inst[i].op0].type));
+					if (inst[i].type == IR_F32 || inst[i].type == IR_F64) {
+						dst.flags |= MOP_ISFLOAT;
+					}
+				}
+
 				x86_select_inst(&out, inst, i, dst);
 			}
 		}
@@ -747,8 +726,6 @@ x86_select(ir_program program, arena *arena)
 				}
 			}
 		}
-
-		mach_func++;
 	}
 
 	return out;
