@@ -48,7 +48,7 @@ typedef struct {
 #include "memory.h"
 #include "util.h"
 #include "lexer.h"
-#include "type.h"
+#include "check.h"
 #include "ast.h"
 #include "ir.h"
 #include "codegen.h"
