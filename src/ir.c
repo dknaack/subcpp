@@ -342,11 +342,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
 				ir_type type = ir_type_from(node_type);
-				if (operator == TOKEN_BANG_EQUAL) {
-					lhs_reg = ir_emit1(ctx, IR_VOID, IR_NOT, lhs_reg);
-				}
 
 				result = ir_emit2(ctx, type, opcode, lhs_reg, rhs_reg);
+				if (operator == TOKEN_BANG_EQUAL) {
+					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
+					lhs_reg = ir_emit2(ctx, type, IR_SUB, one, lhs_reg);
+				}
 			}
 
 			ASSERT(result != 0);
