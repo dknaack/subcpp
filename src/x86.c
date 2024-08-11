@@ -864,21 +864,6 @@ x86_emit_operand(stream *out, machine_operand operand, symbol_table *symtab)
 static void
 x86_generate(stream *out, machine_program program, allocation_info *info)
 {
-	stream_print(out, "section .data\n");
-
-	for (u32 i = 0; i < program.function_count; i++) {
-		machine_function *function = &program.functions[i];
-		for (i32 j = 0; j < function->float_count; j++) {
-			stream_print(out, "float#");
-			stream_printu(out, j);
-			stream_print(out, ": dd ");
-			stream_printu(out, function->floats[j]);
-			stream_print(out, "\n");
-		}
-	}
-
-	stream_print(out, "\n");
-
 	symbol_table *symtab = program.symtab;
 	for (isize i = 0; i < symtab->symbol_count; i++) {
 		symbol *sym = &symtab->symbols[i];
