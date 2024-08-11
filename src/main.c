@@ -6,8 +6,8 @@
 
 #include "main.h"
 
-#include "lexer.c"
-#include "parser.c"
+#include "lex.c"
+#include "parse.c"
 #include "check.c"
 #include "ir.c"
 #include "optimize.c"
