@@ -1037,6 +1037,20 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
+	// NOTE: Tag identifiers info with the referenced variable
+	for (isize i = 1; i < pool->size; i++) {
+		ast_node *node = &pool->nodes[i];
+		if (node->kind == AST_EXPR_IDENT) {
+			ast_id ref_node = node->child[0];
+			info_id ref_info = info.of[ref_node.value];
+			info.of[i] = ref_info;
+
+			// NOTE: A referenced node should always exist, since we already
+			// did name resolution during the parsing phase.
+			ASSERT(ref_info.value != 0);
+		}
+	}
+
 	// NOTE: Collect all switch statements.
 	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
 	check_type(pool, pool->root, perm);
