@@ -139,8 +139,10 @@ parse_i64(str input)
 }
 
 static i64
-eval_ast(ast_pool *pool, ast_id node_id)
+eval_ast(semantic_context ctx, ast_id node_id)
 {
+	ast_pool *pool = ctx.ast;
+
 	i64 result = 0;
 	ast_node *node = get_node(pool, node_id);
 	switch (node->kind) {
@@ -156,8 +158,8 @@ eval_ast(ast_pool *pool, ast_id node_id)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			i64 lhs = eval_ast(pool, node->child[0]);
-			i64 rhs = eval_ast(pool, node->child[1]);
+			i64 lhs = eval_ast(ctx, node->child[0]);
+			i64 rhs = eval_ast(ctx, node->child[1]);
 			switch (node->token.kind) {
 			case TOKEN_PLUS:          result = lhs +  rhs; break;
 			case TOKEN_MINUS:         result = lhs -  rhs; break;
@@ -194,10 +196,10 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	case AST_EXPR_TERNARY1:
 		{
 			ast_node *node2 = get_node(pool, node->child[1]);
-			if (eval_ast(pool, node->child[0])) {
-				result = eval_ast(pool, node2->child[0]);
+			if (eval_ast(ctx, node->child[0])) {
+				result = eval_ast(ctx, node2->child[0]);
 			} else {
-				result = eval_ast(pool, node2->child[1]);
+				result = eval_ast(ctx, node2->child[1]);
 			}
 		} break;
 	case AST_EXPR_SIZEOF:
@@ -208,11 +210,11 @@ eval_ast(ast_pool *pool, ast_id node_id)
 	case AST_EXPR_CAST:
 		{
 			// TODO: Implement casting behavior
-			result = eval_ast(pool, node->child[1]);
+			result = eval_ast(ctx, node->child[1]);
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			result = eval_ast(pool, node->child[0]);
+			result = eval_ast(ctx, node->child[0]);
 		} break;
 	default:
 		ASSERT(!"Invalid node");
@@ -647,7 +649,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			node_type->kind = TYPE_ARRAY;
 			if (node->child[0].value != 0) {
 				check_type(ctx, node->child[0]);
-				node_type->size = eval_ast(pool, node->child[0]);
+				node_type->size = eval_ast(ctx, node->child[0]);
 			} else {
 				// TODO: Evaluate the size based on the expression or error.
 			}
@@ -710,7 +712,7 @@ check_type(semantic_context ctx, ast_id node_id)
 				ast_node *enum_node = get_node(pool, enum_id);
 				type *enum_type = get_type(pool, enum_id);
 				if (enum_node->child[0].value != 0) {
-					value = eval_ast(pool, enum_node->child[0]);
+					value = eval_ast(ctx, enum_node->child[0]);
 				}
 
 				// TODO: Should we replace the whole enumerator or just the
