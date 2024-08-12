@@ -91,7 +91,7 @@ type_equals(type *lhs, type *rhs)
 }
 
 static type *
-basic_type(ast_pool *pool, type_kind kind, arena *arena)
+basic_type(type_kind kind, type_pool *pool, arena *arena)
 {
 	(void)pool;
 	type *type = type_create(kind, arena);
@@ -213,6 +213,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 static type *
 check_type(semantic_context ctx, ast_id node_id)
 {
+	type_pool *types = ctx.types;
 	ast_pool *pool = ctx.ast;
 	arena *arena = ctx.arena;
 
@@ -452,17 +453,17 @@ check_type(semantic_context ctx, ast_id node_id)
 			switch (node->token.kind) {
 			case TOKEN_LITERAL_INT:
 				// TODO: If zero, set type to zero
-				node_type = basic_type(pool, TYPE_INT, arena);
+				node_type = basic_type(TYPE_INT, types, arena);
 				break;
 			case TOKEN_LITERAL_CHAR:
-				node_type = basic_type(pool, TYPE_CHAR, arena);
+				node_type = basic_type(TYPE_CHAR, types, arena);
 				break;
 			case TOKEN_LITERAL_FLOAT:
-				node_type = basic_type(pool, TYPE_FLOAT, arena);
+				node_type = basic_type(TYPE_FLOAT, types, arena);
 				break;
 			case TOKEN_LITERAL_STRING:
 				node_type->kind = TYPE_POINTER;
-				node_type->base_type = basic_type(pool, TYPE_CHAR, arena);
+				node_type->base_type = basic_type(TYPE_CHAR, types, arena);
 				break;
 			default:
 				ASSERT(!"Invalid literal");
@@ -499,7 +500,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			node_type = basic_type(pool, TYPE_INT, arena);
+			node_type = basic_type(TYPE_INT, types, arena);
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
@@ -517,7 +518,7 @@ check_type(semantic_context ctx, ast_id node_id)
 				}
 				break;
 			case TOKEN_AMP:
-				node_type = basic_type(pool, TYPE_POINTER, arena);
+				node_type = basic_type(TYPE_POINTER, types, arena);
 				node_type->base_type = operand_type;
 				break;
 			case TOKEN_BANG:
@@ -577,45 +578,45 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_BASIC:
 		switch (node->token.kind) {
 		case TOKEN_VOID:
-			node_type = basic_type(pool, TYPE_VOID, arena);
+			node_type = basic_type(TYPE_VOID, types, arena);
 			break;
 		case TOKEN_FLOAT:
 		case TOKEN_DOUBLE:
-			node_type = basic_type(pool, TYPE_FLOAT, arena);
+			node_type = basic_type(TYPE_FLOAT, types, arena);
 			break;
 		case TOKEN_CHAR:
 			if (node->flags & AST_UNSIGNED) {
-				node_type = basic_type(pool, TYPE_CHAR_UNSIGNED, arena);
+				node_type = basic_type(TYPE_CHAR_UNSIGNED, types, arena);
 			} else {
-				node_type = basic_type(pool, TYPE_CHAR, arena);
+				node_type = basic_type(TYPE_CHAR, types, arena);
 			}
 
 			break;
 		case TOKEN_INT:
 			switch (node->flags & (AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED)) {
 			case AST_LLONG | AST_UNSIGNED:
-				node_type = basic_type(pool, TYPE_LLONG_UNSIGNED, arena);
+				node_type = basic_type(TYPE_LLONG_UNSIGNED, types, arena);
 				break;
 			case AST_LLONG:
-				node_type = basic_type(pool, TYPE_LLONG, arena);
+				node_type = basic_type(TYPE_LLONG, types, arena);
 				break;
 			case AST_LONG | AST_UNSIGNED:
-				node_type = basic_type(pool, TYPE_LONG_UNSIGNED, arena);
+				node_type = basic_type(TYPE_LONG_UNSIGNED, types, arena);
 				break;
 			case AST_LONG:
-				node_type = basic_type(pool, TYPE_LONG, arena);
+				node_type = basic_type(TYPE_LONG, types, arena);
 				break;
 			case AST_SHORT | AST_UNSIGNED:
-				node_type = basic_type(pool, TYPE_SHORT_UNSIGNED, arena);
+				node_type = basic_type(TYPE_SHORT_UNSIGNED, types, arena);
 				break;
 			case AST_SHORT:
-				node_type = basic_type(pool, TYPE_SHORT, arena);
+				node_type = basic_type(TYPE_SHORT, types, arena);
 				break;
 			case AST_UNSIGNED:
-				node_type = basic_type(pool, TYPE_INT_UNSIGNED, arena);
+				node_type = basic_type(TYPE_INT_UNSIGNED, types, arena);
 				break;
 			default:
-				node_type = basic_type(pool, TYPE_INT, arena);
+				node_type = basic_type(TYPE_INT, types, arena);
 			}
 
 			break;
@@ -686,7 +687,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_ENUMERATOR:
 		{
-			node_type = basic_type(pool, TYPE_INT, arena);
+			node_type = basic_type(TYPE_INT, types, arena);
 		} break;
 	case AST_TYPE_ENUM:
 		{
