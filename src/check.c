@@ -882,6 +882,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	}
 
+	set_type(types, node_id, node_type);
 	return node_type;
 }
 
