@@ -90,6 +90,14 @@ type_equals(type *lhs, type *rhs)
 	}
 }
 
+static type *
+basic_type(ast_pool *pool, type_kind kind, arena *arena)
+{
+	(void)pool;
+	type *type = type_create(kind, arena);
+	return type;
+}
+
 static linkage
 get_linkage(ast_node_flags flags)
 {
@@ -441,17 +449,17 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 			switch (node->token.kind) {
 			case TOKEN_LITERAL_INT:
 				// TODO: If zero, set type to zero
-				node_type->kind = TYPE_INT;
+				node_type = basic_type(pool, TYPE_INT, arena);
 				break;
 			case TOKEN_LITERAL_CHAR:
-				node_type->kind = TYPE_CHAR;
+				node_type = basic_type(pool, TYPE_CHAR, arena);
 				break;
 			case TOKEN_LITERAL_FLOAT:
-				node_type->kind = TYPE_FLOAT;
+				node_type = basic_type(pool, TYPE_FLOAT, arena);
 				break;
 			case TOKEN_LITERAL_STRING:
 				node_type->kind = TYPE_POINTER;
-				node_type->base_type = type_create(TYPE_CHAR, arena);
+				node_type->base_type = basic_type(pool, TYPE_CHAR, arena);
 				break;
 			default:
 				ASSERT(!"Invalid literal");
@@ -488,7 +496,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			node_type->kind = TYPE_INT;
+			node_type = basic_type(pool, TYPE_INT, arena);
 		} break;
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
@@ -506,7 +514,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 				}
 				break;
 			case TOKEN_AMP:
-				node_type = type_create(TYPE_POINTER, arena);
+				node_type = basic_type(pool, TYPE_POINTER, arena);
 				node_type->base_type = operand_type;
 				break;
 			case TOKEN_BANG:
@@ -566,45 +574,45 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 	case AST_TYPE_BASIC:
 		switch (node->token.kind) {
 		case TOKEN_VOID:
-			node_type->kind = TYPE_VOID;
+			node_type = basic_type(pool, TYPE_VOID, arena);
 			break;
 		case TOKEN_FLOAT:
 		case TOKEN_DOUBLE:
-			node_type->kind = TYPE_FLOAT;
+			node_type = basic_type(pool, TYPE_FLOAT, arena);
 			break;
 		case TOKEN_CHAR:
 			if (node->flags & AST_UNSIGNED) {
-				node_type->kind = TYPE_CHAR_UNSIGNED;
+				node_type = basic_type(pool, TYPE_CHAR_UNSIGNED, arena);
 			} else {
-				node_type->kind = TYPE_CHAR;
+				node_type = basic_type(pool, TYPE_CHAR, arena);
 			}
 
 			break;
 		case TOKEN_INT:
 			switch (node->flags & (AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED)) {
 			case AST_LLONG | AST_UNSIGNED:
-				node_type->kind = TYPE_LLONG_UNSIGNED;
+				node_type = basic_type(pool, TYPE_LLONG_UNSIGNED, arena);
 				break;
 			case AST_LLONG:
-				node_type->kind = TYPE_LLONG;
+				node_type = basic_type(pool, TYPE_LLONG, arena);
 				break;
 			case AST_LONG | AST_UNSIGNED:
-				node_type->kind = TYPE_LONG_UNSIGNED;
+				node_type = basic_type(pool, TYPE_LONG_UNSIGNED, arena);
 				break;
 			case AST_LONG:
-				node_type->kind = TYPE_LONG;
+				node_type = basic_type(pool, TYPE_LONG, arena);
 				break;
 			case AST_SHORT | AST_UNSIGNED:
-				node_type->kind = TYPE_SHORT_UNSIGNED;
+				node_type = basic_type(pool, TYPE_SHORT_UNSIGNED, arena);
 				break;
 			case AST_SHORT:
-				node_type->kind = TYPE_SHORT;
+				node_type = basic_type(pool, TYPE_SHORT, arena);
 				break;
 			case AST_UNSIGNED:
-				node_type->kind = TYPE_INT_UNSIGNED;
+				node_type = basic_type(pool, TYPE_INT_UNSIGNED, arena);
 				break;
 			default:
-				node_type->kind = TYPE_INT;
+				node_type = basic_type(pool, TYPE_INT, arena);
 			}
 
 			break;
@@ -675,7 +683,7 @@ check_type(ast_pool *pool, ast_id node_id, arena *arena)
 		} break;
 	case AST_ENUMERATOR:
 		{
-			node_type->kind = TYPE_INT;
+			node_type = basic_type(pool, TYPE_INT, arena);
 		} break;
 	case AST_TYPE_ENUM:
 		{
