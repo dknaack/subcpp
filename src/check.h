@@ -123,6 +123,11 @@ struct type {
 	i64 size;
 };
 
+typedef struct {
+	ast_pool *ast;
+	arena *arena;
+} semantic_context;
+
 static char *
 type_get_name(type_kind type)
 {
