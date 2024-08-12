@@ -124,8 +124,16 @@ struct type {
 };
 
 typedef struct {
+	type_id *at;
+	type *data;
+	isize size;
+	isize cap;
+} type_pool;
+
+typedef struct {
 	ast_pool *ast;
 	arena *arena;
+	type_pool *types;
 } semantic_context;
 
 static char *
