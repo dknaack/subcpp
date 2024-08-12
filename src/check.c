@@ -125,6 +125,54 @@ pointer_type(type *base_type, type_pool *pool)
 	return result;
 }
 
+static type *
+array_type(type *base_type, i64 size, type_pool *pool)
+{
+	type *result = push_type(pool);
+	result->kind = TYPE_ARRAY;
+	result->base_type = base_type;
+	result->size = size;
+	return result;
+}
+
+static type *
+bitfield_type(type *base_type, i64 size, type_pool *pool)
+{
+	type *result = push_type(pool);
+	result->kind = TYPE_BITFIELD;
+	result->base_type = base_type;
+	result->size = size;
+	return result;
+}
+
+static type *
+function_type(type *return_type, member *params, type_pool *pool)
+{
+	type *result = push_type(pool);
+	result->kind = TYPE_FUNCTION;
+	result->base_type = return_type;
+	result->members = params;
+	return result;
+}
+
+static type *
+compound_type(type_kind kind, member *members, type_pool *pool)
+{
+	type *result = push_type(pool);
+	result->kind = kind;
+	result->members = members;
+	return result;
+}
+
+static type *
+opaque_type(type *ref_type, type_pool *pool)
+{
+	type *result = push_type(pool);
+	result->kind = TYPE_OPAQUE;
+	result->base_type = ref_type;
+	return result;
+}
+
 static linkage
 get_linkage(ast_node_flags flags)
 {
