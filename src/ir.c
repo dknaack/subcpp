@@ -915,6 +915,10 @@ get_opcode_info(ir_opcode opcode)
 	case IR_LABEL:
 		info.op0 = IR_OPERAND_LABEL;
 		break;
+	case IR_SEQ:
+		info.op0 = IR_OPERAND_LABEL;
+		info.op1 = IR_OPERAND_LABEL;
+		break;
 	case IR_NOP:
 	case IR_VAR:
 		break;
@@ -928,32 +932,6 @@ is_register_operand(ir_operand_type operand)
 {
 	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
 	return result;
-}
-
-static b8 *
-get_toplevel_instructions(ir_function *func, ir_inst *insts, arena *arena)
-{
-	b8 *is_toplevel = ALLOC(arena, func->inst_count, b8);
-	for (isize i = 0; i < func->inst_count; i++) {
-		is_toplevel[i] = true;
-	}
-
-	for (isize i = 0; i < func->inst_count; i++) {
-		ir_opcode_info info = get_opcode_info(insts[i].opcode);
-		if (insts[i].opcode == IR_GLOBAL) {
-			is_toplevel[i] = false;
-		}
-
-		if (is_register_operand(info.op0)) {
-			is_toplevel[insts[i].op0] = false;
-		}
-
-		if (is_register_operand(info.op1)) {
-			is_toplevel[insts[i].op1] = false;
-		}
-	}
-
-	return is_toplevel;
 }
 
 static ir_program

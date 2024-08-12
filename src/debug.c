@@ -440,6 +440,9 @@ print_ir_inst(ir_inst inst, u32 i)
 	case IR_LABEL:
 		printf("L%d:\n", op0);
 		break;
+	case IR_SEQ:
+		// NOTE: Ignore seq instructions for printing
+		break;
 	}
 }
 

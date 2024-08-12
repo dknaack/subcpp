@@ -493,7 +493,6 @@ check_type(semantic_context ctx, ast_id node_id)
 
 			u32 operator = node->token.kind;
 			if (operator == TOKEN_LBRACKET) {
-
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
 				if (is_pointer(lhs_type)) {

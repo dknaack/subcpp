@@ -21,6 +21,7 @@ typedef enum {
 	IR_JIZ,
 	IR_JMP,
 	IR_JNZ,
+	IR_SEQ,
 
 	// data operations
 	IR_ADD,
