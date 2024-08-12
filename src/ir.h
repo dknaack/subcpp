@@ -94,7 +94,7 @@ typedef struct {
 typedef struct ir_function ir_function;
 struct ir_function {
 	str name;
-	i32 parameter_count;
+	i32 param_count;
 	i32 inst_index;
 	i32 inst_count;
 	i32 label_count;

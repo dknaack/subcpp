@@ -630,7 +630,7 @@ x86_select(ir_program program, arena *arena)
 		isize first_inst_offset = out.size;
 
 		// NOTE: Initialize the parameter registers
-		for (isize i = 0; i < ir_func->parameter_count; i++) {
+		for (isize i = 0; i < ir_func->param_count; i++) {
 			// TODO: Set the correct size of the parameters
 			mach_operand dst = make_operand(MOP_VREG, i+1, 8);
 			mach_operand src;
@@ -670,7 +670,7 @@ x86_select(ir_program program, arena *arena)
 		// NOTE: Do the instruction selection
 		ir_inst *inst = program.insts + ir_func->inst_index;
 		b8 *is_toplevel = get_toplevel_instructions(ir_func, inst, arena);
-		for (isize i = ir_func->parameter_count; i < ir_func->inst_count; i++) {
+		for (isize i = ir_func->param_count; i < ir_func->inst_count; i++) {
 			if (is_toplevel[i]) {
 				mach_operand dst = make_operand(MOP_VREG, i, ir_sizeof(inst[i].type));
 				if (inst[i].opcode == IR_MOV || inst[i].opcode == IR_STORE) {

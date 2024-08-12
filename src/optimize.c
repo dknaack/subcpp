@@ -140,7 +140,7 @@ remove_unused_registers(ir_program program, arena *arena)
 			}
 		}
 
-		for (isize i = func->parameter_count; i < func->inst_count; i++) {
+		for (isize i = func->param_count; i < func->inst_count; i++) {
 			if (!used[i]) {
 				insts[i].opcode = IR_NOP;
 			}

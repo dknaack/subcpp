@@ -450,7 +450,7 @@ print_ir_program(ir_program program)
 		ir_function *func = &program.functions[i];
 		printf("function[%ld]:\n", i);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
-		printf("  parameter_count: %d\n", func->parameter_count);
+		printf("  param_count: %d\n", func->param_count);
 		printf("  inst_index: %d\n", func->inst_index);
 		printf("  stack_size: %d\n", func->stack_size);
 
