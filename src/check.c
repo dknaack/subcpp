@@ -27,7 +27,27 @@ is_pointer(type *type)
 }
 
 static b32
-type_equals(type_id lhs_id, type_id rhs_id, type_pool *pool)
+equals_type(type *lhs, type *rhs)
+{
+	if (lhs->kind != rhs->kind
+		|| lhs->base_type.value != rhs->base_type.value
+		|| lhs->size != rhs->size) {
+		return false;
+	}
+
+	member *l = lhs->members;
+	member *r = rhs->members;
+	while (l && r) {
+		if (!equals(l->name, r->name) || l->type.value != r->type.value) {
+			return false;
+		}
+	}
+
+	return l == NULL && r == NULL;
+}
+
+static b32
+are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 {
 	member *l, *r;
 
@@ -68,7 +88,7 @@ type_equals(type_id lhs_id, type_id rhs_id, type_pool *pool)
 			return true;
 		}
 
-		return type_equals(lhs->base_type, rhs->base_type, pool);
+		return are_compatible(lhs->base_type, rhs->base_type, pool);
 	case TYPE_FUNCTION:
 		if (rhs->kind != TYPE_FUNCTION) {
 			return false;
@@ -77,7 +97,7 @@ type_equals(type_id lhs_id, type_id rhs_id, type_pool *pool)
 		l = lhs->members,
 		r = rhs->members;
 		while (l && r) {
-			if (!type_equals(l->type, r->type, pool)) {
+			if (!are_compatible(l->type, r->type, pool)) {
 				return false;
 			}
 
@@ -99,6 +119,17 @@ type_equals(type_id lhs_id, type_id rhs_id, type_pool *pool)
 static type_id
 intern_type(type_pool *p, type *src)
 {
+	// TODO: Use a hash table
+	for (isize i = 1; i < p->size; i++) {
+		type *dst = p->data + i;
+		if (equals_type(dst, src)) {
+			type_id id = {i};
+			return id;
+		} else if (dst->kind == TYPE_UNKNOWN) {
+			break;
+		}
+	}
+
 	if (p->size + 1 >= p->cap) {
 		if (!p->cap) {
 			p->cap = 1024;
@@ -420,7 +451,7 @@ check_type(semantic_context ctx, ast_id node_id)
 
 					type_id value_type = check_type(ctx, list_node->child[0]);
 					// TODO: Type conversion
-					if (!type_equals(member->type, value_type, types)) {
+					if (!are_compatible(member->type, value_type, types)) {
 						//errorf(list_node->token.loc, "Invalid type");
 					}
 
@@ -444,7 +475,7 @@ check_type(semantic_context ctx, ast_id node_id)
 					}
 
 					type_id found = check_type(ctx, node->child[0]);
-					if (!type_equals(found, expected, types)) {
+					if (!are_compatible(found, expected, types)) {
 						errorf(node->token.loc, "Invalid array member type");
 					}
 
@@ -511,7 +542,7 @@ check_type(semantic_context ctx, ast_id node_id)
 				ast_node *param_list = get_node(pool, param_id);
 				ast_node *param_node = get_node(pool, param_list->child[0]);
 				type_id param = check_type(ctx, param_list->child[0]);
-				if (!type_equals(param_member->type, param, types)) {
+				if (!are_compatible(param_member->type, param, types)) {
 					errorf(param_node->token.loc, "Invalid parameter type");
 				}
 
@@ -658,7 +689,7 @@ check_type(semantic_context ctx, ast_id node_id)
 
 			type_id lhs = check_type(ctx, node2->child[0]);
 			type_id rhs = check_type(ctx, node2->child[1]);
-			if (!type_equals(lhs, rhs, types)) {
+			if (!are_compatible(lhs, rhs, types)) {
 				ast_node *lhs_node = get_node(pool, node2->child[0]);
 				location loc = lhs_node->token.loc;
 				errorf(loc, "Invalid type in ternary expression");
