@@ -1082,9 +1082,13 @@ check(ast_pool *pool, arena *perm)
 	// NOTE: Collect all switch statements.
 	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
 
+	type_pool types = {0};
+	types.at = ALLOC(perm, pool->size, type_id);
+
 	semantic_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
+	ctx.types = &types;
 	check_type(ctx, pool->root);
 
 	return info;
