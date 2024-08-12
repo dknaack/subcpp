@@ -61,6 +61,13 @@ typedef struct {
 } symbol_table;
 
 typedef struct {
+	type_id *at;
+	type *data;
+	isize size;
+	isize cap;
+} type_pool;
+
+typedef struct {
 	info_id *of;
 	info_kind *kind;
 
@@ -70,6 +77,7 @@ typedef struct {
 	case_info *cases;
 	switch_info *switches;
 	symbol_table symtab;
+	type_pool types;
 
 	isize decl_count;
 	isize switch_count;
@@ -122,13 +130,6 @@ struct type {
 	member *members;
 	i64 size;
 };
-
-typedef struct {
-	type_id *at;
-	type *data;
-	isize size;
-	isize cap;
-} type_pool;
 
 typedef struct {
 	ast_pool *ast;
@@ -371,10 +372,10 @@ get_string_info(semantic_info info, ast_id node_id)
 }
 
 static type *
-get_type(ast_pool *p, ast_id id)
+get_type(type_pool *p, ast_id id)
 {
-	if (0 < id.value && id.value < p->size) {
-		return p->types + id.value;
+	if (0 < id.value) {
+		return p->data + id.value;
 	}
 
 	ASSERT(!"ID is out of bounds");

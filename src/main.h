@@ -45,6 +45,10 @@ typedef struct {
 	i32 value;
 } ast_id;
 
+typedef struct {
+	i32 value;
+} type_id;
+
 #include "memory.h"
 #include "util.h"
 #include "lex.h"
