@@ -36,7 +36,7 @@ typedef struct {
 
 typedef struct {
 	str name;
-	type *type;
+	type_id type;
 	ast_id definition;
 	linkage linkage;
 	b8 is_global;
@@ -121,12 +121,12 @@ typedef enum {
 struct member {
 	member *next;
 	str name;
-	type *type;
+	type_id type;
 };
 
 struct type {
 	type_kind kind;
-	type *base_type;
+	type_id base_type;
 	member *members;
 	i64 size;
 };
@@ -136,6 +136,35 @@ typedef struct {
 	arena *arena;
 	type_pool *types;
 } semantic_context;
+
+static type *
+get_type_data(type_pool *p, type_id id)
+{
+	if (0 < id.value) {
+		return p->data + id.value;
+	}
+
+	ASSERT(!"ID is out of bounds");
+	return NULL;
+}
+
+static type_id
+get_type(type_pool *p, ast_id id)
+{
+	type_id result = {0};
+	if (0 < id.value) {
+		result = p->at[id.value];
+	}
+
+	ASSERT(!"ID is out of bounds");
+	return result;
+}
+
+static void
+set_type(type_pool *p, ast_id id, type_id type)
+{
+	p->at[id.value] = type;
+}
 
 static char *
 type_get_name(type_kind type)
@@ -176,7 +205,6 @@ type_create(type_kind kind, arena *arena)
 	return t;
 }
 
-static usize type_alignof(type *type);
 
 static b32 is_compound_type(type_kind kind)
 {
@@ -190,11 +218,14 @@ static b32 is_compound_type(type_kind kind)
 	}
 }
 
-static usize
-type_sizeof(type *type)
-{
-	ASSERT(type != NULL);
+static isize type_alignof(type_id type_id, type_pool *pool);
 
+static isize
+type_sizeof(type_id type_id, type_pool *pool)
+{
+	ASSERT(type_id.value != 0);
+
+	type *type = get_type_data(pool, type_id);
 	switch (type->kind) {
 	case TYPE_CHAR:
 	case TYPE_CHAR_UNSIGNED:
@@ -223,7 +254,7 @@ type_sizeof(type *type)
 		return 8;
 	case TYPE_ARRAY:
 		{
-			usize target_size = type_sizeof(type->base_type);
+			isize target_size = type_sizeof(type->base_type, pool);
 			return type->size * target_size;
 		} break;
 	case TYPE_UNION:
@@ -231,7 +262,7 @@ type_sizeof(type *type)
 			isize size = 0;
 
 			for (member *s = type->members; s; s = s->next) {
-				isize member_size = type_sizeof(s->type);
+				isize member_size = type_sizeof(s->type, pool);
 				size = MAX(size, member_size);
 			}
 
@@ -241,16 +272,16 @@ type_sizeof(type *type)
 		{
 			usize size = 0;
 			for (member *s = type->members; s; s = s->next) {
-				u32 align = type_alignof(s->type);
+				u32 align = type_alignof(s->type, pool);
 				size = (size + align - 1) & ~(align - 1);
-				size += type_sizeof(s->type);
+				size += type_sizeof(s->type, pool);
 			}
 			return size;
 		} break;
 	case TYPE_OPAQUE:
 		{
-			if (type->base_type) {
-				return type_sizeof(type->base_type);
+			if (type->base_type.value != 0) {
+				return type_sizeof(type->base_type, pool);
 			}
 		} break;
 	}
@@ -258,30 +289,32 @@ type_sizeof(type *type)
 	return 0;
 }
 
-static usize
-type_alignof(type *type)
+static isize
+type_alignof(type_id type_id, type_pool *pool)
 {
 	usize result = 0;
+	type *type = get_type_data(pool, type_id);
 
 	// TODO: proper alignment for structs and arrays
 	if (type->kind == TYPE_ARRAY) {
 		result = 16;
 	} else if (type->kind == TYPE_STRUCT || type->kind == TYPE_UNION) {
 		for (member *s = type->members; s; s = s->next) {
-			u32 align = type_alignof(s->type);
+			u32 align = type_alignof(s->type, pool);
 			result = MAX(result, align);
 		}
 	} else {
-		result = type_sizeof(type);
+		result = type_sizeof(type_id, pool);
 	}
 
 	return result;
 }
 
-static usize
-type_offsetof(type *type, str member_name)
+static isize
+type_offsetof(type_id type_id, str member_name, type_pool *pool)
 {
-	usize offset = 0;
+	isize offset = 0;
+	type *type = get_type_data(pool, type_id);
 
 	ASSERT(type != NULL);
 	if (type->kind == TYPE_UNION) {
@@ -297,16 +330,16 @@ type_offsetof(type *type, str member_name)
 	} else if (type->kind == TYPE_STRUCT) {
 		// TODO: member could be in an unnamed struct
 		for (member *s = type->members; s; s = s->next) {
-			u32 align = type_alignof(s->type);
+			u32 align = type_alignof(s->type, pool);
 			offset = (offset + align - 1) & ~(align - 1);
 			if (equals(member_name, s->name)) {
 				break;
 			}
 
-			offset += type_sizeof(s->type);
+			offset += type_sizeof(s->type, pool);
 		}
-	} else if (type->kind == TYPE_OPAQUE && type->base_type) {
-		offset = type_offsetof(type->base_type, member_name);
+	} else if (type->kind == TYPE_OPAQUE && type->base_type.value != 0) {
+		offset = type_offsetof(type->base_type, member_name, pool);
 	} else {
 		// TODO: report error
 		ASSERT(!"Type must be struct or union");
@@ -369,15 +402,4 @@ get_string_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.string_count);
 	str *s = &info.strings[sym_id.value];
 	return s;
-}
-
-static type *
-get_type(type_pool *p, ast_id id)
-{
-	if (0 < id.value) {
-		return p->data + id.value;
-	}
-
-	ASSERT(!"ID is out of bounds");
-	return NULL;
 }
