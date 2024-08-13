@@ -96,6 +96,7 @@ typedef struct ir_function ir_function;
 struct ir_function {
 	str name;
 	i32 param_count;
+	u32 first_inst;
 	i32 inst_index;
 	i32 inst_count;
 	i32 label_count;
@@ -125,6 +126,7 @@ typedef struct {
 	u32 continue_label;
 	u32 break_label;
 	u32 case_label;
+	u32 *last_seq;
 } ir_context;
 
 static b32

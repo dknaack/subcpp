@@ -674,23 +674,25 @@ x86_select(ir_program program, arena *arena)
 
 		// NOTE: Do the instruction selection
 		ir_inst *inst = program.insts + ir_func->inst_index;
-		for (isize i = 1; i != 0; i = inst[i].op1) {
-			ASSERT(inst[i].opcode == IR_SEQ);
+		for (isize j = ir_func->first_inst; j != 0; j = inst[j].op1) {
+			ASSERT(inst[j].opcode == IR_SEQ);
 
-			isize j = inst[j].op0;
-			mach_operand dst = make_operand(MOP_VREG, j, ir_sizeof(inst[j].type));
-			if (inst[j].opcode == IR_MOV || inst[j].opcode == IR_STORE) {
-				dst = make_operand(MOP_VREG, inst[j].op0, ir_sizeof(inst[inst[j].op0].type));
-				if (inst[j].type == IR_F32 || inst[j].type == IR_F64) {
+			isize k = inst[j].op0;
+			mach_operand dst = make_operand(MOP_VREG, k, ir_sizeof(inst[k].type));
+			if (inst[k].opcode == IR_MOV || inst[k].opcode == IR_STORE) {
+				dst = make_operand(MOP_VREG, inst[k].op0, ir_sizeof(inst[inst[k].op0].type));
+				if (inst[k].type == IR_F32 || inst[k].type == IR_F64) {
 					dst.flags |= MOP_ISFLOAT;
 				}
 			}
 
-			x86_select_inst(&out, inst, j, dst);
+			x86_select_inst(&out, inst, k, dst);
 		}
+
 
 		// NOTE: Compute instruction offsets
 		mach_func->inst_count = out.inst_count - first_inst_index;
+		ASSERT(mach_func->inst_count > 0);
 		mach_func->inst_offsets = ALLOC(arena, mach_func->inst_count, u32);
 		char *code = (char *)out.code + first_inst_offset;
 		for (isize i = 0; i < mach_func->inst_count; i++) {
