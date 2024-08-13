@@ -189,18 +189,22 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			type_id type = get_type_id(types, node_id);
-			isize size = type_sizeof(type, types);
-			u32 addr = ir_emit_alloca(ctx, size);
+			if (!ctx->locals[node_id.value] == 0) {
+				type_id type = get_type_id(types, node_id);
+				isize size = type_sizeof(type, types);
+				u32 addr = ir_emit_alloca(ctx, size);
 
-			if (node->child[1].value != 0) {
-				ast_node *init_expr = get_node(pool, node->child[1]);
-				if (init_expr->kind == AST_INIT) {
-					translate_initializer(ctx, pool, node->child[1], addr);
-				} else {
-					u32 value = translate_node(ctx, pool, node->child[1], false);
-					ir_store(ctx, addr, value, type);
+				if (node->child[1].value != 0) {
+					ast_node *init_expr = get_node(pool, node->child[1]);
+					if (init_expr->kind == AST_INIT) {
+						translate_initializer(ctx, pool, node->child[1], addr);
+					} else {
+						u32 value = translate_node(ctx, pool, node->child[1], false);
+						ir_store(ctx, addr, value, type);
+					}
 				}
+
+				ctx->locals[node_id.value] = addr;
 			}
 		} break;
 	case AST_EXTERN_DEF:
@@ -467,7 +471,23 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ASSERT(!"TODO");
+			ast_id ref_id = node->child[0];
+			ast_node *ref_node = get_node(pool, ref_id);
+			if (ref_node->kind == AST_DECL) {
+				result = ctx->locals[ref_id.value];
+			} else if (ref_node->kind == AST_EXTERN_DEF) {
+				info_id global_id = ctx->info->of[ref_id.value];
+				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, global_id.value);
+			}
+
+			type_id type_id = get_type_id(&ctx->info->types, node_id);
+			type *node_type = get_type_data(&ctx->info->types, type_id);
+			if (!is_lvalue && !is_compound_type(node_type->kind)) {
+				ir_type type = ir_type_from(node_type);
+				result = ir_emit1(ctx, type, IR_LOAD, result);
+			}
+
+			ASSERT(result != 0);
 		} break;
 	case AST_EXPR_LITERAL:
 		{
@@ -954,6 +974,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
 	ctx.info = info;
+	ctx.locals = ALLOC(arena, pool->size, u32);
 
 	translate_node(&ctx, pool, pool->root, false);
 

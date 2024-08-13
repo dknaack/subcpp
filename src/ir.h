@@ -118,6 +118,7 @@ typedef struct {
 	ir_function *func;
 	semantic_info *info;
 	arena *arena;
+	u32 *locals;
 
 	u32 max_inst_count;
 	u32 stack_size;
