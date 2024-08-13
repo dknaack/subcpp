@@ -307,141 +307,94 @@ print_ast(ast_pool *pool)
 }
 
 static void
-print_ir_inst(ir_inst inst, u32 i)
+print_ir_inst(ir_inst *inst, u32 i)
 {
 	u32 dst = i;
-	u32 op0 = inst.op0;
-	u32 op1 = inst.op1;
-	char *type = get_ir_type_str(inst.type);
-	switch (inst.opcode) {
+	u32 op0 = inst[i].op0;
+	u32 op1 = inst[i].op1;
+	switch (inst[i].opcode) {
 	case IR_NOP:
-		printf("\tnop\n");
-		break;
-	case IR_CAST:
-		printf("\t%%%d =%s cast %%%d\n", dst, type, op0);
-		break;
-	case IR_CASTU:
-		printf("\t%%%d =%s castu %%%d\n", dst, type, op0);
+		printf("nop");
 		break;
 	case IR_GLOBAL:
-		printf("\t%%%d =%s global %d\n", dst, type, op0);
+		printf("(global %d)", op0);
 		break;
 	case IR_VAR:
-		printf("\t%%%d =%s new vreg\n", dst, type);
+		printf("(var %%%d)", dst);
 		break;
 	case IR_CONST:
-		printf("\t%%%d =%s %d\n", dst, type, op0);
+		printf("(const %d)", op0);
 		break;
 	case IR_BUILTIN:
-		printf("\t%%%d =%s %s\n", dst, type, get_builtin_str(op0));
+		printf("(builtin %s)", get_builtin_str(op0));
 		break;
 	case IR_COPY:
-		printf("\t%%%d =%s %%%d (copy)\n", dst, type, op0);
-		break;
-	case IR_MOV:
-		printf("\t%%%d =%s %%%d (mov)\n", op0, type, op1);
-		break;
-	case IR_LOAD:
-		printf("\t%%%d =%s load %%%d\n", dst, type, op0);
-		break;
-	case IR_STORE:
-		printf("\tstore %s %%%d, %%%d\n", type, op0, op1);
-		break;
-	case IR_ADD:
-		printf("\t%%%d =%s %%%d + %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_AND:
-		printf("\t%%%d =%s %%%d & %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_SUB:
-		printf("\t%%%d =%s %%%d - %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_MUL:
-		printf("\t%%%d =%s %%%d * %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_DIV:
-		printf("\t%%%d =%s %%%d / %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_MOD:
-		printf("\t%%%d =%s %%%d %% %%%d\n", dst, type, op0, op1);
-		break;
-	case IR_EQL:
-		printf("\t%%%d =%s %%%d == %%%d\n", dst, type, op0, op1);
-		break;
-	case IR_LEQ:
-		printf("\t%%%d =%s %%%d <= %%%d\n", dst, type, op0, op1);
-		break;
-	case IR_GEQ:
-		printf("\t%%%d =%s %%%d >= %%%d\n", dst, type, op0, op1);
-		break;
-	case IR_LT:
-		printf("\t%%%d =%s %%%d < %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_GT:
-		printf("\t%%%d =%s %%%d > %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_LEQU:
-		printf("\t%%%d =%s %%%d <= %%%d (unsigned)\n", dst, type, op0, op1);
-		break;
-	case IR_GEQU:
-		printf("\t%%%d =%s %%%d >= %%%d (unsigned)\n", dst, type, op0, op1);
-		break;
-	case IR_LTU:
-		printf("\t%%%d =%s %%%d < %%%d (unsigned)\n",  dst, type, op0, op1);
-		break;
-	case IR_GTU:
-		printf("\t%%%d =%s %%%d > %%%d (unsigned)\n",  dst, type, op0, op1);
-		break;
-	case IR_OR:
-		printf("\t%%%d =%s %%%d | %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_SHL:
-		printf("\t%%%d =%s %%%d << %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_SHR:
-		printf("\t%%%d =%s %%%d >> %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_NOT:
-		printf("\t%%%d =%s ~%%%d\n",  dst, type, op0);
-		break;
-	case IR_XOR:
-		printf("\t%%%d =%s %%%d ^ %%%d\n",  dst, type, op0, op1);
-		break;
-	case IR_JMP:
-		printf("\tgoto L%d\n", op0);
-		break;
-	case IR_JIZ:
-		printf("\tjiz %%%d, L%d\n", op0, op1);
-		break;
-	case IR_JNZ:
-		printf("\tjnz %%%d, L%d\n", op0, op1);
-		break;
-	case IR_RET:
-		printf("\tret %%%d\n", op0);
-		break;
-	case IR_TRUNC:
-		printf("\t%%%d =%s trunc %%%d\n", dst, type, op0);
-		break;
-	case IR_SEXT:
-		printf("\t%%%d =%s sext %%%d\n", dst, type, op0);
-		break;
-	case IR_ZEXT:
-		printf("\t%%%d =%s zext %%%d\n", dst, type, op0);
-		break;
-	case IR_CALL:
-		printf("\t%%%d =%s call %%%d, %d\n", dst, type, op0, op1);
-		break;
-	case IR_PARAM:
-		printf("\tparam %s %%%d\n", type, op0);
+		printf("(copy %%%d)", op0);
 		break;
 	case IR_ALLOC:
-		printf("\t%%%d =%s alloc %d, %d\n", dst, type, op0, op1);
+		printf("(%s %d %d)", get_ir_opcode_str(inst[i].opcode), op0, op1);
+		break;
+	case IR_MOV:
+	case IR_ADD:
+	case IR_AND:
+	case IR_DIV:
+	case IR_EQL:
+	case IR_GEQ:
+	case IR_GEQU:
+	case IR_GT:
+	case IR_GTU:
+	case IR_JIZ:
+	case IR_JNZ:
+	case IR_LEQ:
+	case IR_LEQU:
+	case IR_LT:
+	case IR_LTU:
+	case IR_MOD:
+	case IR_MUL:
+	case IR_OR:
+	case IR_SHL:
+	case IR_SHR:
+	case IR_STORE:
+	case IR_SUB:
+	case IR_XOR:
+		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		print_ir_inst(inst, op0);
+		printf(" ");
+		print_ir_inst(inst, op1);
+		printf(")");
+		break;
+	case IR_CAST:
+	case IR_CASTU:
+	case IR_LOAD:
+	case IR_NOT:
+	case IR_JMP:
+	case IR_RET:
+	case IR_TRUNC:
+	case IR_SEXT:
+	case IR_ZEXT:
+		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		print_ir_inst(inst, op0);
+		printf(")");
+		break;
+	case IR_CALL:
+		printf("(call ");
+		print_ir_inst(inst, op0);
+
+		for (isize j = op1; j; j = inst[j].op1) {
+			printf(" ");
+			print_ir_inst(inst, inst[j].op0);
+		}
+
+		printf(")");
+		break;
+	case IR_PARAM:
+		ASSERT(!"Should have been handled by CALL");
 		break;
 	case IR_LABEL:
-		printf("L%d:\n", op0);
+		printf("L%d: ", op0);
 		break;
 	case IR_SEQ:
-		// NOTE: Ignore seq instructions for printing
+		print_ir_inst(inst, op0);
 		break;
 	}
 }
@@ -457,10 +410,11 @@ print_ir_program(ir_program program)
 		printf("  inst_index: %d\n", func->inst_index);
 		printf("  stack_size: %d\n", func->stack_size);
 
-		for (isize i = 0; i < func->inst_count; i++) {
-			printf("%2ld| ", i);
-			ir_inst inst = program.insts[func->inst_index + i];
-			print_ir_inst(inst, i);
+		ir_inst *inst = program.insts + func->inst_index;
+		for (isize j = func->first_inst; j; j = inst[j].op1) {
+			printf("\t");
+			print_ir_inst(inst, j);
+			printf("\n");
 		}
 	}
 

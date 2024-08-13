@@ -205,3 +205,99 @@ ir_type_from(type *type)
 
 	return IR_VOID;
 }
+
+static char *
+get_ir_opcode_str(ir_opcode opcode)
+{
+	switch (opcode) {
+	case IR_NOP:
+		return "nop";
+	case IR_ALLOC:
+		return "alloc";
+	case IR_BUILTIN:
+		return "builtin";
+	case IR_CONST:
+		return "const";
+	case IR_GLOBAL:
+		return "global";
+	case IR_LABEL:
+		return "label";
+	case IR_PARAM:
+		return "param";
+	case IR_VAR:
+		return "var";
+	case IR_COPY:
+		return "copy";
+	case IR_LOAD:
+		return "load";
+	case IR_MOV:
+		return "mov";
+	case IR_STORE:
+		return "store";
+	case IR_CALL:
+		return "call";
+	case IR_JIZ:
+		return "jiz";
+	case IR_JMP:
+		return "jmp";
+	case IR_JNZ:
+		return "jnz";
+	case IR_SEQ:
+		return "seq";
+	case IR_ADD:
+		return "add";
+	case IR_AND:
+		return "and";
+	case IR_CAST:
+		return "cast";
+	case IR_CASTU:
+		return "castu";
+	case IR_DIV:
+		return "div";
+	case IR_EQL:
+		return "eql";
+	case IR_GEQ:
+		return "geq";
+	case IR_GEQU:
+		return "gequ";
+	case IR_GT:
+		return "gt";
+	case IR_GTU:
+		return "gtu";
+	case IR_LEQ:
+		return "leq";
+	case IR_LEQU:
+		return "lequ";
+	case IR_LT:
+		return "lt";
+	case IR_LTU:
+		return "ltu";
+	case IR_MOD:
+		return "mod";
+	case IR_MUL:
+		return "mul";
+	case IR_NOT:
+		return "not";
+	case IR_OR:
+		return "or";
+	case IR_RET:
+		return "ret";
+	case IR_SEXT:
+		return "sext";
+	case IR_SHL:
+		return "shl";
+	case IR_SHR:
+		return "shr";
+	case IR_SUB:
+		return "sub";
+	case IR_TRUNC:
+		return "trunc";
+	case IR_XOR:
+		return "xor";
+	case IR_ZEXT:
+		return "zext";
+	default:
+		ASSERT(!"Invalid opcode");
+		return "(invalid)";
+	}
+}
