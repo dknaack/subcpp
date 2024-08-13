@@ -947,7 +947,7 @@ get_opcode_info(ir_opcode opcode)
 		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_PARAM:
-		info.op0 = IR_OPERAND_CONST;
+		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_GLOBAL:
