@@ -630,6 +630,7 @@ x86_select(ir_program program, arena *arena)
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *ir_func = &program.functions[i];
 		mach_function *mach_func = &out.functions[i];
+		mach_func->register_count = ir_func->register_count;
 
 		isize first_inst_index = out.inst_count;
 		isize first_inst_offset = out.size;
