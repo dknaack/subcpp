@@ -1080,12 +1080,11 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
+	symtab->symbol_count = symbol_count;
 	symtab->symbols = ALLOC(perm, symbol_count, symbol);
 
-	// TODO: Collect extern functions
-	isize symbol_index = 0;
-
 	// NOTE: Collect function definitions
+	isize symbol_index = 0;
 	symtab->text_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
