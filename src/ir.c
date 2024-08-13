@@ -1,7 +1,7 @@
 static u32
 new_label(ir_context *ctx)
 {
-	u32 result = ctx->program->label_count++;
+	u32 result = ctx->func->label_count++;
 	return result;
 }
 
@@ -15,7 +15,7 @@ ir_emit2(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 	inst->type = type;
 	inst->op0 = op0;
 	inst->op1 = op1;
-	u32 result = ctx->program->register_count++;
+	u32 result = ctx->func->register_count++;
 	if (opcode == IR_STORE) ASSERT(op1 != 0);
 	return result;
 }
@@ -209,15 +209,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type *type = get_type_data(types, type_id);
 			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
 			if (is_func_def) {
+				info_id node_info = ctx->info->of[node_id.value];
+				isize function_index = node_info.value - ctx->info->symtab.text_offset;
+				ctx->func = &ctx->program->functions[function_index];
+				ctx->func->name = node->token.value;
+
 				ir_inst *start = ctx->program->insts + ctx->program->inst_count;
 				translate_node(ctx, pool, node->child[1], false);
 				ir_inst *end = ctx->program->insts + ctx->program->inst_count;
 
-				info_id node_info = ctx->info->of[node_id.value];
-				symbol *symbol = &ctx->info->symtab.symbols[node_info.value];
-				symbol->name = node->token.value;
-				symbol->data = start;
-				symbol->size = (char *)end - (char *)start;
+				ctx->func->inst_index = start - ctx->program->insts;
+				ctx->func->inst_count = end - start;
 			}
 		} break;
 	case AST_INIT:
@@ -938,18 +940,7 @@ static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
 	// NOTE: Translate node to IR code
-	isize function_count = 0;
-	for (isize i = 0; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		type_id type_id = info->types.at[i];
-		type *type = get_type_data(&info->types, type_id);
-		b32 is_function_decl = ((node->kind == AST_DECL
-			|| node->kind == AST_EXTERN_DEF)
-			&& (type->kind == TYPE_FUNCTION));
-		if (is_function_decl) {
-			function_count++;
-		}
-	}
+	isize function_count = info->symtab.data_offset - info->symtab.text_offset;
 
 	isize max_inst_count = 1024 * 1024;
 	ir_program program = {0};

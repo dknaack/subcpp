@@ -100,6 +100,7 @@ struct ir_function {
 	i32 inst_count;
 	i32 label_count;
 	i32 stack_size;
+	i32 register_count;
 };
 
 typedef struct {
@@ -114,6 +115,7 @@ typedef struct {
 
 typedef struct {
 	ir_program *program;
+	ir_function *func;
 	semantic_info *info;
 	arena *arena;
 
