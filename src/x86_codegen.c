@@ -85,6 +85,7 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 static void
 x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_info *info)
 {
+	stream_print(out, "section .text\n");
 	ASSERT(program.function_count > 0);
 	for (isize i = 0; i < program.function_count; i++) {
 		mach_function *func = &program.functions[i];
@@ -204,27 +205,34 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 		symbol *sym = &symtab->symbols[i];
 
 		if (i == symtab->text_offset) {
-				stream_print(out, "section .text\n");
+			stream_print(out, "section .text\n");
 		} else if (i == symtab->data_offset) {
-				stream_print(out, "section .data\n");
+			stream_print(out, "section .data\n");
 		} else if (i == symtab->rodata_offset) {
-				stream_print(out, "section .rodata\n");
+			stream_print(out, "section .rodata\n");
 		} else if (i == symtab->bss_offset) {
-				stream_print(out, "section .bss\n");
+			stream_print(out, "section .bss\n");
 		}
 
 		if (sym->linkage == LINK_STATIC) {
 			stream_print(out, "static ");
 			stream_prints(out, sym->name);
+			stream_print(out, "\n");
 		} else if (sym->linkage == LINK_EXTERN) {
 			stream_print(out, "extern ");
 			stream_prints(out, sym->name);
+			stream_print(out, "\n");
 		}
 
-		if (symtab->text_offset <= i && i < symtab->data_offset) {
-		} else if (i < symtab->bss_offset) {
-			// NOTE: Inside data or rodata section, symbols contain byte data
+		if (sym->name.length > 0) {
 			stream_prints(out, sym->name);
+		} else {
+			stream_print(out, "L#");
+			stream_printu(out, i);
+		}
+
+		if (symtab->data_offset <= i && i < symtab->bss_offset) {
+			// NOTE: Inside data or rodata section, symbols contain byte data
 			stream_print(out, ": db ");
 
 			char *byte = sym->data;
@@ -235,11 +243,13 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 				stream_print_hex(out, byte[i]);
 			}
-		} else {
+
+			stream_print(out, "\n");
+		} else if (i >= symtab->bss_offset) {
 			// NOTE; Inside bss section, symbols have no data
-			stream_prints(out, sym->name);
 			stream_print(out, " resb ");
 			stream_print_hex(out, sym->size);
+			stream_print(out, "\n");
 		}
 	}
 }

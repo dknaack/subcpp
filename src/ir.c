@@ -239,6 +239,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ctx->func = &ctx->program->functions[function_index];
 				ctx->func->name = node->token.value;
 				ctx->last_seq = &ctx->func->first_inst;
+				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, new_label(ctx));
 				translate_node(ctx, pool, node->child[1], false);
 				ctx->func->inst_count = ctx->program->inst_count - ctx->func->inst_index;
 			}
@@ -497,6 +498,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			} else if (ref_node->kind == AST_EXTERN_DEF) {
 				info_id global_id = ctx->info->of[ref_id.value];
 				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, global_id.value);
+				ASSERT(global_id.value < ctx->info->symtab.symbol_count);
 			}
 
 			type_id type_id = get_type_id(&ctx->info->types, node_id);

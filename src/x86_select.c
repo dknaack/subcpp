@@ -634,6 +634,7 @@ x86_select(ir_program program, arena *arena)
 		ir_function *ir_func = &program.functions[i];
 		mach_function *mach_func = &out.functions[i];
 		mach_func->register_count = ir_func->register_count;
+		mach_func->name = ir_func->name;
 
 		isize first_inst_index = out.inst_count;
 		isize first_inst_offset = out.size;

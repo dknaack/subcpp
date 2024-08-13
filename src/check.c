@@ -1094,8 +1094,7 @@ check(ast_pool *pool, arena *perm)
 		}
 
 		if (node->kind == AST_EXTERN_DEF
-			&& (type && type->kind == AST_TYPE_FUNC)
-			&& node->child[1].value != 0)
+			&& (type && type->kind == AST_TYPE_FUNC))
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
@@ -1103,7 +1102,6 @@ check(ast_pool *pool, arena *perm)
 			sym->name = node->token.value;
 		}
 	}
-
 
 	// NOTE: Collect global initialized variables
 	ASSERT(symbol_index > symtab->text_offset);
@@ -1173,7 +1171,6 @@ check(ast_pool *pool, arena *perm)
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->linkage = get_linkage(node->flags);
-			sym->name = node->token.value;
 			sym->data = unescaped.at;
 			sym->size = unescaped.length;
 		}
@@ -1183,9 +1180,13 @@ check(ast_pool *pool, arena *perm)
 	symtab->rodata_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
-		type *type = &pool->types[i];
+		ast_node *type = NULL;
+		if (node->child[0].value != 0) {
+			type = get_node(pool, node->child[0]);
+		}
+
 		if (node->kind == AST_EXTERN_DEF
-			&& type->kind != TYPE_FUNCTION
+			&& !(type && type->kind == AST_TYPE_FUNC)
 			&& node->child[1].value == 0)
 		{
 			info.of[i].value = symbol_index;
@@ -1195,6 +1196,8 @@ check(ast_pool *pool, arena *perm)
 			sym->data = NULL; // TODO: Translate value into memory
 		}
 	}
+
+	symtab->bss_offset = symbol_index;
 
 	// NOTE: Tag identifiers info with the referenced variable
 	for (isize i = 1; i < pool->size; i++) {
