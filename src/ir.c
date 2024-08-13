@@ -968,6 +968,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	program.functions = ALLOC(arena, function_count, ir_function);
 	program.register_count++;
 	program.label_count++;
+	program.function_count = function_count;
 
 	ir_context ctx = {0};
 	ctx.program = &program;
