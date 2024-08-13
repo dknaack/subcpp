@@ -1089,9 +1089,13 @@ check(ast_pool *pool, arena *perm)
 	symtab->text_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
-		type *type = &pool->types[i];
+		ast_node *type = NULL;
+		if (node->child[0].value != 0) {
+			type = get_node(pool, node->child[0]);
+		}
+
 		if (node->kind == AST_EXTERN_DEF
-			&& type->kind == TYPE_FUNCTION
+			&& (type && type->kind == AST_TYPE_FUNC)
 			&& node->child[1].value != 0)
 		{
 			info.of[i].value = symbol_index;
@@ -1103,12 +1107,17 @@ check(ast_pool *pool, arena *perm)
 
 
 	// NOTE: Collect global initialized variables
+	ASSERT(symbol_index > symtab->text_offset);
 	symtab->data_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
-		type *type = &pool->types[i];
+		ast_node *type = NULL;
+		if (node->child[0].value != 0) {
+			type = get_node(pool, node->child[0]);
+		}
+
 		if (node->kind == AST_EXTERN_DEF
-			&& type->kind != TYPE_FUNCTION
+			&& !(type && type->kind == AST_TYPE_FUNC)
 			&& node->child[1].value != 0)
 		{
 			info.of[i].value = symbol_index;
