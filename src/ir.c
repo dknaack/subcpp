@@ -377,7 +377,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			type_id called_type_id = get_type_id(types, node_id);
+			type_id called_type_id = get_type_id(types, node->child[0]);
 			type *called_type = get_type_data(types, called_type_id);
 			ASSERT(called_type->kind == TYPE_FUNCTION);
 			u32 called_reg = translate_node(ctx, pool, node->child[0], false);
