@@ -325,7 +325,7 @@ eval_ast(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			type_id type = get_type(types, node->child[0]);
+			type_id type = get_type_id(types, node->child[0]);
 			result = type_sizeof(type, types);
 		} break;
 	case AST_EXPR_CAST:
@@ -357,7 +357,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	}
 
 	ast_node *node = get_node(pool, node_id);
-	type_id node_type = get_type(types, node_id);
+	type_id node_type = get_type_id(types, node_id);
 	if (node->kind != AST_INIT && node->kind != AST_TYPE_STRUCT
 		&& node->kind != AST_TYPE_UNION && node_type.value != 0)
 	{
@@ -582,7 +582,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			type_id ref_type = get_type(types, node->child[0]);
+			type_id ref_type = get_type_id(types, node->child[0]);
 			node_type = ref_type;
 		} break;
 	case AST_EXPR_LITERAL:
@@ -797,7 +797,7 @@ check_type(semantic_context ctx, ast_id node_id)
 				ast_node *param_list = get_node(pool, node->child[0]);
 				for (;;) {
 					ast_node *param = get_node(pool, param_list->child[0]);
-					type_id param_type = get_type(types, param_list->child[0]);
+					type_id param_type = get_type_id(types, param_list->child[0]);
 					*m = ALLOC(arena, 1, member);
 					(*m)->name = param->token.value;
 					(*m)->type = param_type;
@@ -816,7 +816,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_IDENT:
 		{
 			ASSERT(node->child[0].value != 0);
-			type_id ref_type = get_type(types, node->child[0]);
+			type_id ref_type = get_type_id(types, node->child[0]);
 			node_type = ref_type;
 		} break;
 	case AST_ENUMERATOR:
@@ -851,7 +851,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			// TODO: add the struct tag to the scope and ensure that the
 			// struct is only defined once.
 			if (node->child[0].value == 0) {
-				type_id ref_type = get_type(types, node->child[0]);
+				type_id ref_type = get_type_id(types, node->child[0]);
 				if (node->flags & AST_OPAQUE) {
 					node_type = opaque_type(ref_type, types);
 				} else {
@@ -868,7 +868,7 @@ check_type(semantic_context ctx, ast_id node_id)
 					decl_id = list_node->child[1];
 
 					ast_node *decl_node = get_node(pool, list_node->child[0]);
-					type_id decl_type = get_type(types, list_node->child[0]);
+					type_id decl_type = get_type_id(types, list_node->child[0]);
 					*ptr = ALLOC(arena, 1, member);
 					(*ptr)->name = decl_node->token.value;
 					(*ptr)->type = decl_type;

@@ -149,7 +149,7 @@ get_type_data(type_pool *p, type_id id)
 }
 
 static type_id
-get_type(type_pool *p, ast_id id)
+get_type_id(type_pool *p, ast_id id)
 {
 	type_id result = {0};
 	if (0 < id.value) {
