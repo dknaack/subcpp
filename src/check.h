@@ -152,11 +152,13 @@ static type_id
 get_type_id(type_pool *p, ast_id id)
 {
 	type_id result = {0};
+
 	if (0 < id.value) {
 		result = p->at[id.value];
+	} else {
+		ASSERT(!"ID is out of bounds");
 	}
 
-	ASSERT(!"ID is out of bounds");
 	return result;
 }
 
