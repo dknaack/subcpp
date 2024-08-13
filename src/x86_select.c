@@ -550,12 +550,17 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 					x86_select_inst(out, inst, op0, called);
 				}
 
-				i32 param_offset = op1;
-				while (param_offset > 0) {
-					ASSERT(inst[inst_index - param_offset].opcode == IR_PARAM);
-					ir_inst param_inst = inst[inst_index - param_offset];
+				isize param_count = 0;
+				for (isize param = op1; param; param = inst[param].op1) {
+					param_count++;
+				}
+
+				isize param_index = param_count;
+				for (isize param = op1; param; param = inst[param].op1) {
+					param_index--;
+					ir_inst param_inst = inst[param];
+					ASSERT(param_inst.opcode == IR_PARAM);
 					isize param_size = ir_sizeof(param_inst.type);
-					i32 param_index = op1 - param_offset;
 					switch (param_index) {
 					case 0:
 						{
@@ -591,8 +596,6 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 						ASSERT(!"Too many arguments");
 						break;
 					}
-
-					param_offset--;
 				}
 
 				mach_operand rax = make_operand(MOP_MREG, X86_RAX, size);

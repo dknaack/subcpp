@@ -405,13 +405,13 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 			// Make struct return value first argument
 			ir_type result_type;
-			isize param_count = 0;
+			u32 prev_param = 0;
 			type_id return_type_id = called_type->base_type;
 			type *return_type = get_type_data(types, return_type_id);
 			if (is_compound_type(return_type->kind)) {
 				isize size = type_sizeof(return_type_id, types);
 				u32 param = ir_emit_alloca(ctx, size);
-				ir_emit2_seq(ctx, IR_VOID, IR_PARAM, param_count++, param);
+				prev_param = ir_emit2(ctx, IR_VOID, IR_PARAM, param, 0);
 				result_type = IR_I64;
 			} else {
 				result_type = ir_type_from(return_type);
@@ -421,18 +421,20 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id param_id = node->child[1];
 			while (param_id.value != 0) {
 				ast_node *list_node = get_node(pool, param_id);
-				u32 param = translate_node(ctx, pool, list_node->child[0], false);
+				u32 param_value = translate_node(ctx, pool, list_node->child[0], false);
 
 				type_id param_type_id = get_type_id(types, list_node->child[0]);
 				type *param_type = get_type_data(types, param_type_id);
 				if (is_compound_type(param_type->kind)) {
 					isize size = type_sizeof(param_type_id, types);
 					u32 tmp = ir_emit_alloca(ctx, size);
-					ir_memcpy(ctx, tmp, param, size);
-					param = tmp;
+					ir_memcpy(ctx, tmp, param_value, size);
+					param_value = tmp;
 				}
 
-				ir_emit2_seq(ctx, IR_VOID, IR_PARAM, param_count++, param);
+
+				u32 param = ir_emit2(ctx, IR_VOID, IR_PARAM, param_value, prev_param);
+				prev_param = param;
 				param_id = list_node->child[1];
 			}
 
@@ -440,7 +442,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (node_type->kind != TYPE_VOID) {
-				u32 return_reg = ir_emit2(ctx, result_type, IR_CALL, called_reg, param_count);
+				u32 return_reg = ir_emit2(ctx, result_type, IR_CALL, called_reg, prev_param);
 				result = ir_emit0(ctx, result_type, IR_VAR);
 				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, return_reg);
 			} else {
