@@ -466,9 +466,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (node_type->kind != TYPE_VOID) {
-				u32 return_reg = ir_emit(ctx, result_type, IR_CALL, called_reg, prev_param);
-				result = ir_emit0(ctx, result_type, IR_VAR);
-				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, return_reg);
+				result = ir_emit(ctx, result_type, IR_CALL, called_reg, prev_param);
 			} else {
 				ASSERT(!"TODO");
 			}
