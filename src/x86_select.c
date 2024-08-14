@@ -545,7 +545,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				}
 			} else {
 				if (inst[op0].opcode == IR_GLOBAL) {
-					called = make_func(inst[op0].op0);
+					called = make_global(inst[op0].op0);
 				} else {
 					x86_select_inst(out, inst, op0, called);
 				}

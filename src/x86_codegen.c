@@ -227,6 +227,10 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 			stream_print(out, "extern ");
 			stream_prints(out, sym->name);
 			stream_print(out, "\n");
+		} else if (sym->name.length > 0) {
+			stream_print(out, "global ");
+			stream_prints(out, sym->name);
+			stream_print(out, "\n");
 		}
 
 		// NOTE: text section was already printed in the loop above
