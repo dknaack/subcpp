@@ -1148,7 +1148,7 @@ check(ast_pool *pool, arena *perm)
 		} else if (node->token.kind == TOKEN_LITERAL_STRING) {
 			str escaped = node->token.value;
 			str unescaped = {0};
-			unescaped.at = ALLOC(perm, escaped.length, char);
+			unescaped.at = ALLOC(perm, escaped.length + 1, char);
 			for (isize i = 1; i < escaped.length - 1; i++) {
 				char c = escaped.at[i];
 				if (c == '\\') {
@@ -1182,6 +1182,8 @@ check(ast_pool *pool, arena *perm)
 					unescaped.at[unescaped.length++] = c;
 				}
 			}
+
+			unescaped.at[unescaped.length++] = '\0';
 
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
