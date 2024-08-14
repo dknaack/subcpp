@@ -62,6 +62,41 @@ regalloc_func(mach_function func, void *code,
 	info.used = ALLOC(arena, reg_info.register_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
+	// NOTE: Count the number of labels
+	isize label_count = 0;
+	for (isize i = 0; i < func.inst_count; i++) {
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+		if (inst->opcode == X86_LABEL) {
+			label_count++;
+		}
+	}
+
+	// NOTE: Compute the instruction index of each label
+	u32 *label_indices = ALLOC(arena, label_count, u32);
+	for (isize i = 0; i < func.inst_count; i++) {
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+		mach_operand *operands = (mach_operand *)(inst + 1);
+		if (inst->opcode == X86_LABEL) {
+			// A label should only have one operand: The index of the label.
+			ASSERT(operands[0].kind == MOP_CONST);
+			isize label_index = operands[0].value;
+			ASSERT(label_index < label_count);
+			label_indices[label_index] = i;
+		}
+	}
+
+	// NOTE: Replace label operands with the instruction index
+	for (isize i = 0; i < func.inst_count; i++) {
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+		mach_operand *operands = (mach_operand *)(inst + 1);
+		for (isize j = 0; j < inst->operand_count; j++) {
+			if (operands[j].kind == MOP_LABEL) {
+				u32 label = operands[j].value;
+				operands[j].value = label_indices[label];
+			}
+		}
+	}
+
 	// NOTE; Compute the live matrix. Each row corresponds to one instruction,
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
@@ -316,6 +351,22 @@ regalloc_func(mach_function func, void *code,
 				ASSERT(mreg_map[reg].kind != MOP_INVALID);
 				operands[i].kind = mreg_map[reg].kind;
 				operands[i].value = mreg_map[reg].value;
+			}
+		}
+	}
+
+	// NOTE: Replace label operands with the label index
+	for (isize i = 0; i < func.inst_count; i++) {
+		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+		mach_operand *operands = (mach_operand *)(inst + 1);
+		for (isize j = 0; j < inst->operand_count; j++) {
+			if (operands[j].kind == MOP_LABEL) {
+				isize offset = operands[j].value;
+				mach_inst *label_inst = get_inst(code, func.inst_offsets, offset);
+				mach_operand *label = (mach_operand *)(label_inst + 1);
+				ASSERT(label->kind == MOP_CONST);
+
+				operands[j].value = label->value;
 			}
 		}
 	}

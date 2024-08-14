@@ -704,34 +704,6 @@ x86_select(ir_program program, arena *arena)
 			mach_inst *inst = (mach_inst *)code;
 			code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
 		}
-
-
-		// NOTE: Compute the instruction index of each label
-		u32 *label_indices = ALLOC(arena, ir_func->label_count, u32);
-		for (isize i = 0; i < mach_func->inst_count; i++) {
-			mach_inst *inst = (mach_inst *)((char *)out.code
-				+ mach_func->inst_offsets[i]);
-			mach_operand *operands = (mach_operand *)(inst + 1);
-			if (inst->opcode == X86_LABEL) {
-				// A label should only have one operand: The index of the label.
-				ASSERT(operands[0].kind == MOP_CONST);
-				ASSERT((i32)operands[0].value < ir_func->label_count);
-
-				label_indices[operands[0].value] = i;
-			}
-		}
-
-		// Replace label operands with the instruction index
-		for (isize i = 0; i < mach_func->inst_count; i++) {
-			mach_inst *inst = (mach_inst *)((char *)out.code
-				+ mach_func->inst_offsets[i]);
-			mach_operand *operands = (mach_operand *)(inst + 1);
-			for (isize j = 0; j < inst->operand_count; j++) {
-				if (operands[j].kind == MOP_LABEL) {
-					operands[j].value = label_indices[operands[j].value];
-				}
-			}
-		}
 	}
 
 	return out;
