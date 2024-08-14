@@ -697,7 +697,6 @@ x86_select(ir_program program, arena *arena)
 
 		// NOTE: Compute instruction offsets
 		mach_func->inst_count = out.inst_count - first_inst_index;
-		ASSERT(mach_func->inst_count > 0);
 		mach_func->inst_offsets = ALLOC(arena, mach_func->inst_count, u32);
 		char *code = (char *)out.code + first_inst_offset;
 		for (isize i = 0; i < mach_func->inst_count; i++) {

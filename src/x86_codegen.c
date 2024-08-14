@@ -89,6 +89,11 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 	ASSERT(program.function_count > 0);
 	for (isize i = 0; i < program.function_count; i++) {
 		mach_function *func = &program.functions[i];
+		if (func->inst_count == 0) {
+			// NOTE: Do not print empty functions
+			continue;
+		}
+
 		// NOTE: Inside text section, symbols contain x86 instructions
 		stream_prints(out, func->name);
 		stream_print(out, ":\n");
@@ -224,11 +229,14 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 			stream_print(out, "\n");
 		}
 
-		if (sym->name.length > 0) {
-			stream_prints(out, sym->name);
-		} else {
-			stream_print(out, "L#");
-			stream_printu(out, i);
+		// NOTE: text section was already printed in the loop above
+		if (i >= symtab->data_offset) {
+			if (sym->name.length > 0) {
+				stream_prints(out, sym->name);
+			} else {
+				stream_print(out, "L#");
+				stream_printu(out, i);
+			}
 		}
 
 		if (symtab->data_offset <= i && i < symtab->bss_offset) {

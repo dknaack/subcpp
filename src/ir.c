@@ -231,14 +231,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXTERN_DEF:
 		{
+			info_id node_info = ctx->info->of[node_id.value];
+			isize function_index = node_info.value - ctx->info->symtab.text_offset;
+			ctx->func = &ctx->program->functions[function_index];
+			ctx->func->name = node->token.value;
+
 			type_id type_id = get_type_id(types, node_id);
 			type *type = get_type_data(types, type_id);
 			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
 			if (is_func_def) {
-				info_id node_info = ctx->info->of[node_id.value];
-				isize function_index = node_info.value - ctx->info->symtab.text_offset;
-				ctx->func = &ctx->program->functions[function_index];
-				ctx->func->name = node->token.value;
 				ctx->last_seq = &ctx->func->first_inst;
 				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, new_label(ctx));
 				translate_node(ctx, pool, node->child[1], false);
@@ -1004,6 +1005,8 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	// NOTE: Propagate types through the instructions
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
+		ASSERT(func->name.length > 0);
+
 		ir_inst *inst = program.insts + func->inst_index;
 		for (isize j = 0; j < func->inst_count; j++) {
 			if (inst[j].type != IR_VOID || inst[j].opcode == IR_CAST
