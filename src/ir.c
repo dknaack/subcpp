@@ -457,7 +457,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				}
 
 
-				u32 param = ir_emit(ctx, IR_VOID, IR_PARAM, param_value, prev_param);
+				u32 param = ir_emit(ctx, IR_VOID, IR_CALL, param_value, prev_param);
 				prev_param = param;
 				param_id = list_node->child[1];
 			}
@@ -971,11 +971,11 @@ get_opcode_info(ir_opcode opcode)
 		break;
 	case IR_CALL:
 		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_PARAM:
 		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_CONST;
 		break;
 	case IR_GLOBAL:
 		info.op0 = IR_OPERAND_GLOBAL;

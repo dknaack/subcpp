@@ -394,7 +394,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		printf(")");
 		break;
 	case IR_PARAM:
-		ASSERT(!"Should have been handled by CALL");
+		printf("(param %d %d)", op0, op1);
 		break;
 	case IR_LABEL:
 		printf("L%d: ", op0);

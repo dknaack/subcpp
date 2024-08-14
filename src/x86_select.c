@@ -559,7 +559,7 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				for (isize param = op1; param; param = inst[param].op1) {
 					param_index--;
 					ir_inst param_inst = inst[param];
-					ASSERT(param_inst.opcode == IR_PARAM);
+					ASSERT(param_inst.opcode == IR_CALL);
 					isize param_size = ir_sizeof(param_inst.type);
 					switch (param_index) {
 					case 0:
