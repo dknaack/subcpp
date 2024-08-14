@@ -132,7 +132,8 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 		char *code = (char *)program.code + func->inst_offsets[0];
 		isize size = func->inst_offsets[func->inst_count - 1] - func->inst_offsets[0];
-		while (size > 0) {
+		isize inst_count = func->inst_count;
+		while (inst_count-- > 0) {
 			mach_inst *inst = (mach_inst *)code;
 			mach_operand *operands = (mach_operand *)(inst + 1);
 			isize operand_count = inst->operand_count;
