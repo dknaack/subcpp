@@ -447,7 +447,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			if (is_compound_type(return_type->kind)) {
 				isize size = type_sizeof(return_type_id, types);
 				u32 param = ir_emit_alloca(ctx, size);
-				prev_param = ir_emit2(ctx, IR_VOID, IR_PARAM, param, 0);
+				prev_param = ir_emit2(ctx, IR_VOID, IR_CALL, param, 0);
 				result_type = IR_I64;
 			} else {
 				result_type = ir_type_from(return_type);
