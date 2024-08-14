@@ -98,7 +98,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 		stream_prints(out, func->name);
 		stream_print(out, ":\n");
 
-		isize function_index = i - symtab->text_offset;
+		isize function_index = i;
 		isize used_volatile_register_count = 0;
 		for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
 			u32 mreg = x86_preserved_regs[j];
