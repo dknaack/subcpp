@@ -1083,6 +1083,17 @@ check(ast_pool *pool, arena *perm)
 	symtab->symbol_count = symbol_count;
 	symtab->symbols = ALLOC(perm, symbol_count, symbol);
 
+	// NOTE: Collect all switch statements.
+	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
+
+	info.types.at = ALLOC(perm, pool->size, type_id);
+
+	semantic_context ctx = {0};
+	ctx.ast = pool;
+	ctx.arena = perm;
+	ctx.types = &info.types;
+	check_type(ctx, pool->root);
+
 	// NOTE: Collect function definitions
 	isize symbol_index = 1;
 	symtab->text_offset = symbol_index;
@@ -1108,20 +1119,24 @@ check(ast_pool *pool, arena *perm)
 	symtab->data_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
+		type_id node_type = info.types.at[i];
 		ast_node *type = NULL;
 		if (node->child[0].value != 0) {
 			type = get_node(pool, node->child[0]);
 		}
 
 		if (node->kind == AST_EXTERN_DEF
-			&& !(type && type->kind == AST_TYPE_FUNC)
-			&& node->child[1].value != 0)
+			&& !(type && type->kind == AST_TYPE_FUNC))
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
 			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
-			sym->data = NULL; // TODO: Translate value into memory
+			sym->size = type_sizeof(node_type, &info.types);
+			ASSERT(sym->size > 0);
+			if (node->child[1].value != 0) {
+				sym->data = NULL; // TODO: Translate value into memory
+			}
 		}
 	}
 
@@ -1180,6 +1195,7 @@ check(ast_pool *pool, arena *perm)
 	symtab->rodata_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
+		type_id node_type = info.types.at[i];
 		ast_node *type = NULL;
 		if (node->child[0].value != 0) {
 			type = get_node(pool, node->child[0]);
@@ -1194,6 +1210,8 @@ check(ast_pool *pool, arena *perm)
 			sym->linkage = get_linkage(node->flags);
 			sym->name = node->token.value;
 			sym->data = NULL; // TODO: Translate value into memory
+			sym->size = type_sizeof(node_type, &info.types);
+			ASSERT(sym->size > 0);
 		}
 	}
 
@@ -1212,17 +1230,6 @@ check(ast_pool *pool, arena *perm)
 			ASSERT(ref_info.value != 0);
 		}
 	}
-
-	// NOTE: Collect all switch statements.
-	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
-
-	info.types.at = ALLOC(perm, pool->size, type_id);
-
-	semantic_context ctx = {0};
-	ctx.ast = pool;
-	ctx.arena = perm;
-	ctx.types = &info.types;
-	check_type(ctx, pool->root);
 
 	return info;
 }
