@@ -182,6 +182,42 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 				x86_emit2(out, X86_MOV, dst, src);
 			}
 		} break;
+	case IR_PARAM:
+		{
+			// TODO: Set the correct size of the parameters
+			mach_operand src;
+			switch (op0) {
+			case 0:
+				src = make_operand(MOP_MREG, X86_RDI, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			case 1:
+				src = make_operand(MOP_MREG, X86_RSI, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			case 2:
+				src = make_operand(MOP_MREG, X86_RDX, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			case 3:
+				src = make_operand(MOP_MREG, X86_RCX, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			case 4:
+				src = make_operand(MOP_MREG, X86_R8, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			case 5:
+				src = make_operand(MOP_MREG, X86_R9, dst.size);
+				x86_emit2(out, X86_MOV, dst, src);
+				break;
+			default:
+				// TODO: The function should store the parameter offsets of
+				// each argument. Then, we can calculate the offset for this
+				// parameter.
+				ASSERT(!"Too many parameters");
+			}
+		} break;
 	case IR_CAST:
 	case IR_CASTU:
 		{
@@ -610,7 +646,6 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 			x86_emit1(out, X86_LABEL, src);
 		} break;
 	case IR_NOP:
-	case IR_PARAM:
 		break;
 	}
 }
@@ -639,44 +674,6 @@ x86_select(ir_program program, arena *arena)
 
 		isize first_inst_index = out.inst_count;
 		isize first_inst_offset = out.size;
-
-		// NOTE: Initialize the parameter registers
-		for (isize i = 0; i < ir_func->param_count; i++) {
-			// TODO: Set the correct size of the parameters
-			mach_operand dst = make_operand(MOP_VREG, i+1, 8);
-			mach_operand src;
-			switch (i) {
-			case 0:
-				src = make_operand(MOP_MREG, X86_RDI, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			case 1:
-				src = make_operand(MOP_MREG, X86_RSI, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			case 2:
-				src = make_operand(MOP_MREG, X86_RDX, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			case 3:
-				src = make_operand(MOP_MREG, X86_RCX, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			case 4:
-				src = make_operand(MOP_MREG, X86_R8, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			case 5:
-				src = make_operand(MOP_MREG, X86_R9, 8);
-				x86_emit2(&out, X86_MOV, dst, src);
-				break;
-			default:
-				// TODO: The function should store the parameter offsets of
-				// each argument. Then, we can calculate the offset for this
-				// parameter.
-				ASSERT(!"Too many parameters");
-			}
-		}
 
 		// NOTE: Do the instruction selection
 		ir_inst *inst = program.insts + ir_func->inst_index;
