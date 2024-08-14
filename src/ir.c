@@ -211,7 +211,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			if (!ctx->locals[node_id.value] == 0) {
+			if (ctx->locals[node_id.value] == 0) {
 				type_id type = get_type_id(types, node_id);
 				isize size = type_sizeof(type, types);
 				u32 addr = ir_emit_alloca(ctx, size);
