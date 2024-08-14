@@ -304,7 +304,9 @@ next_block:
 						break;
 					}
 
-					inst[i].opcode = IR_NOP;
+					if (inst[i].opcode != IR_SEQ) {
+						inst[i].opcode = IR_NOP;
+					}
 				}
 			}
 		}
