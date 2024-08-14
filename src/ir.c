@@ -254,13 +254,25 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *type = get_node(pool, node->child[0]);
 			b32 is_func_def = (type->kind == AST_TYPE_FUNC && node->child[1].value != 0);
 			if (is_func_def) {
-				ctx->last_seq = &ctx->func->first_inst;
+				// NOTE: Ignore the first instruction
+				ctx->func->register_count++;
+				ctx->program->inst_count++;
 
-				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, new_label(ctx));
-				if (type->child[0].value != 0) {
-					translate_node(ctx, pool, type->child[0], false);
+				// NOTE: Emit parameter registers
+				ast_id list_id = type->child[0];
+				while (list_id.value != 0) {
+					ast_node *list_node = get_node(pool, list_id);
+					list_id = list_node->child[1];
+
+					ast_id param = list_node->child[0];
+					type_id param_type = get_type_id(&ctx->info->types, param);
+					isize param_size = type_sizeof(param_type, &ctx->info->types);
+					isize param_index = ctx->func->param_count++;
+					u32 param_reg = ir_emit(ctx, IR_VOID, IR_PARAM, param_index, param_size);
+					ctx->locals[param.value] = param_reg;
 				}
 
+				ctx->last_seq = &ctx->func->first_inst;
 				translate_node(ctx, pool, node->child[1], false);
 				ctx->func->inst_count = ctx->program->inst_count - ctx->func->inst_index;
 			}
