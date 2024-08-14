@@ -343,8 +343,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_GEQU:
 	case IR_GT:
 	case IR_GTU:
-	case IR_JIZ:
-	case IR_JNZ:
 	case IR_LEQ:
 	case IR_LEQU:
 	case IR_LT:
@@ -363,11 +361,19 @@ print_ir_inst(ir_inst *inst, u32 i)
 		print_ir_inst(inst, op1);
 		printf(")");
 		break;
+	case IR_JMP:
+		printf("(jmp L%d)", op0);
+		break;
+	case IR_JIZ:
+	case IR_JNZ:
+		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		print_ir_inst(inst, op0);
+		printf(" L%d)", op1);
+		break;
 	case IR_CAST:
 	case IR_CASTU:
 	case IR_LOAD:
 	case IR_NOT:
-	case IR_JMP:
 	case IR_RET:
 	case IR_TRUNC:
 	case IR_SEXT:

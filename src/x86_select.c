@@ -624,7 +624,6 @@ x86_select(ir_program program, arena *arena)
 	out.max_size = 8 * 1024 * 1024;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.register_count;
-	out.function_count = program.function_count;
 	out.register_info.register_count = X86_REGISTER_COUNT;
 	out.register_info.int_register_count = X86_INT_REGISTER_COUNT;
 	out.register_info.volatile_registers = x86_temp_regs;
@@ -634,7 +633,9 @@ x86_select(ir_program program, arena *arena)
 		ir_function *ir_func = &program.functions[i];
 		mach_function *mach_func = &out.functions[i];
 		mach_func->register_count = ir_func->register_count;
+		mach_func->label_count = ir_func->label_count;
 		mach_func->name = ir_func->name;
+		out.function_count++;
 
 		isize first_inst_index = out.inst_count;
 		isize first_inst_offset = out.size;

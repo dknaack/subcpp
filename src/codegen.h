@@ -34,10 +34,9 @@ typedef struct {
 	str name;
 	u32 inst_count;
 	u32 register_count;
+	u32 label_count;
 	u32 stack_size;
 	u32 *inst_offsets;
-	i32 *floats;
-	i32 float_count;
 } mach_function;
 
 typedef struct {

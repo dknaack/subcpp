@@ -63,13 +63,7 @@ regalloc_func(mach_function func, void *code,
 	arena_temp temp = arena_temp_begin(arena);
 
 	// NOTE: Count the number of labels
-	isize label_count = 0;
-	for (isize i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
-		if (inst->opcode == X86_LABEL) {
-			label_count++;
-		}
-	}
+	isize label_count = func.label_count;
 
 	// NOTE: Compute the instruction index of each label
 	u32 *label_indices = ALLOC(arena, label_count, u32);

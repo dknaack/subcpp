@@ -6,7 +6,7 @@ new_label(ir_context *ctx)
 }
 
 static u32
-ir_emit2(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
+ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(type <= IR_F64);
 	ASSERT(ctx->program->inst_count <= ctx->max_inst_count);
@@ -21,9 +21,19 @@ ir_emit2(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 }
 
 static u32
+ir_emit2(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
+{
+	ASSERT(op0 != 0);
+	ASSERT(op1 != 0);
+	u32 result = ir_emit(ctx, type, opcode, op0, op1);
+	return result;
+}
+
+static u32
 ir_emit1(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0)
 {
-	u32 result = ir_emit2(ctx, type, opcode, op0, 0);
+	ASSERT(opcode == IR_CONST || op0 != 0);
+	u32 result = ir_emit(ctx, type, opcode, op0, 0);
 	ASSERT(opcode != IR_GLOBAL || op0 < ctx->info->symtab.symbol_count);
 	return result;
 }
@@ -31,7 +41,7 @@ ir_emit1(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0)
 static u32
 ir_emit0(ir_context *ctx, ir_type type, ir_opcode opcode)
 {
-	u32 result = ir_emit2(ctx, type, opcode, 0, 0);
+	u32 result = ir_emit(ctx, type, opcode, 0, 0);
 	if (opcode == IR_VAR) ASSERT(type != IR_VOID);
 	return result;
 }
@@ -39,9 +49,12 @@ ir_emit0(ir_context *ctx, ir_type type, ir_opcode opcode)
 static void
 ir_emit_seq(ir_context *ctx, u32 stmt)
 {
-	u32 inst_index = ir_emit1(ctx, IR_VOID, IR_SEQ, stmt);
-	*ctx->last_seq = inst_index;
+	u32 register_index = ir_emit(ctx, IR_VOID, IR_SEQ, stmt, 0);
+	u32 inst_index = register_index + ctx->func->inst_index;
+
+	*ctx->last_seq = register_index;
 	ctx->last_seq = &ctx->program->insts[inst_index].op1;
+	ASSERT(*ctx->last_seq == 0);
 }
 
 static void
@@ -62,7 +75,7 @@ static u32
 ir_emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	u32 result = ir_emit2(ctx, IR_I64, IR_ALLOC, size, ctx->stack_size);
+	u32 result = ir_emit(ctx, IR_I64, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
 	return result;
 }
@@ -235,16 +248,24 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			isize function_index = node_info.value - ctx->info->symtab.text_offset;
 			ctx->func = &ctx->program->functions[function_index];
 			ctx->func->name = node->token.value;
+			ctx->func->inst_index = ctx->program->inst_count;
+			ctx->func->label_count++;
 
-			type_id type_id = get_type_id(types, node_id);
-			type *type = get_type_data(types, type_id);
-			b32 is_func_def = (type->kind == TYPE_FUNCTION && node->child[1].value != 0);
+			ast_node *type = get_node(pool, node->child[0]);
+			b32 is_func_def = (type->kind == AST_TYPE_FUNC && node->child[1].value != 0);
 			if (is_func_def) {
 				ctx->last_seq = &ctx->func->first_inst;
+
 				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, new_label(ctx));
+				if (type->child[0].value != 0) {
+					translate_node(ctx, pool, type->child[0], false);
+				}
+
 				translate_node(ctx, pool, node->child[1], false);
 				ctx->func->inst_count = ctx->program->inst_count - ctx->func->inst_index;
 			}
+
+			ctx->func = NULL;
 		} break;
 	case AST_INIT:
 		ASSERT(!"Should have been handled by DECL");
@@ -436,7 +457,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				}
 
 
-				u32 param = ir_emit2(ctx, IR_VOID, IR_PARAM, param_value, prev_param);
+				u32 param = ir_emit(ctx, IR_VOID, IR_PARAM, param_value, prev_param);
 				prev_param = param;
 				param_id = list_node->child[1];
 			}
@@ -445,7 +466,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (node_type->kind != TYPE_VOID) {
-				u32 return_reg = ir_emit2(ctx, result_type, IR_CALL, called_reg, prev_param);
+				u32 return_reg = ir_emit(ctx, result_type, IR_CALL, called_reg, prev_param);
 				result = ir_emit0(ctx, result_type, IR_VAR);
 				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, return_reg);
 			} else {

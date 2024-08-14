@@ -237,7 +237,7 @@ optimize(ir_program program, arena *arena)
 	}
 
 	// Eliminate dead code
-	{
+	if (false) {
 		b8 *reachable = ALLOC(arena, program.label_count, b8);
 		u32 *stack = ALLOC(arena, program.label_count, u32);
 		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
@@ -247,9 +247,10 @@ optimize(ir_program program, arena *arena)
 			ir_inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
-			for (isize i = 0; i < func->inst_count; i++) {
-				if (inst[i].opcode == IR_LABEL) {
-					label_addresses[inst[i].op0] = i;
+			for (isize i = func->first_inst; i; i = inst[i].op1) {
+				u32 stmt = inst[i].op0;
+				if (inst[stmt].opcode == IR_LABEL) {
+					label_addresses[inst[stmt].op0] = i;
 				}
 			}
 
@@ -263,8 +264,9 @@ next_block:
 				isize label = stack[--stack_pos];
 
 				// NOTE: The first instruction is the label itself
-				u32 start = label_addresses[label] + 1;
-				for (isize i = start; i < func->inst_count; i++) {
+				u32 start = label_addresses[label];
+				for (isize j = start; j; j = inst[j].op1) {
+					u32 i = inst[j].op0;
 					u32 new_label = 0;
 					switch (inst[i].opcode) {
 					case IR_JMP:
@@ -298,8 +300,10 @@ next_block:
 				}
 
 				u32 start = label_addresses[label];
-				inst[start].opcode = IR_NOP;
-				for (isize i = start; i < func->inst_count; i++) {
+				// Remove the label
+				inst[inst[start].op0].opcode = IR_NOP;
+				for (isize j = start; j; j = inst[j].op1) {
+					u32 i = inst[j].op0;
 					if (inst[i].opcode == IR_LABEL) {
 						break;
 					}
