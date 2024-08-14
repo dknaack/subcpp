@@ -235,34 +235,34 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 		}
 
 		// NOTE: text section was already printed in the loop above
-		if (i >= symtab->data_offset) {
+		if (sym->size > 0) {
 			if (sym->name.length > 0) {
 				stream_prints(out, sym->name);
 			} else {
 				stream_print(out, "L#");
 				stream_printu(out, i);
 			}
-		}
 
-		if (symtab->data_offset <= i && i < symtab->bss_offset) {
-			// NOTE: Inside data or rodata section, symbols contain byte data
-			stream_print(out, ": db ");
+			if (symtab->data_offset <= i && i < symtab->bss_offset) {
+				// NOTE: Inside data or rodata section, symbols contain byte data
+				stream_print(out, ": db ");
 
-			char *byte = sym->data;
-			for (isize i = 0; i < sym->size; i++) {
-				if (i != 0) {
-					stream_print(out, ", ");
+				char *byte = sym->data;
+				for (isize i = 0; i < sym->size; i++) {
+					if (i != 0) {
+						stream_print(out, ", ");
+					}
+
+					stream_print_hex(out, byte[i]);
 				}
 
-				stream_print_hex(out, byte[i]);
+				stream_print(out, "\n");
+			} else if (i >= symtab->bss_offset) {
+				// NOTE; Inside bss section, symbols have no data
+				stream_print(out, " resb ");
+				stream_print_hex(out, sym->size);
+				stream_print(out, "\n");
 			}
-
-			stream_print(out, "\n");
-		} else if (i >= symtab->bss_offset) {
-			// NOTE; Inside bss section, symbols have no data
-			stream_print(out, " resb ");
-			stream_print_hex(out, sym->size);
-			stream_print(out, "\n");
 		}
 	}
 }
