@@ -1060,7 +1060,7 @@ check(ast_pool *pool, arena *perm)
 
 	// NOTE: Gather symbol information
 	symbol_table *symtab = &info.symtab;
-	isize symbol_count = 0;
+	isize symbol_count = 1;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		switch (node->kind) {
@@ -1084,7 +1084,7 @@ check(ast_pool *pool, arena *perm)
 	symtab->symbols = ALLOC(perm, symbol_count, symbol);
 
 	// NOTE: Collect function definitions
-	isize symbol_index = 0;
+	isize symbol_index = 1;
 	symtab->text_offset = symbol_index;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];

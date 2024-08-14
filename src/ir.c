@@ -24,6 +24,7 @@ static u32
 ir_emit1(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0)
 {
 	u32 result = ir_emit2(ctx, type, opcode, op0, 0);
+	ASSERT(opcode != IR_GLOBAL || op0 < ctx->info->symtab.symbol_count);
 	return result;
 }
 
