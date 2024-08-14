@@ -257,6 +257,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				// NOTE: Ignore the first instruction
 				ctx->func->register_count++;
 				ctx->program->inst_count++;
+				ctx->last_seq = &ctx->func->first_inst;
 
 				// NOTE: Emit parameter registers
 				ast_id list_id = type->child[0];
@@ -269,10 +270,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					isize param_size = type_sizeof(param_type, &ctx->info->types);
 					isize param_index = ctx->func->param_count++;
 					u32 param_reg = ir_emit(ctx, IR_VOID, IR_PARAM, param_index, param_size);
-					ctx->locals[param.value] = param_reg;
+
+					u32 param_local = ir_emit_alloca(ctx, param_size);
+					ir_store(ctx, param_local, param_reg, param_type);
+					ctx->locals[param.value] = param_local;
 				}
 
-				ctx->last_seq = &ctx->func->first_inst;
 				translate_node(ctx, pool, node->child[1], false);
 				ctx->func->inst_count = ctx->program->inst_count - ctx->func->inst_index;
 			}
