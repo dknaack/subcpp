@@ -20,8 +20,61 @@ multiply(u32 a, u32 b)
 }
 
 static void
-promote_stack_variables(ir_program program, arena *arena)
+remove_unused_registers(ir_program program, arena *arena)
 {
+	// Remove unused registers
+	for (isize i = 0; i < program.function_count; i++) {
+		ir_function *func = &program.functions[i];
+		arena_temp temp = arena_temp_begin(arena);
+		ir_inst *insts = program.insts + func->inst_index;
+
+		b32 *used = ALLOC(arena, func->inst_count, b32);
+		for (isize j = 0; j < func->inst_count; j++) {
+			isize i = func->inst_count - 1 - j;
+			ir_inst inst = insts[i];
+			switch (inst.opcode) {
+			case IR_STORE:
+			case IR_PARAM:
+			case IR_CALL:
+			case IR_RET:
+			case IR_MOV:
+			case IR_JIZ:
+			case IR_JNZ:
+			case IR_JMP:
+			case IR_LABEL: // TODO: Removal of unused labels
+			case IR_SEQ:
+				used[i] = true;
+				break;
+			default:
+				if (!used[i]) {
+					continue;
+				}
+			}
+
+			ir_opcode_info info = get_opcode_info(inst.opcode);
+			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
+				used[inst.op0] = true;
+			}
+
+			if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
+				used[inst.op1] = true;
+			}
+		}
+
+		for (isize i = func->param_count; i < func->inst_count; i++) {
+			if (!used[i]) {
+				insts[i].opcode = IR_NOP;
+			}
+		}
+
+		arena_temp_end(temp);
+	}
+}
+
+static void
+optimize(ir_program program, arena *arena)
+{
+	// Promote stack variables
 	for (isize f = 0; f < program.function_count; f++) {
 		ir_function *func = &program.functions[f];
 		// Mark all stack variables which address is used by a different
@@ -97,64 +150,6 @@ promote_stack_variables(ir_program program, arena *arena)
 
 		arena_temp_end(temp);
 	}
-}
-
-static void
-remove_unused_registers(ir_program program, arena *arena)
-{
-	// Remove unused registers
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
-		arena_temp temp = arena_temp_begin(arena);
-		ir_inst *insts = program.insts + func->inst_index;
-
-		b32 *used = ALLOC(arena, func->inst_count, b32);
-		for (isize j = 0; j < func->inst_count; j++) {
-			isize i = func->inst_count - 1 - j;
-			ir_inst inst = insts[i];
-			switch (inst.opcode) {
-			case IR_STORE:
-			case IR_PARAM:
-			case IR_CALL:
-			case IR_RET:
-			case IR_MOV:
-			case IR_JIZ:
-			case IR_JNZ:
-			case IR_JMP:
-			case IR_LABEL: // TODO: Removal of unused labels
-			case IR_SEQ:
-				used[i] = true;
-				break;
-			default:
-				if (!used[i]) {
-					continue;
-				}
-			}
-
-			ir_opcode_info info = get_opcode_info(inst.opcode);
-			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
-				used[inst.op0] = true;
-			}
-
-			if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
-				used[inst.op1] = true;
-			}
-		}
-
-		for (isize i = func->param_count; i < func->inst_count; i++) {
-			if (!used[i]) {
-				insts[i].opcode = IR_NOP;
-			}
-		}
-
-		arena_temp_end(temp);
-	}
-}
-
-static void
-optimize(ir_program program, arena *arena)
-{
-	promote_stack_variables(program, arena);
 
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
