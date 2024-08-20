@@ -46,31 +46,6 @@ ir_emit0(ir_context *ctx, ir_type type, ir_opcode opcode)
 	return result;
 }
 
-static void
-ir_emit_seq(ir_context *ctx, u32 stmt)
-{
-	u32 register_index = ir_emit(ctx, IR_VOID, IR_SEQ, stmt, 0);
-	u32 inst_index = register_index + ctx->func->inst_index;
-
-	*ctx->last_seq = register_index;
-	ctx->last_seq = &ctx->program->insts[inst_index].op1;
-	ASSERT(*ctx->last_seq == 0);
-}
-
-static void
-ir_emit2_seq(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
-{
-	u32 stmt = ir_emit2(ctx, type, opcode, op0, op1);
-	ir_emit_seq(ctx, stmt);
-}
-
-static void
-ir_emit1_seq(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0)
-{
-	u32 stmt = ir_emit1(ctx, type, opcode, op0);
-	ir_emit_seq(ctx, stmt);
-}
-
 static u32
 ir_emit_alloca(ir_context *ctx, u32 size)
 {
@@ -89,22 +64,22 @@ ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 	u32 counter_reg = ir_emit0(ctx, IR_I64, IR_VAR);
 	u32 zero = ir_emit1(ctx, IR_I64, IR_CONST, 0);
 	u32 one = ir_emit1(ctx, IR_I64, IR_CONST, 1);
-	ir_emit2_seq(ctx, IR_VOID, IR_MOV, counter_reg, zero);
+	ir_emit2(ctx, IR_VOID, IR_MOV, counter_reg, zero);
 
-	ir_emit1_seq(ctx, IR_VOID, IR_LABEL, continue_label);
+	ir_emit1(ctx, IR_VOID, IR_LABEL, continue_label);
 	u32 size_reg = ir_emit1(ctx, IR_I64, IR_CONST, size);
 	u32 comparison = ir_emit2(ctx, IR_I32, IR_LT, counter_reg, size_reg);
-	ir_emit2_seq(ctx, IR_VOID, IR_JIZ, comparison, break_label);
+	ir_emit2(ctx, IR_VOID, IR_JIZ, comparison, break_label);
 
 	u32 dst_ptr = ir_emit2(ctx, IR_I64, IR_ADD, dst, counter_reg);
 	u32 src_ptr = ir_emit2(ctx, IR_I64, IR_ADD, src, counter_reg);
 	u32 src_byte = ir_emit1(ctx, IR_I8, IR_LOAD, src_ptr);
-	ir_emit2_seq(ctx, IR_I8, IR_STORE, dst_ptr, src_byte);
+	ir_emit2(ctx, IR_I8, IR_STORE, dst_ptr, src_byte);
 
 	u32 next = ir_emit2(ctx, IR_I64, IR_ADD, counter_reg, one);
-	ir_emit2_seq(ctx, IR_VOID, IR_MOV, counter_reg, next);
-	ir_emit1_seq(ctx, IR_VOID, IR_JMP, continue_label);
-	ir_emit1_seq(ctx, IR_VOID, IR_LABEL, break_label);
+	ir_emit2(ctx, IR_VOID, IR_MOV, counter_reg, next);
+	ir_emit1(ctx, IR_VOID, IR_JMP, continue_label);
+	ir_emit1(ctx, IR_VOID, IR_LABEL, break_label);
 }
 
 static u32
@@ -135,7 +110,7 @@ ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 		ir_memcpy(ctx, dst, src, size);
 	} else {
 		ir_type ir_type = ir_type_from(type);
-		ir_emit2_seq(ctx, ir_type, IR_STORE, dst, src);
+		ir_emit2(ctx, ir_type, IR_STORE, dst, src);
 	}
 }
 
@@ -148,7 +123,7 @@ ir_mov(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 		ir_memcpy(ctx, dst, src, size);
 	} else {
 		ir_type ir_type = ir_type_from(type);
-		ir_emit2_seq(ctx, ir_type, IR_MOV, dst, src);
+		ir_emit2(ctx, ir_type, IR_MOV, dst, src);
 	}
 }
 
@@ -257,7 +232,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				// NOTE: Ignore the first instruction
 				ctx->func->register_count++;
 				ctx->program->inst_count++;
-				ctx->last_seq = &ctx->func->first_inst;
 
 				// NOTE: Emit parameter registers
 				ast_id list_id = type->child[0];
@@ -345,19 +319,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				result = ir_emit0(ctx, IR_I32, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
-				ir_emit2_seq(ctx, IR_VOID, IR_JIZ, lhs_reg, zero_label);
+				ir_emit2(ctx, IR_VOID, IR_JIZ, lhs_reg, zero_label);
 
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
-				ir_emit2_seq(ctx, IR_VOID, IR_JIZ, rhs_reg, zero_label);
+				ir_emit2(ctx, IR_VOID, IR_JIZ, rhs_reg, zero_label);
 
 				u32 one = ir_emit1(ctx, IR_I32, IR_CONST, 1);
-				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, one);
-				ir_emit1_seq(ctx, IR_VOID, IR_JMP, end_label);
+				ir_emit2(ctx, IR_VOID, IR_MOV, result, one);
+				ir_emit1(ctx, IR_VOID, IR_JMP, end_label);
 
-				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, zero_label);
+				ir_emit1(ctx, IR_VOID, IR_LABEL, zero_label);
 				u32 zero = ir_emit1(ctx, IR_I32, IR_CONST, 0);
-				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, zero);
-				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, end_label);
+				ir_emit2(ctx, IR_VOID, IR_MOV, result, zero);
+				ir_emit1(ctx, IR_VOID, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
 				// NOTE: Logical or operation
 				u32 end_label = new_label(ctx);
@@ -365,19 +339,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				result = ir_emit0(ctx, IR_I32, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, pool, node->child[0], false);
-				ir_emit2_seq(ctx, IR_VOID, IR_JNZ, lhs_reg, one_label);
+				ir_emit2(ctx, IR_VOID, IR_JNZ, lhs_reg, one_label);
 
 				u32 rhs_reg = translate_node(ctx, pool, node->child[1], false);
-				ir_emit2_seq(ctx, IR_VOID, IR_JNZ, rhs_reg, one_label);
+				ir_emit2(ctx, IR_VOID, IR_JNZ, rhs_reg, one_label);
 
 				u32 zero = ir_emit1(ctx, IR_I32, IR_CONST, 0);
-				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, zero);
-				ir_emit1_seq(ctx, IR_VOID, IR_JMP, end_label);
+				ir_emit2(ctx, IR_VOID, IR_MOV, result, zero);
+				ir_emit1(ctx, IR_VOID, IR_JMP, end_label);
 
-				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, one_label);
+				ir_emit1(ctx, IR_VOID, IR_LABEL, one_label);
 				u32 one = ir_emit1(ctx, IR_I32, IR_CONST, 1);
-				ir_emit2_seq(ctx, IR_VOID, IR_MOV, result, one);
-				ir_emit1_seq(ctx, IR_VOID, IR_LABEL, end_label);
+				ir_emit2(ctx, IR_VOID, IR_MOV, result, one);
+				ir_emit1(ctx, IR_VOID, IR_LABEL, end_label);
 			} else if (opcode == IR_STORE) {
 				// NOTE: Assignment operation
 				switch (operator) {
@@ -399,7 +373,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ir_type type = ir_type_from(node_type);
 					u32 value = ir_emit1(ctx, type, IR_LOAD, lhs_reg);
 					result = ir_emit2(ctx, type, opcode, value, rhs_reg);
-					ir_emit2_seq(ctx, IR_VOID, IR_STORE, lhs_reg, result);
+					ir_emit2(ctx, IR_VOID, IR_STORE, lhs_reg, result);
 				} else {
 					ir_store(ctx, lhs_reg, rhs_reg, type_id);
 					if (!is_lvalue) {
@@ -618,7 +592,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					result = ir_emit1(ctx, type, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
 					u32 value = ir_emit2(ctx, type, opcode, result, one);
-					ir_emit2_seq(ctx, IR_VOID, IR_STORE, addr, value);
+					ir_emit2(ctx, IR_VOID, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -650,19 +624,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			} else {
 				result = ir_emit0(ctx, ir_type_from(node_type), IR_VAR);
 			}
-			ir_emit2_seq(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
+			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
 
 			ast_id if_branch = branches->child[0];
 			u32 if_reg = translate_node(ctx, pool, if_branch, false);
 			ir_mov(ctx, result, if_reg, type_id);
-			ir_emit1_seq(ctx, IR_VOID, IR_JMP, endif_label);
+			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
 
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, else_label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
 			ast_id else_branch = branches->child[1];
 			u32 else_reg = translate_node(ctx, pool, else_branch, false);
 			ir_mov(ctx, result, else_reg, type_id);
 
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, endif_label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
 		} break;
 	case AST_EXPR_TERNARY2:
 		ASSERT(!"Should have been handled by TERNARY1");
@@ -720,7 +694,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					u32 value = ir_emit1(ctx, type, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
 					result = ir_emit2(ctx, type, opcode, value, one);
-					ir_emit2_seq(ctx, IR_VOID, IR_STORE, addr, result);
+					ir_emit2(ctx, IR_VOID, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -735,17 +709,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_BREAK:
 		{
-			ir_emit1_seq(ctx, IR_VOID, IR_JMP, ctx->break_label);
+			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->break_label);
 		} break;
 	case AST_STMT_CASE:
 		{
 			case_info *case_info = get_case_info(*ctx->info, node_id);
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, case_info->label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, case_info->label);
 			translate_node(ctx, pool, node->child[1], false);
 		} break;
 	case AST_STMT_CONTINUE:
 		{
-			ir_emit1_seq(ctx, IR_VOID, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->continue_label);
 		} break;
 	case AST_STMT_DEFAULT:
 		ASSERT(!"Should have been handled by SWITCH");
@@ -759,14 +733,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id cond = node->child[0];
 			ast_id body = node->child[1];
 
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
 			translate_node(&new_ctx, pool, body, false);
 
 			u32 cond_reg = translate_node(&new_ctx, pool, cond, false);
-			ir_emit2_seq(&new_ctx, IR_VOID, IR_JNZ, cond_reg, new_ctx.continue_label);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
-
-			ctx->last_seq = new_ctx.last_seq;
+			ir_emit2(&new_ctx, IR_VOID, IR_JNZ, cond_reg, new_ctx.continue_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_EMPTY:
 		break;
@@ -779,22 +751,20 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 cond_label = new_label(&new_ctx);
 
 			translate_node(&new_ctx, pool, node->child[0], false);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, cond_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, cond_label);
 
 			ast_node *cond = get_node(pool, node->child[1]);
 			u32 cond_reg = translate_node(&new_ctx, pool, cond->child[0], false);
-			ir_emit2_seq(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+			ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
 
 			ast_node *post = get_node(pool, cond->child[1]);
 			ast_id body = post->child[1];
 			translate_node(&new_ctx, pool, body, false);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
 
 			translate_node(&new_ctx, pool, post->child[0], false);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_JMP, cond_label);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
-
-			ctx->last_seq = new_ctx.last_seq;
+			ir_emit1(&new_ctx, IR_VOID, IR_JMP, cond_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_FOR2:
 	case AST_STMT_FOR3:
@@ -810,7 +780,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				*label = new_label(ctx);
 			}
 
-			ir_emit1_seq(ctx, IR_VOID, opcode, *label);
+			ir_emit1(ctx, IR_VOID, opcode, *label);
 			if (node->child[0].value != 0) {
 				translate_node(ctx, pool, node->child[0], false);
 			}
@@ -823,19 +793,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id cond = node->child[0];
 			ast_node *if_else = get_node(pool, node->child[1]);
 			u32 cond_reg = translate_node(ctx, pool, cond, false);
-			ir_emit2_seq(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
+			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
 
 			ast_id if_branch = if_else->child[0];
 			translate_node(ctx, pool, if_branch, false);
-			ir_emit1_seq(ctx, IR_VOID, IR_JMP, endif_label);
+			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
 
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, else_label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
 			ast_id else_branch = if_else->child[1];
 			if (else_branch.value != 0) {
 				translate_node(ctx, pool, else_branch, false);
 			}
 
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, endif_label);
+			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
 		} break;
 	case AST_STMT_IF2:
 		ASSERT(!"Should have been handled by IF1");
@@ -857,9 +827,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ir_memcpy(ctx, 1, value, struct_size);
 			}
 
-			ir_emit1_seq(ctx, IR_VOID, IR_RET, value);
+			ir_emit1(ctx, IR_VOID, IR_RET, value);
 			// NOTE: For dead code elimination
-			ir_emit1_seq(ctx, IR_VOID, IR_LABEL, new_label(ctx));
+			ir_emit1(ctx, IR_VOID, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_SWITCH:
 		{
@@ -875,7 +845,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ast_node *case_node = get_node(pool, case_info->case_id);
 				u32 case_reg = translate_node(&new_ctx, pool, case_node->child[0], false);
 				u32 cond_reg = ir_emit2(&new_ctx, IR_I64, IR_EQL, switch_reg, case_reg);
-				ir_emit2_seq(&new_ctx, IR_VOID, IR_JNZ, cond_reg, case_info->label);
+				ir_emit2(&new_ctx, IR_VOID, IR_JNZ, cond_reg, case_info->label);
 			}
 
 			if (switch_info->default_case.value != 0) {
@@ -883,11 +853,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				translate_node(&new_ctx, pool, default_node->child[0], false);
 			}
 
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_JMP, new_ctx.break_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_JMP, new_ctx.break_label);
 			translate_node(&new_ctx, pool, node->child[1], false);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
-
-			ctx->last_seq = new_ctx.last_seq;
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_WHILE:
 		{
@@ -896,17 +864,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			new_ctx.break_label = new_label(&new_ctx);
 			new_ctx.continue_label = new_label(&new_ctx);
 
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
 			ast_id cond = node->child[0];
 			u32 cond_reg = translate_node(&new_ctx, pool, cond, false);
-			ir_emit2_seq(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+			ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
 
 			ast_id body = node->child[1];
 			translate_node(&new_ctx, pool, body, false);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_JMP, new_ctx.continue_label);
-			ir_emit1_seq(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
-
-			ctx->last_seq = new_ctx.last_seq;
+			ir_emit1(&new_ctx, IR_VOID, IR_JMP, new_ctx.continue_label);
+			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
@@ -998,10 +964,6 @@ get_opcode_info(ir_opcode opcode)
 	case IR_LABEL:
 		info.op0 = IR_OPERAND_LABEL;
 		break;
-	case IR_SEQ:
-		info.op0 = IR_OPERAND_LABEL;
-		info.op1 = IR_OPERAND_LABEL;
-		break;
 	case IR_NOP:
 	case IR_VAR:
 		break;
@@ -1015,6 +977,25 @@ is_register_operand(ir_operand_type operand)
 {
 	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
 	return result;
+}
+
+static i32 *
+get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
+{
+	i32 *ref_count = ALLOC(perm, inst_count, i32);
+
+	for (isize i = 0; i < inst_count; i++) {
+		ir_opcode_info info = get_opcode_info(inst[i].opcode);
+		if (is_register_operand(info.op0)) {
+			ref_count[inst[i].op0]++;
+		}
+
+		if (is_register_operand(info.op1)) {
+			ref_count[inst[i].op1]++;
+		}
+	}
+
+	return ref_count;
 }
 
 static ir_program

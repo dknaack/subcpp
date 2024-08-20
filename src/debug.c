@@ -399,9 +399,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_LABEL:
 		printf("L%d: ", op0);
 		break;
-	case IR_SEQ:
-		print_ir_inst(inst, op0);
-		break;
 	}
 }
 
@@ -409,6 +406,8 @@ static void
 print_ir_program(ir_program program)
 {
 	for (isize i = 0; i < program.function_count; i++) {
+		arena *temp = new_arena(4096);
+
 		ir_function *func = &program.functions[i];
 		printf("function[%ld]:\n", i);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
@@ -417,11 +416,16 @@ print_ir_program(ir_program program)
 		printf("  stack_size: %d\n", func->stack_size);
 
 		ir_inst *inst = program.insts + func->inst_index;
-		for (isize j = func->first_inst; j; j = inst[j].op1) {
-			printf("\t");
-			print_ir_inst(inst, j);
-			printf("\n");
+		i32 *ref_count = get_ref_count(inst, func->inst_count, temp);
+		for (isize j = 0; j < func->inst_count; j++) {
+			if (ref_count[j] == 0) {
+				printf("\t");
+				print_ir_inst(inst, j);
+				printf("\n");
+			}
 		}
+
+		free(temp);
 	}
 
 	printf("\n");

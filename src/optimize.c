@@ -190,10 +190,10 @@ optimize(ir_program program, arena *arena)
 			ir_inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
-			for (isize i = func->first_inst; i; i = inst[i].op1) {
-				u32 stmt = inst[i].op0;
-				if (inst[stmt].opcode == IR_LABEL) {
-					label_addresses[inst[stmt].op0] = i;
+			for (isize j = 0; j < func->inst_count; j++) {
+				u32 j = inst[i].op0;
+				if (inst[j].opcode == IR_LABEL) {
+					label_addresses[inst[j].op0] = i;
 				}
 			}
 
@@ -251,9 +251,7 @@ next_block:
 						break;
 					}
 
-					if (inst[i].opcode != IR_SEQ) {
-						inst[i].opcode = IR_NOP;
-					}
+					inst[i].opcode = IR_NOP;
 				}
 			}
 		}
@@ -282,44 +280,32 @@ next_block:
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		arena_temp temp = arena_temp_begin(arena);
-		ir_inst *insts = program.insts + func->inst_index;
+		ir_inst *inst = program.insts + func->inst_index;
 
-		b32 *used = ALLOC(arena, func->inst_count, b32);
+		i32 *ref_count = get_ref_count(inst, func->inst_count, arena);
 		for (isize j = 0; j < func->inst_count; j++) {
-			isize i = func->inst_count - 1 - j;
-			ir_inst inst = insts[i];
-			switch (inst.opcode) {
-			case IR_STORE:
+			b32 has_side_effect;
+			ir_opcode opcode = inst[j].opcode;
+			switch (opcode) {
+			case IR_ALLOC:
+			case IR_LABEL:
 			case IR_PARAM:
-			case IR_CALL:
-			case IR_RET:
+			case IR_LOAD:
 			case IR_MOV:
+			case IR_STORE:
+			case IR_CALL:
 			case IR_JIZ:
-			case IR_JNZ:
 			case IR_JMP:
-			case IR_LABEL: // TODO: Removal of unused labels
-			case IR_SEQ:
-				used[i] = true;
+			case IR_JNZ:
+			case IR_RET:
+				has_side_effect = true;
 				break;
 			default:
-				if (!used[i]) {
-					continue;
-				}
+				has_side_effect = false;
+				break;
 			}
-
-			ir_opcode_info info = get_opcode_info(inst.opcode);
-			if (info.op0 == IR_OPERAND_REG_SRC || info.op0 == IR_OPERAND_REG_DST) {
-				used[inst.op0] = true;
-			}
-
-			if (info.op1 == IR_OPERAND_REG_SRC || info.op1 == IR_OPERAND_REG_DST) {
-				used[inst.op1] = true;
-			}
-		}
-
-		for (isize i = func->param_count; i < func->inst_count; i++) {
-			if (!used[i]) {
-				insts[i].opcode = IR_NOP;
+			if (!(ref_count[j] >= 1 || has_side_effect)) {
+				inst[j].opcode = IR_NOP;
 			}
 		}
 

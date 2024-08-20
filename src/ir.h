@@ -21,7 +21,6 @@ typedef enum {
 	IR_JIZ,
 	IR_JMP,
 	IR_JNZ,
-	IR_SEQ,
 
 	// data operations
 	IR_ADD,
@@ -96,7 +95,6 @@ typedef struct ir_function ir_function;
 struct ir_function {
 	str name;
 	i32 param_count;
-	u32 first_inst;
 	i32 inst_index;
 	i32 inst_count;
 	i32 label_count;
@@ -126,7 +124,6 @@ typedef struct {
 	u32 continue_label;
 	u32 break_label;
 	u32 case_label;
-	u32 *last_seq;
 } ir_context;
 
 static b32
@@ -242,8 +239,6 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "jmp";
 	case IR_JNZ:
 		return "jnz";
-	case IR_SEQ:
-		return "seq";
 	case IR_ADD:
 		return "add";
 	case IR_AND:

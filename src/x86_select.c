@@ -163,10 +163,6 @@ x86_select_inst(mach_program *out, ir_inst *inst,
 	b32 is_float = (type == IR_F32 || type == IR_F64);
 
 	switch (opcode) {
-	case IR_SEQ:
-		{
-			ASSERT(!"Should have been handled by x86_select");
-		} break;
 	case IR_GLOBAL:
 		{
 			mach_operand src = make_global(op0);
@@ -677,21 +673,24 @@ x86_select(ir_program program, arena *arena)
 
 		// NOTE: Do the instruction selection
 		ir_inst *inst = program.insts + ir_func->inst_index;
-		for (isize j = ir_func->first_inst; j != 0; j = inst[j].op1) {
-			ASSERT(inst[j].opcode == IR_SEQ);
+		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
+		for (isize j = 0; j < ir_func->inst_count; j++) {
+			ir_opcode opcode = inst[j].opcode;
+			if (ref_count[j] == 1 || opcode == IR_VAR) {
+				continue;
+			}
 
-			isize k = inst[j].op0;
-			mach_operand dst = make_operand(MOP_VREG, k, ir_sizeof(inst[k].type));
-			if (inst[k].opcode == IR_MOV || inst[k].opcode == IR_STORE) {
-				dst = make_operand(MOP_VREG, inst[k].op0, ir_sizeof(inst[inst[k].op0].type));
-				if (inst[k].type == IR_F32 || inst[k].type == IR_F64) {
+			isize size = ir_sizeof(inst[j].type);
+			mach_operand dst = make_operand(MOP_VREG, j, size);
+			if (opcode == IR_MOV || opcode == IR_STORE) {
+				dst = make_operand(MOP_VREG, inst[j].op0, ir_sizeof(inst[inst[j].op0].type));
+				if (inst[j].type == IR_F32 || inst[j].type == IR_F64) {
 					dst.flags |= MOP_ISFLOAT;
 				}
 			}
 
-			x86_select_inst(&out, inst, k, dst);
+			x86_select_inst(&out, inst, j, dst);
 		}
-
 
 		// NOTE: Compute instruction offsets
 		mach_func->inst_count = out.inst_count - first_inst_index;
