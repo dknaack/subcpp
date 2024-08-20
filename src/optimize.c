@@ -180,7 +180,7 @@ optimize(ir_program program, arena *arena)
 	}
 
 	// Eliminate dead code
-	if (false) {
+	{
 		b8 *reachable = ALLOC(arena, program.label_count, b8);
 		u32 *stack = ALLOC(arena, program.label_count, u32);
 		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
