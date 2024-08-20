@@ -99,6 +99,7 @@ optimize(ir_program program, arena *arena)
 		arena_temp_end(temp);
 	}
 
+	// Constant-folding
 	for (isize i = 0; i < program.function_count; i++) {
 		ir_function *func = &program.functions[i];
 		ir_inst *insts = program.insts + func->inst_index;
