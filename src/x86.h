@@ -86,6 +86,11 @@ typedef enum {
 	X86_LABEL,
 } x86_opcode;
 
+typedef struct {
+	mach_program *program;
+	ir_inst *inst;
+} x86_context;
+
 static u32 x86_temp_regs[] = {
 	X86_RAX,
 	X86_RCX,
