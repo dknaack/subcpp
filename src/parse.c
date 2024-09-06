@@ -1127,7 +1127,6 @@ parse(parse_context *ctx, arena *arena)
 	ast_node *nodes = realloc(pool.nodes, pool.size * sizeof(*nodes));
 	if (nodes) {
 		pool.nodes = nodes;
-		pool.types = calloc(pool.size, sizeof(*nodes));
 		pool.cap = pool.size;
 	}
 

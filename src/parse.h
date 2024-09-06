@@ -88,7 +88,6 @@ struct ast_node {
 
 typedef struct {
 	ast_node *nodes;
-	type *types;
 	ast_id root;
 	isize cap;
 	isize size;
