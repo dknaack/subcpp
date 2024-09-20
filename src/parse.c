@@ -74,7 +74,7 @@ upsert_tag(scope *s, str key, arena *perm)
 }
 
 static ast_id
-new_node_(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id child1)
+new_node(ast_pool *p, ast_node_kind kind, token token, ast_id children)
 {
 	if (p->size + 1 >= p->cap) {
 		if (!p->cap) {
@@ -96,65 +96,64 @@ new_node_(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id ch
 	ast_node *node = &p->nodes[id.value];
 	node->kind = kind;
 	node->token = token;
-	node->child[0] = child0;
-	node->child[1] = child1;
-	return id;
-}
-
-static ast_id
-new_node0(ast_pool *p, ast_node_kind kind, token token)
-{
-	ast_id id = new_node_(p, kind, token, ast_id_nil, ast_id_nil);
-	return id;
-}
-
-static ast_id
-new_node1(ast_pool *p, ast_node_kind kind, token token, ast_id child0)
-{
-	ASSERT(child0.value != 0);
-	ast_id id = new_node_(p, kind, token, child0, ast_id_nil);
-	return id;
-}
-
-static ast_id
-new_node2(ast_pool *p, ast_node_kind kind, token token, ast_id child0, ast_id child1)
-{
-	ASSERT(child0.value != 0);
-	ASSERT(child1.value != 0);
-	ast_id id = new_node_(p, kind, token, child0, child1);
+	node->children = children;
+	node->next.value = 0;
 	return id;
 }
 
 static void
-append_node_id(ast_pool *p, ast_list *l, ast_id node_id)
+append_node(ast_pool *p, ast_list *list, ast_id node)
 {
-	if (l->last.value != 0) {
-		ast_node *last = get_node(p, l->last);
-		l->last = last->child[1] = node_id;
+	ASSERT(node.value != 0);
+	if (list->last.value != 0) {
+		ast_node *tail = get_node(p, list->last);
+		tail->next = list->last = node;
 	} else {
-		l->last = l->first = node_id;
+		list->first = list->last = node;
 	}
 }
 
 static void
-append_list_node(ast_pool *p, ast_list *l, ast_id node_id)
+append_list(ast_pool *p, ast_list *list1, ast_list list2)
 {
-	token empty_token = {0};
-	ast_id id = new_node1(p, AST_LIST, empty_token, node_id);
-	append_node_id(p, l, id);
+	ast_node *tail = get_node(p, list1->last);
+	tail->next = list2.first;
+	if (list2.last.value != 0) {
+		list1->last = list2.last;
+	}
 }
 
+// NOTE: Works the same as append_node, but links using children instead of
+// next. However, the new child is inserted before the old list of children
+// from the last node.
 static void
-concat_nodes(ast_pool *p, ast_list *a, ast_list b)
+insert_child(ast_pool *p, ast_list *list, ast_id child)
 {
-	if (b.first.value != 0) {
-		if (a->last.value != 0) {
-			ast_node *last = get_node(p, a->last);
-			last->child[1] = b.first;
-			a->last = b.last;
-		} else {
-			*a = b;
-		}
+	if (list->first.value == 0) {
+		list->first = list->last = child;
+	} else {
+		ast_node *parent_node = get_node(p, list->last);
+		ast_node *child_node = get_node(p, child);
+		child_node->next = parent_node->children;
+		parent_node->children = list->last;
+		list->last = child;
+	}
+}
+
+// NOTE: Works the same as append_node, but links using children instead of
+// next. However, the new child is inserted before the old list of children
+// from the last node.
+static void
+insert_root(ast_pool *p, ast_list *list, ast_id parent)
+{
+	if (list->first.value == 0) {
+		list->first = list->last = parent;
+	} else {
+		ast_node *child_node = get_node(p, list->first);
+		ast_node *parent_node = get_node(p, parent);
+		child_node->next = parent_node->children;
+		parent_node->children = list->first;
+		list->first = parent;
 	}
 }
 
@@ -262,7 +261,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			scope_entry *e = upsert_ident(s, token.value, NULL);
 			if (e) {
 				ASSERT(e->node_id.value != 0);
-				expr = new_node1(pool, AST_EXPR_IDENT, token, e->node_id);
+				expr = new_node(pool, AST_EXPR_IDENT, token, e->node_id);
 			} else {
 				syntax_error(ctx, "unknown ident: %.*s",
 					(int)token.value.length, token.value.at);
@@ -275,7 +274,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 	case TOKEN_LITERAL_INT:
 		{
 			get_token(ctx);
-			expr = new_node0(pool, AST_EXPR_LITERAL, token);
+			expr = new_node(pool, AST_EXPR_LITERAL, token, ast_id_nil);
 		} break;
 	case TOKEN_LPAREN:
 		{
@@ -284,15 +283,19 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			ast_list decl = parse_decl(ctx, PARSE_CAST, s, pool, arena);
 			if (decl.first.value != 0) {
 				ast_node *decl_node = get_node(pool, decl.first);
-				ast_id type = decl_node->child[0];
+				ast_list children = {0};
+				ast_id type = decl_node->children;
+				append_node(pool, &children, type);
 
 				expect(ctx, TOKEN_RPAREN);
 				if (ctx->peek[0].kind == TOKEN_LBRACE) {
 					ast_id initializer = parse_initializer(ctx, s, pool, arena);
-					expr = new_node2(pool, AST_EXPR_COMPOUND, token, type, initializer);
+					append_node(pool, &children, initializer);
+					expr = new_node(pool, AST_EXPR_COMPOUND, token, children.first);
 				} else {
 					ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
-					expr = new_node2(pool, AST_EXPR_CAST, token, type, subexpr);
+					append_node(pool, &children, subexpr);
+					expr = new_node(pool, AST_EXPR_CAST, token, children.first);
 				}
 			} else {
 				expr = parse_expr(ctx, 0, s, pool, arena);
@@ -321,9 +324,9 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 						(void)initializer;
 					} else {
 						ast_node *decl_node = get_node(pool, decl.first);
-						ast_id type = decl_node->child[0];
+						ast_id type = decl_node->children;
 
-						expr = new_node1(pool, AST_EXPR_SIZEOF, token, type);
+						expr = new_node(pool, AST_EXPR_SIZEOF, token, type);
 					}
 				} else {
 					ast_id subexpr = parse_expr(ctx, 0, s, pool, arena);
@@ -334,11 +337,11 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 
 					expect(ctx, TOKEN_RPAREN);
 
-					expr = new_node1(pool, AST_EXPR_SIZEOF, token, subexpr);
+					expr = new_node(pool, AST_EXPR_SIZEOF, token, subexpr);
 				}
 			} else {
 				ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
-				expr = new_node1(pool, AST_EXPR_SIZEOF, token, subexpr);
+				expr = new_node(pool, AST_EXPR_SIZEOF, token, subexpr);
 			}
 		} break;
 	case TOKEN_STAR:
@@ -352,27 +355,29 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 		{
 			get_token(ctx);
 			ast_id operand = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
-			expr = new_node1(pool, AST_EXPR_UNARY, token, operand);
+			expr = new_node(pool, AST_EXPR_UNARY, token, operand);
 		} break;
 	case TOKEN_BUILTIN_VA_ARG:
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
-			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id subexpr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			expect(ctx, TOKEN_COMMA);
 			ast_id type = parse_decl(ctx, PARSE_CAST, s, pool, arena).first;
 			expect(ctx, TOKEN_RPAREN);
 
-			ast_list params = {0};
-			ast_id called = new_node0(pool, AST_BUILTIN, token);
-			append_list_node(pool, &params, expr);
-			append_list_node(pool, &params, type);
-			expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
+			ast_id called = new_node(pool, AST_BUILTIN, token, ast_id_nil);
+
+			ast_list children = {0};
+			append_node(pool, &children, called);
+			append_node(pool, &children, subexpr);
+			append_node(pool, &children, type);
+			expr = new_node(pool, AST_EXPR_CALL, token, children.first);
 		} break;
 	case TOKEN_BUILTIN_VA_START:
 	case TOKEN_BUILTIN_VA_END:
 		{
-			expr = new_node0(pool, AST_BUILTIN, token);
+			expr = new_node(pool, AST_BUILTIN, token, ast_id_nil);
 		} break;
 	default:
 		syntax_error(ctx, "Expected expression");
@@ -393,23 +398,22 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 		token_kind operator = token.kind;
 		if (operator == TOKEN_LPAREN) {
 			get_token(ctx);
-			ast_list params = {0};
-			ast_id called = expr;
-			ast_node *called_node = get_node(pool, called);
-			if (called_node->kind == AST_EXPR_IDENT
-				&& equals(called_node->token.value, S("__builtin_va_arg")))
-			{
-			} else if (accept(ctx, TOKEN_RPAREN)) {
-				expr = new_node1(pool, AST_EXPR_CALL, token, called);
-			} else {
+
+			ast_list children = {0};
+			append_node(pool, &children, expr);
+			if (!accept(ctx, TOKEN_RPAREN)) {
+				ast_id params = {0};
+				ast_id *p = &params;
 				do {
-					ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-					append_list_node(pool, &params, expr);
+					*p = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+					ast_node *expr_node = get_node(pool, *p);
+					p = &expr_node->next;
 				} while (!ctx->error && accept(ctx, TOKEN_COMMA));
 				expect(ctx, TOKEN_RPAREN);
-				expr = new_node2(pool, AST_EXPR_CALL, token, called, params.first);
+				append_node(pool, &children, params);
 			}
 
+			expr = new_node(pool, AST_EXPR_CALL, token, children.first);
 		} else if (token.kind == TOKEN_DOT || token.kind == TOKEN_ARROW) {
 			ast_node_kind kind = AST_EXPR_MEMBER;
 			if (token.kind == TOKEN_ARROW) {
@@ -420,7 +424,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			token = ctx->peek[0];
 			expect(ctx, TOKEN_IDENT);
 
-			expr = new_node1(pool, kind, token, expr);
+			expr = new_node(pool, kind, token, expr);
 		} else {
 			precedence prec = get_precedence(operator);
 			if (prec == PREC_NONE) {
@@ -434,15 +438,18 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			get_token(ctx);
 			if (is_postfix_operator(token.kind)) {
 				ast_id operand = expr;
-				expr = new_node1(pool, AST_EXPR_POSTFIX, token, operand);
+				expr = new_node(pool, AST_EXPR_POSTFIX, token, operand);
 			} else if (operator == TOKEN_QMARK) {
 				ast_id cond = expr;
 				ast_id lhs = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_COLON);
 				ast_id rhs = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 
-				ast_id values = new_node2(pool, AST_EXPR_TERNARY2, token, lhs, rhs);
-				expr = new_node2(pool, AST_EXPR_TERNARY1, token, cond, values);
+				ast_list children = {0};
+				append_node(pool, &children, cond);
+				append_node(pool, &children, lhs);
+				append_node(pool, &children, rhs);
+				expr = new_node(pool, AST_EXPR_TERNARY, token, children.first);
 			} else {
 				if (operator == TOKEN_LBRACKET) {
 					prec = PREC_NONE;
@@ -451,12 +458,14 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 				precedence new_prec = prec + is_left_associative(operator);
 				ast_id lhs = expr;
 				ast_id rhs = parse_expr(ctx, new_prec, s, pool, arena);
-				ASSERT(rhs.value != 0);
-
-				expr = new_node2(pool, AST_EXPR_BINARY, token, lhs, rhs);
 				if (token.kind == TOKEN_LBRACKET) {
 					expect(ctx, TOKEN_RBRACKET);
 				}
+
+				ast_list children = {0};
+				append_node(pool, &children, lhs);
+				append_node(pool, &children, rhs);
+				expr = new_node(pool, AST_EXPR_BINARY, token, children.first);
 			}
 		}
 	}
@@ -467,26 +476,28 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 static ast_id
 parse_initializer(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_list list = {0};
+	ast_id children = {0};
+	ast_id *p = &children;
+
 	token first_token = ctx->peek[0];
 	expect(ctx, TOKEN_LBRACE);
-
 	do {
 		if (ctx->peek[0].kind == TOKEN_LBRACE) {
-			ast_id initializer = parse_initializer(ctx, s, pool, arena);
-			append_list_node(pool, &list, initializer);
+			*p = parse_initializer(ctx, s, pool, arena);
 		} else {
-			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-			append_list_node(pool, &list, expr);
+			*p = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 		}
 
 		if (!accept(ctx, TOKEN_COMMA)) {
 			break;
 		}
+
+		ast_node *node = get_node(pool, *p);
+		p = &node->next;
 	} while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE);
 
 	expect(ctx, TOKEN_RBRACE);
-	ast_id init = new_node2(pool, AST_INIT, first_token, list.first, list.last);
+	ast_id init = new_node(pool, AST_INIT, first_token, children);
 	return init;
 }
 
@@ -528,119 +539,74 @@ get_qualifier(token_kind token)
 static ast_list
 parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_list pointer_declarator = {0};
+	ast_list declarator = {0};
+
 	while (ctx->peek[0].kind == TOKEN_STAR) {
 		token token = get_token(ctx);
-		ast_id node = new_node0(pool, AST_TYPE_POINTER, token);
-		token_kind qualifier_token = ctx->peek[0].kind;
-		switch (qualifier_token) {
-		case TOKEN_CONST:
-		case TOKEN_RESTRICT:
-		case TOKEN_VOLATILE:
-			get_token(ctx);
-			get_node(pool, node)->flags |= get_qualifier(qualifier_token);
-			break;
-		default:
-			break;
-		}
+		// TODO: Parse cv qualifiers
+		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_id_nil);
 
-		// prepend node to pointer_declarator list
-		get_node(pool, node)->child[1] = pointer_declarator.first;
-		pointer_declarator.first = node;
-		if (pointer_declarator.last.value == 0) {
-			pointer_declarator.last = pointer_declarator.first;
-		}
+		insert_root(pool, &declarator, node);
 	}
 
-	ast_list declarator = {0};
-	if (accept(ctx, TOKEN_LPAREN)) {
-		declarator = parse_declarator(ctx, flags, s, pool, arena);
-		expect(ctx, TOKEN_RPAREN);
-	} else if (!(flags & PARSE_NO_IDENT)) {
+	ast_list result = {0};
+	if (ctx->peek[0].kind == TOKEN_IDENT) {
+		token token = get_token(ctx);
+		result.first = result.last = new_node(pool, AST_DECL, token, ast_id_nil);
+	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
+		get_token(ctx);
+		result = parse_declarator(ctx, flags, s, pool, arena);
+	} else {
+		syntax_error(ctx, "Expected '(' or identifier");
+	}
+
+	for (;;) {
 		token token = ctx->peek[0];
-		if (token.kind == TOKEN_IDENT) {
-			get_token(ctx);
-		} else {
-			token.value.length = 0;
-			if (!((token.kind == TOKEN_COLON && (flags & PARSE_BITFIELD)) || (flags & PARSE_OPT_IDENT))) {
-				syntax_error(ctx, "Expected identifier, but found %s",
-					get_token_name(token.kind));
-			}
-		}
-
-		ast_id node = new_node0(pool, AST_DECL, token);
-		append_node_id(pool, &declarator, node);
-	}
-
-	while (!ctx->error) {
-		if (ctx->peek[0].kind == TOKEN_LBRACKET) {
-			ast_id node = {0};
-			token token = get_token(ctx);
+		if (accept(ctx, TOKEN_LBRACKET)) {
+			ast_id size = {0};
 			if (!accept(ctx, TOKEN_RBRACKET)) {
-				ast_id size_expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-				expect(ctx, TOKEN_RBRACKET);
-				node = new_node1(pool, AST_TYPE_ARRAY, token, size_expr);
-			} else {
-				node = new_node0(pool, AST_TYPE_ARRAY, token);
+				size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			}
 
-			append_node_id(pool, &declarator, node);
-		} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
-			token token = get_token(ctx);
-			ast_id node = {0};
-			if (ctx->peek[0].kind == TOKEN_RPAREN) {
-				node = new_node0(pool, AST_TYPE_FUNC, token);
-				get_token(ctx);
-			} else if (ctx->peek[0].kind == TOKEN_VOID
-				&& ctx->peek[1].kind == TOKEN_RPAREN)
-			{
-				node = new_node0(pool, AST_TYPE_FUNC, token);
+			ast_id node = new_node(pool, AST_TYPE_ARRAY, token, size);
+			insert_root(pool, &declarator, node);
+		} else if (accept(ctx, TOKEN_LPAREN)) {
+			ast_list params = {0};
+			if (ctx->peek[0].kind == TOKEN_VOID && ctx->peek[1].kind == TOKEN_RPAREN) {
 				get_token(ctx);
 				get_token(ctx);
-			} else {
-				scope tmp = new_scope(s);
-				ast_list params = {0};
-				ast_node_flags flags = 0;
+			} else if (!accept(ctx, TOKEN_RPAREN)) {
 				do {
-					ast_list param = {0};
-					if (accept(ctx, TOKEN_ELLIPSIS)) {
-						flags |= AST_VARIADIC;
+					ast_id param = parse_decl(ctx, PARSE_PARAM, s, pool, arena).first;
+					append_node(pool, &params, param);
+					if (!accept(ctx, TOKEN_COMMA)) {
 						break;
 					}
-
-					param = parse_decl(ctx, PARSE_PARAM, &tmp, pool, arena);
-					concat_nodes(pool, &params, param);
-					if (param.first.value == 0) {
-						syntax_error(ctx, "I don't even know what this was supposed to catch :(");
-						ctx->error = true;
-					}
-				} while (!ctx->error && accept(ctx, TOKEN_COMMA));
+				} while (!ctx->error);
 				expect(ctx, TOKEN_RPAREN);
-
-				node = new_node1(pool, AST_TYPE_FUNC, token, params.first);
-				get_node(pool, node)->flags = flags;
-
-				// TODO: For a function definition, the scope that is generated
-				// here should be reused in the definition. The difficulty is
-				// that only the inner most function declaration should
-				// preserve its scope and not any outer functions. An example
-				// would be the signal function.
 			}
 
-			append_node_id(pool, &declarator, node);
+			ast_id node = new_node(pool, AST_TYPE_FUNC, token, params.first);
+			insert_root(pool, &declarator, node);
 		} else {
 			break;
 		}
 	}
 
-	concat_nodes(pool, &declarator, pointer_declarator);
+	// NOTE: Append the declarator tree to the result
+	if (declarator.last.value != 0) {
+		insert_root(pool, &declarator, result.last);
+		result.last = declarator.last;
+	}
+
 	return declarator;
 }
 
 static ast_list
 parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_id type_id = {0};
+	ast_list list = {0};
+	ast_id base_type = {0};
 	u32 qualifiers = 0;
 	token qualifier_token = {0};
 
@@ -654,14 +620,14 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		case TOKEN_INT:
 		case TOKEN_CHAR:
 		case TOKEN_VOID:
-			type_id = new_node0(pool, AST_TYPE_BASIC, token);
+			base_type = new_node(pool, AST_TYPE_BASIC, token, ast_id_nil);
 			get_token(ctx);
 			break;
 		case TOKEN_IDENT:
 			{
 				scope_entry *e = upsert_ident(s, token.value, NULL);
-				if (type_id.value == 0 && e && e->is_type) {
-					type_id = new_node1(pool, AST_TYPE_IDENT, token, e->node_id);
+				if (base_type.value == 0 && e && e->is_type) {
+					base_type = new_node(pool, AST_TYPE_IDENT, token, e->node_id);
 					ASSERT(e->node_id.value != 0);
 					get_token(ctx);
 				} else {
@@ -682,14 +648,13 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					expect(ctx, TOKEN_IDENT);
 
 					ast_id node;
+					ast_id expr = {0};
 					if (accept(ctx, TOKEN_EQUAL)) {
-						ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-						node = new_node1(pool, AST_ENUMERATOR, token, expr);
-					} else {
-						node = new_node0(pool, AST_ENUMERATOR, token);
+						expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 					}
 
-					append_node_id(pool, &enumerators, node);
+					node = new_node(pool, AST_ENUMERATOR, token, expr);
+					append_node(pool, &enumerators, node);
 					scope_entry *e = upsert_ident(s, token.value, arena);
 					e->node_id = node;
 
@@ -700,7 +665,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					token = ctx->peek[0];
 				}
 
-				type_id = new_node1(pool, AST_TYPE_ENUM, token, enumerators.first);
+				base_type = new_node(pool, AST_TYPE_ENUM, token, enumerators.first);
 				expect(ctx, TOKEN_RBRACE);
 			} break;
 		case TOKEN_STRUCT:
@@ -718,9 +683,9 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					get_token(ctx);
 					e = upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
-						e->node_id = new_node0(pool, node_kind, token);
-						type_id = new_node1(pool, node_kind, token, e->node_id);
-						get_node(pool, type_id)->flags |= AST_OPAQUE;
+						e->node_id = new_node(pool, node_kind, token, ast_id_nil);
+						base_type = new_node(pool, node_kind, token, e->node_id);
+						get_node(pool, base_type)->flags |= AST_OPAQUE;
 					}
 
 					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
@@ -732,7 +697,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					while (!ctx->error && !accept(ctx, TOKEN_RBRACE)) {
 						ast_list decl = parse_decl(ctx, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
 						if (decl.first.value != 0) {
-							concat_nodes(pool, &members, decl);
+							append_list(pool, &members, decl);
 						} else {
 							syntax_error(ctx, "WTF");
 							ctx->error = true;
@@ -744,15 +709,15 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					ast_node *def_node = NULL;
 					if (e != NULL) {
 						def_node = get_node_of_kind(pool, e->node_id, node_kind);
-						type_id = e->node_id;
+						base_type = e->node_id;
 					} else {
-						type_id = new_node0(pool, node_kind, token);
-						def_node = get_node(pool, type_id);
+						base_type = new_node(pool, node_kind, token, ast_id_nil);
+						def_node = get_node(pool, base_type);
 					}
 
-					def_node->child[0] = members.first;
+					def_node->children = members.first;
 				} else {
-					type_id = new_node0(pool, node_kind, token);
+					base_type = new_node(pool, node_kind, token, ast_id_nil);
 				}
 			} break;
 		default:
@@ -788,13 +753,12 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	}
 
 	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
-	if (type_id.value == 0 && (qualifiers & int_mask) != 0) {
+	if (base_type.value == 0 && (qualifiers & int_mask) != 0) {
 		qualifier_token.kind = TOKEN_INT;
-		type_id = new_node0(pool, AST_TYPE_BASIC, qualifier_token);
+		base_type = new_node(pool, AST_TYPE_BASIC, qualifier_token, ast_id_nil);
 	}
 
-	ast_list list = {0};
-	if (type_id.value == 0) {
+	if (base_type.value == 0) {
 		if (qualifiers != 0) {
 			syntax_error(ctx, "Expected type after qualifiers");
 		}
@@ -803,37 +767,42 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	}
 
 	if (ctx->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_id decl = new_node1(pool, AST_DECL, ctx->peek[0], type_id);
-		append_list_node(pool, &list, decl);
+		ast_id decl = new_node(pool, AST_DECL, ctx->peek[0], base_type);
+		append_node(pool, &list, decl);
 		return list;
 	}
 
 	do {
-		ast_list decl = parse_declarator(ctx, flags, s, pool, arena);
-		ASSERT((flags & PARSE_NO_IDENT) || decl.first.value != 0);
-		ASSERT((flags & PARSE_NO_IDENT) || decl.last.value != 0);
-		append_node_id(pool, &decl, type_id);
+		ast_list declarator = parse_declarator(ctx, flags, s, pool, arena);
+		insert_child(pool, &declarator, base_type);
 
+		ast_id decl = declarator.first;
+		ast_id type = get_node(pool, decl)->children;
+		ASSERT((flags & PARSE_NO_IDENT) || decl.value != 0);
+#if 0
 		if (!(flags & PARSE_NO_IDENT)) {
-			ast_node *decl_node = get_node_of_kind(pool, decl.first, AST_DECL);
+			ast_node *decl_node = get_node_of_kind(pool, decl, AST_DECL);
 			decl_node->flags |= qualifiers;
-			decl_node->child[0] = decl_node->child[1];
-			decl_node->child[1] = ast_id_nil;
 
 			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
 			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
 			e->node_id = decl.first;
 		}
+#endif
 
 		if ((flags & PARSE_BITFIELD) && accept(ctx, TOKEN_COLON)) {
-			ast_id type = get_node(pool, decl.first)->child[0];
-			ast_id size_expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
-			ast_id bitfield_id = new_node2(pool, AST_TYPE_BITFIELD, ctx->peek[0], size_expr, type);
+			ast_id size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 
-			ast_node *decl_node = get_node(pool, decl.first);
-			decl_node->child[0] = bitfield_id;
+			ast_list children = {0};
+			append_node(pool, &children, type);
+			append_node(pool, &children, size);
+			ast_id bitfield = new_node(pool, AST_TYPE_BITFIELD, ctx->peek[0], children.first);
+
+			ast_node *decl_node = get_node(pool, decl);
+			decl_node->children = bitfield;
 		}
 
+		// Parse declaration initializer
 		if (!(flags & PARSE_NO_INITIALIZER) && accept(ctx, TOKEN_EQUAL)) {
 			ast_id initializer = {0};
 			if (ctx->peek[0].kind == TOKEN_LBRACE) {
@@ -842,11 +811,15 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 				initializer = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			}
 
-			ast_node *decl_node = get_node(pool, decl.first);
-			decl_node->child[1] = initializer;
+			ast_list children = {0};
+			append_node(pool, &children, type);
+			append_node(pool, &children, initializer);
+
+			ast_node *decl_node = get_node(pool, decl);
+			decl_node->children = children.first;
 		}
 
-		append_list_node(pool, &list, decl.first);
+		append_node(pool, &list, decl);
 	} while (!ctx->error
 		&& !(flags & PARSE_SINGLE_DECL)
 		&& accept(ctx, TOKEN_COMMA));
@@ -864,14 +837,14 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_ASM:
 		{
 			get_token(ctx);
-			result = new_node0(pool, AST_STMT_ASM, ctx->peek[0]);
+			result = new_node(pool, AST_STMT_ASM, token, ast_id_nil);
 			expect(ctx, TOKEN_LITERAL_STRING);
 		} break;
 	case TOKEN_BREAK:
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node0(pool, AST_STMT_BREAK, token);
+			result = new_node(pool, AST_STMT_BREAK, token, ast_id_nil);
 		} break;
 	case TOKEN_CASE:
 		{
@@ -879,20 +852,24 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			expect(ctx, TOKEN_COLON);
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
-			result = new_node2(pool, AST_STMT_CASE, token, expr, stmt);
+
+			ast_list children = {0};
+			append_node(pool, &children, expr);
+			append_node(pool, &children, stmt);
+			result = new_node(pool, AST_STMT_CASE, token, expr);
 		} break;
 	case TOKEN_CONTINUE:
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node0(pool, AST_STMT_CONTINUE, token);
+			result = new_node(pool, AST_STMT_CONTINUE, token, ast_id_nil);
 		} break;
 	case TOKEN_DEFAULT:
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_COLON);
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
-			result = new_node1(pool, AST_STMT_DEFAULT, token, stmt);
+			result = new_node(pool, AST_STMT_DEFAULT, token, stmt);
 		} break;
 	case TOKEN_DO:
 		{
@@ -901,7 +878,11 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			expect(ctx, TOKEN_WHILE);
 			ast_id cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node2(pool, AST_STMT_DO_WHILE, token, cond, body);
+
+			ast_list children = {0};
+			append_node(pool, &children, body);
+			append_node(pool, &children, cond);
+			result = new_node(pool, AST_STMT_DO_WHILE, token, children.first);
 		} break;
 	case TOKEN_FOR:
 		{
@@ -920,7 +901,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
-				init = new_node0(pool, AST_STMT_EMPTY, token);
+				init = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
 			}
 
 			ast_id cond = {0};
@@ -934,14 +915,17 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 				post = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_RPAREN);
 			} else {
-				post = new_node0(pool, AST_STMT_EMPTY, token);
+				post = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
 			}
 
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
-			ast_id node3 = new_node_(pool, AST_STMT_FOR3, token, post, stmt);
-			ast_id node2 = new_node_(pool, AST_STMT_FOR2, token, cond, node3);
-			ast_id node1 = new_node_(pool, AST_STMT_FOR1, token, init, node2);
-			result = node1;
+
+			ast_list children = {0};
+			append_node(pool, &children, init);
+			append_node(pool, &children, cond);
+			append_node(pool, &children, post);
+			append_node(pool, &children, stmt);
+			result = new_node(pool, AST_STMT_FOR, token, children.first);
 		} break;
 	case TOKEN_GOTO:
 		{
@@ -949,7 +933,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			token = ctx->peek[0];
 			expect(ctx, TOKEN_IDENT);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node0(pool, AST_STMT_GOTO, token);
+			result = new_node(pool, AST_STMT_GOTO, token, ast_id_nil);
 		} break;
 	case TOKEN_IF:
 		{
@@ -959,15 +943,17 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			expect(ctx, TOKEN_RPAREN);
 
 			ast_id if_branch = parse_stmt(ctx, s, pool, arena);
-			ast_id else_branch = {0};
+
+			ast_list children = {0};
+			append_node(pool, &children, cond);
+			append_node(pool, &children, if_branch);
+
 			if (accept(ctx, TOKEN_ELSE)) {
-				else_branch = parse_stmt(ctx, s, pool, arena);
-			} else {
-				else_branch = new_node0(pool, AST_STMT_EMPTY, token);
+				ast_id else_branch = parse_stmt(ctx, s, pool, arena);
+				append_node(pool, &children, else_branch);
 			}
 
-			ast_id branches = new_node2(pool, AST_STMT_IF2, token, if_branch, else_branch);
-			result = new_node2(pool, AST_STMT_IF1, token, cond, branches);
+			result = new_node(pool, AST_STMT_IF, token, children.first);
 		} break;
 	case TOKEN_WHILE:
 		{
@@ -977,18 +963,21 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			expect(ctx, TOKEN_RPAREN);
 			ast_id body = parse_stmt(ctx, s, pool, arena);
 
-			result = new_node2(pool, AST_STMT_WHILE, token, cond, body);
+			ast_list children = {0};
+			append_node(pool, &children, cond);
+			append_node(pool, &children, body);
+			result = new_node(pool, AST_STMT_WHILE, token, children.first);
 		} break;
 	case TOKEN_RETURN:
 		{
 			get_token(ctx);
+			ast_id expr = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_SEMICOLON);
-				result = new_node1(pool, AST_STMT_RETURN, token, expr);
-			} else {
-				result = new_node0(pool, AST_STMT_RETURN, token);
 			}
+
+			result = new_node(pool, AST_STMT_RETURN, token, expr);
 		} break;
 	case TOKEN_SWITCH:
 		{
@@ -997,30 +986,30 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 			expect(ctx, TOKEN_RPAREN);
 			ast_id body = parse_stmt(ctx, s, pool, arena);
-			result = new_node2(pool, AST_STMT_SWITCH, token, expr, body);
+
+			ast_list children = {0};
+			append_node(pool, &children, expr);
+			append_node(pool, &children, body);
+			result = new_node(pool, AST_STMT_SWITCH, token, expr);
 		} break;
 	case TOKEN_SEMICOLON:
 		{
 			get_token(ctx);
-			result = new_node0(pool, AST_STMT_EMPTY, token);
+			result = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
 		} break;
 	case TOKEN_LBRACE:
 		{
 			scope tmp = new_scope(s);
 			s = &tmp;
 
-			ast_list list = {0};
+			ast_list children = {0};
 			expect(ctx, TOKEN_LBRACE);
 			while (!ctx->error && !accept(ctx, TOKEN_RBRACE)) {
 				ast_id stmt = parse_stmt(ctx, s, pool, arena);
-				append_list_node(pool, &list, stmt);
+				append_node(pool, &children, stmt);
 			}
 
-			if (list.first.value == 0) {
-				list.first = new_node0(pool, AST_STMT_EMPTY, token);
-			}
-
-			result = list.first;
+			result = new_node(pool, AST_STMT_COMPOUND, token, children.first);
 		} break;
 	default:
 		if (ctx->peek[0].kind == TOKEN_IDENT
@@ -1029,8 +1018,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			get_token(ctx);
 			get_token(ctx);
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
-			result = new_node1(pool, AST_STMT_LABEL, token, stmt);
+			result = new_node(pool, AST_STMT_LABEL, token, stmt);
 		} else {
+			// TODO: Handle multiple declarations in one statement
 			result = parse_decl(ctx, 0, s, pool, arena).first;
 			if (result.value == 0) {
 				result = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
@@ -1060,7 +1050,7 @@ static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena 
 
 	scope_entry *e = upsert_ident(s, name, arena);
 	e->is_type = is_type;
-	e->node_id = new_node0(pool, AST_DECL, token);
+	e->node_id = new_node(pool, AST_DECL, token, ast_id_nil);
 	ASSERT(e->node_id.value != 0);
 }
 
@@ -1084,24 +1074,24 @@ parse(parse_context *ctx, arena *arena)
 			break;
 		}
 
-		ast_node *decl_list = get_node(&pool, decls.first);
-		ast_id decl_id = decl_list->child[0];
-		ast_node *decl = get_node(&pool, decl_id);
-		ast_node *type = get_node(&pool, decl->child[0]);
+		ast_node *decl = get_node(&pool, decls.first);
 		decl->kind = AST_EXTERN_DEF;
 
-		if (decl_list->child[1].value == 0 && type->kind == AST_TYPE_FUNC) {
+		ast_id type_id = decl->children;
+		ast_node *type = get_node(&pool, decl->children);
+		if (decl->next.value == 0 && type->kind == AST_TYPE_FUNC) {
 			token token = ctx->peek[0];
 			if (token.kind == TOKEN_LBRACE) {
 				// Introduce parameters in the new scope
 				scope tmp = new_scope(&s);
-				for (ast_id param = type->child[0]; param.value != 0;) {
-					ast_node *list_node = get_node(&pool, param);
-					str param_name = get_node(&pool, list_node->child[0])->token.value;
-					param = list_node->child[1];
+				ast_node *return_node = get_node(&pool, type->children);
+				for (ast_id param = return_node->next; param.value != 0;) {
+					ast_node *param_node = get_node(&pool, param);
+					str param_name = param_node->token.value;
+					param = param_node->next;
 
 					scope_entry *e = upsert_ident(&tmp, param_name, arena);
-					e->node_id = list_node->child[0];
+					e->node_id = param;
 					ASSERT(e->node_id.value != 0);
 
 					ast_node *node = get_node(&pool, e->node_id);
@@ -1109,8 +1099,8 @@ parse(parse_context *ctx, arena *arena)
 				}
 
 				ast_id body = parse_stmt(ctx, &tmp, &pool, arena);
-				ast_node *decl = get_node(&pool, decl_id);
-				decl->child[1] = body;
+				ast_node *type = get_node(&pool, type_id);
+				type->next = body;
 			} else {
 				expect(ctx, TOKEN_SEMICOLON);
 			}
@@ -1118,7 +1108,7 @@ parse(parse_context *ctx, arena *arena)
 			expect(ctx, TOKEN_SEMICOLON);
 		}
 
-		concat_nodes(&pool, &list, decls);
+		append_list(&pool, &list, decls);
 	} while (!ctx->error && !accept(ctx, TOKEN_EOF));
 
 	pool.root = list.first;

@@ -89,6 +89,7 @@ typedef enum {
 typedef struct {
 	mach_program *program;
 	ir_inst *inst;
+	i32 *ref_count;
 } x86_context;
 
 static u32 x86_temp_regs[] = {

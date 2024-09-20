@@ -2,58 +2,54 @@ typedef struct ast_node ast_node;
 typedef struct type type;
 
 typedef enum {
-	AST_INVALID,
-	AST_BUILTIN,
-	AST_DECL,          // {type, name}
-	AST_ENUMERATOR,    // {value, next}
-	AST_EXTERN_DEF,    // {type, name}
-	AST_INIT,          // {first, last}
-	AST_LIST,          // {value, next}
+	AST_INVALID,         // {}
+	AST_BUILTIN,         // {}
+	AST_DECL,            // {type, expr?}
+	AST_ENUMERATOR,      // {expr?}
+	AST_EXTERN_DEF,      // {type, expr?}
+	AST_INIT,            // {(expr|init)}
 
 	// expressions
-	AST_EXPR_BINARY,   // {lhs, rhs}
-	AST_EXPR_CALL,     // {called: expr, params: expr_list}
-	AST_EXPR_CAST,     // {type, expr}
-	AST_EXPR_COMPOUND, // {type, expr}
-	AST_EXPR_IDENT,    // value.s
-	AST_EXPR_LITERAL,
-	AST_EXPR_MEMBER,   // {operand}
-	AST_EXPR_MEMBER_PTR, // {operand}
-	AST_EXPR_POSTFIX,  // {operand}
-	AST_EXPR_SIZEOF,
-	AST_EXPR_TERNARY1, // {expr, ternary2}
-	AST_EXPR_TERNARY2, // {expr, expr}
-	AST_EXPR_UNARY,    // {operand}
+	AST_EXPR_BINARY,     // {expr, expr}
+	AST_EXPR_CALL,       // {expr, expr*}
+	AST_EXPR_CAST,       // {type, expr}
+	AST_EXPR_COMPOUND,   // {type, (expr|init)*}
+	AST_EXPR_IDENT,      // {decl} IMPORTANT: Can be cyclic!
+	AST_EXPR_LITERAL,    // {}
+	AST_EXPR_MEMBER,     // {expr}
+	AST_EXPR_MEMBER_PTR, // {expr}
+	AST_EXPR_POSTFIX,    // {expr}
+	AST_EXPR_SIZEOF,     // {(expr|type)}
+	AST_EXPR_TERNARY,    // {expr, expr, expr}
+	AST_EXPR_UNARY,      // {expr}
 
 	// statements
-	AST_STMT_ASM,
-	AST_STMT_BREAK,    // {}
-	AST_STMT_CASE,     // {expr, stmt}
-	AST_STMT_CONTINUE, // {}
-	AST_STMT_DEFAULT,  // {stmt}
-	AST_STMT_DO_WHILE, // {cond, body}
-	AST_STMT_EMPTY,    // {}
-	AST_STMT_FOR1,     // {init, for2}
-	AST_STMT_FOR2,     // {cond, for3}
-	AST_STMT_FOR3,     // {post, body}
-	AST_STMT_GOTO,     // {}
-	AST_STMT_IF1,      // {cond, if2}
-	AST_STMT_IF2,      // {if, else?}
-	AST_STMT_LABEL,    // {stmt}
-	AST_STMT_RETURN,   // {expr?}
-	AST_STMT_SWITCH,   // {expr, stmt}
-	AST_STMT_WHILE,    // {cond, body}
+	AST_STMT_ASM,        // {}
+	AST_STMT_BREAK,      // {}
+	AST_STMT_CASE,       // {expr, stmt}
+	AST_STMT_COMPOUND,   // {stmt*}
+	AST_STMT_CONTINUE,   // {}
+	AST_STMT_DEFAULT,    // {stmt}
+	AST_STMT_DO_WHILE,   // {expr, stmt}
+	AST_STMT_EMPTY,      // {}
+	AST_STMT_FOR,        // {(expr|decl)?, expr?, expr?, stmt}
+	AST_STMT_GOTO,       // {}
+	AST_STMT_IF,         // {expr, stmt, stmt?}
+	AST_STMT_LABEL,      // {stmt}
+	AST_STMT_RETURN,     // {expr?}
+	AST_STMT_SWITCH,     // {expr, stmt}
+	AST_STMT_WHILE,      // {expr, stmt}
 
 	// types
-	AST_TYPE_BASIC,
-	AST_TYPE_ARRAY,    // {size_expr, type}
-	AST_TYPE_BITFIELD, // {expr, type}
-	AST_TYPE_ENUM,     // {...enumerators}
-	AST_TYPE_FUNC,     // {param_list, return_type}
-	AST_TYPE_IDENT,
-	AST_TYPE_POINTER,  // {_, type}
-	AST_TYPE_STRUCT,   // {...declarations}
-	AST_TYPE_UNION,    // {...declarations}
+	AST_TYPE_BASIC,      // {}
+	AST_TYPE_ARRAY,      // {type, expr?}
+	AST_TYPE_BITFIELD,   // {type, expr?}
+	AST_TYPE_ENUM,       // {enumerator*}
+	AST_TYPE_FUNC,       // {type, decl*}
+	AST_TYPE_IDENT,      // {decl}
+	AST_TYPE_POINTER,    // {type}
+	AST_TYPE_STRUCT,     // {decl*}
+	AST_TYPE_UNION,      // {decl*}
 } ast_node_kind;
 
 typedef enum {
@@ -83,7 +79,8 @@ struct ast_node {
 	ast_node_kind kind;
 	ast_node_flags flags;
 	token token;
-	ast_id child[2];
+	ast_id next;
+	ast_id children;
 };
 
 typedef struct {
@@ -188,4 +185,24 @@ get_node_of_kind(ast_pool *p, ast_id id, ast_node_kind kind)
 	ast_node *node = get_node(p, id);
 	ASSERT(node->kind == kind);
 	return node;
+}
+
+static i32
+get_children(ast_pool *p, ast_id id, ast_id *children, i32 max_count)
+{
+	i32 count = 0;
+	ast_node *node = get_node(p, id);
+
+	ast_id child_id = node->children;
+	for (count = 0; count < max_count; count++) {
+		children[count] = child_id;
+
+		ast_node *child = get_node(p, child_id);
+		child_id = child->next;
+		if (child_id.value == 0) {
+			break;
+		}
+	}
+
+	return count;
 }
