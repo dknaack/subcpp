@@ -539,14 +539,13 @@ get_qualifier(token_kind token)
 static ast_list
 parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena)
 {
-	ast_list declarator = {0};
-
+	ast_list pointer_declarator = {0};
 	while (ctx->peek[0].kind == TOKEN_STAR) {
 		token token = get_token(ctx);
 		// TODO: Parse cv qualifiers
 		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_id_nil);
 
-		insert_root(pool, &declarator, node);
+		insert_root(pool, &pointer_declarator, node);
 	}
 
 	ast_list result = {0};
@@ -560,6 +559,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 		syntax_error(ctx, "Expected '(' or identifier");
 	}
 
+	ast_list declarator = {0};
 	for (;;) {
 		token token = ctx->peek[0];
 		if (accept(ctx, TOKEN_LBRACKET)) {
@@ -569,7 +569,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 			}
 
 			ast_id node = new_node(pool, AST_TYPE_ARRAY, token, size);
-			insert_root(pool, &declarator, node);
+			insert_child(pool, &declarator, node);
 		} else if (accept(ctx, TOKEN_LPAREN)) {
 			ast_list params = {0};
 			if (ctx->peek[0].kind == TOKEN_VOID && ctx->peek[1].kind == TOKEN_RPAREN) {
@@ -587,7 +587,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 			}
 
 			ast_id node = new_node(pool, AST_TYPE_FUNC, token, params.first);
-			insert_root(pool, &declarator, node);
+			insert_child(pool, &declarator, node);
 		} else {
 			break;
 		}
@@ -595,11 +595,16 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 
 	// NOTE: Append the declarator tree to the result
 	if (declarator.last.value != 0) {
-		insert_root(pool, &declarator, result.last);
+		insert_child(pool, &result, declarator.first);
 		result.last = declarator.last;
 	}
 
-	return declarator;
+	if (pointer_declarator.last.value != 0) {
+		insert_child(pool, &result, pointer_declarator.first);
+		result.last = pointer_declarator.last;
+	}
+
+	return result;
 }
 
 static ast_list
@@ -779,16 +784,14 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		ast_id decl = declarator.first;
 		ast_id type = get_node(pool, decl)->children;
 		ASSERT((flags & PARSE_NO_IDENT) || decl.value != 0);
-#if 0
 		if (!(flags & PARSE_NO_IDENT)) {
 			ast_node *decl_node = get_node_of_kind(pool, decl, AST_DECL);
 			decl_node->flags |= qualifiers;
 
 			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
 			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
-			e->node_id = decl.first;
+			e->node_id = decl;
 		}
-#endif
 
 		if ((flags & PARSE_BITFIELD) && accept(ctx, TOKEN_COLON)) {
 			ast_id size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
