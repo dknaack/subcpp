@@ -1184,14 +1184,16 @@ check(ast_pool *pool, arena *perm)
 		ast_node *node = &pool->nodes[i];
 		type_id node_type = info.types.at[i];
 		ast_node *type = NULL;
+		ast_node *child = NULL;
 		if (node->children.value != 0) {
 			type = get_node(pool, node->children);
+			child = get_node(pool, node->children);
 		}
 
-		ast_node *child = get_node(pool, node->children);
-		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)
+		if (node->kind == AST_EXTERN_DEF
+			&& !(node->flags & AST_TYPEDEF)
 			&& !(type && type->kind == AST_TYPE_FUNC)
-			&& child->next.value == 0)
+			&& !(child && child->next.value != 0))
 		{
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
