@@ -267,7 +267,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		break;
 	case AST_STMT_COMPOUND:
 		{
-			ast_id child = node_id;
+			ast_id child = children[0];
 			while (child.value != 0) {
 				ast_node *child_node = get_node(pool, child);
 				translate_node(ctx, pool, child, false);
