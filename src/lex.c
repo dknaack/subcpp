@@ -413,6 +413,7 @@ read_token(lexer_state *l)
 	token.value = substr(l->data, start, end);
 	token.loc.offset = start;
 	token.loc.file = l->file;
+	token.loc.filename = l->filename;
 	ASSERT(token.kind != TOKEN_EOF || token.value.length == 0);
 	return token;
 }
@@ -987,10 +988,14 @@ push_file(parse_context *ctx, char *filename, str contents)
 	// Include directives are automatically ignored by the get_token function.
 	ASSERT(!ctx->lexer || !ctx->lexer->ignore_token);
 
+	file_id file_id;
+	file_id.value = ctx->file_count++;
+
 	// push new file on list
 	file *f = ALLOC(ctx->arena, 1, file);
 	f->name = filename;
 	f->contents = contents;
+	f->id = file_id;
 	if (ctx->files_head) {
 		f->prev = ctx->files_tail;
 		ctx->files_tail->next = f;
@@ -999,9 +1004,6 @@ push_file(parse_context *ctx, char *filename, str contents)
 		ctx->files_head = f;
 		ctx->files_tail = f;
 	}
-
-	file_id file_id;
-	file_id.value = ctx->file_count++;
 
 	// push new state on the stack
 	lexer_state *new_state = ALLOC(ctx->arena, 1, lexer_state);

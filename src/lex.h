@@ -115,6 +115,7 @@ typedef struct {
 typedef struct {
 	file_id file;
 	isize offset;
+	char *filename;
 } location;
 
 typedef struct {
@@ -154,6 +155,7 @@ typedef struct {
 typedef struct file file;
 struct file {
 	char *name;
+	file_id id;
 	str contents;
 	file *next;
 	file *prev;
