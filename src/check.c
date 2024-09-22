@@ -34,6 +34,7 @@ equals_type(type *lhs, type *rhs)
 	}
 
 	if (lhs->kind != rhs->kind
+		|| lhs->kind == TYPE_STRUCT
 		|| lhs->base_type.value != rhs->base_type.value
 		|| lhs->size != rhs->size) {
 		return false;
