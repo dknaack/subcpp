@@ -587,6 +587,11 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 				get_token(ctx);
 			} else if (!accept(ctx, TOKEN_RPAREN)) {
 				do {
+					if (accept(ctx, TOKEN_ELLIPSIS)) {
+						// TODO: Mark function as variadic
+						break;
+					}
+
 					ast_id param = parse_decl(ctx, PARSE_PARAM, s, pool, arena).first;
 					append_node(pool, &params, param);
 					if (!accept(ctx, TOKEN_COMMA)) {
