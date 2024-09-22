@@ -472,7 +472,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			type_id lhs = check_type(ctx, node->children);
+			type_id lhs = check_type(ctx, children[0]);
 			type_id rhs = check_type(ctx, children[1]);
 			type *lhs_type = get_type_data(types, lhs);
 			type *rhs_type = get_type_data(types, rhs);
@@ -1084,7 +1084,8 @@ check(ast_pool *pool, arena *perm)
 			type = get_node(pool, node->children);
 		}
 
-		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)
+		if (node->kind == AST_EXTERN_DEF
+			&& !(node->flags & AST_TYPEDEF)
 			&& (type && type->kind == AST_TYPE_FUNC))
 		{
 			info.of[i].value = symbol_index;
