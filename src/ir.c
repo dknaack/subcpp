@@ -239,7 +239,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				ctx->program->inst_count++;
 
 				// NOTE: Emit parameter registers
-				ast_id param_id = children[1];
+				ast_id return_id = type->children;
+				ast_node *return_type = get_node(pool, return_id);
+				ast_id param_id = return_type->next;
 				while (param_id.value != 0) {
 					type_id param_type = get_type_id(&ctx->info->types, param_id);
 					isize param_size = type_sizeof(param_type, &ctx->info->types);
