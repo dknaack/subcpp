@@ -571,6 +571,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 			ast_id size = {0};
 			if (!accept(ctx, TOKEN_RBRACKET)) {
 				size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				expect(ctx, TOKEN_RBRACKET);
 			}
 
 			ast_id node = new_node(pool, AST_TYPE_ARRAY, token, size);
