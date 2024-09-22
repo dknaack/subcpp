@@ -1110,7 +1110,6 @@ parse(parse_context *ctx, arena *arena)
 				for (ast_id param = return_node->next; param.value != 0;) {
 					ast_node *param_node = get_node(&pool, param);
 					str param_name = param_node->token.value;
-					param = param_node->next;
 
 					scope_entry *e = upsert_ident(&tmp, param_name, arena);
 					e->node_id = param;
@@ -1118,6 +1117,7 @@ parse(parse_context *ctx, arena *arena)
 
 					ast_node *node = get_node(&pool, e->node_id);
 					ASSERT(node->kind == AST_DECL);
+					param = param_node->next;
 				}
 
 				ast_id body = parse_stmt(ctx, &tmp, &pool, arena);
