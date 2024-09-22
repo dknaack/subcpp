@@ -383,6 +383,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 	case TOKEN_BUILTIN_VA_START:
 	case TOKEN_BUILTIN_VA_END:
 		{
+			get_token(ctx);
 			expr = new_node(pool, AST_BUILTIN, token, ast_id_nil);
 		} break;
 	default:
