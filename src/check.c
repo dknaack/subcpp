@@ -763,31 +763,31 @@ check_type(semantic_context ctx, ast_id node_id)
 		break;
 	case AST_TYPE_POINTER:
 		{
-			type_id base_type = check_type(ctx, children[1]);
+			type_id base_type = check_type(ctx, children[0]);
 			node_type = pointer_type(base_type, types);
 		} break;
 	case AST_TYPE_ARRAY:
 		{
 			i64 size = 0;
-			if (node->children.value != 0) {
-				check_type(ctx, node->children);
-				size = eval_ast(ctx, node->children);
+			if (children[1].value != 0) {
+				check_type(ctx, children[1]);
+				size = eval_ast(ctx, children[1]);
 			} else {
 				// TODO: Evaluate the size based on the expression or error.
 			}
 
-			type_id base_type = check_type(ctx, children[1]);
+			type_id base_type = check_type(ctx, children[0]);
 			node_type = array_type(base_type, size, types);
 		} break;
 	case AST_TYPE_BITFIELD:
 		{
-			type_id base_type = check_type(ctx, children[1]);
+			type_id base_type = check_type(ctx, children[0]);
 			// TODO: Evaluate the expression
 			node_type = bitfield_type(base_type, 1, types);
 		} break;
 	case AST_TYPE_FUNC:
 		{
-			type_id return_type = check_type(ctx, children[1]);
+			type_id return_type = check_type(ctx, children[0]);
 
 			member *params = NULL;
 			member **m = &params;
