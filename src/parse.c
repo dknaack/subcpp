@@ -563,6 +563,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, s, pool, arena);
+		expect(ctx, TOKEN_RPAREN);
 	} else if (!(flags & (PARSE_NO_IDENT | PARSE_OPT_IDENT))) {
 		syntax_error(ctx, "Expected '(' or identifier");
 	}
