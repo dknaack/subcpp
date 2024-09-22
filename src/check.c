@@ -1073,8 +1073,6 @@ check(ast_pool *pool, arena *perm)
 	symtab->symbol_count = symbol_count;
 	symtab->symbols = ALLOC(perm, symbol_count, symbol);
 
-	// NOTE: Collect all switch statements.
-	check_switch_stmt(pool, pool->root, info, ast_id_nil, perm);
 
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
@@ -1082,7 +1080,15 @@ check(ast_pool *pool, arena *perm)
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.types = &info.types;
-	check_type(ctx, pool->root);
+
+	ast_id node_id = pool->root;
+	while (node_id.value != 0) {
+		// NOTE: Collect all switch statements.
+		check_switch_stmt(pool, node_id, info, ast_id_nil, perm);
+
+		check_type(ctx, node_id);
+		node_id = get_node(pool, node_id)->next;
+	}
 
 	// NOTE: Collect function definitions
 	isize symbol_index = 1;
