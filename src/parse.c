@@ -287,9 +287,8 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 
 			ast_list decl = parse_decl(ctx, PARSE_CAST, s, pool, arena);
 			if (decl.first.value != 0) {
-				ast_node *decl_node = get_node(pool, decl.first);
 				ast_list children = {0};
-				ast_id type = decl_node->children;
+				ast_id type = decl.first;
 				append_node(pool, &children, type);
 
 				expect(ctx, TOKEN_RPAREN);
