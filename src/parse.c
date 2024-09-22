@@ -865,7 +865,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			result = new_node(pool, AST_STMT_ASM, token, ast_id_nil);
+			expect(ctx, TOKEN_LPAREN);
 			expect(ctx, TOKEN_LITERAL_STRING);
+			expect(ctx, TOKEN_RPAREN);
 		} break;
 	case TOKEN_BREAK:
 		{
