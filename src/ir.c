@@ -756,8 +756,13 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, pool, children[0], false);
 			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, cond_label);
 
-			u32 cond_reg = translate_node(&new_ctx, pool, children[1], false);
-			ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+			ast_node *cond = get_node(pool, children[1]);
+			if (cond->kind == AST_STMT_EMPTY) {
+				ir_emit0(&new_ctx, IR_VOID, IR_NOP);
+			} else {
+				u32 cond_reg = translate_node(&new_ctx, pool, children[1], false);
+				ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+			}
 
 			translate_node(&new_ctx, pool, children[3], false);
 			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
