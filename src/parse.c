@@ -131,17 +131,18 @@ append_list(ast_pool *p, ast_list *list1, ast_list list2)
 // next. However, the new child is inserted before the old list of children
 // from the last node.
 static void
-insert_child(ast_pool *p, ast_list *list, ast_id child)
+insert_child(ast_pool *p, ast_list *list, ast_id child_id)
 {
 	if (list->first.value == 0) {
-		list->first = list->last = child;
+		list->first = list->last = child_id;
 	} else {
-		ast_node *parent_node = get_node(p, list->last);
-		ast_node *child_node = get_node(p, child);
-		child_node->next = parent_node->children;
-		parent_node->children = list->last;
-		list->last = child;
+		ast_node *parent = get_node(p, list->last);
+		ast_node *child = get_node(p, child_id);
+		child->next = parent->children;
+		parent->children = child_id;
+		list->last = child_id;
 	}
+
 }
 
 // NOTE: Works the same as append_node, but links using children instead of
