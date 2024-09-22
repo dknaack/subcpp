@@ -29,6 +29,10 @@ is_pointer(type *type)
 static b32
 equals_type(type *lhs, type *rhs)
 {
+	if (lhs == rhs) {
+		return true;
+	}
+
 	if (lhs->kind != rhs->kind
 		|| lhs->base_type.value != rhs->base_type.value
 		|| lhs->size != rhs->size) {
