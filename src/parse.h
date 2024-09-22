@@ -194,14 +194,10 @@ get_children(ast_pool *p, ast_id id, ast_id *children, i32 max_count)
 	ast_node *node = get_node(p, id);
 
 	ast_id child_id = node->children;
-	for (count = 0; count < max_count; count++) {
-		children[count] = child_id;
-
+	for (count = 0; child_id.value != 0 && count < max_count; count++) {
 		ast_node *child = get_node(p, child_id);
+		children[count] = child_id;
 		child_id = child->next;
-		if (child_id.value == 0) {
-			break;
-		}
 	}
 
 	return count;
