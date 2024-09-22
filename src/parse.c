@@ -549,7 +549,14 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 	ast_list pointer_declarator = {0};
 	while (ctx->peek[0].kind == TOKEN_STAR) {
 		token token = get_token(ctx);
-		// TODO: Parse cv qualifiers
+		while (ctx->peek[0].kind == TOKEN_CONST || ctx->peek[0].kind == TOKEN_VOLATILE) {
+			get_token(ctx);
+
+			// TODO: Set the flags to the corresponding tokens and only parse
+			// one token per qualifier. Right now, we can pass the same
+			// qualifier multiple times.
+		}
+
 		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_id_nil);
 
 		insert_root(pool, &pointer_declarator, node);
