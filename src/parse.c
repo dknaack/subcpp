@@ -116,10 +116,14 @@ append_node(ast_pool *p, ast_list *list, ast_id node)
 static void
 append_list(ast_pool *p, ast_list *list1, ast_list list2)
 {
-	ast_node *tail = get_node(p, list1->last);
-	tail->next = list2.first;
-	if (list2.last.value != 0) {
-		list1->last = list2.last;
+	if (list1->last.value == 0) {
+		*list1 = list2;
+	} else {
+		ast_node *tail = get_node(p, list1->last);
+		tail->next = list2.first;
+		if (list2.last.value != 0) {
+			list1->last = list2.last;
+		}
 	}
 }
 
