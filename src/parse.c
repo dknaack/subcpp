@@ -631,6 +631,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		case TOKEN_INT:
 		case TOKEN_CHAR:
 		case TOKEN_VOID:
+		case TOKEN_BUILTIN_VA_LIST:
 			base_type = new_node(pool, AST_TYPE_BASIC, token, ast_id_nil);
 			get_token(ctx);
 			break;
