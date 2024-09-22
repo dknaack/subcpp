@@ -710,6 +710,9 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_TYPE_BASIC:
 		switch (node->token.kind) {
+		case TOKEN_BUILTIN_VA_LIST:
+			node_type = basic_type(TYPE_BUILTIN_VA_LIST, types);
+			break;
 		case TOKEN_VOID:
 			node_type = basic_type(TYPE_VOID, types);
 			break;

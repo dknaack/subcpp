@@ -114,6 +114,7 @@ typedef enum {
 	TYPE_STRUCT,
 	TYPE_UNION,
 	TYPE_OPAQUE,
+	TYPE_BUILTIN_VA_LIST,
 
 	TYPE_UNSIGNED = 1,
 } type_kind;
@@ -193,6 +194,7 @@ type_get_name(type_kind type)
 	case TYPE_BITFIELD:       return "(bitfield)";
 	case TYPE_UNKNOWN:        return "(unknown)";
 	case TYPE_OPAQUE:         return "(opaque)";
+	case TYPE_BUILTIN_VA_LIST: return "va_list";
 	}
 
 	ASSERT(!"Invalid type");
@@ -229,6 +231,9 @@ type_sizeof(type_id type_id, type_pool *pool)
 
 	type *type = get_type_data(pool, type_id);
 	switch (type->kind) {
+	case TYPE_BUILTIN_VA_LIST:
+		// TODO
+		return 8;
 	case TYPE_CHAR:
 	case TYPE_CHAR_UNSIGNED:
 		return 1;
