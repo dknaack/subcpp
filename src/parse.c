@@ -798,15 +798,18 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		insert_child(pool, &declarator, base_type);
 
 		ast_id decl = declarator.first;
-		ast_id type = get_node(pool, decl)->children;
-		ASSERT((flags & PARSE_NO_IDENT) || decl.value != 0);
-		if (!(flags & PARSE_NO_IDENT)) {
-			ast_node *decl_node = get_node_of_kind(pool, decl, AST_DECL);
+		ast_node *decl_node = get_node(pool, decl);
+		ast_id type = decl_node->children;
+
+		if (decl_node->kind == AST_DECL) {
 			decl_node->flags |= qualifiers;
+			ASSERT(decl_node->children.value != decl.value);
 
 			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
 			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
 			e->node_id = decl;
+		} else {
+			type = declarator.first;
 		}
 
 		if ((flags & PARSE_BITFIELD) && accept(ctx, TOKEN_COLON)) {
