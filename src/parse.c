@@ -554,12 +554,16 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 
 	ast_list result = {0};
 	if (ctx->peek[0].kind == TOKEN_IDENT) {
+		if (flags & PARSE_NO_IDENT) {
+			syntax_error(ctx, "Unexpected identifier");
+		}
+
 		token token = get_token(ctx);
 		result.first = result.last = new_node(pool, AST_DECL, token, ast_id_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, s, pool, arena);
-	} else {
+	} else if (!(flags & (PARSE_NO_IDENT | PARSE_OPT_IDENT))) {
 		syntax_error(ctx, "Expected '(' or identifier");
 	}
 
