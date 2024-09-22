@@ -1100,7 +1100,7 @@ check(ast_pool *pool, arena *perm)
 			type = get_node(pool, node->children);
 		}
 
-		if (node->kind == AST_EXTERN_DEF
+		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)
 			&& (type && type->kind == AST_TYPE_FUNC))
 		{
 			info.of[i].value = symbol_index;
@@ -1122,6 +1122,8 @@ check(ast_pool *pool, arena *perm)
 		}
 
 		if (node->kind == AST_EXTERN_DEF
+			&& node->token.kind == TOKEN_IDENT
+			&& !(node->flags & AST_TYPEDEF)
 			&& !(type && type->kind == AST_TYPE_FUNC))
 		{
 			info.of[i].value = symbol_index;
@@ -1202,7 +1204,7 @@ check(ast_pool *pool, arena *perm)
 		}
 
 		ast_node *child = get_node(pool, node->children);
-		if (node->kind == AST_EXTERN_DEF
+		if (node->kind == AST_EXTERN_DEF && !(node->flags & AST_TYPEDEF)
 			&& !(type && type->kind == AST_TYPE_FUNC)
 			&& child->next.value == 0)
 		{
