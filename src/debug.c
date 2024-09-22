@@ -264,11 +264,11 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("*");
 		print_ast_node(pool, children[0], indent);
 		break;
-	case AST_TYPE_STRUCT:
-		printf("(struct)");
+	case AST_TYPE_COMPOUND:
+		printf("(compound type)");
 		break;
-	case AST_TYPE_UNION:
-		printf("(union)");
+	case AST_TYPE_TAG:
+		printf("(compound type with tag)");
 		break;
 	case AST_TYPE_ENUM:
 		printf("(enum)");

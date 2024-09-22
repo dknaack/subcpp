@@ -200,14 +200,14 @@ function_type(type_id return_type, member *params, type_pool *pool)
 }
 
 static type_id
-compound_type(ast_node_kind kind, member *members, type_pool *pool)
+compound_type(token_kind kind, member *members, type_pool *pool)
 {
 	type type = {0};
 	switch (kind) {
-	case AST_TYPE_STRUCT:
+	case TOKEN_STRUCT:
 		type.kind = TYPE_STRUCT;
 		break;
-	case AST_TYPE_UNION:
+	case TOKEN_UNION:
 		type.kind = TYPE_UNION;
 		break;
 	default:
@@ -364,8 +364,9 @@ check_type(semantic_context ctx, ast_id node_id)
 
 	ast_node *node = get_node(pool, node_id);
 	type_id node_type = get_type_id(types, node_id);
-	if (node->kind != AST_INIT && node->kind != AST_TYPE_STRUCT
-		&& node->kind != AST_TYPE_UNION && node_type.value != 0)
+	if (node->kind != AST_INIT
+		&& node->kind != AST_TYPE_COMPOUND
+		&& node_type.value != 0)
 	{
 		// This node has already been type checked.
 		return node_type;
@@ -837,38 +838,31 @@ check_type(semantic_context ctx, ast_id node_id)
 				enum_id = enum_node->next;
 			}
 		} break;
-	case AST_TYPE_STRUCT:
-	case AST_TYPE_UNION:
+	case AST_TYPE_TAG:
 		{
-			// TODO: add the struct tag to the scope and ensure that the
-			// struct is only defined once.
-			if (node->children.value == 0) {
-				type_id ref_type = get_type_id(types, node->children);
-				if (node->flags & AST_OPAQUE) {
-					node_type = opaque_type(ref_type, types);
-				} else {
-					node_type = ref_type;
-				}
-			} else {
-				// TODO: Collect the members of the struct
-				member *members = NULL;
-				member **ptr = &members;
-				ast_id decl_id = node->children;
-				while (decl_id.value != 0) {
-					type_id decl_type = check_type(ctx, decl_id);
-					ast_node *decl_node = get_node(pool, decl_id);
+			// TODO: Set this as an opaque type
+			node_type = check_type(ctx, children[0]);
+		} break;
+	case AST_TYPE_COMPOUND:
+		{
+			// NOTE: Collect the members of the struct
+			member *members = NULL;
+			member **ptr = &members;
+			ast_id decl_id = node->children;
+			while (decl_id.value != 0) {
+				type_id decl_type = check_type(ctx, decl_id);
+				ast_node *decl_node = get_node(pool, decl_id);
 
-					*ptr = ALLOC(arena, 1, member);
-					(*ptr)->name = decl_node->token.value;
-					(*ptr)->type = decl_type;
-					ptr = &(*ptr)->next;
+				*ptr = ALLOC(arena, 1, member);
+				(*ptr)->name = decl_node->token.value;
+				(*ptr)->type = decl_type;
+				ptr = &(*ptr)->next;
 
-					decl_id = decl_node->next;
-				}
-
-				ASSERT(node->token.value.at != NULL || members != NULL);
-				node_type = compound_type(node->kind, members, types);
+				decl_id = decl_node->next;
 			}
+
+			ASSERT(node->token.value.at != NULL || members != NULL);
+			node_type = compound_type(node->token.kind, members, types);
 		} break;
 	}
 
@@ -966,7 +960,7 @@ check(ast_pool *pool, arena *perm)
 			info.of[i].value = info.label_count++;
 			info.kind[i] = INFO_LABEL;
 			break;
-		case AST_TYPE_STRUCT:
+		case AST_TYPE_TAG:
 			if (node->token.value.at == NULL || node->children.value == 0) {
 				break;
 			}

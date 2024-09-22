@@ -692,24 +692,25 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		case TOKEN_STRUCT:
 		case TOKEN_UNION:
 			{
-				ast_node_kind node_kind = AST_TYPE_STRUCT;
-				if (token.kind == TOKEN_UNION) {
-					node_kind = AST_TYPE_UNION;
-				}
+				token = get_token(ctx);
+				ast_id def_id = new_node(pool, AST_TYPE_COMPOUND, token, ast_id_nil);
 
-				get_token(ctx);
+				// Compound types with a tag ALWAYS create a new empty node.
+				// That node is filled in later by the actual definition of
+				// the struct/union.
 				token = ctx->peek[0];
-				scope_entry *e = NULL;
 				if (token.kind == TOKEN_IDENT) {
 					get_token(ctx);
-					e = upsert_tag(s, token.value, arena);
+					scope_entry *e = upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
-						e->node_id = new_node(pool, node_kind, token, ast_id_nil);
-						base_type = new_node(pool, node_kind, token, e->node_id);
+						e->node_id = base_type;
+						base_type = new_node(pool, AST_TYPE_TAG, token, e->node_id);
 						get_node(pool, base_type)->flags |= AST_OPAQUE;
 					}
 
 					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
+				} else {
+					base_type = def_id;
 				}
 
 				if (accept(ctx, TOKEN_LBRACE)) {
@@ -727,18 +728,8 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 						expect(ctx, TOKEN_SEMICOLON);
 					}
 
-					ast_node *def_node = NULL;
-					if (e != NULL) {
-						def_node = get_node_of_kind(pool, e->node_id, node_kind);
-						base_type = e->node_id;
-					} else {
-						base_type = new_node(pool, node_kind, token, ast_id_nil);
-						def_node = get_node(pool, base_type);
-					}
-
+					ast_node *def_node = get_node(pool, def_id);
 					def_node->children = members.first;
-				} else {
-					base_type = new_node(pool, node_kind, token, ast_id_nil);
 				}
 			} break;
 		default:

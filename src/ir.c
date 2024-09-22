@@ -871,8 +871,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
 	case AST_TYPE_ENUM:
-	case AST_TYPE_STRUCT:
-	case AST_TYPE_UNION:
+	case AST_TYPE_COMPOUND:
+	case AST_TYPE_TAG:
 	case AST_TYPE_FUNC:
 	case AST_TYPE_IDENT:
 	case AST_TYPE_ARRAY:

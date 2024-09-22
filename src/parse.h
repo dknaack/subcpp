@@ -48,8 +48,8 @@ typedef enum {
 	AST_TYPE_FUNC,       // {type, decl*}
 	AST_TYPE_IDENT,      // {decl}
 	AST_TYPE_POINTER,    // {type}
-	AST_TYPE_STRUCT,     // {decl*}
-	AST_TYPE_UNION,      // {decl*}
+	AST_TYPE_TAG,        // {type}
+	AST_TYPE_COMPOUND,   // {decl*}
 } ast_node_kind;
 
 typedef enum {
