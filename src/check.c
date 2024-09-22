@@ -384,15 +384,6 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_INVALID:
 		pool->error = true;
 		break;
-	case AST_STMT_COMPOUND:
-		node_id = children[0];
-		while (node_id.value != 0) {
-			check_type(ctx, node_id);
-			ast_node *node = get_node(pool, node_id);
-			node_id = node->next;
-		}
-
-		break;
 	case AST_BUILTIN:
 		{
 			ASSERT(!"TODO");
@@ -409,14 +400,15 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_STMT_RETURN:
 	case AST_STMT_SWITCH:
 	case AST_STMT_WHILE:
-		if (children[0].value != 0) {
-			check_type(ctx, children[0]);
-		}
-
-		if (children[1].value != 0) {
-			check_type(ctx, children[1]);
-		}
-		break;
+	case AST_STMT_COMPOUND:
+		{
+			ast_id child_id = children[0];
+			while (child_id.value != 0) {
+				check_type(ctx, child_id);
+				ast_node *child = get_node(pool, child_id);
+				child_id = child->next;
+			}
+		} break;
 	case AST_STMT_ASM:
 		{
 			ASSERT(node->token.kind == TOKEN_LITERAL_STRING);
