@@ -923,7 +923,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 			ast_id init = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				init = parse_decl(ctx, 0, s, pool, arena).first;
+				init = parse_decl(ctx, PARSE_STMT, s, pool, arena).first;
 				if (init.value == 0) {
 					init = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				}
@@ -1050,10 +1050,13 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			result = new_node(pool, AST_STMT_LABEL, token, stmt);
 		} else {
 			// TODO: Handle multiple declarations in one statement
-			result = parse_decl(ctx, 0, s, pool, arena).first;
-			if (result.value == 0) {
-				result = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_list decl = parse_decl(ctx, PARSE_STMT, s, pool, arena);
+			if (decl.first.value != 0) {
+				result = new_node(pool, AST_STMT_COMPOUND, ctx->peek[0], decl.first);
+			} else {
+				result = parse_expr(ctx, PREC_NONE, s, pool, arena);
 			}
+
 			expect(ctx, TOKEN_SEMICOLON);
 		}
 	}
