@@ -390,17 +390,18 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_STMT_BREAK:
 	case AST_STMT_CASE:
+	case AST_STMT_COMPOUND:
 	case AST_STMT_CONTINUE:
 	case AST_STMT_DEFAULT:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_EMPTY:
+	case AST_STMT_FOR:
 	case AST_STMT_GOTO:
 	case AST_STMT_IF:
 	case AST_STMT_LABEL:
 	case AST_STMT_RETURN:
 	case AST_STMT_SWITCH:
 	case AST_STMT_WHILE:
-	case AST_STMT_COMPOUND:
 		{
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
@@ -412,16 +413,6 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_STMT_ASM:
 		{
 			ASSERT(node->token.kind == TOKEN_LITERAL_STRING);
-		} break;
-	case AST_STMT_FOR:
-		{
-			if (node->children.value != 0) {
-				check_type(ctx, node->children);
-			}
-
-			if (children[1].value != 0) {
-				check_type(ctx, children[1]);
-			}
 		} break;
 	case AST_INIT:
 		{
