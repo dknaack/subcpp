@@ -937,6 +937,8 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
 				cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_SEMICOLON);
+			} else {
+				cond = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
 			}
 
 			ast_id post = {0};
