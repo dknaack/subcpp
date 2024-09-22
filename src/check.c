@@ -544,6 +544,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			while (param_member && param_id.value != 0) {
 				ast_node *param_node = get_node(pool, param_id);
 				type_id param = check_type(ctx, param_id);
+				ASSERT(param_member->type.value != 0);
 				if (!are_compatible(param_member->type, param, types)) {
 					errorf(param_node->token.loc, "Invalid parameter type");
 				}
@@ -800,13 +801,14 @@ check_type(semantic_context ctx, ast_id node_id)
 			ast_id param_id = children[1];
 			while (param_id.value != 0) {
 				ast_node *param = get_node(pool, param_id);
-				type_id param_type = get_type_id(types, param_id);
+				type_id param_type = check_type(ctx, param_id);
 				*m = ALLOC(arena, 1, member);
 				(*m)->name = param->token.value;
 				(*m)->type = param_type;
+				ASSERT((*m)->type.value != 0);
 				m = &(*m)->next;
 
-				param = get_node(pool, param->next);
+				param_id = param->next;
 			}
 
 			node_type = function_type(return_type, params, types);
