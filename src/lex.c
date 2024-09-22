@@ -1319,6 +1319,7 @@ get_token_without_string_concat(parse_context *ctx)
 			str str;
 		} keywords[] = {
 			{ TOKEN_AUTO,         S("auto")          },
+			{ TOKEN_ASM,          S("asm")           },
 			{ TOKEN_BREAK,        S("break")         },
 			{ TOKEN_BOOL,         S("_Bool")         },
 			{ TOKEN_CASE,         S("case")          },
