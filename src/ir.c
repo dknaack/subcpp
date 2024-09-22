@@ -1013,7 +1013,12 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	ctx.info = info;
 	ctx.locals = ALLOC(arena, pool->size, u32);
 
-	translate_node(&ctx, pool, pool->root, false);
+	// Translate all nodes into IR
+	ast_id node_id = pool->root;
+	while (node_id.value != 0) {
+		translate_node(&ctx, pool, node_id, false);
+		node_id = get_node(pool, node_id)->next;
+	}
 
 	// NOTE: Propagate types through the instructions
 	for (isize i = 0; i < program.function_count; i++) {
