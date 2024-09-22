@@ -243,11 +243,13 @@ typedef enum {
 	PARSE_NO_INITIALIZER = 1 << 2,
 	PARSE_NO_IDENT       = 1 << 3,
 	PARSE_OPT_IDENT      = 1 << 4,
+	PARSE_OPT            = 1 << 5,
 
 	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
 	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER | PARSE_OPT_IDENT,
 	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
 	PARSE_EXTERNAL_DECL = 0,
+	PARSE_STMT = PARSE_OPT,
 } parse_decl_flags;
 
 static ast_list parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena);
@@ -791,6 +793,9 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		ast_id decl = declarator.first;
 		ast_node *decl_node = get_node(pool, decl);
 		ast_id type = decl_node->children;
+		if (!(flags & PARSE_OPT) && decl.value == 0) {
+			syntax_error(ctx, "Expected declaration");
+		}
 
 		if (decl_node->kind == AST_DECL) {
 			decl_node->flags |= qualifiers;
