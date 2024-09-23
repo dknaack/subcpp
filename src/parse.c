@@ -714,7 +714,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					get_token(ctx);
 					scope_entry *e = upsert_tag(s, token.value, arena);
 					if (e->node_id.value == 0) {
-						e->node_id = base_type;
+						e->node_id = def_id;
 						base_type = new_node(pool, AST_TYPE_TAG, token, e->node_id);
 						get_node(pool, base_type)->flags |= AST_OPAQUE;
 					}
