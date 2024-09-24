@@ -515,6 +515,10 @@ check_type(semantic_context ctx, ast_id node_id)
 						unsigned_type->kind = signed_type->kind;
 					}
 				}
+			} else {
+				if (!are_compatible(lhs, rhs, types)) {
+					errorf(node->token.loc, "Incompatible types");
+				}
 			}
 		} break;
 	case AST_EXPR_CALL:
