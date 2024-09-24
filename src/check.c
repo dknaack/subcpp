@@ -431,20 +431,21 @@ check_type(semantic_context ctx, ast_id node_id)
 				}
 
 				member *member = type_data->members;
-				while (member && node_id.value != 0) {
-					ast_node *value = get_node(pool, node_id);
+				ast_id child = node->children;
+				while (member && child.value != 0) {
+					ast_node *value = get_node(pool, child);
 					if (value->kind == AST_INIT) {
 						set_type(types, node_id, member->type);
 					}
 
-					type_id value_type = check_type(ctx, node_id);
+					type_id value_type = check_type(ctx, child);
 					// TODO: Type conversion
 					if (!are_compatible(member->type, value_type, types)) {
 						//errorf(list_node->token.loc, "Invalid type");
 					}
 
 					member = member->next;
-					node_id = value->next;
+					child = value->next;
 				}
 
 				if (member == NULL && node_id.value != 0) {
