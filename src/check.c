@@ -112,6 +112,9 @@ are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 
 		b32 result = (!l && !r);
 		return result;
+	case TYPE_STRUCT:
+	case TYPE_UNION:
+		return false;
 	default:
 		if (lhs->kind != rhs->kind) {
 			return false;
