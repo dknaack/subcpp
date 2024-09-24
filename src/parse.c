@@ -62,14 +62,14 @@ upsert_tag(scope *s, str key, arena *perm)
 		}
 	}
 
-	if (!perm) {
-		return upsert_tag(s->parent, key, NULL);
+	e = upsert_tag(s->parent, key, NULL);
+	if (!e) {
+		e = ALLOC(perm, 1, scope_entry);
+		e->next = s->tags;
+		e->key = key;
+		s->tags = e;
 	}
 
-	e = ALLOC(perm, 1, scope_entry);
-	e->next = s->tags;
-	e->key = key;
-	s->tags = e;
 	return e;
 }
 
@@ -141,6 +141,7 @@ insert_child(ast_pool *p, ast_list *list, ast_id child_id)
 		child->next = parent->children;
 		parent->children = child_id;
 		list->last = child_id;
+		ASSERT(child_id.value != 0);
 	}
 
 }
@@ -159,6 +160,7 @@ insert_root(ast_pool *p, ast_list *list, ast_id parent)
 		child_node->next = parent_node->children;
 		parent_node->children = list->first;
 		list->first = parent;
+		ASSERT(parent.value != 0);
 	}
 }
 
@@ -413,6 +415,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 				ast_id *p = &params;
 				do {
 					*p = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+					ASSERT(p->value != 0);
 					ast_node *expr_node = get_node(pool, *p);
 					p = &expr_node->next;
 				} while (!ctx->error && accept(ctx, TOKEN_COMMA));
@@ -639,7 +642,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	ast_list list = {0};
 	ast_id base_type = {0};
 	u32 qualifiers = 0;
-	token qualifier_token = {0};
+	token ident, qualifier_token = {0};
 
 	b32 found_qualifier = true;
 	while (found_qualifier) {
@@ -704,27 +707,39 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		case TOKEN_UNION:
 			{
 				token = get_token(ctx);
-				ast_id def_id = new_node(pool, AST_TYPE_COMPOUND, token, ast_id_nil);
+				ast_id def_id = {0};
 
 				// Compound types with a tag ALWAYS create a new empty node.
 				// That node is filled in later by the actual definition of
 				// the struct/union.
-				token = ctx->peek[0];
-				if (token.kind == TOKEN_IDENT) {
+				ident = ctx->peek[0];
+				if (ident.kind == TOKEN_IDENT) {
 					get_token(ctx);
-					scope_entry *e = upsert_tag(s, token.value, arena);
+					scope_entry *e = upsert_tag(s, ident.value, arena);
+					b32 is_opaque = false;
 					if (e->node_id.value == 0) {
-						e->node_id = def_id;
-						base_type = new_node(pool, AST_TYPE_TAG, token, e->node_id);
+						e->node_id = new_node(pool, AST_TYPE_COMPOUND, token, ast_id_nil);
+						is_opaque = true;
+					} else {
+						ast_node *def_node = get_node(pool, e->node_id);
+						is_opaque = (def_node->children.value == 0);
+					}
+
+					def_id = e->node_id;
+					base_type = new_node(pool, AST_TYPE_TAG, ident, def_id);
+					if (is_opaque) {
 						get_node(pool, base_type)->flags |= AST_OPAQUE;
 					}
 
 					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
 				} else {
-					base_type = def_id;
+					def_id = base_type;
 				}
 
 				if (accept(ctx, TOKEN_LBRACE)) {
+					ast_node *def_node = get_node(pool, def_id);
+					ASSERT(def_node->children.value == 0);
+
 					scope tmp = new_scope(s);
 					ast_list members = {0};
 					while (!ctx->error && !accept(ctx, TOKEN_RBRACE)) {
@@ -739,8 +754,13 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 						expect(ctx, TOKEN_SEMICOLON);
 					}
 
-					ast_node *def_node = get_node(pool, def_id);
+					// IMPORTANT: DO NOT REMOVE. Reallocations may cause the
+					// pointer to be invalidated. Therefore, we have to
+					// retrieve the node again.
+					def_node = get_node(pool, def_id);
 					def_node->children = members.first;
+					ASSERT(def_node->kind != AST_TYPE_TAG);
+					ASSERT(def_node->children.value != 0);
 				}
 			} break;
 		default:
@@ -798,6 +818,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	do {
 		ast_list declarator = parse_declarator(ctx, flags, s, pool, arena);
 		insert_child(pool, &declarator, base_type);
+		ASSERT(declarator.first.value != 0);
 
 		ast_id decl = declarator.first;
 		ast_node *decl_node = get_node(pool, decl);
@@ -811,6 +832,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 			ASSERT(decl_node->children.value != decl.value);
 
 			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
+			ASSERT(s->parent == NULL || e->node_id.value == 0);
 			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
 			e->node_id = decl;
 		} else {
@@ -827,6 +849,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 
 			ast_node *decl_node = get_node(pool, decl);
 			decl_node->children = bitfield;
+			ASSERT(bitfield.value != 0);
 		}
 
 		// Parse declaration initializer
@@ -844,6 +867,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 
 			ast_node *decl_node = get_node(pool, decl);
 			decl_node->children = children.first;
+			ASSERT(children.first.value != 0);
 		}
 
 		append_node(pool, &list, decl);
@@ -1109,6 +1133,8 @@ parse(parse_context *ctx, arena *arena)
 		}
 
 		ast_node *decl = get_node(&pool, decls.first);
+		ASSERT(decl->kind == AST_DECL);
+		ASSERT(decls.first.value != decl->children.value);
 		decl->kind = AST_EXTERN_DEF;
 
 		ast_id type_id = decl->children;
