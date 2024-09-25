@@ -776,6 +776,10 @@ check_type(semantic_context ctx, ast_id node_id)
 			}
 
 			type_id base_type = check_type(ctx, children[0]);
+			if (base_type.value == TYPE_VOID) {
+				errorf(node->token.loc, "array of voids");
+			}
+
 			node_type = array_type(base_type, size, types);
 		} break;
 	case AST_TYPE_BITFIELD:
