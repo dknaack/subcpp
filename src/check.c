@@ -626,11 +626,13 @@ check_type(semantic_context ctx, ast_id node_id)
 				pool->error = true;
 			}
 
-			member *s = get_member(operand->members, node->token.value);
+			str member_name = node->token.value;
+			member *s = get_member(operand->members, member_name);
 			if (s) {
 				node_type = s->type;
 			} else {
-				errorf(node->token.loc, "Member does not exist");
+				errorf(node->token.loc, "Member '%.*s' does not exist",
+					member_name.length, member_name.at);
 			}
 		} break;
 	case AST_EXPR_SIZEOF:
