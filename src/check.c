@@ -43,7 +43,7 @@ equals_type(type *lhs, type *rhs)
 	member *l = lhs->members;
 	member *r = rhs->members;
 	while (l && r) {
-		if (!equals(l->name, r->name) || l->type.value != r->type.value) {
+		if (l->type.value != r->type.value) {
 			return false;
 		}
 	}
