@@ -63,7 +63,7 @@ upsert_tag(scope *s, str key, arena *perm)
 	}
 
 	e = upsert_tag(s->parent, key, NULL);
-	if (!e) {
+	if (!e && perm) {
 		e = ALLOC(perm, 1, scope_entry);
 		e->next = s->tags;
 		e->key = key;
