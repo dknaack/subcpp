@@ -54,14 +54,12 @@ equals_type(type *lhs, type *rhs)
 static b32
 are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 {
-	member *l, *r;
+	if (lhs_id.value == TYPE_VOID || rhs_id.value == TYPE_VOID) {
+		return false;
+	}
 
 	if (lhs_id.value == rhs_id.value) {
 		return true;
-	}
-
-	if (lhs_id.value == TYPE_VOID || rhs_id.value == TYPE_VOID) {
-		return false;
 	}
 
 	if (is_integer(lhs_id) && is_integer(rhs_id)) {
@@ -69,17 +67,21 @@ are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 	}
 
 	type *lhs = get_type_data(pool, lhs_id);
-	type *rhs = get_type_data(pool, rhs_id);
 	if (lhs->kind == TYPE_OPAQUE) {
-		lhs = get_type_data(pool, lhs->base_type);
+		lhs_id = lhs->base_type;
+		lhs = get_type_data(pool, lhs_id);
+		ASSERT(lhs->kind != TYPE_OPAQUE);
 	}
 
+	type *rhs = get_type_data(pool, rhs_id);
 	if (rhs->kind == TYPE_OPAQUE) {
-		rhs = get_type_data(pool, rhs->base_type);
+		rhs_id = rhs->base_type;
+		rhs = get_type_data(pool, rhs_id);
+		ASSERT(rhs->kind != TYPE_OPAQUE);
 	}
 
-	type *rhs_base = NULL;
-	type *lhs_base = NULL;
+	member *l, *r;
+	type *rhs_base, *lhs_base;
 	switch (lhs->kind) {
 	case TYPE_ARRAY:
 	case TYPE_POINTER:
@@ -110,17 +112,12 @@ are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 			r = r->next;
 		}
 
-		b32 result = (!l && !r);
-		return result;
+		return (!l && !r);
 	case TYPE_STRUCT:
 	case TYPE_UNION:
 		return false;
 	default:
-		if (lhs->kind != rhs->kind) {
-			return false;
-		}
-
-		return true;
+		return (lhs->kind == rhs->kind);
 	}
 }
 
