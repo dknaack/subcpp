@@ -939,6 +939,12 @@ check(ast_pool *pool, arena *perm)
 	semantic_info info = {0};
 	info.of = ALLOC(perm, pool->size, info_id);
 	info.kind = ALLOC(perm, pool->size, info_kind);
+
+	for (type_kind type = TYPE_VOID; type <= TYPE_DOUBLE; type++) {
+		type_id type_id = basic_type(type, &info.types);
+		ASSERT(type_id.value == (i32)type);
+	}
+
 	info.switch_count = 1;
 	info.decl_count = 1;
 	info.case_count = 1;
