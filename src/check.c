@@ -1,7 +1,7 @@
 static b32
-is_integer(type_kind type)
+is_integer(type_id type)
 {
-	switch (type) {
+	switch (type.value) {
 	case TYPE_CHAR:
 	case TYPE_CHAR_UNSIGNED:
 	case TYPE_SHORT:
@@ -60,16 +60,16 @@ are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 		return true;
 	}
 
-	type *lhs = get_type_data(pool, lhs_id);
-	type *rhs = get_type_data(pool, rhs_id);
-	if (lhs->kind == TYPE_VOID || rhs->kind == TYPE_VOID) {
+	if (lhs_id.value == TYPE_VOID || rhs_id.value == TYPE_VOID) {
 		return false;
 	}
 
-	if (is_integer(lhs->kind) && is_integer(rhs->kind)) {
+	if (is_integer(lhs_id) && is_integer(rhs_id)) {
 		return true;
 	}
 
+	type *lhs = get_type_data(pool, lhs_id);
+	type *rhs = get_type_data(pool, rhs_id);
 	if (lhs->kind == TYPE_OPAQUE) {
 		lhs = get_type_data(pool, lhs->base_type);
 	}
@@ -496,7 +496,7 @@ check_type(semantic_context ctx, ast_id node_id)
 						type_get_name(lhs_type->kind),
 						type_get_name(rhs_type->kind));
 				}
-			} else if (is_integer(lhs_type->kind) && is_integer(rhs_type->kind)) {
+			} else if (is_integer(lhs) && is_integer(rhs)) {
 				// Apply integer promotion
 				b32 same_sign = (lhs_type->kind & TYPE_UNSIGNED) == (rhs_type->kind & TYPE_UNSIGNED);
 				if (lhs_type->kind == rhs_type->kind) {
@@ -676,8 +676,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_TERNARY:
 		{
 			type_id cond_id = check_type(ctx, children[0]);
-			type *cond = get_type_data(types, cond_id);
-			if (!is_integer(cond->kind)) {
+			if (!is_integer(cond_id)) {
 				ast_node *cond_node = get_node(pool, node->children);
 				errorf(cond_node->token.loc, "Not an integer expression");
 			}
