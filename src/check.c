@@ -372,11 +372,8 @@ check_type(semantic_context ctx, ast_id node_id)
 
 	ast_node *node = get_node(pool, node_id);
 	type_id node_type = get_type_id(types, node_id);
-	if (node->kind != AST_INIT
-		&& node->kind != AST_TYPE_COMPOUND
-		&& node_type.value != 0)
-	{
-		// This node has already been type checked.
+	b32 was_checked = (node->kind != AST_INIT && node_type.value != 0);
+	if (was_checked) {
 		return node_type;
 	}
 
