@@ -838,7 +838,8 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_TAG:
 		{
 			// TODO: Set this as an opaque type
-			node_type = check_type(ctx, children[0]);
+			type_id base_type = check_type(ctx, children[0]);
+			node_type = opaque_type(base_type, types);
 		} break;
 	case AST_TYPE_COMPOUND:
 		{
