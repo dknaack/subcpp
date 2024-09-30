@@ -76,7 +76,10 @@ optimize(ir_program program, arena *arena)
 				if (!addr_used[i]) {
 					insts[i].opcode = IR_VAR;
 					insts[i].type = types[i];
-					ASSERT(insts[i].type != IR_VOID);
+					// NOTE: If the type is void, then this likely means that
+					// the instruction was never used in the first place.
+					//ASSERT(insts[i].type != IR_VOID);
+
 					// Can only turn scalars into registers, not arrays or structs
 					ASSERT(insts[i].op0 <= 8);
 				}
