@@ -310,27 +310,28 @@ print_ir_inst(ir_inst *inst, u32 i)
 	u32 dst = i;
 	u32 op0 = inst[i].op0;
 	u32 op1 = inst[i].op1;
+	char *type = get_ir_type_str(inst[i].type);
 	switch (inst[i].opcode) {
 	case IR_NOP:
 		printf("nop");
 		break;
 	case IR_GLOBAL:
-		printf("(global %d)", op0);
+		printf("(global.%s %d)", type, op0);
 		break;
 	case IR_VAR:
-		printf("(var %%%d)", dst);
+		printf("(var.%s %%%d)", type, dst);
 		break;
 	case IR_CONST:
-		printf("(const %d)", op0);
+		printf("(const.%s %d)", type, op0);
 		break;
 	case IR_BUILTIN:
-		printf("(builtin %s)", get_builtin_str(op0));
+		printf("(builtin.%s %s)", type, get_builtin_str(op0));
 		break;
 	case IR_COPY:
-		printf("(copy %%%d)", op0);
+		printf("(copy.%s %%%d)", type, op0);
 		break;
 	case IR_ALLOC:
-		printf("(%s %d %d)", get_ir_opcode_str(inst[i].opcode), op0, op1);
+		printf("(%s.%s %d %d)", get_ir_opcode_str(inst[i].opcode), type, op0, op1);
 		break;
 	case IR_MOV:
 	case IR_ADD:
@@ -353,18 +354,18 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_STORE:
 	case IR_SUB:
 	case IR_XOR:
-		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		printf("(%s.%s ", get_ir_opcode_str(inst[i].opcode), type);
 		print_ir_inst(inst, op0);
 		printf(" ");
 		print_ir_inst(inst, op1);
 		printf(")");
 		break;
 	case IR_JMP:
-		printf("(jmp L%d)", op0);
+		printf("(jmp.%s L%d)", type, op0);
 		break;
 	case IR_JIZ:
 	case IR_JNZ:
-		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		printf("(%s.%s ", get_ir_opcode_str(inst[i].opcode), type);
 		print_ir_inst(inst, op0);
 		printf(" L%d)", op1);
 		break;
@@ -376,12 +377,12 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_TRUNC:
 	case IR_SEXT:
 	case IR_ZEXT:
-		printf("(%s ", get_ir_opcode_str(inst[i].opcode));
+		printf("(%s.%s ", get_ir_opcode_str(inst[i].opcode), type);
 		print_ir_inst(inst, op0);
 		printf(")");
 		break;
 	case IR_CALL:
-		printf("(call ");
+		printf("(call.%s ", type);
 		print_ir_inst(inst, op0);
 
 		for (isize j = op1; j; j = inst[j].op1) {
@@ -392,7 +393,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		printf(")");
 		break;
 	case IR_PARAM:
-		printf("(param %d %d)", op0, op1);
+		printf("(param.%s %d %d)", type, op0, op1);
 		break;
 	case IR_LABEL:
 		printf("L%d: ", op0);
