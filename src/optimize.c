@@ -65,7 +65,7 @@ optimize(ir_program program, arena *arena)
 				u32 op0 = insts[i].op0;
 				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
 					u32 op1 = insts[i].op1;
-					types[op0] = insts[op1].type;
+					types[op1] = insts[op1].type;
 					insts[i].opcode = IR_MOV;
 				}
 			}
