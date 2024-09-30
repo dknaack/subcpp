@@ -381,6 +381,8 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_INVALID:
 		pool->error = true;
 		break;
+	case AST_NONE:
+		break;
 	case AST_BUILTIN:
 		{
 			ASSERT(!"TODO");
@@ -391,7 +393,6 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_STMT_CONTINUE:
 	case AST_STMT_DEFAULT:
 	case AST_STMT_DO_WHILE:
-	case AST_STMT_EMPTY:
 	case AST_STMT_FOR:
 	case AST_STMT_GOTO:
 	case AST_STMT_IF:

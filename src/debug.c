@@ -50,6 +50,8 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_INVALID:
 		printf("(invalid)");
 		break;
+	case AST_NONE:
+		break;
 	case AST_EXTERN_DEF:
 	case AST_DECL:
 		printf("%.*s: ", (int)node->token.value.length, node->token.value.at);
@@ -172,8 +174,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("while (");
 		print_ast_node(pool, children[0], indent);
 		printf(");");
-		break;
-	case AST_STMT_EMPTY:
 		break;
 	case AST_STMT_GOTO:
 		printf("goto %.*s", (int)node->token.value.length, node->token.value.at);

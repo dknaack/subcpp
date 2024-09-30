@@ -3,6 +3,7 @@ typedef struct type type;
 
 typedef enum {
 	AST_INVALID,         // {}
+	AST_NONE,            // {}
 	AST_BUILTIN,         // {}
 	AST_DECL,            // {type, expr?}
 	AST_ENUMERATOR,      // {expr?}
@@ -31,7 +32,6 @@ typedef enum {
 	AST_STMT_CONTINUE,   // {}
 	AST_STMT_DEFAULT,    // {stmt}
 	AST_STMT_DO_WHILE,   // {expr, stmt}
-	AST_STMT_EMPTY,      // {}
 	AST_STMT_FOR,        // {(expr|decl)?, expr?, expr?, stmt}
 	AST_STMT_GOTO,       // {}
 	AST_STMT_IF,         // {expr, stmt, stmt?}

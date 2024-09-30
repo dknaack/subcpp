@@ -954,7 +954,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
-				init = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
+				init = new_node(pool, AST_NONE, token, ast_id_nil);
 			}
 
 			ast_id cond = {0};
@@ -962,7 +962,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 				cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
-				cond = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
+				cond = new_node(pool, AST_NONE, token, ast_id_nil);
 			}
 
 			ast_id post = {0};
@@ -970,7 +970,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 				post = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
 				expect(ctx, TOKEN_RPAREN);
 			} else {
-				post = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
+				post = new_node(pool, AST_NONE, token, ast_id_nil);
 			}
 
 			ast_id stmt = parse_stmt(ctx, s, pool, arena);
@@ -1050,7 +1050,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_SEMICOLON:
 		{
 			get_token(ctx);
-			result = new_node(pool, AST_STMT_EMPTY, token, ast_id_nil);
+			result = new_node(pool, AST_NONE, token, ast_id_nil);
 		} break;
 	case TOKEN_LBRACE:
 		{

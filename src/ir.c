@@ -198,6 +198,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
 		break;
+	case AST_NONE:
+		break;
 	case AST_BUILTIN:
 		{
 			ASSERT(!"TODO");
@@ -745,8 +747,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit2(&new_ctx, IR_VOID, IR_JNZ, cond_reg, new_ctx.continue_label);
 			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
 		} break;
-	case AST_STMT_EMPTY:
-		break;
 	case AST_STMT_FOR:
 		{
 			ir_context new_ctx = *ctx;
@@ -759,7 +759,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, cond_label);
 
 			ast_node *cond = get_node(pool, children[1]);
-			if (cond->kind == AST_STMT_EMPTY) {
+			if (cond->kind == AST_NONE) {
 				ir_emit0(&new_ctx, IR_VOID, IR_NOP);
 			} else {
 				u32 cond_reg = translate_node(&new_ctx, pool, children[1], false);
