@@ -1144,7 +1144,14 @@ check(ast_pool *pool, arena *perm)
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		if (node->token.kind == TOKEN_LITERAL_FLOAT) {
-			ASSERT(!"TODO");
+			double *value = ALLOC(perm, 1, double);
+			*value = strtod(node->token.value, NULL);
+
+			info.of[i].value = symbol_index;
+			symbol *sym = &symtab->symbols[symbol_index++];
+			sym->linkage = get_linkage(node->flags);
+			sym->data = value;
+			sym->size = sizeof(double);
 		} else if (node->token.kind == TOKEN_LITERAL_STRING) {
 			str escaped = node->token.value;
 			str unescaped = {0};
