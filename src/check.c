@@ -356,7 +356,7 @@ eval_ast(semantic_context ctx, ast_id node_id)
 }
 
 static type_id
-check_type(semantic_context ctx, ast_id node_id)
+check_node(semantic_context ctx, ast_id node_id)
 {
 	semantic_info *info = ctx.info;
 	type_pool *types = &ctx.info->types;
@@ -401,7 +401,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		{
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
-				check_type(ctx, child_id);
+				check_node(ctx, child_id);
 				ast_node *child = get_node(pool, child_id);
 				child_id = child->next;
 			}
@@ -425,7 +425,7 @@ check_type(semantic_context ctx, ast_id node_id)
 					switch_sym->first = switch_sym->last = case_sym;
 				}
 
-				check_type(ctx, children[0]);
+				check_node(ctx, children[0]);
 			}
 		} break;
 	case AST_STMT_DEFAULT:
@@ -439,15 +439,15 @@ check_type(semantic_context ctx, ast_id node_id)
 				}
 
 				switch_sym->default_case = node_id;
-				check_type(ctx, children[0]);
+				check_node(ctx, children[0]);
 			}
 		} break;
 	case AST_STMT_SWITCH:
 		{
-			check_type(ctx, children[0]);
+			check_node(ctx, children[0]);
 
 			ctx.switch_id = node_id;
-			check_type(ctx, children[1]);
+			check_node(ctx, children[1]);
 		} break;
 	case AST_INIT:
 		{
@@ -473,7 +473,7 @@ check_type(semantic_context ctx, ast_id node_id)
 						set_type(types, node_id, member->type);
 					}
 
-					type_id value_type = check_type(ctx, child);
+					type_id value_type = check_node(ctx, child);
 					// TODO: Type conversion
 					if (!are_compatible(member->type, value_type, types)) {
 						//errorf(list_node->token.loc, "Invalid type");
@@ -497,7 +497,7 @@ check_type(semantic_context ctx, ast_id node_id)
 						set_type(types, node_id, expected);
 					}
 
-					type_id found = check_type(ctx, node_id);
+					type_id found = check_node(ctx, node_id);
 					if (!are_compatible(found, expected, types)) {
 						errorf(node->token.loc, "Invalid array member type");
 					}
@@ -508,8 +508,8 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			type_id lhs = check_type(ctx, children[0]);
-			type_id rhs = check_type(ctx, children[1]);
+			type_id lhs = check_node(ctx, children[0]);
+			type_id rhs = check_node(ctx, children[1]);
 			type *lhs_type = get_type_data(types, lhs);
 			type *rhs_type = get_type_data(types, rhs);
 			node_type = lhs;
@@ -555,7 +555,7 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			type_id called_id = check_type(ctx, node->children);
+			type_id called_id = check_node(ctx, node->children);
 			type *called = get_type_data(types, called_id);
 			if (called->kind != TYPE_FUNCTION) {
 				pool->error = true;
@@ -566,7 +566,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			ast_id param_id = children[1];
 			while (param_member && param_id.value != 0) {
 				ast_node *param_node = get_node(pool, param_id);
-				type_id param = check_type(ctx, param_id);
+				type_id param = check_node(ctx, param_id);
 				ASSERT(param_member->type.value != 0);
 				if (!are_compatible(param_member->type, param, types)) {
 					errorf(param_node->token.loc, "Invalid parameter type");
@@ -577,7 +577,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			}
 
 			while (param_id.value != 0) {
-				check_type(ctx, param_id);
+				check_node(ctx, param_id);
 
 				ast_node *param_node = get_node(pool, param_id);
 				param_id = param_node->next;
@@ -596,16 +596,16 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_CAST:
 		{
-			type_id cast_type = check_type(ctx, node->children);
+			type_id cast_type = check_node(ctx, node->children);
 			node_type = cast_type;
-			check_type(ctx, children[1]);
+			check_node(ctx, children[1]);
 			// TODO: Ensure that this cast is valid.
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
-			type_id expr_type = check_type(ctx, node->children);
+			type_id expr_type = check_node(ctx, node->children);
 			set_type(types, children[1], expr_type);
-			check_type(ctx, children[1]);
+			check_node(ctx, children[1]);
 			node_type = expr_type;
 		} break;
 	case AST_EXPR_IDENT:
@@ -638,7 +638,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		{
-			type_id operand_id = check_type(ctx, node->children);
+			type_id operand_id = check_node(ctx, node->children);
 			type *operand = get_type_data(types, operand_id);
 			if (node->kind == AST_EXPR_MEMBER_PTR) {
 				if (operand->kind != TYPE_POINTER) {
@@ -674,7 +674,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
 		{
-			type_id operand_id = check_type(ctx, node->children);
+			type_id operand_id = check_node(ctx, node->children);
 			type *operand = get_type_data(types, operand_id);
 			switch (node->token.kind) {
 			case TOKEN_STAR:
@@ -707,14 +707,14 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_TERNARY:
 		{
-			type_id cond_id = check_type(ctx, children[0]);
+			type_id cond_id = check_node(ctx, children[0]);
 			if (!is_integer(cond_id)) {
 				ast_node *cond_node = get_node(pool, node->children);
 				errorf(cond_node->token.loc, "Not an integer expression");
 			}
 
-			type_id lhs = check_type(ctx, children[1]);
-			type_id rhs = check_type(ctx, children[2]);
+			type_id lhs = check_node(ctx, children[1]);
+			type_id rhs = check_node(ctx, children[2]);
 			if (!are_compatible(lhs, rhs, types)) {
 				ast_node *lhs_node = get_node(pool, children[1]);
 				location loc = lhs_node->token.loc;
@@ -726,7 +726,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			type_id decl_type = check_type(ctx, node->children);
+			type_id decl_type = check_node(ctx, node->children);
 			node_type = decl_type;
 
 			ASSERT(node_type.value != 0);
@@ -736,7 +736,7 @@ check_type(semantic_context ctx, ast_id node_id)
 					set_type(types, children[1], node_type);
 				}
 
-				check_type(ctx, children[1]);
+				check_node(ctx, children[1]);
 			}
 		} break;
 	case AST_TYPE_BASIC:
@@ -794,20 +794,20 @@ check_type(semantic_context ctx, ast_id node_id)
 		break;
 	case AST_TYPE_POINTER:
 		{
-			type_id base_type = check_type(ctx, children[0]);
+			type_id base_type = check_node(ctx, children[0]);
 			node_type = pointer_type(base_type, types);
 		} break;
 	case AST_TYPE_ARRAY:
 		{
 			i64 size = 0;
 			if (children[1].value != 0) {
-				check_type(ctx, children[1]);
+				check_node(ctx, children[1]);
 				size = eval_ast(ctx, children[1]);
 			} else {
 				// TODO: Evaluate the size based on the expression or error.
 			}
 
-			type_id base_type = check_type(ctx, children[0]);
+			type_id base_type = check_node(ctx, children[0]);
 			if (base_type.value == TYPE_VOID) {
 				errorf(node->token.loc, "array of voids");
 			}
@@ -816,20 +816,20 @@ check_type(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_TYPE_BITFIELD:
 		{
-			type_id base_type = check_type(ctx, children[0]);
+			type_id base_type = check_node(ctx, children[0]);
 			// TODO: Evaluate the expression
 			node_type = bitfield_type(base_type, 1, types);
 		} break;
 	case AST_TYPE_FUNC:
 		{
-			type_id return_type = check_type(ctx, children[0]);
+			type_id return_type = check_node(ctx, children[0]);
 
 			member *params = NULL;
 			member **m = &params;
 			ast_id param_id = children[1];
 			while (param_id.value != 0) {
 				ast_node *param = get_node(pool, param_id);
-				type_id param_type = check_type(ctx, param_id);
+				type_id param_type = check_node(ctx, param_id);
 				*m = ALLOC(arena, 1, member);
 				(*m)->name = param->token.value;
 				(*m)->type = param_type;
@@ -876,7 +876,7 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_TAG:
 		{
 			// TODO: Set this as an opaque type
-			type_id base_type = check_type(ctx, children[0]);
+			type_id base_type = check_node(ctx, children[0]);
 			node_type = opaque_type(base_type, types);
 		} break;
 	case AST_TYPE_COMPOUND:
@@ -886,7 +886,7 @@ check_type(semantic_context ctx, ast_id node_id)
 			member **ptr = &members;
 			ast_id decl_id = node->children;
 			while (decl_id.value != 0) {
-				type_id decl_type = check_type(ctx, decl_id);
+				type_id decl_type = check_node(ctx, decl_id);
 				ast_node *decl_node = get_node(pool, decl_id);
 
 				*ptr = ALLOC(arena, 1, member);
@@ -1056,7 +1056,7 @@ check(ast_pool *pool, arena *perm)
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
-		check_type(ctx, node_id);
+		check_node(ctx, node_id);
 		node_id = get_node(pool, node_id)->next;
 	}
 
