@@ -263,6 +263,7 @@ parse_i64(str input)
 	return result;
 }
 
+// TODO: Replace semantic_context with two parameters for types and ast_pool
 static i64
 eval_ast(semantic_context ctx, ast_id node_id)
 {
@@ -1113,62 +1114,6 @@ check(ast_pool *pool, arena *perm)
 
 	// NOTE: Collect constants
 	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		if (node->token.kind == TOKEN_LITERAL_FLOAT) {
-			double *value = ALLOC(perm, 1, double);
-			*value = strtod(node->token.value.at, NULL);
-
-			info.of[i].value = symbol_index;
-			symbol *sym = &symtab->symbols[symbol_index++];
-			sym->linkage = get_linkage(node->flags);
-			sym->data = value;
-			sym->size = sizeof(double);
-		} else if (node->token.kind == TOKEN_LITERAL_STRING) {
-			str escaped = node->token.value;
-			str unescaped = {0};
-			unescaped.at = ALLOC(perm, escaped.length + 1, char);
-			for (isize i = 1; i < escaped.length - 1; i++) {
-				char c = escaped.at[i];
-				if (c == '\\') {
-					c = escaped.at[++i];
-					switch (c) {
-					case '"':
-						unescaped.at[unescaped.length++] = c;
-						break;
-					case 'n':
-						unescaped.at[unescaped.length++] = '\n';
-						break;
-					case 't':
-						unescaped.at[unescaped.length++] = '\t';
-						break;
-					case 'v':
-						unescaped.at[unescaped.length++] = '\v';
-						break;
-					case 'r':
-						unescaped.at[unescaped.length++] = '\r';
-						break;
-					case 'f':
-						unescaped.at[unescaped.length++] = '\f';
-						break;
-					case '\\':
-						unescaped.at[unescaped.length++] = '\\';
-						break;
-					default:
-						ASSERT(!"Invalid escape sequence");
-					}
-				} else {
-					unescaped.at[unescaped.length++] = c;
-				}
-			}
-
-			unescaped.at[unescaped.length++] = '\0';
-
-			info.of[i].value = symbol_index;
-			symbol *sym = &symtab->symbols[symbol_index++];
-			sym->linkage = get_linkage(node->flags);
-			sym->data = unescaped.at;
-			sym->size = unescaped.length;
-		}
 	}
 
 	// NOTE: Collect global uninitialized variables

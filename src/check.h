@@ -34,8 +34,26 @@ typedef struct {
 	ast_id default_case;
 } switch_info;
 
+typedef enum {
+	SECTION_READ  = 1 << 0,
+	SECTION_WRITE = 1 << 1,
+	SECTION_EXEC  = 1 << 2,
+	SECTION_ZERO  = 1 << 3,
+	SECTION_COUNT = 1 << 4,
+
+	SECTION_TEXT   = SECTION_READ | SECTION_EXEC,
+	SECTION_DATA   = SECTION_READ | SECTION_WRITE,
+	SECTION_RODATA = SECTION_READ,
+	SECTION_BSS    = SECTION_READ | SECTION_WRITE | SECTION_ZERO,
+} section;
+
+typedef struct {
+	i32 value;
+} symbol_id;
+
 typedef struct {
 	linkage linkage;
+	section section;
 	str name;
 	void *data;
 	isize size;
@@ -390,4 +408,20 @@ get_string_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.string_count);
 	str *s = &info.strings[sym_id.value];
 	return s;
+}
+
+static symbol *
+new_symbol(symbol_table *symtab, section section)
+{
+	symbol *result = &symtab->symbols[symtab->symbol_count++];
+	(void)section;
+	return result;
+}
+
+static symbol_id
+get_symbol_id(symbol_table *symtab, symbol *sym)
+{
+	symbol_id result;
+	result.value = sym - symtab->symbols;
+	return result;
 }

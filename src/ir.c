@@ -188,6 +188,8 @@ static u32
 translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 {
 	type_pool *types = &ctx->info->types;
+	symbol_table *symtab = ctx->symtab;
+	arena *arena = ctx->arena;
 	u32 result = 0;
 
 	ast_id children[4] = {0};
@@ -532,12 +534,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_LITERAL:
 		{
 			switch (node->token.kind) {
-			case TOKEN_LITERAL_STRING:
-			case TOKEN_LITERAL_FLOAT:
-				{
-					info_id node_info = ctx->info->of[node_id.value];
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info.value);
-				} break;
 			case TOKEN_LITERAL_INT:
 				{
 					i64 value = parse_i64(node->token.value);
@@ -547,6 +543,75 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				{
 					char value = parse_char(node->token.value);
 					result = ir_emit1(ctx, IR_I8, IR_CONST, value);
+				} break;
+
+			case TOKEN_LITERAL_FLOAT:
+				{
+					// Convert the string into a floating-point number
+					double *value = ALLOC(arena, 1, double);
+					*value = strtod(node->token.value.at, NULL);
+
+					// Allocate a new global variable and store the value
+					symbol *sym = new_symbol(symtab, SECTION_RODATA);
+					sym->linkage = get_linkage(node->flags);
+					sym->data = value;
+					sym->size = sizeof(double);
+
+					// Load the global variable
+					symbol_id sym_id = get_symbol_id(symtab, sym);
+					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, sym_id.value);
+					result = ir_emit1(ctx, IR_F32, IR_LOAD, result);
+				} break;
+			case TOKEN_LITERAL_STRING:
+				{
+					str escaped = node->token.value;
+					str unescaped = {0};
+					unescaped.at = ALLOC(arena, escaped.length + 1, char);
+					for (isize i = 1; i < escaped.length - 1; i++) {
+						char c = escaped.at[i];
+						if (c == '\\') {
+							c = escaped.at[++i];
+							switch (c) {
+							case '"':
+								unescaped.at[unescaped.length++] = c;
+								break;
+							case 'n':
+								unescaped.at[unescaped.length++] = '\n';
+								break;
+							case 't':
+								unescaped.at[unescaped.length++] = '\t';
+								break;
+							case 'v':
+								unescaped.at[unescaped.length++] = '\v';
+								break;
+							case 'r':
+								unescaped.at[unescaped.length++] = '\r';
+								break;
+							case 'f':
+								unescaped.at[unescaped.length++] = '\f';
+								break;
+							case '\\':
+								unescaped.at[unescaped.length++] = '\\';
+								break;
+							default:
+								ASSERT(!"Invalid escape sequence");
+							}
+						} else {
+							unescaped.at[unescaped.length++] = c;
+						}
+					}
+
+					unescaped.at[unescaped.length++] = '\0';
+
+					// Allocate a new symbol and store the string
+					symbol *sym = new_symbol(symtab, SECTION_RODATA);
+					sym->linkage = get_linkage(node->flags);
+					sym->data = unescaped.at;
+					sym->size = unescaped.length;
+
+					// Load the string
+					symbol_id sym_id = get_symbol_id(symtab, sym);
+					result = ir_emit1(ctx, IR_I64, IR_LOAD, sym_id.value);
 				} break;
 			default:
 				ASSERT(!"Invalid literal");

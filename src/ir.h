@@ -116,6 +116,7 @@ typedef struct {
 	ir_program *program;
 	ir_function *func;
 	semantic_info *info;
+	symbol_table *symtab;
 	arena *arena;
 	u32 *locals;
 
