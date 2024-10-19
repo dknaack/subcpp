@@ -126,6 +126,8 @@ typedef struct {
 	ast_pool *ast;
 	arena *arena;
 	type_pool *types;
+	semantic_info *info;
+	ast_id switch_id;
 } semantic_context;
 
 static type *

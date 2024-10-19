@@ -358,7 +358,8 @@ eval_ast(semantic_context ctx, ast_id node_id)
 static type_id
 check_type(semantic_context ctx, ast_id node_id)
 {
-	type_pool *types = ctx.types;
+	semantic_info *info = ctx.info;
+	type_pool *types = &ctx.info->types;
 	ast_pool *pool = ctx.ast;
 	arena *arena = ctx.arena;
 
@@ -388,17 +389,14 @@ check_type(semantic_context ctx, ast_id node_id)
 			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_BREAK:
-	case AST_STMT_CASE:
 	case AST_STMT_COMPOUND:
 	case AST_STMT_CONTINUE:
-	case AST_STMT_DEFAULT:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_FOR:
 	case AST_STMT_GOTO:
 	case AST_STMT_IF:
 	case AST_STMT_LABEL:
 	case AST_STMT_RETURN:
-	case AST_STMT_SWITCH:
 	case AST_STMT_WHILE:
 		{
 			ast_id child_id = children[0];
@@ -411,6 +409,45 @@ check_type(semantic_context ctx, ast_id node_id)
 	case AST_STMT_ASM:
 		{
 			ASSERT(node->token.kind == TOKEN_LITERAL_STRING);
+		} break;
+	case AST_STMT_CASE:
+		{
+			if (ctx.switch_id.value == 0) {
+				errorf(node->token.loc, "case outside switch");
+			} else {
+				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
+				case_info *case_sym = get_case_info(*info, node_id);
+				case_sym->case_id = node_id;
+
+				if (switch_sym->last) {
+					switch_sym->last = switch_sym->last->next = case_sym;
+				} else {
+					switch_sym->first = switch_sym->last = case_sym;
+				}
+
+				check_type(ctx, children[0]);
+			}
+		} break;
+	case AST_STMT_DEFAULT:
+		{
+			if (ctx.switch_id.value == 0) {
+				errorf(node->token.loc, "default outside switch");
+			} else {
+				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
+				if (switch_sym->default_case.value != 0) {
+					errorf(node->token.loc, "Duplicate default label");
+				}
+
+				switch_sym->default_case = node_id;
+				check_type(ctx, children[0]);
+			}
+		} break;
+	case AST_STMT_SWITCH:
+		{
+			check_type(ctx, children[0]);
+
+			ctx.switch_id = node_id;
+			check_type(ctx, children[1]);
 		} break;
 	case AST_INIT:
 		{
@@ -869,69 +906,6 @@ check_type(semantic_context ctx, ast_id node_id)
 	return node_type;
 }
 
-static void
-check_switch_stmt(ast_pool *pool, ast_id node_id, semantic_info info, ast_id switch_id, arena *perm)
-{
-	if (node_id.value == 0) {
-		return;
-	}
-
-	ast_node *node = get_node(pool, node_id);
-	switch (node->kind) {
-	case AST_STMT_DO_WHILE:
-	case AST_STMT_FOR:
-	case AST_STMT_IF:
-	case AST_STMT_WHILE:
-	case AST_EXTERN_DEF:
-	case AST_STMT_COMPOUND:
-		while (node_id.value != 0) {
-			ast_node *node = get_node(pool, node_id);
-			check_switch_stmt(pool, node->children, info, switch_id, perm);
-			node_id = node->next;
-		}
-
-		break;
-	case AST_STMT_SWITCH:
-		{
-			ast_node *cond_node = get_node(pool, node->children);
-			ast_id body = cond_node->next;
-			check_switch_stmt(pool, body, info, node_id, perm);
-		} break;
-	case AST_STMT_CASE:
-		if (switch_id.value == 0) {
-			errorf(node->token.loc, "case outside switch");
-		} else {
-			switch_info *switch_sym = get_switch_info(info, switch_id);
-			case_info *case_sym = get_case_info(info, node_id);
-			case_sym->case_id = node_id;
-
-			if (switch_sym->last) {
-				switch_sym->last = switch_sym->last->next = case_sym;
-			} else {
-				switch_sym->first = switch_sym->last = case_sym;
-			}
-
-			ast_node *expr_node = get_node(pool, node->children);
-			ast_id stmt = expr_node->next;
-			check_switch_stmt(pool, stmt, info, switch_id, perm);
-		} break;
-	case AST_STMT_DEFAULT:
-		if (switch_id.value == 0) {
-			errorf(node->token.loc, "default outside switch");
-		} else {
-			switch_info *switch_sym = get_switch_info(info, switch_id);
-			if (switch_sym->default_case.value != 0) {
-				errorf(node->token.loc, "Duplicate default label");
-			}
-
-			switch_sym->default_case = node_id;
-			check_switch_stmt(pool, node->children, info, switch_id, perm);
-		} break;
-	default:
-		break;
-	}
-}
-
 static semantic_info
 check(ast_pool *pool, arena *perm)
 {
@@ -1078,12 +1052,10 @@ check(ast_pool *pool, arena *perm)
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.types = &info.types;
+	ctx.info = &info;
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
-		// NOTE: Collect all switch statements.
-		check_switch_stmt(pool, node_id, info, ast_id_nil, perm);
-
 		check_type(ctx, node_id);
 		node_id = get_node(pool, node_id)->next;
 	}
