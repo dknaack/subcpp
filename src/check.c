@@ -993,7 +993,6 @@ check(ast_pool *pool, arena *perm)
 
 	info.labels   = ALLOC(perm, info.label_count, u32);
 	info.strings  = ALLOC(perm, info.string_count, str);
-	info.decls    = ALLOC(perm, info.decl_count, decl_info);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
 

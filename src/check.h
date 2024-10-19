@@ -35,15 +35,6 @@ typedef struct {
 } switch_info;
 
 typedef struct {
-	str name;
-	type_id type;
-	ast_id definition;
-	linkage linkage;
-	b8 is_global;
-	b8 is_function;
-} decl_info;
-
-typedef struct {
 	linkage linkage;
 	str name;
 	void *data;
@@ -73,7 +64,6 @@ typedef struct {
 
 	u32 *labels;
 	str *strings;
-	decl_info *decls;
 	case_info *cases;
 	switch_info *switches;
 	symbol_table symtab;
@@ -365,17 +355,6 @@ get_member(member *list, str key)
 	}
 
 	return NULL;
-}
-
-static decl_info *
-get_decl_info(semantic_info info, ast_id node_id)
-{
-	ASSERT(info.kind[node_id.value] == INFO_DECL);
-	info_id sym_id = info.of[node_id.value];
-
-	ASSERT(sym_id.value < info.decl_count);
-	decl_info *decl = &info.decls[sym_id.value];
-	return decl;
 }
 
 static switch_info *
