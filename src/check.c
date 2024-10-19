@@ -1145,7 +1145,7 @@ check(ast_pool *pool, arena *perm)
 		ast_node *node = &pool->nodes[i];
 		if (node->token.kind == TOKEN_LITERAL_FLOAT) {
 			double *value = ALLOC(perm, 1, double);
-			*value = strtod(node->token.value, NULL);
+			*value = strtod(node->token.value.at, NULL);
 
 			info.of[i].value = symbol_index;
 			symbol *sym = &symtab->symbols[symbol_index++];
