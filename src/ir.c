@@ -16,13 +16,12 @@ ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 	ASSERT(ctx->program->inst_count <= ctx->max_inst_count);
 	if (opcode == IR_STORE) ASSERT(op1 != 0);
 
-	ir_inst *inst = &ctx->program->insts[ctx->program->inst_count++];
+	u32 result = ctx->func_inst_count++;
+	ir_inst *inst = &ctx->func_insts[result];
 	inst->opcode = opcode;
 	inst->type = type;
 	inst->op0 = op0;
 	inst->op1 = op1;
-
-	u32 result = ctx->reg_count++;
 	return result;
 }
 
@@ -248,18 +247,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				sym->name = node->token.value;
 
 				if (children[1].value != 0) {
-					// function definition
-					isize function_index = node_info->value - ctx->program->symtab.text_offset;
-					ctx->func = &ctx->program->functions[function_index];
-					ctx->func->name = node->token.value;
-					ctx->func->inst_index = ctx->program->inst_count;
+					// Create a new function
+					isize text_offset = ctx->program->symtab.text_offset;
+					isize func_index = node_info->value - text_offset;
+					ir_function *func = &ctx->program->functions[func_index];
+					func->name = node->token.value;
+					func->inst_index = ctx->program->inst_count;
 
-					// Reset the registers and labels
+					// Reset the instructions, registers and labels
+					ctx->func_insts = ctx->program->insts + func->inst_index;
 					ctx->label_count = 1;
 					ctx->reg_count = 1;
 
 					// Keep the first instruction as NULL register
 					ctx->program->inst_count++;
+					ctx->func_inst_count++;
 
 					// NOTE: Emit parameter registers
 					ast_id return_id = type->children;
@@ -268,7 +270,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					while (param_id.value != 0) {
 						type_id param_type = get_type_id(types, param_id);
 						isize param_size = type_sizeof(param_type, types);
-						isize param_index = ctx->func->param_count++;
+						isize param_index = func->param_count++;
 						u32 param_reg = ir_emit(ctx, IR_VOID, IR_PARAM, param_index, param_size);
 
 						u32 param_local = ir_emit_alloca(ctx, param_size);
@@ -280,10 +282,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					}
 
 					translate_node(ctx, pool, children[1], false);
-					ctx->func->inst_count = ctx->program->inst_count - ctx->func->inst_index;
+					func->inst_count = ctx->program->inst_count - func->inst_index;
 
-					sym->size = ctx->func->inst_count * sizeof(ir_inst);
-					sym->data = ctx->program->insts + ctx->func->inst_index;
+					sym->size = func->inst_count * sizeof(ir_inst);
+					sym->data = ctx->program->insts + func->inst_index;
 				}
 			} else {
 				// global variable (initialized or uninitialized)
@@ -301,8 +303,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ASSERT(!"TODO: Translate the global variable into bytes");
 				}
 			}
-
-			ctx->func = NULL;
 		} break;
 	case AST_INIT:
 		ASSERT(!"Should have been handled by DECL");

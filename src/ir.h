@@ -115,12 +115,13 @@ typedef struct {
 } ir_program;
 
 typedef struct {
-	ir_program *program;
-	ir_function *func;
-	semantic_info *info;
-	arena *arena;
 	u32 *locals;
+	arena *arena;
+	ir_inst *func_insts;
+	ir_program *program;
+	semantic_info *info;
 
+	isize func_inst_count;
 	isize max_inst_count;
 	isize label_count;
 	isize reg_count;
