@@ -404,11 +404,11 @@ print_ir_inst(ir_inst *inst, u32 i)
 static void
 print_ir_program(ir_program program)
 {
-	for (isize i = 0; i < program.function_count; i++) {
+	for (isize i = 0; i < program.func_count; i++) {
 		arena *temp = new_arena(4096);
 
-		ir_function *func = &program.functions[i];
-		printf("function[%ld]:\n", i);
+		ir_function *func = &program.funcs[i];
+		printf("func[%ld]:\n", i);
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  param_count: %d\n", func->param_count);
 		printf("  inst_index: %d\n", func->inst_index);

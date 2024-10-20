@@ -23,8 +23,8 @@ static void
 optimize(ir_program program, arena *arena)
 {
 	// Promote stack variables
-	for (isize f = 0; f < program.function_count; f++) {
-		ir_function *func = &program.functions[f];
+	for (isize f = 0; f < program.func_count; f++) {
+		ir_function *func = &program.funcs[f];
 		// Mark all stack variables which address is used by a different
 		// instruction than load/store.
 		ir_inst *insts = program.insts + func->inst_index;
@@ -103,8 +103,8 @@ optimize(ir_program program, arena *arena)
 	}
 
 	// Constant-folding
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
+	for (isize i = 0; i < program.func_count; i++) {
+		ir_function *func = &program.funcs[i];
 		ir_inst *insts = program.insts + func->inst_index;
 		for (isize i = 0; i < func->inst_count; i++) {
 			u32 op0 = insts[i].op0;
@@ -188,8 +188,8 @@ optimize(ir_program program, arena *arena)
 		b8 *reachable = ALLOC(arena, program.max_label_count, b8);
 		u32 *stack = ALLOC(arena, program.max_label_count, u32);
 		u32 *label_addresses = ALLOC(arena, program.max_label_count, u32);
-		for (isize i = 0; i < program.function_count; i++) {
-			ir_function *func = &program.functions[i];
+		for (isize i = 0; i < program.func_count; i++) {
+			ir_function *func = &program.funcs[i];
 			memset(reachable, 0, program.max_label_count * sizeof(*reachable));
 			ir_inst *inst = program.insts + func->inst_index;
 
@@ -262,8 +262,8 @@ next_block:
 	}
 
 	// Remove register copies from the IR tree
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
+	for (isize i = 0; i < program.func_count; i++) {
+		ir_function *func = &program.funcs[i];
 		ir_inst *insts = program.insts + func->inst_index;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);
@@ -281,8 +281,8 @@ next_block:
 	}
 
 	// Remove unused registers
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
+	for (isize i = 0; i < program.func_count; i++) {
+		ir_function *func = &program.funcs[i];
 		arena_temp temp = arena_temp_begin(arena);
 		ir_inst *inst = program.insts + func->inst_index;
 

@@ -213,7 +213,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			if (ctx->locals[node_id.value] == 0) {
+			if (ctx->node_addr[node_id.value] == 0) {
 				type_id type = get_type_id(types, node_id);
 				isize size = type_sizeof(type, types);
 				u32 addr = ir_emit_alloca(ctx, size);
@@ -228,29 +228,29 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					}
 				}
 
-				ctx->locals[node_id.value] = addr;
+				ctx->node_addr[node_id.value] = addr;
 			}
 		} break;
 	case AST_EXTERN_DEF:
 		{
-			info_id *node_info = &ctx->info->of[node_id.value];
+			u32 *node_addr = &ctx->node_addr[node_id.value];
 			ast_node *type = get_node(pool, children[0]);
-			if (node_info->value != 0) {
-				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, node_info->value);
+			if (*node_addr != 0) {
+				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, *node_addr);
 			} else if (node->flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
 			} else if (type->kind == AST_TYPE_FUNC) {
 				// Create a new symbol for the function
 				symbol *sym = new_symbol(symtab, SECTION_TEXT);
-				node_info->value = get_symbol_id(symtab, sym).value;
+				*node_addr = get_symbol_id(symtab, sym).value;
 				sym->linkage = get_linkage(node->flags);
 				sym->name = node->token.value;
 
 				if (children[1].value != 0) {
 					// Create a new function
 					isize text_offset = ctx->program->symtab.text_offset;
-					isize func_index = node_info->value - text_offset;
-					ir_function *func = &ctx->program->functions[func_index];
+					isize func_index = *node_addr - text_offset;
+					ir_function *func = &ctx->program->funcs[func_index];
 					func->name = node->token.value;
 					func->inst_index = ctx->program->inst_count;
 
@@ -275,7 +275,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 						u32 param_local = ir_emit_alloca(ctx, param_size);
 						ir_store(ctx, param_local, param_reg, param_type);
-						ctx->locals[param_id.value] = param_local;
+						ctx->node_addr[param_id.value] = param_local;
 
 						ast_node *param = get_node(pool, param_id);
 						param_id = param->next;
@@ -297,7 +297,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				sym->name = node->token.value;
 				type_id node_type = get_type_id(types, node_id);
 				sym->size = type_sizeof(node_type, types);
-				node_info->value = get_symbol_id(symtab, sym).value;
+				*node_addr = get_symbol_id(symtab, sym).value;
 
 				if (is_initialized) {
 					ASSERT(!"TODO: Translate the global variable into bytes");
@@ -553,7 +553,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id ref_id = children[0];
 			ast_node *ref_node = get_node(pool, ref_id);
 			if (ref_node->kind == AST_DECL) {
-				result = ctx->locals[ref_id.value];
+				result = ctx->node_addr[ref_id.value];
 			} else if (ref_node->kind == AST_EXTERN_DEF) {
 				result = translate_node(ctx, pool, ref_id, is_lvalue);
 			}
@@ -878,8 +878,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_LABEL:
 		{
 			ir_opcode opcode = node->kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
-			info_id node_info = ctx->info->of[node_id.value];
-			u32 *label = &ctx->info->labels[node_info.value];
+			u32 *label = &ctx->node_addr[node_id.value];
 			if (!*label) {
 				*label = new_label(ctx);
 			}
@@ -1099,20 +1098,20 @@ static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
 	// NOTE: Translate node to IR code
-	isize function_count = info->symtab.data_offset - info->symtab.text_offset;
+	isize func_count = info->symtab.data_offset - info->symtab.text_offset;
 
 	isize max_inst_count = 1024 * 1024;
 	ir_program program = {0};
 	program.insts = ALLOC(arena, max_inst_count, ir_inst);
-	program.functions = ALLOC(arena, function_count, ir_function);
-	program.function_count = function_count;
+	program.funcs = ALLOC(arena, func_count, ir_function);
+	program.func_count = func_count;
 
 	ir_context ctx = {0};
 	ctx.program = &program;
 	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
 	ctx.info = info;
-	ctx.locals = ALLOC(arena, pool->size, u32);
+	ctx.node_addr = ALLOC(arena, pool->size, u32);
 
 	// Count the total number of symbols
 	symbol_table *symtab = &program.symtab;
@@ -1138,8 +1137,8 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	}
 
 	// NOTE: Propagate types through the instructions
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *func = &program.functions[i];
+	for (isize i = 0; i < program.func_count; i++) {
+		ir_function *func = &program.funcs[i];
 		ASSERT(func->name.length > 0);
 
 		ir_inst *inst = program.insts + func->inst_index;

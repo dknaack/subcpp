@@ -652,7 +652,7 @@ static mach_program
 x86_select(ir_program program, arena *arena)
 {
 	mach_program out = {0};
-	out.functions = ALLOC(arena, program.function_count, mach_function);
+	out.functions = ALLOC(arena, program.func_count, mach_function);
 	// TODO: This should be a dynamic array
 	out.max_size = 8 * 1024 * 1024;
 	out.code = alloc(arena, out.max_size, 1);
@@ -662,8 +662,8 @@ x86_select(ir_program program, arena *arena)
 	out.register_info.volatile_registers = x86_temp_regs;
 	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
 
-	for (isize i = 0; i < program.function_count; i++) {
-		ir_function *ir_func = &program.functions[i];
+	for (isize i = 0; i < program.func_count; i++) {
+		ir_function *ir_func = &program.funcs[i];
 		mach_function *mach_func = &out.functions[i];
 		mach_func->vreg_count = program.max_reg_count;
 		mach_func->label_count = program.max_label_count;

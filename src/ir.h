@@ -102,21 +102,18 @@ struct ir_function {
 
 typedef struct {
 	ir_inst *insts;
-	ir_function *functions;
+	ir_function *funcs;
 	symbol_table symtab;
 
-	// Maximum number of registers/labels in each function
-	isize max_reg_count;
-	isize max_label_count;
-	isize function_count;
-
-	// Total number of instructions
-	isize inst_count;
+	isize max_reg_count; // Maximum number of registers in each function
+	isize max_label_count; // Maximum number of labels in each function
+	isize inst_count; // Total number of instructions
+	isize func_count; // Total number of functions
 } ir_program;
 
 typedef struct {
-	u32 *locals;
 	arena *arena;
+	u32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
 	semantic_info *info;
