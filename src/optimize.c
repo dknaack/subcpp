@@ -185,12 +185,12 @@ optimize(ir_program program, arena *arena)
 
 	// Eliminate dead code
 	{
-		b8 *reachable = ALLOC(arena, program.label_count, b8);
-		u32 *stack = ALLOC(arena, program.label_count, u32);
-		u32 *label_addresses = ALLOC(arena, program.label_count, u32);
+		b8 *reachable = ALLOC(arena, program.max_label_count, b8);
+		u32 *stack = ALLOC(arena, program.max_label_count, u32);
+		u32 *label_addresses = ALLOC(arena, program.max_label_count, u32);
 		for (isize i = 0; i < program.function_count; i++) {
 			ir_function *func = &program.functions[i];
-			memset(reachable, 0, program.label_count * sizeof(*reachable));
+			memset(reachable, 0, program.max_label_count * sizeof(*reachable));
 			ir_inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
@@ -241,7 +241,7 @@ next_block:
 				}
 			}
 
-			for (isize label = 1; label < func->label_count; label++) {
+			for (isize label = 1; label < program.max_label_count; label++) {
 				if (reachable[label]) {
 					continue;
 				}

@@ -97,30 +97,34 @@ struct ir_function {
 	i32 param_count;
 	i32 inst_index;
 	i32 inst_count;
-	i32 label_count;
 	i32 stack_size;
-	i32 register_count;
 };
 
 typedef struct {
 	ir_inst *insts;
 	ir_function *functions;
+	symbol_table symtab;
 
-	u32 register_count;
-	u32 function_count;
-	u32 inst_count;
-	u32 label_count;
+	// Maximum number of registers/labels in each function
+	isize max_reg_count;
+	isize max_label_count;
+	isize function_count;
+
+	// Total number of instructions
+	isize inst_count;
 } ir_program;
 
 typedef struct {
 	ir_program *program;
 	ir_function *func;
 	semantic_info *info;
-	symbol_table *symtab;
 	arena *arena;
 	u32 *locals;
 
-	u32 max_inst_count;
+	isize max_inst_count;
+	isize label_count;
+	isize reg_count;
+
 	u32 stack_size;
 	u32 continue_label;
 	u32 break_label;

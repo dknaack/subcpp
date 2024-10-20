@@ -727,13 +727,12 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			type_id decl_type = check_node(ctx, node->children);
-			node_type = decl_type;
-
+			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
+
 			if (children[1].value != 0) {
-				ast_node *initializer = get_node(pool, children[1]);
-				if (initializer->kind == AST_INIT) {
+				ast_node *init = get_node(pool, children[1]);
+				if (init->kind == AST_INIT) {
 					set_type(types, children[1], node_type);
 				}
 
@@ -920,10 +919,8 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	info.switch_count = 1;
-	info.decl_count = 1;
 	info.case_count = 1;
 	info.label_count = 1;
-	info.string_count = 1;
 
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
@@ -940,34 +937,12 @@ check(ast_pool *pool, arena *perm)
 			info.of[i].value = info.label_count++;
 			info.kind[i] = INFO_LABEL;
 			break;
-		case AST_TYPE_TAG:
-			if (node->token.value.at == NULL || node->children.value == 0) {
-				break;
-			}
-
-			/* fallthrough */
-		case AST_EXTERN_DEF:
-		case AST_ENUMERATOR:
-		case AST_DECL:
-			if (!(node->flags & AST_TYPEDEF)) {
-				info.of[i].value = info.decl_count++;
-				info.kind[i] = INFO_DECL;
-			}
-
-			break;
-		case AST_EXPR_LITERAL:
-			if (node->token.kind == TOKEN_LITERAL_STRING) {
-				info.of[i].value = info.string_count++;
-				info.kind[i] = INFO_STRING;
-			}
-			break;
 		default:
 			break;
 		}
 	}
 
 	info.labels   = ALLOC(perm, info.label_count, u32);
-	info.strings  = ALLOC(perm, info.string_count, str);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
 
@@ -1021,32 +996,6 @@ check(ast_pool *pool, arena *perm)
 		arena_temp_end(temp);
 	}
 
-	// NOTE: Gather symbol information
-	symbol_table *symtab = &info.symtab;
-	isize symbol_count = 1;
-	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		switch (node->kind) {
-		case AST_EXTERN_DEF:
-			symbol_count++;
-			break;
-		case AST_EXPR_LITERAL:
-			if (node->token.kind == TOKEN_LITERAL_FLOAT
-				|| node->token.kind == TOKEN_LITERAL_STRING)
-			{
-				symbol_count++;
-			}
-
-			break;
-		default:
-			break;
-		}
-	}
-
-	symtab->symbol_count = symbol_count;
-	symtab->symbols = ALLOC(perm, symbol_count, symbol);
-
-
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	semantic_context ctx = {0};
@@ -1059,104 +1008,6 @@ check(ast_pool *pool, arena *perm)
 	while (node_id.value != 0) {
 		check_node(ctx, node_id);
 		node_id = get_node(pool, node_id)->next;
-	}
-
-	// NOTE: Collect function definitions
-	isize symbol_index = 1;
-	symtab->text_offset = symbol_index;
-	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		ast_node *type = NULL;
-		if (node->children.value != 0) {
-			type = get_node(pool, node->children);
-		}
-
-		if (node->kind == AST_EXTERN_DEF
-			&& !(node->flags & AST_TYPEDEF)
-			&& (type && type->kind == AST_TYPE_FUNC))
-		{
-			info.of[i].value = symbol_index;
-			symbol *sym = &symtab->symbols[symbol_index++];
-			sym->linkage = get_linkage(node->flags);
-			sym->name = node->token.value;
-		}
-	}
-
-	// NOTE: Collect global initialized variables
-	ASSERT(symbol_index > symtab->text_offset);
-	symtab->data_offset = symbol_index;
-	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		type_id node_type = info.types.at[i];
-		ast_node *type = NULL;
-		if (node->children.value != 0) {
-			type = get_node(pool, node->children);
-		}
-
-		if (node->kind == AST_EXTERN_DEF
-			&& node->token.kind == TOKEN_IDENT
-			&& !(node->flags & AST_TYPEDEF)
-			&& !(type && type->kind == AST_TYPE_FUNC))
-		{
-			info.of[i].value = symbol_index;
-			symbol *sym = &symtab->symbols[symbol_index++];
-			sym->linkage = get_linkage(node->flags);
-			sym->name = node->token.value;
-			sym->size = type_sizeof(node_type, &info.types);
-			ASSERT(sym->size > 0);
-
-			ast_node *child = get_node(pool, node->children);
-			if (child->next.value != 0) {
-				sym->data = NULL; // TODO: Translate value into memory
-			}
-		}
-	}
-
-	// NOTE: Collect constants
-	for (isize i = 1; i < pool->size; i++) {
-	}
-
-	// NOTE: Collect global uninitialized variables
-	symtab->rodata_offset = symbol_index;
-	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		type_id node_type = info.types.at[i];
-		ast_node *type = NULL;
-		ast_node *child = NULL;
-		if (node->children.value != 0) {
-			type = get_node(pool, node->children);
-			child = get_node(pool, node->children);
-		}
-
-		if (node->kind == AST_EXTERN_DEF
-			&& !(node->flags & AST_TYPEDEF)
-			&& !(type && type->kind == AST_TYPE_FUNC)
-			&& !(child && child->next.value != 0))
-		{
-			info.of[i].value = symbol_index;
-			symbol *sym = &symtab->symbols[symbol_index++];
-			sym->linkage = get_linkage(node->flags);
-			sym->name = node->token.value;
-			sym->data = NULL; // TODO: Translate value into memory
-			sym->size = type_sizeof(node_type, &info.types);
-			ASSERT(sym->size > 0);
-		}
-	}
-
-	symtab->bss_offset = symbol_index;
-
-	// NOTE: Tag identifiers info with the referenced variable
-	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		if (node->kind == AST_EXPR_IDENT) {
-			ast_id ref_node = node->children;
-			info_id ref_info = info.of[ref_node.value];
-			info.of[i] = ref_info;
-
-			// NOTE: A referenced node should always exist, since we already
-			// did name resolution during the parsing phase.
-			ASSERT(ref_info.value != 0);
-		}
 	}
 
 	return info;
