@@ -95,7 +95,7 @@ regalloc_func(mach_function func, void *code,
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
 	// column and row.
-	u32 reg_count = reg_info.register_count + func.register_count;
+	u32 reg_count = reg_info.register_count + func.vreg_count;
 	bit_matrix live_matrix = bit_matrix_init(reg_count, func.inst_count, arena);
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
@@ -198,11 +198,11 @@ regalloc_func(mach_function func, void *code,
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < func.register_count; i++) {
+	for (u32 i = 0; i < func.vreg_count; i++) {
 		sorted[i] = i;
 	}
 
-	for (u32 i = 1; i < func.register_count; i++) {
+	for (u32 i = 1; i < func.vreg_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
@@ -211,7 +211,7 @@ regalloc_func(mach_function func, void *code,
 	}
 
 	// Determine floating-pointer registers
-	b32 *is_float_vreg = ALLOC(arena, func.register_count, b32);
+	b32 *is_float_vreg = ALLOC(arena, func.vreg_count, b32);
 	for (u32 i = 0; i < func.inst_count; i++) {
 		mach_inst *inst = get_inst(code, func.inst_offsets, i);
 		u32 operand_count = inst->operand_count;
@@ -238,8 +238,8 @@ regalloc_func(mach_function func, void *code,
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	mach_operand *mreg_map = ALLOC(arena, func.register_count, mach_operand);
-	for (u32 i = 0; i < func.register_count; i++) {
+	mach_operand *mreg_map = ALLOC(arena, func.vreg_count, mach_operand);
+	for (u32 i = 0; i < func.vreg_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
@@ -257,7 +257,7 @@ regalloc_func(mach_function func, void *code,
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg >= func.register_count);
+			b32 is_mreg = (inactive_reg >= func.vreg_count);
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
@@ -273,7 +273,7 @@ regalloc_func(mach_function func, void *code,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(curr_reg < func.register_count);
+		ASSERT(curr_reg < func.vreg_count);
 		b32 should_spill = (active_count >= reg_info.register_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
@@ -341,7 +341,7 @@ regalloc_func(mach_function func, void *code,
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
-				ASSERT(reg < func.register_count);
+				ASSERT(reg < func.vreg_count);
 				ASSERT(mreg_map[reg].kind != MOP_INVALID);
 				operands[i].kind = mreg_map[reg].kind;
 				operands[i].value = mreg_map[reg].value;

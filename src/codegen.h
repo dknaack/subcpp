@@ -33,7 +33,7 @@ typedef struct {
 typedef struct {
 	str name;
 	u32 inst_count;
-	u32 register_count;
+	u32 vreg_count;
 	u32 label_count;
 	u32 stack_size;
 	u32 *inst_offsets;
@@ -135,7 +135,7 @@ static void
 push_operand(mach_program *program, mach_operand operand)
 {
 	mach_function *func = &program->functions[program->function_count - 1];
-	ASSERT(operand.kind != MOP_VREG || operand.value < func->register_count);
+	ASSERT(operand.kind != MOP_VREG || operand.value < func->vreg_count);
 	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
 	program->size += sizeof(operand);
 }
