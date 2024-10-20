@@ -86,6 +86,7 @@ optimize(ir_program program, arena *arena)
 			}
 		}
 
+#if 0
 		// Reallocate all stack allocations and fix the stack size for each function
 		u32 stack_size = 0;
 		for (isize j = 0; j < func->inst_count; j++) {
@@ -98,6 +99,7 @@ optimize(ir_program program, arena *arena)
 		}
 
 		func->stack_size = stack_size;
+#endif
 
 		arena_temp_end(temp);
 	}

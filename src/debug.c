@@ -412,7 +412,6 @@ print_ir_program(ir_program program)
 		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
 		printf("  param_count: %d\n", func->param_count);
 		printf("  inst_index: %d\n", func->inst_index);
-		printf("  stack_size: %d\n", func->stack_size);
 
 		ir_inst *inst = program.insts + func->inst_index;
 		i32 *ref_count = get_ref_count(inst, func->inst_count, temp);
