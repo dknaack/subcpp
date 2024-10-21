@@ -52,8 +52,8 @@ typedef struct {
 } symbol_id;
 
 typedef struct {
+	symbol_id next;
 	linkage linkage;
-	section section;
 	str name;
 	void *data;
 	isize size;
@@ -61,12 +61,10 @@ typedef struct {
 
 typedef struct {
 	symbol *symbols;
-
 	isize symbol_count;
-	isize text_offset;
-	isize data_offset;
-	isize rodata_offset;
-	isize bss_offset;
+
+	symbol_id section[SECTION_COUNT];
+	symbol_id *tail[SECTION_COUNT];
 } symbol_table;
 
 typedef struct {
@@ -410,12 +408,29 @@ get_string_info(semantic_info info, ast_id node_id)
 	return s;
 }
 
+static symbol_table
+new_symbol_table(isize symbol_count, arena *perm)
+{
+	symbol_table result = {0};
+	result.symbols = ALLOC(perm, symbol_count, symbol);
+	result.symbol_count = 1; // Reserve the first symbol as NULL symbol.
+	for (i32 i = 0; i < SECTION_COUNT; i++) {
+		result.tail[i] = &result.section[i];
+	}
+
+	return result;
+}
+
 static symbol *
 new_symbol(symbol_table *symtab, section section)
 {
-	symbol *result = &symtab->symbols[symtab->symbol_count++];
-	(void)section;
-	return result;
+	symbol_id sym_id = {symtab->symbol_count++};
+	*symtab->tail[section] = sym_id;
+
+	symbol *sym = &symtab->symbols[symtab->symbol_count++];
+	symtab->tail[section] = &sym->next;
+	memset(sym, 0, sizeof(*sym));
+	return sym;
 }
 
 static symbol_id
