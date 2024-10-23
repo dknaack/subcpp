@@ -1095,24 +1095,7 @@ get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
 static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
-	// NOTE: Translate node to IR code
-	isize func_count = info->symtab.data_offset - info->symtab.text_offset;
-
-	isize max_inst_count = 1024 * 1024;
-	ir_program program = {0};
-	program.insts = ALLOC(arena, max_inst_count, ir_inst);
-	program.funcs = ALLOC(arena, func_count, ir_function);
-	program.func_count = func_count;
-
-	ir_context ctx = {0};
-	ctx.program = &program;
-	ctx.max_inst_count = max_inst_count;
-	ctx.arena = arena;
-	ctx.info = info;
-	ctx.node_addr = ALLOC(arena, pool->size, u32);
-
 	// Count the total number of symbols
-	symbol_table *symtab = &program.symtab;
 	isize symbol_count = 1;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
@@ -1124,8 +1107,19 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 		}
 	}
 
-	symtab->symbol_count = symbol_count;
-	symtab->symbols = ALLOC(arena, symbol_count, symbol);
+	ir_program program = {0};
+	isize max_inst_count = 1024 * 1024;
+	program.insts = ALLOC(arena, max_inst_count, ir_inst);
+	program.funcs = ALLOC(arena, symbol_count, ir_function);
+	program.func_count = symbol_count;
+	program.symtab = new_symbol_table(symbol_count, arena);
+
+	ir_context ctx = {0};
+	ctx.program = &program;
+	ctx.max_inst_count = max_inst_count;
+	ctx.arena = arena;
+	ctx.info = info;
+	ctx.node_addr = ALLOC(arena, pool->size, u32);
 
 	// Translate all nodes into IR
 	ast_id node_id = pool->root;
