@@ -248,9 +248,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				if (children[1].value != 0) {
 					// Create a new function
-					isize text_offset = ctx->program->symtab.text_offset;
-					isize func_index = *node_addr - text_offset;
-					ir_function *func = &ctx->program->funcs[func_index];
+					ir_function *func = &ctx->program->funcs[*node_addr];
 					func->name = node->token.value;
 					func->inst_index = ctx->program->inst_count;
 
