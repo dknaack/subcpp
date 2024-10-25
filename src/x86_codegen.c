@@ -207,67 +207,74 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 		stream_print(out, "\tret\n\n");
 	}
 
-	for (isize i = 0; i < symtab->symbol_count; i++) {
-		symbol *sym = &symtab->symbols[i];
-
-		if (i == symtab->text_offset) {
+	for (isize j = 0; j < SECTION_COUNT; j++) {
+		if (j == SECTION_TEXT) {
 			stream_print(out, "section .text\n");
-		} else if (i == symtab->data_offset) {
+		} else if (j == SECTION_DATA) {
 			stream_print(out, "section .data\n");
-		} else if (i == symtab->rodata_offset) {
+		} else if (j == SECTION_RODATA) {
 			stream_print(out, "section .rodata\n");
-		} else if (i == symtab->bss_offset) {
+		} else if (j == SECTION_BSS) {
 			stream_print(out, "section .bss\n");
+		} else {
+			// Unsupported section
+			continue;
 		}
 
-		if (sym->linkage == LINK_STATIC) {
-			stream_print(out, "static ");
-			stream_prints(out, sym->name);
-			stream_print(out, "\n");
-		} else if (sym->linkage == LINK_EXTERN) {
-			stream_print(out, "extern ");
-			stream_prints(out, sym->name);
-			stream_print(out, "\n");
-		} else if (sym->name.length > 0) {
-			stream_print(out, "global ");
-			stream_prints(out, sym->name);
-			stream_print(out, "\n");
-		}
-
-		// NOTE: text section was already printed in the loop above
-		if (sym->size > 0) {
-			if (sym->name.length > 0) {
+		symbol_id sym_id = symtab->section[j];
+		while (sym_id.value != 0) {
+			symbol *sym = &symtab->symbols[sym_id.value];
+			if (sym->linkage == LINK_STATIC) {
+				stream_print(out, "static ");
 				stream_prints(out, sym->name);
-			} else {
-				stream_print(out, "L#");
-				stream_printu(out, i);
-			}
-
-			if (symtab->data_offset <= i && i < symtab->bss_offset) {
-				// NOTE: Inside data or rodata section, symbols contain byte data
-				if (sym->data) {
-					stream_print(out, ": db ");
-					char *byte = sym->data;
-					for (isize i = 0; i < sym->size; i++) {
-						if (i != 0) {
-							stream_print(out, ", ");
-						}
-
-						stream_print_hex(out, byte[i]);
-					}
-
-					stream_print(out, "\n");
-				} else {
-					stream_print(out, ": times ");
-					stream_printu(out, sym->size);
-					stream_print(out, " db 0\n");
-				}
-			} else if (i >= symtab->bss_offset) {
-				// NOTE; Inside bss section, symbols have no data
-				stream_print(out, " resb ");
-				stream_print_hex(out, sym->size);
+				stream_print(out, "\n");
+			} else if (sym->linkage == LINK_EXTERN) {
+				stream_print(out, "extern ");
+				stream_prints(out, sym->name);
+				stream_print(out, "\n");
+			} else if (sym->name.length > 0) {
+				stream_print(out, "global ");
+				stream_prints(out, sym->name);
 				stream_print(out, "\n");
 			}
+
+			// NOTE: text section was already printed in the loop above
+			if (sym->size > 0) {
+				if (sym->name.length > 0) {
+					stream_prints(out, sym->name);
+				} else {
+					stream_print(out, "L#");
+					stream_printu(out, sym_id.value);
+				}
+
+				if (j == SECTION_DATA || j == SECTION_RODATA) {
+					// NOTE: Inside data or rodata section, symbols contain byte data
+					if (sym->data) {
+						stream_print(out, ": db ");
+						char *byte = sym->data;
+						for (isize i = 0; i < sym->size; i++) {
+							if (i != 0) {
+								stream_print(out, ", ");
+							}
+
+							stream_print_hex(out, byte[i]);
+						}
+
+						stream_print(out, "\n");
+					} else {
+						stream_print(out, ": times ");
+						stream_printu(out, sym->size);
+						stream_print(out, " db 0\n");
+					}
+				} else if (j == SECTION_BSS) {
+					// NOTE; Inside bss section, symbols have no data
+					stream_print(out, " resb ");
+					stream_print_hex(out, sym->size);
+					stream_print(out, "\n");
+				}
+			}
+
+			sym_id = sym->next;
 		}
 	}
 }
