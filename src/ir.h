@@ -99,6 +99,38 @@ struct ir_function {
 	i32 inst_count;
 };
 
+typedef enum {
+	SECTION_READ  = 1 << 0,
+	SECTION_WRITE = 1 << 1,
+	SECTION_EXEC  = 1 << 2,
+	SECTION_ZERO  = 1 << 3,
+	SECTION_COUNT = 1 << 4,
+
+	SECTION_TEXT   = SECTION_READ | SECTION_EXEC,
+	SECTION_DATA   = SECTION_READ | SECTION_WRITE,
+	SECTION_RODATA = SECTION_READ,
+	SECTION_BSS    = SECTION_READ | SECTION_WRITE | SECTION_ZERO,
+} section;
+
+typedef struct {
+	i32 value;
+} symbol_id;
+
+typedef struct {
+	symbol_id next;
+	linkage linkage;
+	str name;
+	void *data;
+	isize size;
+} symbol;
+
+typedef struct {
+	symbol *symbols;
+	isize symbol_count;
+	isize max_symbol_count;
+	symbol_id section[SECTION_COUNT];
+} symbol_table;
+
 typedef struct {
 	ir_inst *insts;
 	ir_function *funcs;
@@ -116,6 +148,7 @@ typedef struct {
 	ir_inst *func_insts;
 	ir_program *program;
 	semantic_info *info;
+	symbol_id *section_tail[SECTION_COUNT];
 
 	isize func_inst_count;
 	isize max_inst_count;
