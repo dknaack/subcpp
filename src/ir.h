@@ -161,6 +161,28 @@ typedef struct {
 	u32 case_label;
 } ir_context;
 
+static symbol *
+new_symbol(ir_context *ctx, section section)
+{
+	symbol_table *symtab = &ctx->program->symtab;
+	ASSERT(symtab->symbol_count < symtab->max_symbol_count);
+
+	symbol_id sym_id = {symtab->symbol_count++};
+	*ctx->section_tail[section] = sym_id;
+
+	symbol *sym = &symtab->symbols[sym_id.value];
+	ctx->section_tail[section] = &sym->next;
+	return sym;
+}
+
+static symbol_id
+get_symbol_id(symbol_table *symtab, symbol *sym)
+{
+	symbol_id result;
+	result.value = sym - symtab->symbols;
+	return result;
+}
+
 static b32
 is_comparison_opcode(ir_opcode ir_opcode)
 {
