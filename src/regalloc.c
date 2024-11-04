@@ -49,17 +49,12 @@ swap_u32(u32 *a, isize i, isize j)
 	a[j] = tmp;
 }
 
-typedef struct {
-	b32 *used;
-	u32 spill_count;
-} regalloc_info;
-
 static regalloc_info
 regalloc_func(mach_function func, void *code,
-	mach_register_info reg_info, arena *arena)
+	mach_register_info mreg_info, arena *arena)
 {
 	regalloc_info info = {0};
-	info.used = ALLOC(arena, reg_info.register_count, b32);
+	info.used = ALLOC(arena, mreg_info.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
 	// NOTE: Count the number of labels
@@ -95,7 +90,7 @@ regalloc_func(mach_function func, void *code,
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
 	// column and row.
-	u32 reg_count = reg_info.register_count + func.vreg_count;
+	u32 reg_count = mreg_info.mreg_count + func.vreg_count;
 	bit_matrix live_matrix = bit_matrix_init(reg_count, func.inst_count, arena);
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
@@ -127,8 +122,8 @@ regalloc_func(mach_function func, void *code,
 						continue;
 					}
 
-					for (u32 k = 0; k < reg_info.volatile_register_count; k++) {
-						u32 mreg = reg_info.volatile_registers[k];
+					for (u32 k = 0; k < mreg_info.tmp_mreg_count; k++) {
+						u32 mreg = mreg_info.tmp_mregs[k];
 						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 					}
 				}
@@ -227,8 +222,8 @@ regalloc_func(mach_function func, void *code,
 	}
 
 	// Initialize the register pool
-	u32 *pool = ALLOC(arena, reg_info.register_count, u32);
-	for (u32 i = 0; i < reg_info.register_count; i++) {
+	u32 *pool = ALLOC(arena, mreg_info.mreg_count, u32);
+	for (u32 i = 0; i < mreg_info.mreg_count; i++) {
 		pool[i] = i;
 	}
 
@@ -261,11 +256,11 @@ regalloc_func(mach_function func, void *code,
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < reg_info.register_count);
+				ASSERT(pool[active_count] < mreg_info.mreg_count);
 			} else if (mreg_map[inactive_reg].kind == MOP_MREG) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < reg_info.register_count);
+				ASSERT(pool[active_count] < mreg_info.mreg_count);
 			}
 
 			sorted[j] = sorted[active_start];
@@ -274,12 +269,12 @@ regalloc_func(mach_function func, void *code,
 
 		// Find a valid machine register that doesn't overlap with curr_reg
 		ASSERT(curr_reg < func.vreg_count);
-		b32 should_spill = (active_count >= reg_info.register_count);
+		b32 should_spill = (active_count >= mreg_info.mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < reg_info.register_count; i++) {
+			for (u32 i = active_count; i < mreg_info.mreg_count; i++) {
 				u32 mreg = pool[i];
-				b32 is_float_mreg = pool[i] >= reg_info.int_register_count;
+				b32 is_float_mreg = pool[i] >= mreg_info.int_mreg_count;
 				if (is_float_mreg != is_float_vreg[curr_reg]) {
 					continue;
 				}
@@ -326,7 +321,7 @@ regalloc_func(mach_function func, void *code,
 			}
 		} else {
 			u32 mreg = pool[active_count++];
-			ASSERT(mreg < reg_info.register_count);
+			ASSERT(mreg < mreg_info.mreg_count);
 			info.used[mreg] |= !is_empty;
 			mreg_map[curr_reg] = make_operand(MOP_MREG, mreg, 0);
 		}
@@ -370,12 +365,11 @@ regalloc_func(mach_function func, void *code,
 }
 
 static regalloc_info *
-regalloc(mach_program program, arena *arena)
+regalloc(mach_program p, arena *arena)
 {
-	regalloc_info *info = ALLOC(arena, program.function_count, regalloc_info);
-	for (u32 i = 0; i < program.function_count; i++) {
-		info[i] = regalloc_func(program.functions[i],
-			program.code, program.register_info, arena);
+	regalloc_info *info = ALLOC(arena, p.func_count, regalloc_info);
+	for (isize i = 0; i < p.func_count; i++) {
+		info[i] = regalloc_func(p.funcs[i], p.code, p.mreg_info, arena);
 	}
 
 	return info;

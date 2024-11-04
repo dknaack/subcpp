@@ -86,9 +86,9 @@ static void
 x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_info *info)
 {
 	stream_print(out, "section .text\n");
-	ASSERT(program.function_count > 0);
-	for (isize i = 0; i < program.function_count; i++) {
-		mach_function *func = &program.functions[i];
+	ASSERT(program.func_count > 0);
+	for (isize i = 0; i < program.func_count; i++) {
+		mach_function *func = &program.funcs[i];
 		if (func->inst_count == 0) {
 			// NOTE: Do not print empty functions
 			continue;
@@ -98,11 +98,11 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 		stream_prints(out, func->name);
 		stream_print(out, ":\n");
 
-		isize function_index = i;
+		isize func_index = i;
 		isize used_volatile_register_count = 0;
 		for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
 			u32 mreg = x86_preserved_regs[j];
-			if (info[function_index].used[mreg]) {
+			if (info[func_index].used[mreg]) {
 				stream_print(out, "\tpush ");
 				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
 				stream_print(out, "\n");
@@ -119,7 +119,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 				ASSERT(operands[1].kind == MOP_CONST);
 				stack_size = operands[1].value;
 
-				stack_size += 8 * info[function_index].spill_count;
+				stack_size += 8 * info[func_index].spill_count;
 				stack_size += used_volatile_register_count;
 				b32 is_stack_aligned = ((stack_size & 15) == 8);
 				if (!is_stack_aligned) {
@@ -194,10 +194,10 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 			stream_print(out, "\n");
 		}
 
-		u32 j = LENGTH(x86_preserved_regs);
+		isize j = LENGTH(x86_preserved_regs);
 		while (j-- > 0) {
 			u32 mreg = x86_preserved_regs[j];
-			if (info[function_index].used[mreg]) {
+			if (info[func_index].used[mreg]) {
 				stream_print(out, "\tpop ");
 				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
 				stream_print(out, "\n");

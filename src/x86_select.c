@@ -652,23 +652,26 @@ static mach_program
 x86_select(ir_program program, arena *arena)
 {
 	mach_program out = {0};
-	out.functions = ALLOC(arena, program.func_count, mach_function);
+	out.funcs = ALLOC(arena, program.func_count, mach_function);
 	// TODO: This should be a dynamic array
 	out.max_size = 8 * 1024 * 1024;
 	out.code = alloc(arena, out.max_size, 1);
 	out.vreg_count = program.max_reg_count;
-	out.register_info.register_count = X86_REGISTER_COUNT;
-	out.register_info.int_register_count = X86_INT_REGISTER_COUNT;
-	out.register_info.volatile_registers = x86_temp_regs;
-	out.register_info.volatile_register_count = LENGTH(x86_temp_regs);
+	out.mreg_info.mreg_count = X86_REGISTER_COUNT;
+	out.mreg_info.int_mreg_count = X86_INT_REGISTER_COUNT;
+	out.mreg_info.tmp_mreg_count = LENGTH(x86_temp_regs);
+	out.mreg_info.tmp_mregs = x86_temp_regs;
 
-	for (isize i = 0; i < program.func_count; i++) {
-		ir_function *ir_func = &program.funcs[i];
-		mach_function *mach_func = &out.functions[i];
+	isize i = 0;
+	symbol_id sym_id = program.symtab.section[SECTION_TEXT];
+	while (sym_id.value != 0) {
+		symbol *sym = &program.symtab.symbols[sym_id.value];
+		ir_function *ir_func = &program.funcs[sym_id.value];
+		mach_function *mach_func = &out.funcs[i++];
 		mach_func->vreg_count = program.max_reg_count;
 		mach_func->label_count = program.max_label_count;
 		mach_func->name = ir_func->name;
-		out.function_count++;
+		out.func_count++;
 
 		isize first_inst_index = out.inst_count;
 		isize first_inst_offset = out.size;
@@ -707,6 +710,8 @@ x86_select(ir_program program, arena *arena)
 			mach_inst *inst = (mach_inst *)code;
 			code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
 		}
+
+		sym_id = sym->next;
 	}
 
 	return out;

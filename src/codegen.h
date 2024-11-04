@@ -40,23 +40,28 @@ typedef struct {
 } mach_function;
 
 typedef struct {
-	u32 *volatile_registers;
-	u32 volatile_register_count;
-	u32 int_register_count;
-	u32 register_count;
+	u32 *tmp_mregs;
+	u32 tmp_mreg_count;
+	u32 int_mreg_count;
+	u32 mreg_count;
 } mach_register_info;
 
 typedef struct {
 	void *code;
-	mach_function *functions;
-	mach_register_info register_info;
+	mach_function *funcs;
+	mach_register_info mreg_info;
 
 	u32 size;
 	u32 max_size;
 	u32 vreg_count;
 	u32 inst_count;
-	u32 function_count;
+	u32 func_count;
 } mach_program;
+
+typedef struct {
+	b32 *used;
+	u32 spill_count;
+} regalloc_info;
 
 static b32
 equals_operand(mach_operand a, mach_operand b)
@@ -134,7 +139,7 @@ push_inst(mach_program *program, u32 opcode, u32 operand_count)
 static void
 push_operand(mach_program *program, mach_operand operand)
 {
-	mach_function *func = &program->functions[program->function_count - 1];
+	mach_function *func = &program->funcs[program->func_count - 1];
 	ASSERT(operand.kind != MOP_VREG || operand.value < func->vreg_count);
 	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
 	program->size += sizeof(operand);
