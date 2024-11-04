@@ -114,7 +114,6 @@ main(int argc, char *argv[])
 	ast_pool pool = parse(&pc, arena);
 	semantic_info sem_info = check(&pool, arena);
 	ir_program ir_program = translate(&pool, &sem_info, arena);
-	symbol_table symtab = sem_info.symtab;
 
 	// NOTE: middle-end
 	print_ir_program(ir_program);
@@ -125,7 +124,7 @@ main(int argc, char *argv[])
 	mach_program mach_program = x86_select(ir_program, arena);
 	regalloc_info *reg_info = regalloc(mach_program, arena);
 	stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
-	x86_generate(&out, mach_program, &symtab, reg_info);
+	x86_generate(&out, mach_program, &ir_program.symtab, reg_info);
 	stream_close(&out);
 
 	run_assembler("/tmp/out.s", "/tmp/out.o");
