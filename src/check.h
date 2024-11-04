@@ -19,6 +19,7 @@ typedef enum {
 	INFO_LABEL,
 	INFO_SWITCH,
 	INFO_STRING,
+	INFO_COUNT
 } info_kind;
 
 typedef struct case_info case_info;
