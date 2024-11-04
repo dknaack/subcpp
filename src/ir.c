@@ -237,19 +237,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_node *type = get_node(pool, children[0]);
 			if (*node_addr != 0) {
 				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, *node_addr);
+				ASSERT(result != 0);
 			} else if (node->flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
 			} else if (type->kind == AST_TYPE_FUNC) {
 				// Create a new symbol for the function
-				symbol *sym = new_symbol(symtab, SECTION_TEXT);
+				symbol *sym = new_symbol(ctx, SECTION_TEXT);
 				*node_addr = get_symbol_id(symtab, sym).value;
 				sym->linkage = get_linkage(node->flags);
 				sym->name = node->token.value;
 
+				ir_function *func = &ctx->program->funcs[*node_addr];
+				func->name = node->token.value;
+
 				if (children[1].value != 0) {
 					// Create a new function
-					ir_function *func = &ctx->program->funcs[*node_addr];
-					func->name = node->token.value;
 					func->inst_index = ctx->program->inst_count;
 
 					// Reset the instructions, registers and labels
@@ -290,7 +292,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				b32 is_initialized = (children[1].value != 0);
 				section section = is_initialized ? SECTION_DATA : SECTION_BSS;
 
-				symbol *sym = new_symbol(symtab, section);
+				symbol *sym = new_symbol(ctx, section);
 				sym->linkage = get_linkage(node->flags);
 				sym->name = node->token.value;
 				type_id node_type = get_type_id(types, node_id);
@@ -548,13 +550,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ast_id ref_id = children[0];
-			ast_node *ref_node = get_node(pool, ref_id);
-			if (ref_node->kind == AST_DECL) {
-				result = ctx->node_addr[ref_id.value];
-			} else if (ref_node->kind == AST_EXTERN_DEF) {
-				result = translate_node(ctx, pool, ref_id, is_lvalue);
-			}
+			result = ctx->node_addr[children[0].value];
+			ASSERT(result != 0);
 
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
@@ -586,7 +583,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					*value = strtod(node->token.value.at, NULL);
 
 					// Allocate a new global variable and store the value
-					symbol *sym = new_symbol(symtab, SECTION_RODATA);
+					symbol *sym = new_symbol(ctx, SECTION_RODATA);
 					sym->linkage = get_linkage(node->flags);
 					sym->data = value;
 					sym->size = sizeof(double);
@@ -638,7 +635,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					unescaped.at[unescaped.length++] = '\0';
 
 					// Allocate a new symbol and store the string
-					symbol *sym = new_symbol(symtab, SECTION_RODATA);
+					symbol *sym = new_symbol(ctx, SECTION_RODATA);
 					sym->linkage = get_linkage(node->flags);
 					sym->data = unescaped.at;
 					sym->size = unescaped.length;
@@ -1096,7 +1093,7 @@ static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
 	// Count the total number of symbols
-	isize symbol_count = 1;
+	isize symbol_count = 0;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		token_kind token = node->token.kind;
@@ -1107,19 +1104,28 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 		}
 	}
 
+	// initialize the program
 	ir_program program = {0};
 	isize max_inst_count = 1024 * 1024;
 	program.insts = ALLOC(arena, max_inst_count, ir_inst);
 	program.funcs = ALLOC(arena, symbol_count, ir_function);
 	program.func_count = symbol_count;
-	program.symtab = new_symbol_table(symbol_count, arena);
 
+	// initialize the symbol table
+	program.symtab.symbols = ALLOC(arena, 1 + symbol_count, symbol);
+	program.symtab.max_symbol_count = 1 + symbol_count;
+	program.symtab.symbol_count = 1; // Reserve the first symbol as NULL symbol.
+
+	// initialize the context
 	ir_context ctx = {0};
 	ctx.program = &program;
 	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
 	ctx.info = info;
 	ctx.node_addr = ALLOC(arena, pool->size, u32);
+	for (i32 i = 0; i < SECTION_COUNT; i++) {
+		ctx.section_tail[i] = &program.symtab.section[i];
+	}
 
 	// Translate all nodes into IR
 	ast_id node_id = pool->root;
@@ -1129,7 +1135,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	}
 
 	// NOTE: Propagate types through the instructions
-	for (isize i = 0; i < program.func_count; i++) {
+	for (isize i = 1; i < program.func_count; i++) {
 		ir_function *func = &program.funcs[i];
 		ASSERT(func->name.length > 0);
 
