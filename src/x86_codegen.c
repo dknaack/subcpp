@@ -129,7 +129,6 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					stream_print(out, ":\n");
 					mach_function *func = &program.funcs[sym_id.value];
 					if (func->inst_count == 0) {
-						printf("empty %.*s(%d)\n", (int)sym->name.length, sym->name.at, sym_id.value);
 						// NOTE: Do not print empty functions
 						goto next;
 					}
