@@ -353,3 +353,91 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "(invalid)";
 	}
 }
+
+static ir_opcode_info
+get_opcode_info(ir_opcode opcode)
+{
+	ir_opcode_info info = {0};
+	switch (opcode) {
+	case IR_JMP:
+		info.op0 = IR_OPERAND_LABEL;
+		break;
+	case IR_CAST:
+	case IR_CASTU:
+	case IR_RET:
+	case IR_LOAD:
+	case IR_COPY:
+	case IR_TRUNC:
+	case IR_SEXT:
+	case IR_ZEXT:
+	case IR_NOT:
+		info.op0 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_MOV:
+	case IR_STORE:
+		info.op0 = IR_OPERAND_REG_DST;
+		info.op1 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_ADD:
+	case IR_AND:
+	case IR_SUB:
+	case IR_MUL:
+	case IR_DIV:
+	case IR_MOD:
+	case IR_EQL:
+	case IR_LT:
+	case IR_GT:
+	case IR_LEQ:
+	case IR_GEQ:
+	case IR_LTU:
+	case IR_GTU:
+	case IR_LEQU:
+	case IR_GEQU:
+	case IR_OR:
+	case IR_SHL:
+	case IR_SHR:
+	case IR_XOR:
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_JIZ:
+	case IR_JNZ:
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_LABEL;
+		break;
+	case IR_ALLOC:
+		info.op0 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_CONST;
+		break;
+	case IR_CONST:
+	case IR_BUILTIN:
+		info.op0 = IR_OPERAND_CONST;
+		break;
+	case IR_CALL:
+		info.op0 = IR_OPERAND_REG_SRC;
+		info.op1 = IR_OPERAND_REG_SRC;
+		break;
+	case IR_PARAM:
+		info.op0 = IR_OPERAND_CONST;
+		info.op1 = IR_OPERAND_CONST;
+		break;
+	case IR_GLOBAL:
+		info.op0 = IR_OPERAND_GLOBAL;
+		break;
+	case IR_LABEL:
+		info.op0 = IR_OPERAND_LABEL;
+		break;
+	case IR_NOP:
+	case IR_VAR:
+		break;
+	}
+
+	return info;
+}
+
+static b32
+is_register_operand(ir_operand_type operand)
+{
+	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
+	return result;
+}

@@ -649,39 +649,37 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 }
 
 static mach_program
-x86_select(ir_program program, arena *arena)
+x86_select(ir_program p, arena *arena)
 {
-	mach_program out = {0};
-	out.funcs = ALLOC(arena, program.func_count, mach_function);
+	mach_program result = {0};
+	result.funcs = ALLOC(arena, p.func_count, mach_function);
 	// TODO: This should be a dynamic array
-	out.max_size = 8 * 1024 * 1024;
-	out.code = alloc(arena, out.max_size, 1);
-	out.vreg_count = program.max_reg_count;
-	out.mreg_info.mreg_count = X86_REGISTER_COUNT;
-	out.mreg_info.int_mreg_count = X86_INT_REGISTER_COUNT;
-	out.mreg_info.tmp_mreg_count = LENGTH(x86_temp_regs);
-	out.mreg_info.tmp_mregs = x86_temp_regs;
+	result.max_size = 8 * 1024 * 1024;
+	result.code = alloc(arena, result.max_size, 1);
+	result.vreg_count = p.max_reg_count;
+	result.func_count = p.func_count;
+	result.mreg_info.mreg_count = X86_REGISTER_COUNT;
+	result.mreg_info.int_mreg_count = X86_INT_REGISTER_COUNT;
+	result.mreg_info.tmp_mreg_count = LENGTH(x86_temp_regs);
+	result.mreg_info.tmp_mregs = x86_temp_regs;
 
-	isize i = 0;
-	symbol_id sym_id = program.symtab.section[SECTION_TEXT];
+	symbol_id sym_id = p.symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
-		symbol *sym = &program.symtab.symbols[sym_id.value];
-		ir_function *ir_func = &program.funcs[sym_id.value];
-		mach_function *mach_func = &out.funcs[i++];
-		mach_func->vreg_count = program.max_reg_count;
-		mach_func->label_count = program.max_label_count;
-		mach_func->name = ir_func->name;
-		out.func_count++;
+		symbol *sym = &p.symtab.symbols[sym_id.value];
+		ir_function *ir_func = &p.funcs[sym_id.value];
+		mach_function *mach_func = &result.funcs[sym_id.value];
+		mach_func->vreg_count = p.max_reg_count;
+		mach_func->label_count = p.max_label_count;
 
-		isize first_inst_index = out.inst_count;
-		isize first_inst_offset = out.size;
+		isize prev_inst_count = result.inst_count;
+		char *start = (char *)result.code + result.size;
 
 		x86_context ctx = {0};
-		ctx.inst = program.insts + ir_func->inst_index;
-		ctx.program = &out;
+		ctx.inst = p.insts + ir_func->inst_index;
+		ctx.program = &result;
 
 		// NOTE: Do the instruction selection
-		ir_inst *inst = program.insts + ir_func->inst_index;
+		ir_inst *inst = p.insts + ir_func->inst_index;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
 			ir_opcode opcode = inst[j].opcode;
@@ -692,7 +690,8 @@ x86_select(ir_program program, arena *arena)
 			isize size = ir_sizeof(inst[j].type);
 			mach_operand dst = make_operand(MOP_VREG, j, size);
 			if (opcode == IR_MOV || opcode == IR_STORE) {
-				dst = make_operand(MOP_VREG, inst[j].op0, ir_sizeof(inst[inst[j].op0].type));
+				isize op0_size = ir_sizeof(inst[inst[j].op0].type);
+				dst = make_operand(MOP_VREG, inst[j].op0, op0_size);
 				if (inst[j].type == IR_F32 || inst[j].type == IR_F64) {
 					dst.flags |= MOP_ISFLOAT;
 				}
@@ -701,12 +700,14 @@ x86_select(ir_program program, arena *arena)
 			x86_select_inst(ctx, j, dst);
 		}
 
-		// NOTE: Compute instruction offsets
-		mach_func->inst_count = out.inst_count - first_inst_index;
+		mach_func->inst_count = result.inst_count - prev_inst_count;
+		ASSERT(ir_func->inst_count == 0 || mach_func->inst_count > 0);
+
+		// Compute the instruction offsets
+		char *code = start;
 		mach_func->inst_offsets = ALLOC(arena, mach_func->inst_count, u32);
-		char *code = (char *)out.code + first_inst_offset;
 		for (isize i = 0; i < mach_func->inst_count; i++) {
-			mach_func->inst_offsets[i] = code - (char *)out.code;
+			mach_func->inst_offsets[i] = code - (char *)result.code;
 			mach_inst *inst = (mach_inst *)code;
 			code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
 		}
@@ -714,5 +715,5 @@ x86_select(ir_program program, arena *arena)
 		sym_id = sym->next;
 	}
 
-	return out;
+	return result;
 }

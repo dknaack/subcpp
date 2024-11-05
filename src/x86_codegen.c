@@ -85,128 +85,6 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 static void
 x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_info *info)
 {
-	stream_print(out, "section .text\n");
-	ASSERT(program.func_count > 0);
-	for (isize i = 0; i < program.func_count; i++) {
-		mach_function *func = &program.funcs[i];
-		if (func->inst_count == 0) {
-			// NOTE: Do not print empty functions
-			continue;
-		}
-
-		// NOTE: Inside text section, symbols contain x86 instructions
-		stream_prints(out, func->name);
-		stream_print(out, ":\n");
-
-		isize func_index = i;
-		isize used_volatile_register_count = 0;
-		for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
-			u32 mreg = x86_preserved_regs[j];
-			if (info[func_index].used[mreg]) {
-				stream_print(out, "\tpush ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
-				stream_print(out, "\n");
-				used_volatile_register_count++;
-			}
-		}
-
-		// TODO: Set function stack size
-		mach_inst *first_inst = (mach_inst *)((char *)program.code + func->inst_offsets[0]);
-		isize stack_size = 0;
-		if (first_inst->opcode == X86_SUB) {
-			mach_operand *operands = (mach_operand *)(first_inst + 1);
-			if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
-				ASSERT(operands[1].kind == MOP_CONST);
-				stack_size = operands[1].value;
-
-				stack_size += 8 * info[func_index].spill_count;
-				stack_size += used_volatile_register_count;
-				b32 is_stack_aligned = ((stack_size & 15) == 8);
-				if (!is_stack_aligned) {
-					stack_size += 24 - (stack_size & 15);
-				}
-
-				operands[1].value = stack_size;
-			}
-		}
-
-		char *code = (char *)program.code + func->inst_offsets[0];
-		isize size = func->inst_offsets[func->inst_count - 1] - func->inst_offsets[0];
-		isize inst_count = func->inst_count;
-		while (inst_count-- > 0) {
-			mach_inst *inst = (mach_inst *)code;
-			mach_operand *operands = (mach_operand *)(inst + 1);
-			isize operand_count = inst->operand_count;
-			isize inst_size = sizeof(*inst) + operand_count * sizeof(*operands);
-
-			x86_opcode opcode = (x86_opcode)inst->opcode;
-			if (opcode == X86_LABEL) {
-				stream_print(out, ".L");
-				x86_emit_operand(out, operands[0], symtab);
-				stream_print(out, ":\n");
-			} else if (opcode == X86_RET) {
-				stream_print(out, "\tjmp .exit\n");
-			} else {
-				if (opcode == X86_MOV || opcode == X86_MOVSS) {
-					if  (equals_operand(operands[0], operands[1])) {
-						continue;
-					}
-				}
-
-				b32 both_spill = (operands[0].kind == MOP_SPILL
-					&& operands[1].kind == MOP_SPILL);
-				if (both_spill) {
-					mach_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
-					stream_print(out, "\tmov ");
-					x86_emit_operand(out, rax, symtab);
-					stream_print(out, ", ");
-					x86_emit_operand(out, operands[1], symtab);
-					operands[1] = rax;
-					stream_print(out, "\n");
-				}
-
-				stream_print(out, "\t");
-				stream_print(out, x86_get_opcode_name(opcode));
-				stream_print(out, " ");
-				for (isize j = 0; j < operand_count; j++) {
-					if (operands[j].flags & MOP_IMPLICIT) {
-						continue;
-					}
-
-					if (j != 0) {
-						stream_print(out, ", ");
-					}
-
-					x86_emit_operand(out, operands[j], symtab);
-				}
-
-				stream_print(out, "\n");
-			}
-
-			size -= inst_size;
-			code += inst_size;
-		}
-
-		stream_print(out, ".exit:\n");
-		if (stack_size > 0) {
-			stream_print(out, "\tadd rsp, ");
-			stream_printu(out, stack_size);
-			stream_print(out, "\n");
-		}
-
-		isize j = LENGTH(x86_preserved_regs);
-		while (j-- > 0) {
-			u32 mreg = x86_preserved_regs[j];
-			if (info[func_index].used[mreg]) {
-				stream_print(out, "\tpop ");
-				x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
-				stream_print(out, "\n");
-			}
-		}
-
-		stream_print(out, "\tret\n\n");
-	}
-
 	for (isize j = 0; j < SECTION_COUNT; j++) {
 		if (j == SECTION_TEXT) {
 			stream_print(out, "section .text\n");
@@ -247,7 +125,128 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					stream_printu(out, sym_id.value);
 				}
 
-				if (j == SECTION_DATA || j == SECTION_RODATA) {
+				if (j == SECTION_TEXT) {
+					stream_print(out, ":\n");
+					mach_function *func = &program.funcs[sym_id.value];
+					if (func->inst_count == 0) {
+						printf("empty %.*s(%d)\n", (int)sym->name.length, sym->name.at, sym_id.value);
+						// NOTE: Do not print empty functions
+						goto next;
+					}
+
+					// NOTE: Inside text section, symbols contain x86 instructions
+					stream_prints(out, sym->name);
+					stream_print(out, ":\n");
+
+					isize func_index = sym_id.value;
+					isize used_volatile_register_count = 0;
+					for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
+						u32 mreg = x86_preserved_regs[j];
+						if (info[func_index].used[mreg]) {
+							stream_print(out, "\tpush ");
+							x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
+							stream_print(out, "\n");
+							used_volatile_register_count++;
+						}
+					}
+
+					// TODO: Set function stack size
+					mach_inst *first_inst = (mach_inst *)((char *)program.code + func->inst_offsets[0]);
+					isize stack_size = 0;
+					if (first_inst->opcode == X86_SUB) {
+						mach_operand *operands = (mach_operand *)(first_inst + 1);
+						if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
+							ASSERT(operands[1].kind == MOP_CONST);
+							stack_size = operands[1].value;
+
+							stack_size += 8 * info[func_index].spill_count;
+							stack_size += used_volatile_register_count;
+							b32 is_stack_aligned = ((stack_size & 15) == 8);
+							if (!is_stack_aligned) {
+								stack_size += 24 - (stack_size & 15);
+							}
+
+							operands[1].value = stack_size;
+						}
+					}
+
+					char *code = (char *)program.code + func->inst_offsets[0];
+					isize size = func->inst_offsets[func->inst_count - 1] - func->inst_offsets[0];
+					isize inst_count = func->inst_count;
+					while (inst_count-- > 0) {
+						mach_inst *inst = (mach_inst *)code;
+						mach_operand *operands = (mach_operand *)(inst + 1);
+						isize operand_count = inst->operand_count;
+						isize inst_size = sizeof(*inst) + operand_count * sizeof(*operands);
+
+						x86_opcode opcode = (x86_opcode)inst->opcode;
+						if (opcode == X86_LABEL) {
+							stream_print(out, ".L");
+							x86_emit_operand(out, operands[0], symtab);
+							stream_print(out, ":\n");
+						} else if (opcode == X86_RET) {
+							stream_print(out, "\tjmp .exit\n");
+						} else {
+							if (opcode == X86_MOV || opcode == X86_MOVSS) {
+								if  (equals_operand(operands[0], operands[1])) {
+									continue;
+								}
+							}
+
+							// TODO: This is probably unsafe.
+							b32 both_spill = (operands[0].kind == MOP_SPILL
+								&& operands[1].kind == MOP_SPILL);
+							if (both_spill) {
+								mach_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
+								stream_print(out, "\tmov ");
+								x86_emit_operand(out, rax, symtab);
+								stream_print(out, ", ");
+								x86_emit_operand(out, operands[1], symtab);
+								operands[1] = rax;
+								stream_print(out, "\n");
+							}
+
+							stream_print(out, "\t");
+							stream_print(out, x86_get_opcode_name(opcode));
+							stream_print(out, " ");
+							for (isize j = 0; j < operand_count; j++) {
+								if (operands[j].flags & MOP_IMPLICIT) {
+									continue;
+								}
+
+								if (j != 0) {
+									stream_print(out, ", ");
+								}
+
+								x86_emit_operand(out, operands[j], symtab);
+							}
+
+							stream_print(out, "\n");
+						}
+
+						size -= inst_size;
+						code += inst_size;
+					}
+
+					stream_print(out, ".exit:\n");
+					if (stack_size > 0) {
+						stream_print(out, "\tadd rsp, ");
+						stream_printu(out, stack_size);
+						stream_print(out, "\n");
+					}
+
+					isize j = LENGTH(x86_preserved_regs);
+					while (j-- > 0) {
+						u32 mreg = x86_preserved_regs[j];
+						if (info[func_index].used[mreg]) {
+							stream_print(out, "\tpop ");
+							x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
+							stream_print(out, "\n");
+						}
+					}
+
+					stream_print(out, "\tret\n\n");
+				} else if (j == SECTION_DATA || j == SECTION_RODATA) {
 					// NOTE: Inside data or rodata section, symbols contain byte data
 					if (sym->data) {
 						stream_print(out, ": db ");
@@ -274,6 +273,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 				}
 			}
 
+next:
 			sym_id = sym->next;
 		}
 	}

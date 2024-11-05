@@ -13,15 +13,22 @@ static u32
 ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(type <= IR_F64);
-	ASSERT(ctx->program->inst_count <= ctx->max_inst_count);
+	ASSERT(ctx->program->inst_count + ctx->func_inst_count <= ctx->max_inst_count);
 	if (opcode == IR_STORE) ASSERT(op1 != 0);
 
 	u32 result = ctx->func_inst_count++;
+
+	// Ensure that operands are valid
+	ir_opcode_info info = get_opcode_info(opcode);
+	ASSERT(!is_register_operand(info.op0) || op0 < result);
+	ASSERT(!is_register_operand(info.op1) || op1 < result);
+
 	ir_inst *inst = &ctx->func_insts[result];
 	inst->opcode = opcode;
 	inst->type = type;
 	inst->op0 = op0;
 	inst->op1 = op1;
+
 	return result;
 }
 
@@ -216,19 +223,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			if (ctx->node_addr[node_id.value] == 0) {
 				type_id type = get_type_id(types, node_id);
 				isize size = type_sizeof(type, types);
-				u32 addr = ir_emit_alloca(ctx, size);
+				result = ir_emit_alloca(ctx, size);
 
 				if (children[1].value != 0) {
 					ast_node *init_expr = get_node(pool, children[1]);
 					if (init_expr->kind == AST_INIT) {
-						translate_initializer(ctx, pool, children[1], addr);
+						translate_initializer(ctx, pool, children[1], result);
 					} else {
 						u32 value = translate_node(ctx, pool, children[1], false);
-						ir_store(ctx, addr, value, type);
+						ir_store(ctx, result, value, type);
 					}
 				}
 
-				ctx->node_addr[node_id.value] = addr;
+				ctx->node_addr[node_id.value] = result;
+			} else {
+				result = ctx->node_addr[node_id.value];
 			}
 		} break;
 	case AST_EXTERN_DEF:
@@ -256,12 +265,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					// Reset the instructions, registers and labels
 					ctx->func_insts = ctx->program->insts + func->inst_index;
+					ctx->func_inst_count = 1;
 					ctx->label_count = 1;
-					ctx->reg_count = 1;
-
-					// Keep the first instruction as NULL register
-					ctx->program->inst_count++;
-					ctx->func_inst_count++;
 
 					// NOTE: Emit parameter registers
 					ast_id return_id = type->children;
@@ -281,9 +286,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						param_id = param->next;
 					}
 
+					// translate the function body
 					translate_node(ctx, pool, children[1], false);
-					func->inst_count = ctx->program->inst_count - func->inst_index;
 
+					// record the maximum number of instructions/registers
+					if (ctx->program->max_reg_count < ctx->func_inst_count) {
+						ctx->program->max_reg_count = ctx->func_inst_count;
+					}
+
+					func->inst_count = ctx->func_inst_count;
+					ctx->program->inst_count += ctx->func_inst_count;
 					sym->size = func->inst_count * sizeof(ir_inst);
 					sym->data = ctx->program->insts + func->inst_index;
 				}
@@ -550,8 +562,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			result = ctx->node_addr[children[0].value];
-			ASSERT(result != 0);
+			// Global variables must be loaded as globals first
+			result = translate_node(ctx, pool, children[0], true);
 
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
@@ -642,7 +654,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					// Load the string
 					symbol_id sym_id = get_symbol_id(symtab, sym);
-					result = ir_emit1(ctx, IR_I64, IR_LOAD, sym_id.value);
+					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, sym_id.value);
 				} break;
 			default:
 				ASSERT(!"Invalid literal");
@@ -979,94 +991,6 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		break;
 	}
 
-	return result;
-}
-
-static ir_opcode_info
-get_opcode_info(ir_opcode opcode)
-{
-	ir_opcode_info info = {0};
-	switch (opcode) {
-	case IR_JMP:
-		info.op0 = IR_OPERAND_LABEL;
-		break;
-	case IR_CAST:
-	case IR_CASTU:
-	case IR_RET:
-	case IR_LOAD:
-	case IR_COPY:
-	case IR_TRUNC:
-	case IR_SEXT:
-	case IR_ZEXT:
-	case IR_NOT:
-		info.op0 = IR_OPERAND_REG_SRC;
-		break;
-	case IR_MOV:
-	case IR_STORE:
-		info.op0 = IR_OPERAND_REG_DST;
-		info.op1 = IR_OPERAND_REG_SRC;
-		break;
-	case IR_ADD:
-	case IR_AND:
-	case IR_SUB:
-	case IR_MUL:
-	case IR_DIV:
-	case IR_MOD:
-	case IR_EQL:
-	case IR_LT:
-	case IR_GT:
-	case IR_LEQ:
-	case IR_GEQ:
-	case IR_LTU:
-	case IR_GTU:
-	case IR_LEQU:
-	case IR_GEQU:
-	case IR_OR:
-	case IR_SHL:
-	case IR_SHR:
-	case IR_XOR:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_REG_SRC;
-		break;
-	case IR_JIZ:
-	case IR_JNZ:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_LABEL;
-		break;
-	case IR_ALLOC:
-		info.op0 = IR_OPERAND_CONST;
-		info.op1 = IR_OPERAND_CONST;
-		break;
-	case IR_CONST:
-	case IR_BUILTIN:
-		info.op0 = IR_OPERAND_CONST;
-		break;
-	case IR_CALL:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_REG_SRC;
-		break;
-	case IR_PARAM:
-		info.op0 = IR_OPERAND_CONST;
-		info.op1 = IR_OPERAND_CONST;
-		break;
-	case IR_GLOBAL:
-		info.op0 = IR_OPERAND_GLOBAL;
-		break;
-	case IR_LABEL:
-		info.op0 = IR_OPERAND_LABEL;
-		break;
-	case IR_NOP:
-	case IR_VAR:
-		break;
-	}
-
-	return info;
-}
-
-static b32
-is_register_operand(ir_operand_type operand)
-{
-	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
 	return result;
 }
 

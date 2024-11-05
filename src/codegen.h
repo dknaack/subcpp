@@ -31,7 +31,6 @@ typedef struct {
 } mach_operand;
 
 typedef struct {
-	str name;
 	u32 inst_count;
 	u32 vreg_count;
 	u32 label_count;
