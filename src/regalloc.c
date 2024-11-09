@@ -96,6 +96,10 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 
 				mach_operand operand = operands[i];
 				switch (operand.kind) {
+				case MOP_INVALID:
+					{
+						ASSERT(!"Invalid operand");
+					} break;
 				case MOP_LABEL:
 					{
 						isize inst_index = label_offset[operand.value];
