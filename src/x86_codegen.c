@@ -62,11 +62,6 @@ x86_emit_token(stream *out, mach_token token, symbol_table *symtab)
 	case MACH_CONST:
 		stream_printu(out, token.value);
 		break;
-	case MACH_FLOAT:
-		stream_print(out, "[float#");
-		stream_printu(out, token.value);
-		stream_print(out, "]");
-		break;
 	case MACH_FUNC:
 		{
 			ASSERT(!"TODO");

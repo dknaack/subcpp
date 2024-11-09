@@ -5,7 +5,6 @@ typedef enum {
 	MACH_VREG,
 	MACH_SPILL,
 	MACH_LABEL,
-	MACH_FLOAT,
 	MACH_FUNC,
 	MACH_GLOBAL,
 	MACH_CONST,
@@ -74,13 +73,6 @@ static mach_token
 make_spill(u32 index)
 {
 	mach_token token = make_mach_token(MACH_SPILL, index, 8);
-	return token;
-}
-
-static mach_token
-make_float(u32 index)
-{
-	mach_token token = make_mach_token(MACH_FLOAT, index, 4);
 	return token;
 }
 
