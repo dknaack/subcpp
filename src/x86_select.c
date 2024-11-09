@@ -668,6 +668,8 @@ x86_select(ir_program p, arena *arena)
 	while (sym_id.value != 0) {
 		symbol *sym = &p.symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
+		mach_function *mach_func = &result.funcs[sym_id.value];
+		isize first_inst = result.size;
 
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
@@ -695,6 +697,8 @@ x86_select(ir_program p, arena *arena)
 			x86_select_inst(ctx, j, dst);
 		}
 
+		isize last_inst = result.size;
+		mach_func->inst_count = last_inst - first_inst;
 		sym_id = sym->next;
 	}
 
