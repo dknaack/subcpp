@@ -133,10 +133,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 						goto next;
 					}
 
-					// NOTE: Inside text section, symbols contain x86 instructions
-					stream_prints(out, sym->name);
-					stream_print(out, ":\n");
-
+					// Print function prologue
 					isize func_index = sym_id.value;
 					isize used_volatile_register_count = 0;
 					for (isize j = 0; j < LENGTH(x86_preserved_regs); j++) {
