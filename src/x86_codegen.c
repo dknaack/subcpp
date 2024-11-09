@@ -176,7 +176,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 					// TODO: We need to ensure that instructions do not
 					// contain two address operands, e.g. mov [rax], [rax]
-					for (isize i = 0; i < program.size; i++) {
+					for (isize i = 0; i < program.inst_count; i++) {
 						mach_operand operand = program.code[i];
 						if (first_operand) {
 							first_operand = false;

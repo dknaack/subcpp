@@ -437,7 +437,7 @@ print_x86_program(mach_program p)
 	b32 first_operand = true;
 	char *name = "(invalid)";
 
-	for (isize i = 0; i < p.size; i++) {
+	for (isize i = 0; i < p.inst_count; i++) {
 		mach_operand operand = p.code[i];
 		if (first_operand) {
 			first_operand = false;

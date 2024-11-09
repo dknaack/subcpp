@@ -654,8 +654,8 @@ x86_select(ir_program p, arena *arena)
 	mach_program result = {0};
 	result.funcs = ALLOC(arena, p.func_count, mach_function);
 	// TODO: This should be a dynamic array
-	result.max_size = 8 * 1024 * 1024;
-	result.code = alloc(arena, result.max_size, 1);
+	result.max_inst_count = 1024 * 1024;
+	result.code = alloc(arena, result.max_inst_count, 1);
 	result.func_count = p.func_count;
 	result.max_vreg_count = p.max_reg_count;
 	result.max_label_count = p.max_label_count;
@@ -669,7 +669,8 @@ x86_select(ir_program p, arena *arena)
 		symbol *sym = &p.symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
 		mach_function *mach_func = &result.funcs[sym_id.value];
-		isize first_inst = result.size;
+		result.func_count = MAX(result.func_count, (u32)sym_id.value + 1);
+		isize first_inst = result.inst_count;
 
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
@@ -697,7 +698,7 @@ x86_select(ir_program p, arena *arena)
 			x86_select_inst(ctx, j, dst);
 		}
 
-		isize last_inst = result.size;
+		isize last_inst = result.inst_count;
 		mach_func->inst_count = last_inst - first_inst;
 		sym_id = sym->next;
 	}

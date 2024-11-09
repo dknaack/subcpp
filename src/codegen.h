@@ -36,8 +36,8 @@ typedef struct {
 	mach_function *funcs;
 	u32 *tmp_mregs;
 
-	u32 size;
-	u32 max_size;
+	isize inst_count;
+	isize max_inst_count;
 	u32 tmp_mreg_count;
 	u32 int_mreg_count;
 	u32 mreg_count;
@@ -107,9 +107,9 @@ make_global(u32 index)
 static void
 push_operand(mach_program *p, mach_operand arg)
 {
+	ASSERT(arg.kind != MOP_INVALID);
 	ASSERT(arg.kind != MOP_VREG || arg.value < p->max_vreg_count);
-	memcpy((char *)p->code + p->size, &arg, sizeof(arg));
-	p->size += sizeof(arg);
+	p->code[p->inst_count++] = arg;
 }
 
 static void
