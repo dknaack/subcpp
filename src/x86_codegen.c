@@ -175,22 +175,25 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					// contain two address operands, e.g. mov [rax], [rax]
 					for (isize i = 0; i < program.inst_count; i++) {
 						mach_operand operand = program.code[i];
-						if (first_operand) {
-							first_operand = false;
-						} else {
-							stream_print(out, ", ");
+						if (operand.flags & MOP_IMPLICIT) {
+							continue;
 						}
 
 						switch (operand.kind) {
 						case MOP_INST:
-							if (!first_inst) {
-								putchar('\n');
-							} else {
+							if (first_inst) {
 								first_inst = false;
+							} else {
+								stream_print(out, "\n");
 							}
 
 							if (operand.value == X86_LABEL) {
-								stream_print(out, ".L");
+								if (i + 1 < program.inst_count) {
+									stream_print(out, ".L");
+									stream_printu(out, program.code[i + 1].value);
+									stream_print(out, ":");
+									i++;
+								}
 							} else if (operand.value == X86_RET) {
 								stream_print(out, "\tjmp .exit\n");
 							} else {
@@ -202,11 +205,18 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 							first_operand = true;
 							break;
 						default:
+							if (first_operand) {
+								first_operand = false;
+							} else {
+								stream_print(out, ", ");
+							}
+
 							x86_emit_operand(out, operand, symtab);
 							break;
 						}
 					}
 
+					// Print function epilogue
 					stream_print(out, "\n.exit:\n");
 					if (stack_size > 0) {
 						stream_print(out, "\tadd rsp, ");
