@@ -83,7 +83,7 @@ x86_emit_operand(stream *out, mach_token operand, symbol_table *symtab)
 }
 
 static void
-x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_info *info)
+x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *info)
 {
 	for (isize j = 0; j < SECTION_COUNT; j++) {
 		if (j == SECTION_TEXT) {
@@ -127,7 +127,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 				if (j == SECTION_TEXT) {
 					stream_print(out, ":\n");
-					mach_function *func = &program.funcs[sym_id.value];
+					mach_function *func = &p.funcs[sym_id.value];
 					if (func->inst_count == 0) {
 						// NOTE: Do not print empty functions
 						goto next;
@@ -149,7 +149,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					// TODO: Set function stack size
 					isize stack_size = 0;
 #if 0
-					char *code = (char *)program.tokens + func->inst_offset;
+					char *code = (char *)p.tokens + func->inst_offset;
 					mach_inst *first_inst = (mach_inst *)code;
 					if (first_inst->opcode == X86_SUB) {
 						mach_token *operands = (mach_token *)(first_inst + 1);
@@ -173,8 +173,8 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 					// TODO: We need to ensure that instructions do not
 					// contain two address operands, e.g. mov [rax], [rax]
-					for (isize i = 0; i < program.token_count; i++) {
-						mach_token operand = program.tokens[i];
+					for (isize i = 0; i < p.token_count; i++) {
+						mach_token operand = p.tokens[i];
 						if (operand.flags & MACH_IMPLICIT) {
 							continue;
 						}
@@ -188,9 +188,9 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 							}
 
 							if (operand.value == X86_LABEL) {
-								if (i + 1 < program.token_count) {
+								if (i + 1 < p.token_count) {
 									stream_print(out, ".L");
-									stream_printu(out, program.tokens[i + 1].value);
+									stream_printu(out, p.tokens[i + 1].value);
 									stream_print(out, ":");
 									i++;
 								}
