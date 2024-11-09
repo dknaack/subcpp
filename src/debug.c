@@ -437,8 +437,8 @@ print_x86_program(mach_program p)
 	b32 first_operand = true;
 	char *name = "(invalid)";
 
-	for (isize i = 0; i < p.inst_count; i++) {
-		mach_operand operand = p.code[i];
+	for (isize i = 0; i < p.token_count; i++) {
+		mach_token operand = p.tokens[i];
 		if (first_operand) {
 			first_operand = false;
 		} else {

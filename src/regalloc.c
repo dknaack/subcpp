@@ -55,7 +55,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	regalloc_info info = {0};
 	info.used = ALLOC(arena, p.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
-	mach_operand *operands = p.code + offset;
+	mach_token *operands = p.tokens + offset;
 
 	// NOTE: Compute the instruction index of each label
 	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
@@ -94,7 +94,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 					union_rows(live_matrix, i, i + 1);
 				}
 
-				mach_operand operand = operands[i];
+				mach_token operand = operands[i];
 				switch (operand.kind) {
 				case MACH_INVALID:
 					{
@@ -203,7 +203,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	mach_operand *mreg_map = ALLOC(arena, p.max_vreg_count, mach_operand);
+	mach_token *mreg_map = ALLOC(arena, p.max_vreg_count, mach_token);
 	for (u32 i = 0; i < p.max_vreg_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;

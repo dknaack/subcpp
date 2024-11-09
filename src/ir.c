@@ -1062,7 +1062,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	}
 
 	// NOTE: Propagate types through the instructions
-	for (isize i = 1; i < program.func_count; i++) {
+	for (isize i = 0; i < program.func_count; i++) {
 		ir_function *func = &program.funcs[i];
 		ir_inst *inst = program.insts + func->inst_index;
 		for (isize j = 0; j < func->inst_count; j++) {

@@ -1,5 +1,5 @@
 static void
-x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
+x86_emit_operand(stream *out, mach_token operand, symbol_table *symtab)
 {
 	x86_register reg;
 
@@ -149,10 +149,10 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					// TODO: Set function stack size
 					isize stack_size = 0;
 #if 0
-					char *code = (char *)program.code + func->inst_offset;
+					char *code = (char *)program.tokens + func->inst_offset;
 					mach_inst *first_inst = (mach_inst *)code;
 					if (first_inst->opcode == X86_SUB) {
-						mach_operand *operands = (mach_operand *)(first_inst + 1);
+						mach_token *operands = (mach_token *)(first_inst + 1);
 						if (operands[0].kind == MACH_MREG && operands[0].value == X86_RSP) {
 							ASSERT(operands[1].kind == MACH_CONST);
 							stack_size = operands[1].value;
@@ -173,8 +173,8 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 
 					// TODO: We need to ensure that instructions do not
 					// contain two address operands, e.g. mov [rax], [rax]
-					for (isize i = 0; i < program.inst_count; i++) {
-						mach_operand operand = program.code[i];
+					for (isize i = 0; i < program.token_count; i++) {
+						mach_token operand = program.tokens[i];
 						if (operand.flags & MACH_IMPLICIT) {
 							continue;
 						}
@@ -188,9 +188,9 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 							}
 
 							if (operand.value == X86_LABEL) {
-								if (i + 1 < program.inst_count) {
+								if (i + 1 < program.token_count) {
 									stream_print(out, ".L");
-									stream_printu(out, program.code[i + 1].value);
+									stream_printu(out, program.tokens[i + 1].value);
 									stream_print(out, ":");
 									i++;
 								}
