@@ -252,12 +252,13 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			} else if (type->kind == AST_TYPE_FUNC) {
 				// Create a new symbol for the function
 				symbol *sym = new_symbol(ctx, SECTION_TEXT);
-				*node_addr = get_symbol_id(symtab, sym).value;
+				symbol_id sym_id = get_symbol_id(symtab, sym);
+				*node_addr = sym_id.value;
 				sym->linkage = get_linkage(node->flags);
 				sym->name = node->token.value;
 
 				ir_function *func = &ctx->program->funcs[*node_addr];
-				func->name = node->token.value;
+				func->sym_id = sym_id;
 
 				if (children[1].value != 0) {
 					// Create a new function
@@ -1061,8 +1062,6 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	// NOTE: Propagate types through the instructions
 	for (isize i = 1; i < program.func_count; i++) {
 		ir_function *func = &program.funcs[i];
-		ASSERT(func->name.length > 0);
-
 		ir_inst *inst = program.insts + func->inst_index;
 		for (isize j = 0; j < func->inst_count; j++) {
 			if (inst[j].type != IR_VOID || inst[j].opcode == IR_CAST

@@ -409,7 +409,7 @@ print_ir_program(ir_program program)
 
 		ir_function *func = &program.funcs[i];
 		printf("func[%ld]:\n", i);
-		printf("  name: %.*s\n", (int)func->name.length, func->name.at);
+		printf("  sym_id: %d\n", (int)func->sym_id.value);
 		printf("  param_count: %d\n", func->param_count);
 		printf("  inst_index: %d\n", func->inst_index);
 

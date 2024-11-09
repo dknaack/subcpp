@@ -80,25 +80,6 @@ typedef enum {
 	IR_OPERAND_COUNT
 } ir_operand_type;
 
-typedef struct {
-	ir_operand_type op0, op1;
-} ir_opcode_info;
-
-typedef struct {
-	ir_opcode opcode:24;
-	ir_type type:8;
-	u32 op0;
-	u32 op1;
-} ir_inst;
-
-typedef struct ir_function ir_function;
-struct ir_function {
-	str name;
-	i32 param_count;
-	i32 inst_index;
-	i32 inst_count;
-};
-
 typedef enum {
 	SECTION_READ  = 1 << 0,
 	SECTION_WRITE = 1 << 1,
@@ -130,6 +111,25 @@ typedef struct {
 	isize max_symbol_count;
 	symbol_id section[SECTION_COUNT];
 } symbol_table;
+
+typedef struct {
+	ir_operand_type op0, op1;
+} ir_opcode_info;
+
+typedef struct {
+	ir_opcode opcode:24;
+	ir_type type:8;
+	u32 op0;
+	u32 op1;
+} ir_inst;
+
+typedef struct ir_function ir_function;
+struct ir_function {
+	symbol_id sym_id;
+	i32 param_count;
+	i32 inst_index;
+	i32 inst_count;
+};
 
 typedef struct {
 	ir_inst *insts;
