@@ -95,6 +95,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 				}
 
 				mach_token token = tokens[i];
+				u32 value = token.value;
 				switch (token.kind) {
 				case MACH_INVALID:
 					{
@@ -113,28 +114,20 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 							set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 						}
 					} break;
-				case MACH_VREG:
-					{
-						if (token.flags & MACH_DEF) {
-							set_bit(live_matrix, i, token.value, 1);
-						}
-
-						if (token.flags & MACH_USE) {
-							set_bit(live_matrix, i, token.value, 1);
-						}
-					} break;
 				case MACH_MREG:
 					{
-						if (token.flags & MACH_DEF) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - token.value, 1);
-						}
-
-						if (token.flags & MACH_USE) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - token.value, 1);
-						}
+						value = live_matrix.width - 1 - token.value;
 					} break;
 				default:
 					break;
+				}
+
+				if (token.flags & MACH_DEF) {
+					set_bit(live_matrix, i, value, 1);
+				}
+
+				if (token.flags & MACH_USE) {
+					set_bit(live_matrix, i, value, 1);
 				}
 			}
 
