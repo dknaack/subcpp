@@ -58,7 +58,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	mach_operand *operands = p.code + offset;
 
 	// NOTE: Compute the instruction index of each label
-	u32 *label_indices = ALLOC(arena, p.max_label_count, u32);
+	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
 	for (isize i = 0; i < inst_count; i++) {
 		if (operands[i].kind == MOP_INST
 			&& operands[i].value == X86_LABEL
@@ -68,15 +68,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 			ASSERT(operands[i + 1].kind == MOP_CONST);
 			isize label_index = operands[i + 1].value;
 			ASSERT(label_index < p.max_label_count);
-			label_indices[label_index] = i;
-		}
-	}
-
-	// NOTE: Replace label operands with the instruction index
-	for (isize i = 0; i < inst_count; i++) {
-		if (operands[i].kind == MOP_LABEL) {
-			u32 label = operands[i].value;
-			operands[i].value = label_indices[label];
+			label_offset[label_index] = i;
 		}
 	}
 
@@ -106,7 +98,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 				switch (operand.kind) {
 				case MOP_LABEL:
 					{
-						isize inst_index = operand.value;
+						isize inst_index = label_offset[operand.value];
 						ASSERT(inst_index < inst_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
@@ -309,17 +301,6 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 			ASSERT(mreg_map[reg].kind != MOP_INVALID);
 			operands[i].kind = mreg_map[reg].kind;
 			operands[i].value = mreg_map[reg].value;
-		}
-	}
-
-	// NOTE: Replace label operands with the label index
-	for (isize j = 0; j < inst_count; j++) {
-		if (operands[j].kind == MOP_LABEL) {
-			isize offset = operands[j].value;
-			mach_operand *label_inst = &operands[offset];
-			mach_operand *label = (mach_operand *)(label_inst + 1);
-			ASSERT(label->kind == MOP_CONST);
-			operands[j].value = label->value;
 		}
 	}
 
