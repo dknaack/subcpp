@@ -2,7 +2,7 @@ static void
 x86_emit1(x86_context ctx, x86_opcode opcode, mach_operand dst)
 {
 	mach_program *program = ctx.program;
-	dst.flags |= MOP_DEF | MOP_USE;
+	dst.flags |= MACH_DEF | MACH_USE;
 
 	switch (opcode) {
 	case X86_IDIV:
@@ -10,12 +10,12 @@ x86_emit1(x86_context ctx, x86_opcode opcode, mach_operand dst)
 			push_inst(program, opcode, 3);
 			push_operand(program, dst);
 
-			mach_operand op0 = make_operand(MOP_MREG, X86_RAX, dst.size);
-			op0.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
+			mach_operand op0 = make_operand(MACH_MREG, X86_RAX, dst.size);
+			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
 			push_operand(program, op0);
 
-			mach_operand op1 = make_operand(MOP_MREG, X86_RDX, dst.size);
-			op1.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
+			mach_operand op1 = make_operand(MACH_MREG, X86_RDX, dst.size);
+			op1.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
 			push_operand(program, op1);
 		} break;
 	case X86_IMUL:
@@ -23,12 +23,12 @@ x86_emit1(x86_context ctx, x86_opcode opcode, mach_operand dst)
 			push_inst(program, opcode, 3);
 			push_operand(program, dst);
 
-			mach_operand op0 = make_operand(MOP_MREG, X86_RAX, dst.size);
-			op0.flags |= MOP_DEF | MOP_USE | MOP_IMPLICIT;
+			mach_operand op0 = make_operand(MACH_MREG, X86_RAX, dst.size);
+			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
 			push_operand(program, op0);
 
-			mach_operand op1 = make_operand(MOP_MREG, X86_RDX, dst.size);
-			op1.flags |= MOP_DEF | MOP_IMPLICIT;
+			mach_operand op1 = make_operand(MACH_MREG, X86_RDX, dst.size);
+			op1.flags |= MACH_DEF | MACH_IMPLICIT;
 			push_operand(program, op1);
 		} break;
 	default:
@@ -51,31 +51,31 @@ x86_emit2(x86_context ctx, x86_opcode opcode,
 	case X86_MOV:
 		if (!equals_operand(dst, src)) {
 			push_inst(program, opcode, 2);
-			if (dst.flags & MOP_INDIRECT) {
-				dst.flags |= MOP_USE;
+			if (dst.flags & MACH_INDIRECT) {
+				dst.flags |= MACH_USE;
 			} else {
-				dst.flags |= MOP_DEF;
+				dst.flags |= MACH_DEF;
 			}
 
 			push_operand(program, dst);
-			src.flags |= MOP_USE;
+			src.flags |= MACH_USE;
 			push_operand(program, src);
 			// Why was this here?
-			//ASSERT(!(dst.flags & MOP_INDIRECT));
+			//ASSERT(!(dst.flags & MACH_INDIRECT));
 		}
 		break;
 	case X86_CMP:
 		push_inst(program, opcode, 2);
-		dst.flags |= MOP_USE;
+		dst.flags |= MACH_USE;
 		push_operand(program, dst);
-		src.flags |= MOP_USE;
+		src.flags |= MACH_USE;
 		push_operand(program, src);
 		break;
 	default:
 		push_inst(program, opcode, 2);
-		dst.flags |= MOP_DEF | MOP_USE;
+		dst.flags |= MACH_DEF | MACH_USE;
 		push_operand(program, dst);
-		src.flags |= MOP_USE;
+		src.flags |= MACH_USE;
 		push_operand(program, src);
 	}
 }
@@ -144,9 +144,9 @@ x86_select_const(x86_context ctx, isize inst_index)
 	mach_operand result;
 	u32 size = ir_sizeof(inst[inst_index].type);
 	if (inst[inst_index].opcode == IR_CONST) {
-		result = make_operand(MOP_CONST, inst[inst_index].op0, size);
+		result = make_operand(MACH_CONST, inst[inst_index].op0, size);
 	} else {
-		result = make_operand(MOP_VREG, inst_index, size);
+		result = make_operand(MACH_VREG, inst_index, size);
 		x86_select_inst(ctx, inst_index, result);
 	}
 
@@ -172,7 +172,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_VAR:
 		{
-			mach_operand src = make_operand(MOP_VREG, inst_index, size);
+			mach_operand src = make_operand(MACH_VREG, inst_index, size);
 			src.size = size;
 			if (type == IR_F32 || type == IR_F64) {
 				x86_emit2(ctx, X86_MOVSS, dst, src);
@@ -186,27 +186,27 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 			mach_operand src;
 			switch (op0) {
 			case 0:
-				src = make_operand(MOP_MREG, X86_RDI, dst.size);
+				src = make_operand(MACH_MREG, X86_RDI, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			case 1:
-				src = make_operand(MOP_MREG, X86_RSI, dst.size);
+				src = make_operand(MACH_MREG, X86_RSI, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			case 2:
-				src = make_operand(MOP_MREG, X86_RDX, dst.size);
+				src = make_operand(MACH_MREG, X86_RDX, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			case 3:
-				src = make_operand(MOP_MREG, X86_RCX, dst.size);
+				src = make_operand(MACH_MREG, X86_RCX, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			case 4:
-				src = make_operand(MOP_MREG, X86_R8, dst.size);
+				src = make_operand(MACH_MREG, X86_R8, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			case 5:
-				src = make_operand(MOP_MREG, X86_R9, dst.size);
+				src = make_operand(MACH_MREG, X86_R9, dst.size);
 				x86_emit2(ctx, X86_MOV, dst, src);
 				break;
 			default:
@@ -220,7 +220,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 	case IR_CASTU:
 		{
 			ir_type op0_type = inst[op0].type;
-			mach_operand src = make_operand(MOP_VREG, op0, ir_sizeof(op0_type));
+			mach_operand src = make_operand(MACH_VREG, op0, ir_sizeof(op0_type));
 
 			x86_select_inst(ctx, op0, src);
 			if (type == IR_F32) {
@@ -240,7 +240,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_CONST:
 		{
-			mach_operand src = make_operand(MOP_CONST, op0, size);
+			mach_operand src = make_operand(MACH_CONST, op0, size);
 			x86_emit2(ctx, X86_MOV, dst, src);
 		} break;
 	case IR_BUILTIN:
@@ -262,11 +262,11 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_LOAD:
 		{
-			mach_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
+			mach_operand src = make_operand(MACH_VREG, op0, ir_sizeof(inst[op0].type));
 			b32 is_float = (type == IR_F32 || type == IR_F64);
 			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
 			if (is_float) {
-				dst.flags |= MOP_ISFLOAT;
+				dst.flags |= MACH_ISFLOAT;
 			}
 
 			ASSERT(!equals_operand(src, dst));
@@ -289,20 +289,20 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 			} else {
 				x86_select_inst(ctx, op0, src);
 				src.size = dst.size = size;
-				src.flags |= MOP_INDIRECT;
+				src.flags |= MACH_INDIRECT;
 				x86_emit2(ctx, x86_opcode, dst, src);
 			}
 		} break;
 	case IR_STORE:
 		{
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
 
 			ASSERT(!equals_operand(src, dst));
 			if (inst[op1].opcode != IR_CONST) {
 				x86_select_inst(ctx, op1, src);
 			} else {
-				src = make_operand(MOP_CONST, inst[op1].op0, size);
+				src = make_operand(MACH_CONST, inst[op1].op0, size);
 			}
 
 			src.size = ir_sizeof(inst[op1].type);
@@ -331,7 +331,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 				x86_emit2(ctx, x86_opcode, addr, src);
 			} else {
 				x86_select_inst(ctx, op0, dst);
-				dst.flags |= MOP_INDIRECT;
+				dst.flags |= MACH_INDIRECT;
 				dst.size = src.size;
 				x86_emit2(ctx, x86_opcode, dst, src);
 			}
@@ -339,9 +339,9 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 	case IR_ADD:
 		{
 			if (is_float) {
-				mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
-				src.flags |= MOP_ISFLOAT;
-				dst.flags |= MOP_ISFLOAT;
+				mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
+				src.flags |= MACH_ISFLOAT;
+				dst.flags |= MACH_ISFLOAT;
 
 				x86_select_inst(ctx, op0, dst);
 				x86_select_inst(ctx, op1, src);
@@ -353,15 +353,15 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 				} else if (inst[op1].opcode == IR_CONST) {
 					x86_select_inst(ctx, op0, dst);
 					op1 = inst[op1].op0;
-					mach_operand src = make_operand(MOP_CONST, op1, size);
+					mach_operand src = make_operand(MACH_CONST, op1, size);
 					x86_emit2(ctx, X86_ADD, dst, src);
 				} else if (inst[op0].opcode == IR_CONST) {
 					x86_select_inst(ctx, op1, dst);
 					op0 = inst[op0].op0;
-					mach_operand src = make_operand(MOP_CONST, op0, size);
+					mach_operand src = make_operand(MACH_CONST, op0, size);
 					x86_emit2(ctx, X86_ADD, dst, src);
 				} else {
-					mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+					mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 					x86_select_inst(ctx, op0, dst);
 					x86_select_inst(ctx, op1, src);
 					x86_emit2(ctx, X86_ADD, dst, src);
@@ -373,9 +373,9 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		if (is_float) {
 			ASSERT(opcode != IR_MOD);
 
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MOP_ISFLOAT;
-			src.flags |= MOP_ISFLOAT;
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
+			dst.flags |= MACH_ISFLOAT;
+			src.flags |= MACH_ISFLOAT;
 			x86_emit2(ctx, X86_SUBSS, dst, src);
 		} else {
 			if (inst[op1].opcode == IR_CONST && inst[op1].op0 == 1) {
@@ -388,10 +388,10 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 				isize src_size = ir_sizeof(inst[op1].type);
 				op1 = inst[op1].op0;
 				x86_select_inst(ctx, op0, dst);
-				mach_operand src = make_operand(MOP_CONST, op1, src_size);
+				mach_operand src = make_operand(MACH_CONST, op1, src_size);
 				x86_emit2(ctx, X86_SUB, dst, src);
 			} else {
-				mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+				mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 				x86_select_inst(ctx, op0, dst);
 				x86_select_inst(ctx, op1, src);
 				x86_emit2(ctx, X86_SUB, dst, src);
@@ -400,9 +400,9 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		break;
 	case IR_MUL:
 		if (is_float) {
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MOP_ISFLOAT;
-			src.flags |= MOP_ISFLOAT;
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
+			dst.flags |= MACH_ISFLOAT;
+			src.flags |= MACH_ISFLOAT;
 			x86_emit2(ctx, X86_MULSS, dst, src);
 		} else {
 			if (inst[op1].opcode == IR_CONST && inst[op1].op0 == 1) {
@@ -411,8 +411,8 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 				x86_select_inst(ctx, op0, dst);
 				x86_emit2(ctx, X86_ADD, dst, dst);
 			} else {
-				mach_operand rax = make_operand(MOP_MREG, X86_RAX, ir_sizeof(inst[op0].type));
-				mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+				mach_operand rax = make_operand(MACH_MREG, X86_RAX, ir_sizeof(inst[op0].type));
+				mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 
 				x86_select_inst(ctx, op0, rax);
 				x86_select_inst(ctx, op1, src);
@@ -426,15 +426,15 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		if (is_float) {
 			ASSERT(opcode != IR_MOD);
 
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MOP_ISFLOAT;
-			src.flags |= MOP_ISFLOAT;
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
+			dst.flags |= MACH_ISFLOAT;
+			src.flags |= MACH_ISFLOAT;
 			x86_emit2(ctx, X86_DIVSS, dst, src);
 		} else {
-			mach_operand rax = make_operand(MOP_MREG, X86_RAX, ir_sizeof(inst[op0].type));
-			mach_operand rcx = make_operand(MOP_MREG, X86_RCX, ir_sizeof(inst[op1].type));
-			mach_operand rdx = make_operand(MOP_MREG, X86_RDX, dst.size);
-			mach_operand zero = make_operand(MOP_CONST, 0, dst.size);
+			mach_operand rax = make_operand(MACH_MREG, X86_RAX, ir_sizeof(inst[op0].type));
+			mach_operand rcx = make_operand(MACH_MREG, X86_RCX, ir_sizeof(inst[op1].type));
+			mach_operand rdx = make_operand(MACH_MREG, X86_RDX, dst.size);
+			mach_operand zero = make_operand(MACH_CONST, 0, dst.size);
 
 			x86_select_inst(ctx, op0, rax);
 			x86_select_inst(ctx, op1, rcx);
@@ -456,10 +456,10 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 			mach_operand dst_byte = dst;
 			dst_byte.size = 1;
 
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 			if (is_float) {
-				dst.flags |= MOP_ISFLOAT;
-				src.flags |= MOP_ISFLOAT;
+				dst.flags |= MACH_ISFLOAT;
+				src.flags |= MACH_ISFLOAT;
 			}
 
 			x86_select_inst(ctx, op0, dst);
@@ -471,7 +471,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 	case IR_SHL:
 	case IR_SHR:
 		{
-			mach_operand shift = make_operand(MOP_MREG, X86_RCX, 1);
+			mach_operand shift = make_operand(MACH_MREG, X86_RCX, 1);
 
 			x86_select_inst(ctx, op0, dst);
 			x86_select_inst(ctx, op1, shift);
@@ -481,17 +481,17 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 	case IR_OR:
 	case IR_XOR:
 		{
-			mach_operand src = make_operand(MOP_VREG, op1, ir_sizeof(inst[op1].type));
+			mach_operand src = make_operand(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 			x86_opcode x86_opcode =
 				opcode == IR_AND ? X86_AND :
 				opcode == IR_OR ? X86_OR : X86_XOR;
 
 			if (inst[op1].opcode == IR_CONST) {
-				src = make_operand(MOP_CONST, inst[op1].op0, src.size);
+				src = make_operand(MACH_CONST, inst[op1].op0, src.size);
 				x86_select_inst(ctx, op0, dst);
 				x86_emit2(ctx, x86_opcode, dst, src);
 			} else if (inst[op0].opcode == IR_CONST) {
-				src = make_operand(MOP_CONST, inst[op0].op0, src.size);
+				src = make_operand(MACH_CONST, inst[op0].op0, src.size);
 				x86_select_inst(ctx, op1, dst);
 				x86_emit2(ctx, x86_opcode, dst, src);
 			} else {
@@ -514,20 +514,20 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 			b32 is_jiz = opcode == IR_JIZ;
 			x86_opcode jcc = is_jiz ? X86_JZ : X86_JNZ;
 			if (is_comparison_opcode(inst[op0].opcode)) {
-				dst = make_operand(MOP_VREG, inst[op0].op0, ir_sizeof(inst[op0].type));
+				dst = make_operand(MACH_VREG, inst[op0].op0, ir_sizeof(inst[op0].type));
 				x86_select_inst(ctx, inst[op0].op0, dst);
 				mach_operand src = x86_select_const(ctx, inst[op0].op1);
 				src.size = dst.size;
 				if (is_float) {
-					dst.flags |= MOP_ISFLOAT;
-					src.flags |= MOP_ISFLOAT;
+					dst.flags |= MACH_ISFLOAT;
+					src.flags |= MACH_ISFLOAT;
 				}
 
 				x86_opcode cmp_opcode = (is_float ? X86_COMISS : X86_CMP);
 				x86_emit2(ctx, cmp_opcode, dst, src);
 				jcc = x86_get_jcc_opcode(inst[op0].opcode, is_jiz);
 			} else {
-				mach_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
+				mach_operand src = make_operand(MACH_VREG, op0, ir_sizeof(inst[op0].type));
 				x86_select_inst(ctx, op0, src);
 				ASSERT(src.size > 0 && src.size <= 8);
 				x86_emit2(ctx, X86_TEST, src, src);
@@ -537,14 +537,14 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_RET:
 		{
-			mach_operand rax = make_operand(MOP_MREG, X86_RAX, size);
+			mach_operand rax = make_operand(MACH_MREG, X86_RAX, size);
 			x86_select_inst(ctx, op0, rax);
-			rax.flags |= MOP_IMPLICIT;
+			rax.flags |= MACH_IMPLICIT;
 			x86_emit1(ctx, X86_RET, rax);
 		} break;
 	case IR_SEXT:
 		{
-			mach_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
+			mach_operand src = make_operand(MACH_VREG, op0, ir_sizeof(inst[op0].type));
 			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(ctx, op0, src);
@@ -552,7 +552,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_ZEXT:
 		{
-			mach_operand src = make_operand(MOP_VREG, op0, ir_sizeof(inst[op0].type));
+			mach_operand src = make_operand(MACH_VREG, op0, ir_sizeof(inst[op0].type));
 			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(ctx, op0, src);
@@ -565,13 +565,13 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 		} break;
 	case IR_CALL:
 		{
-			mach_operand called = make_operand(MOP_VREG, op0, 8);
+			mach_operand called = make_operand(MACH_VREG, op0, 8);
 			if (inst[op0].opcode == IR_BUILTIN) {
 				mach_operand src = {0};
 				ir_builtin builtin = inst[op0].op0;
 				switch (builtin) {
 				case BUILTIN_POPCOUNT:
-					src = make_operand(MOP_VREG, inst[inst_index - 1].op0, size);
+					src = make_operand(MACH_VREG, inst[inst_index - 1].op0, size);
 					x86_emit2(ctx, X86_POPCNT, dst, src);
 					break;
 				default:
@@ -598,32 +598,32 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 					switch (param_index) {
 					case 0:
 						{
-							mach_operand rdi = make_operand(MOP_MREG, X86_RDI, param_size);
+							mach_operand rdi = make_operand(MACH_MREG, X86_RDI, param_size);
 							x86_select_inst(ctx, param_inst.op0, rdi);
 						} break;
 					case 1:
 						{
-							mach_operand rsi = make_operand(MOP_MREG, X86_RSI, param_size);
+							mach_operand rsi = make_operand(MACH_MREG, X86_RSI, param_size);
 							x86_select_inst(ctx, param_inst.op0, rsi);
 						} break;
 					case 2:
 						{
-							mach_operand rdx = make_operand(MOP_MREG, X86_RDX, param_size);
+							mach_operand rdx = make_operand(MACH_MREG, X86_RDX, param_size);
 							x86_select_inst(ctx, param_inst.op0, rdx);
 						} break;
 					case 3:
 						{
-							mach_operand rcx = make_operand(MOP_MREG, X86_RCX, param_size);
+							mach_operand rcx = make_operand(MACH_MREG, X86_RCX, param_size);
 							x86_select_inst(ctx, param_inst.op0, rcx);
 						} break;
 					case 4:
 						{
-							mach_operand r8 = make_operand(MOP_MREG, X86_R8, param_size);
+							mach_operand r8 = make_operand(MACH_MREG, X86_R8, param_size);
 							x86_select_inst(ctx, param_inst.op0, r8);
 						} break;
 					case 5:
 						{
-							mach_operand r9 = make_operand(MOP_MREG, X86_R9, param_size);
+							mach_operand r9 = make_operand(MACH_MREG, X86_R9, param_size);
 							x86_select_inst(ctx, param_inst.op0, r9);
 						} break;
 					default:
@@ -632,7 +632,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 					}
 				}
 
-				mach_operand rax = make_operand(MOP_MREG, X86_RAX, size);
+				mach_operand rax = make_operand(MACH_MREG, X86_RAX, size);
 				x86_emit1(ctx, X86_CALL, called);
 				x86_emit2(ctx, X86_MOV, dst, rax);
 			}
@@ -640,7 +640,7 @@ x86_select_inst(x86_context ctx, isize inst_index, mach_operand dst)
 	case IR_LABEL:
 		{
 			isize src_size = ir_sizeof(inst[op0].type);
-			mach_operand src = make_operand(MOP_CONST, op0, src_size);
+			mach_operand src = make_operand(MACH_CONST, op0, src_size);
 			x86_emit1(ctx, X86_LABEL, src);
 		} break;
 	case IR_NOP:
@@ -686,12 +686,12 @@ x86_select(ir_program p, arena *arena)
 			}
 
 			isize size = ir_sizeof(inst[j].type);
-			mach_operand dst = make_operand(MOP_VREG, j, size);
+			mach_operand dst = make_operand(MACH_VREG, j, size);
 			if (opcode == IR_MOV || opcode == IR_STORE) {
 				isize op0_size = ir_sizeof(inst[inst[j].op0].type);
-				dst = make_operand(MOP_VREG, inst[j].op0, op0_size);
+				dst = make_operand(MACH_VREG, inst[j].op0, op0_size);
 				if (inst[j].type == IR_F32 || inst[j].type == IR_F64) {
-					dst.flags |= MOP_ISFLOAT;
+					dst.flags |= MACH_ISFLOAT;
 				}
 			}
 

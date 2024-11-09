@@ -3,8 +3,8 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 {
 	x86_register reg;
 
-	b32 print_size = (operand.kind == MOP_SPILL
-		|| (operand.flags & MOP_INDIRECT));
+	b32 print_size = (operand.kind == MACH_SPILL
+		|| (operand.flags & MACH_INDIRECT));
 	if (print_size) {
 		switch (operand.size) {
 		case 1:
@@ -26,7 +26,7 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 	}
 
 	switch (operand.kind) {
-	case MOP_GLOBAL:
+	case MACH_GLOBAL:
 		{
 			ASSERT(operand.value < symtab->symbol_count);
 			symbol *sym = &symtab->symbols[operand.value];
@@ -37,17 +37,17 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 				stream_printu(out, operand.value);
 			}
 		} break;
-	case MOP_SPILL:
+	case MACH_SPILL:
 		stream_print(out, "[rsp+");
 		stream_printu(out, operand.value);
 		stream_print(out, "]");
 		break;
-	case MOP_LABEL:
+	case MACH_LABEL:
 		stream_print(out, ".L");
 		stream_printu(out, operand.value);
 		break;
-	case MOP_MREG:
-		if (operand.flags & MOP_INDIRECT) {
+	case MACH_MREG:
+		if (operand.flags & MACH_INDIRECT) {
 			stream_print(out, "[");
 			operand.size = 8;
 		}
@@ -55,23 +55,23 @@ x86_emit_operand(stream *out, mach_operand operand, symbol_table *symtab)
 		reg = (x86_register)operand.value;
 		stream_print(out, x86_get_register_name(reg, operand.size));
 
-		if (operand.flags & MOP_INDIRECT) {
+		if (operand.flags & MACH_INDIRECT) {
 			stream_print(out, "]");
 		}
 		break;
-	case MOP_CONST:
+	case MACH_CONST:
 		stream_printu(out, operand.value);
 		break;
-	case MOP_FLOAT:
+	case MACH_FLOAT:
 		stream_print(out, "[float#");
 		stream_printu(out, operand.value);
 		stream_print(out, "]");
 		break;
-	case MOP_FUNC:
+	case MACH_FUNC:
 		{
 			ASSERT(!"TODO");
 		} break;
-	case MOP_VREG:
+	case MACH_VREG:
 		stream_print(out, "v");
 		stream_printu(out, operand.value);
 		//ASSERT(!"Cannot use virtual register during code generation");
@@ -140,7 +140,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 						u32 mreg = x86_preserved_regs[j];
 						if (info[func_index].used[mreg]) {
 							stream_print(out, "\tpush ");
-							x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
+							x86_emit_operand(out, make_operand(MACH_MREG, mreg, 8), symtab);
 							stream_print(out, "\n");
 							used_volatile_register_count++;
 						}
@@ -153,8 +153,8 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					mach_inst *first_inst = (mach_inst *)code;
 					if (first_inst->opcode == X86_SUB) {
 						mach_operand *operands = (mach_operand *)(first_inst + 1);
-						if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
-							ASSERT(operands[1].kind == MOP_CONST);
+						if (operands[0].kind == MACH_MREG && operands[0].value == X86_RSP) {
+							ASSERT(operands[1].kind == MACH_CONST);
 							stack_size = operands[1].value;
 
 							stack_size += 8 * info[func_index].spill_count;
@@ -175,12 +175,12 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					// contain two address operands, e.g. mov [rax], [rax]
 					for (isize i = 0; i < program.inst_count; i++) {
 						mach_operand operand = program.code[i];
-						if (operand.flags & MOP_IMPLICIT) {
+						if (operand.flags & MACH_IMPLICIT) {
 							continue;
 						}
 
 						switch (operand.kind) {
-						case MOP_INST:
+						case MACH_INST:
 							if (first_inst) {
 								first_inst = false;
 							} else {
@@ -229,7 +229,7 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 						u32 mreg = x86_preserved_regs[j];
 						if (info[func_index].used[mreg]) {
 							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_operand(MOP_MREG, mreg, 8), symtab);
+							x86_emit_operand(out, make_operand(MACH_MREG, mreg, 8), symtab);
 							stream_print(out, "\n");
 						}
 					}

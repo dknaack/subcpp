@@ -60,12 +60,12 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	// NOTE: Compute the instruction index of each label
 	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
 	for (isize i = 0; i < inst_count; i++) {
-		if (operands[i].kind == MOP_INST
+		if (operands[i].kind == MACH_INST
 			&& operands[i].value == X86_LABEL
 			&& i + 1 < inst_count)
 		{
 			// A label should only have one operand: The index of the label.
-			ASSERT(operands[i + 1].kind == MOP_CONST);
+			ASSERT(operands[i + 1].kind == MACH_CONST);
 			isize label_index = operands[i + 1].value;
 			ASSERT(label_index < p.max_label_count);
 			label_offset[label_index] = i;
@@ -96,40 +96,40 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 
 				mach_operand operand = operands[i];
 				switch (operand.kind) {
-				case MOP_INVALID:
+				case MACH_INVALID:
 					{
 						ASSERT(!"Invalid operand");
 					} break;
-				case MOP_LABEL:
+				case MACH_LABEL:
 					{
 						isize inst_index = label_offset[operand.value];
 						ASSERT(inst_index < inst_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
-				case MOP_FUNC:
+				case MACH_FUNC:
 					{
 						for (u32 k = 0; k < p.tmp_mreg_count; k++) {
 							u32 mreg = p.tmp_mregs[k];
 							set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 						}
 					} break;
-				case MOP_VREG:
+				case MACH_VREG:
 					{
-						if (operand.flags & MOP_DEF) {
+						if (operand.flags & MACH_DEF) {
 							set_bit(live_matrix, i, operand.value, 1);
 						}
 
-						if (operand.flags & MOP_USE) {
+						if (operand.flags & MACH_USE) {
 							set_bit(live_matrix, i, operand.value, 1);
 						}
 					} break;
-				case MOP_MREG:
+				case MACH_MREG:
 					{
-						if (operand.flags & MOP_DEF) {
+						if (operand.flags & MACH_DEF) {
 							set_bit(live_matrix, i, live_matrix.width - 1 - operand.value, 1);
 						}
 
-						if (operand.flags & MOP_USE) {
+						if (operand.flags & MACH_USE) {
 							set_bit(live_matrix, i, live_matrix.width - 1 - operand.value, 1);
 						}
 					} break;
@@ -184,8 +184,8 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	// Determine floating-pointer registers
 	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
 	for (u32 j = 0; j < inst_count; j++) {
-		b32 is_vreg = (operands[j].kind == MOP_VREG);
-		if (is_vreg && (operands[j].flags & MOP_ISFLOAT)) {
+		b32 is_vreg = (operands[j].kind == MACH_VREG);
+		if (is_vreg && (operands[j].flags & MACH_ISFLOAT)) {
 			u32 reg = operands[j].value;
 			is_float_vreg[reg] = true;
 		}
@@ -227,7 +227,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
 				ASSERT(pool[active_count] < p.mreg_count);
-			} else if (mreg_map[inactive_reg].kind == MOP_MREG) {
+			} else if (mreg_map[inactive_reg].kind == MACH_MREG) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
 				ASSERT(pool[active_count] < p.mreg_count);
@@ -293,16 +293,16 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < p.mreg_count);
 			info.used[mreg] |= !is_empty;
-			mreg_map[curr_reg] = make_operand(MOP_MREG, mreg, 0);
+			mreg_map[curr_reg] = make_operand(MACH_MREG, mreg, 0);
 		}
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < inst_count; i++) {
-		if (operands[i].kind == MOP_VREG) {
+		if (operands[i].kind == MACH_VREG) {
 			u32 reg = operands[i].value;
 			ASSERT(reg < p.max_vreg_count);
-			ASSERT(mreg_map[reg].kind != MOP_INVALID);
+			ASSERT(mreg_map[reg].kind != MACH_INVALID);
 			operands[i].kind = mreg_map[reg].kind;
 			operands[i].value = mreg_map[reg].value;
 		}

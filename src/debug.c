@@ -446,7 +446,7 @@ print_x86_program(mach_program p)
 		}
 
 		switch (operand.kind) {
-		case MOP_INST:
+		case MACH_INST:
 			if (!first_inst) {
 				putchar('\n');
 			} else {
@@ -462,23 +462,23 @@ print_x86_program(mach_program p)
 
 			first_operand = true;
 			break;
-		case MOP_VREG:
+		case MACH_VREG:
 			printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
 			break;
-		case MOP_MREG:
+		case MACH_MREG:
 			name = x86_get_register_name(operand.value, operand.size);
 			printf("%s", name);
 			break;
-		case MOP_LABEL:
+		case MACH_LABEL:
 			printf("L%d", operand.value);
 			break;
-		case MOP_CONST:
+		case MACH_CONST:
 			printf("%d", operand.value);
 			break;
-		case MOP_GLOBAL:
+		case MACH_GLOBAL:
 			printf("global_%d", operand.value);
 			break;
-		case MOP_SPILL:
+		case MACH_SPILL:
 			printf("spill");
 			break;
 		default:
