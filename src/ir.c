@@ -919,19 +919,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 value = 0;
 			b32 returns_struct = false;
 			isize struct_size = 0;
+			ir_type ir_type = IR_VOID;
 			if (children[0].value != 0) {
 				value = translate_node(ctx, pool, children[0], false);
 				type_id value_type_id = get_type_id(types, children[0]);
 				type *value_type = get_type_data(types, value_type_id);
 				returns_struct = is_compound_type(value_type->kind);
 				struct_size = type_sizeof(value_type_id, types);
+				ir_type = ir_type_from(value_type);
 			}
 
 			if (returns_struct) {
 				ir_memcpy(ctx, 1, value, struct_size);
 			}
 
-			ir_emit1(ctx, IR_VOID, IR_RET, value);
+			ir_emit1(ctx, ir_type, IR_RET, value);
 			// NOTE: For dead code elimination
 			ir_emit1(ctx, IR_VOID, IR_LABEL, new_label(ctx));
 		} break;
