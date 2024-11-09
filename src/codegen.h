@@ -24,37 +24,31 @@ typedef enum {
 } mach_operand_flags;
 
 typedef struct {
-	uint8_t kind;
-	uint8_t size;
-	uint16_t flags;
+	u8 kind;
+	u8 size;
+	u16 flags;
 	u32 value;
 } mach_operand;
 
 typedef struct {
-	u32 inst_count;
-	u32 vreg_count;
-	u32 label_count;
-	u32 stack_size;
-	u32 *inst_offsets;
+	i32 inst_offset;
+	i32 inst_count;
+	i32 stack_size;
 } mach_function;
-
-typedef struct {
-	u32 *tmp_mregs;
-	u32 tmp_mreg_count;
-	u32 int_mreg_count;
-	u32 mreg_count;
-} mach_register_info;
 
 typedef struct {
 	void *code;
 	mach_function *funcs;
-	mach_register_info mreg_info;
+	u32 *tmp_mregs;
 
 	u32 size;
 	u32 max_size;
-	u32 vreg_count;
-	u32 inst_count;
+	u32 tmp_mreg_count;
+	u32 int_mreg_count;
+	u32 mreg_count;
 	u32 func_count;
+	u32 max_vreg_count;
+	u32 max_label_count;
 } mach_program;
 
 typedef struct {
@@ -132,14 +126,12 @@ push_inst(mach_program *program, u32 opcode, u32 operand_count)
 		* sizeof(mach_operand) <= program->max_size);
 	memcpy((char *)program->code + program->size, &inst, sizeof(inst));
 	program->size += sizeof(inst);
-	program->inst_count++;
 }
 
 static void
-push_operand(mach_program *program, mach_operand operand)
+push_operand(mach_program *p, mach_operand arg)
 {
-	mach_function *func = &program->funcs[program->func_count - 1];
-	ASSERT(operand.kind != MOP_VREG || operand.value < func->vreg_count);
-	memcpy((char *)program->code + program->size, &operand, sizeof(operand));
-	program->size += sizeof(operand);
+	ASSERT(arg.kind != MOP_VREG || arg.value < p->max_vreg_count);
+	memcpy((char *)p->code + p->size, &arg, sizeof(arg));
+	p->size += sizeof(arg);
 }

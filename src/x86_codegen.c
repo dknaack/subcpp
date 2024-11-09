@@ -150,7 +150,8 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					}
 
 					// TODO: Set function stack size
-					mach_inst *first_inst = (mach_inst *)((char *)program.code + func->inst_offsets[0]);
+					char *code = (char *)program.code + func->inst_offset;
+					mach_inst *first_inst = (mach_inst *)code;
 					isize stack_size = 0;
 					if (first_inst->opcode == X86_SUB) {
 						mach_operand *operands = (mach_operand *)(first_inst + 1);
@@ -169,8 +170,6 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 						}
 					}
 
-					char *code = (char *)program.code + func->inst_offsets[0];
-					isize size = func->inst_offsets[func->inst_count - 1] - func->inst_offsets[0];
 					isize inst_count = func->inst_count;
 					while (inst_count-- > 0) {
 						mach_inst *inst = (mach_inst *)code;
@@ -223,7 +222,6 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 							stream_print(out, "\n");
 						}
 
-						size -= inst_size;
 						code += inst_size;
 					}
 

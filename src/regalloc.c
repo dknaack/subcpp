@@ -50,33 +50,37 @@ swap_u32(u32 *a, isize i, isize j)
 }
 
 static regalloc_info
-regalloc_func(mach_function func, void *code,
-	mach_register_info mreg_info, arena *arena)
+regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 {
 	regalloc_info info = {0};
-	info.used = ALLOC(arena, mreg_info.mreg_count, b32);
+	info.used = ALLOC(arena, p.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
 
-	// NOTE: Count the number of labels
-	isize label_count = func.label_count;
+	// NOTE: Compute the instruction offsets for each instruction
+	u32 *inst_offsets = ALLOC(arena, inst_count, u32);
+	for (isize i = 0; i < inst_count; i++) {
+		inst_offsets[i] = offset;
+		mach_inst *inst = (mach_inst *)((char *)p.code + offset);
+		offset += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
+	}
 
 	// NOTE: Compute the instruction index of each label
-	u32 *label_indices = ALLOC(arena, label_count, u32);
-	for (isize i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+	u32 *label_indices = ALLOC(arena, p.max_label_count, u32);
+	for (isize i = 0; i < inst_count; i++) {
+		mach_inst *inst = get_inst(p.code, inst_offsets, i);
 		mach_operand *operands = (mach_operand *)(inst + 1);
 		if (inst->opcode == X86_LABEL) {
 			// A label should only have one operand: The index of the label.
 			ASSERT(operands[0].kind == MOP_CONST);
 			isize label_index = operands[0].value;
-			ASSERT(label_index < label_count);
+			ASSERT(label_index < p.max_label_count);
 			label_indices[label_index] = i;
 		}
 	}
 
 	// NOTE: Replace label operands with the instruction index
-	for (isize i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+	for (isize i = 0; i < inst_count; i++) {
+		mach_inst *inst = get_inst(p.code, inst_offsets, i);
 		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (isize j = 0; j < inst->operand_count; j++) {
 			if (operands[j].kind == MOP_LABEL) {
@@ -90,40 +94,41 @@ regalloc_func(mach_function func, void *code,
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
 	// column and row.
-	u32 reg_count = mreg_info.mreg_count + func.vreg_count;
-	bit_matrix live_matrix = bit_matrix_init(reg_count, func.inst_count, arena);
+	isize reg_count = p.mreg_count + p.max_vreg_count;
+	bit_matrix live_matrix = bit_matrix_init(reg_count, inst_count, arena);
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
 		arena_temp temp = arena_temp_begin(arena);
-		bit_matrix prev_live_matrix = bit_matrix_init(reg_count, func.inst_count, arena);
+		bit_matrix prev_live_matrix =
+			bit_matrix_init(reg_count, inst_count, arena);
 
 		b32 has_matrix_changed = false;
 		do {
-			u32 i = func.inst_count;
+			isize i = inst_count;
 			while (i-- > 0) {
 				clear_row(live_matrix, i);
 				/* TODO: successor of jump instructions */
-				if (i + 1 != func.inst_count) {
+				if (i + 1 != inst_count) {
 					union_rows(live_matrix, i, i + 1);
 				}
 
-				mach_inst *inst = get_inst(code, func.inst_offsets, i);
+				mach_inst *inst = get_inst(p.code, inst_offsets, i);
 				mach_operand *operands = (mach_operand *)(inst + 1);
-				for (u32 j = 0; j < inst->operand_count; j++) {
+				for (isize j = 0; j < inst->operand_count; j++) {
 					if (operands[j].kind == MOP_LABEL) {
-						u32 inst_index = operands[j].value;
-						ASSERT(inst_index < func.inst_count);
+						isize inst_index = operands[j].value;
+						ASSERT(inst_index < inst_count);
 						union_rows(live_matrix, i, inst_index);
 					}
 				}
 
-				for (u32 j = 0; j < inst->operand_count; j++) {
+				for (isize j = 0; j < inst->operand_count; j++) {
 					if (operands[j].kind != MOP_FUNC) {
 						continue;
 					}
 
-					for (u32 k = 0; k < mreg_info.tmp_mreg_count; k++) {
-						u32 mreg = mreg_info.tmp_mregs[k];
+					for (u32 k = 0; k < p.tmp_mreg_count; k++) {
+						u32 mreg = p.tmp_mregs[k];
 						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 					}
 				}
@@ -193,11 +198,11 @@ regalloc_func(mach_function func, void *code,
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < func.vreg_count; i++) {
+	for (u32 i = 0; i < p.max_vreg_count; i++) {
 		sorted[i] = i;
 	}
 
-	for (u32 i = 1; i < func.vreg_count; i++) {
+	for (u32 i = 1; i < p.max_vreg_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
@@ -206,9 +211,9 @@ regalloc_func(mach_function func, void *code,
 	}
 
 	// Determine floating-pointer registers
-	b32 *is_float_vreg = ALLOC(arena, func.vreg_count, b32);
-	for (u32 i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
+	for (isize i = 0; i < inst_count; i++) {
+		mach_inst *inst = get_inst(p.code, inst_offsets, i);
 		u32 operand_count = inst->operand_count;
 
 		mach_operand *operands = (mach_operand *)(inst + 1);
@@ -222,8 +227,8 @@ regalloc_func(mach_function func, void *code,
 	}
 
 	// Initialize the register pool
-	u32 *pool = ALLOC(arena, mreg_info.mreg_count, u32);
-	for (u32 i = 0; i < mreg_info.mreg_count; i++) {
+	u32 *pool = ALLOC(arena, p.mreg_count, u32);
+	for (u32 i = 0; i < p.mreg_count; i++) {
 		pool[i] = i;
 	}
 
@@ -233,8 +238,8 @@ regalloc_func(mach_function func, void *code,
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	mach_operand *mreg_map = ALLOC(arena, func.vreg_count, mach_operand);
-	for (u32 i = 0; i < func.vreg_count; i++) {
+	mach_operand *mreg_map = ALLOC(arena, p.max_vreg_count, mach_operand);
+	for (u32 i = 0; i < p.max_vreg_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
@@ -252,15 +257,15 @@ regalloc_func(mach_function func, void *code,
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg >= func.vreg_count);
+			b32 is_mreg = (inactive_reg >= p.max_vreg_count);
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < mreg_info.mreg_count);
+				ASSERT(pool[active_count] < p.mreg_count);
 			} else if (mreg_map[inactive_reg].kind == MOP_MREG) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < mreg_info.mreg_count);
+				ASSERT(pool[active_count] < p.mreg_count);
 			}
 
 			sorted[j] = sorted[active_start];
@@ -268,13 +273,13 @@ regalloc_func(mach_function func, void *code,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(curr_reg < func.vreg_count);
-		b32 should_spill = (active_count >= mreg_info.mreg_count);
+		ASSERT(curr_reg < p.max_vreg_count);
+		b32 should_spill = (active_count >= p.mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < mreg_info.mreg_count; i++) {
+			for (u32 i = active_count; i < p.mreg_count; i++) {
 				u32 mreg = pool[i];
-				b32 is_float_mreg = pool[i] >= mreg_info.int_mreg_count;
+				b32 is_float_mreg = pool[i] >= p.int_mreg_count;
 				if (is_float_mreg != is_float_vreg[curr_reg]) {
 					continue;
 				}
@@ -321,22 +326,22 @@ regalloc_func(mach_function func, void *code,
 			}
 		} else {
 			u32 mreg = pool[active_count++];
-			ASSERT(mreg < mreg_info.mreg_count);
+			ASSERT(mreg < p.mreg_count);
 			info.used[mreg] |= !is_empty;
 			mreg_map[curr_reg] = make_operand(MOP_MREG, mreg, 0);
 		}
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
-	for (u32 i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+	for (isize i = 0; i < inst_count; i++) {
+		mach_inst *inst = get_inst(p.code, inst_offsets, i);
 		u32 operand_count = inst->operand_count;
 
 		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (u32 i = 0; i < operand_count; i++) {
 			if (operands[i].kind == MOP_VREG) {
 				u32 reg = operands[i].value;
-				ASSERT(reg < func.vreg_count);
+				ASSERT(reg < p.max_vreg_count);
 				ASSERT(mreg_map[reg].kind != MOP_INVALID);
 				operands[i].kind = mreg_map[reg].kind;
 				operands[i].value = mreg_map[reg].value;
@@ -345,13 +350,13 @@ regalloc_func(mach_function func, void *code,
 	}
 
 	// NOTE: Replace label operands with the label index
-	for (isize i = 0; i < func.inst_count; i++) {
-		mach_inst *inst = get_inst(code, func.inst_offsets, i);
+	for (isize i = 0; i < inst_count; i++) {
+		mach_inst *inst = get_inst(p.code, inst_offsets, i);
 		mach_operand *operands = (mach_operand *)(inst + 1);
 		for (isize j = 0; j < inst->operand_count; j++) {
 			if (operands[j].kind == MOP_LABEL) {
 				isize offset = operands[j].value;
-				mach_inst *label_inst = get_inst(code, func.inst_offsets, offset);
+				mach_inst *label_inst = get_inst(p.code, inst_offsets, offset);
 				mach_operand *label = (mach_operand *)(label_inst + 1);
 				ASSERT(label->kind == MOP_CONST);
 
@@ -369,7 +374,8 @@ regalloc(mach_program p, arena *arena)
 {
 	regalloc_info *info = ALLOC(arena, p.func_count, regalloc_info);
 	for (isize i = 0; i < p.func_count; i++) {
-		info[i] = regalloc_func(p.funcs[i], p.code, p.mreg_info, arena);
+		info[i] = regalloc_range(p, p.funcs[i].inst_offset,
+			p.funcs[i].inst_count, arena);
 	}
 
 	return info;

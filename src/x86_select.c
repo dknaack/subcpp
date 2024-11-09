@@ -656,23 +656,20 @@ x86_select(ir_program p, arena *arena)
 	// TODO: This should be a dynamic array
 	result.max_size = 8 * 1024 * 1024;
 	result.code = alloc(arena, result.max_size, 1);
-	result.vreg_count = p.max_reg_count;
 	result.func_count = p.func_count;
-	result.mreg_info.mreg_count = X86_REGISTER_COUNT;
-	result.mreg_info.int_mreg_count = X86_INT_REGISTER_COUNT;
-	result.mreg_info.tmp_mreg_count = LENGTH(x86_temp_regs);
-	result.mreg_info.tmp_mregs = x86_temp_regs;
+	result.max_vreg_count = p.max_reg_count;
+	result.max_label_count = p.max_label_count;
+	result.mreg_count = X86_REGISTER_COUNT;
+	result.int_mreg_count = X86_INT_REGISTER_COUNT;
+	result.tmp_mreg_count = LENGTH(x86_temp_regs);
+	result.tmp_mregs = x86_temp_regs;
 
 	symbol_id sym_id = p.symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
 		symbol *sym = &p.symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
 		mach_function *mach_func = &result.funcs[sym_id.value];
-		mach_func->vreg_count = p.max_reg_count;
-		mach_func->label_count = p.max_label_count;
-
-		isize prev_inst_count = result.inst_count;
-		char *start = (char *)result.code + result.size;
+		mach_func->inst_offset = result.size;
 
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
@@ -698,18 +695,6 @@ x86_select(ir_program p, arena *arena)
 			}
 
 			x86_select_inst(ctx, j, dst);
-		}
-
-		mach_func->inst_count = result.inst_count - prev_inst_count;
-		ASSERT(ir_func->inst_count == 0 || mach_func->inst_count > 0);
-
-		// Compute the instruction offsets
-		char *code = start;
-		mach_func->inst_offsets = ALLOC(arena, mach_func->inst_count, u32);
-		for (isize i = 0; i < mach_func->inst_count; i++) {
-			mach_func->inst_offsets[i] = code - (char *)result.code;
-			mach_inst *inst = (mach_inst *)code;
-			code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
 		}
 
 		sym_id = sym->next;
