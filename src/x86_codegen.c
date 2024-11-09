@@ -150,9 +150,10 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 					}
 
 					// TODO: Set function stack size
+					isize stack_size = 0;
+#if 0
 					char *code = (char *)program.code + func->inst_offset;
 					mach_inst *first_inst = (mach_inst *)code;
-					isize stack_size = 0;
 					if (first_inst->opcode == X86_SUB) {
 						mach_operand *operands = (mach_operand *)(first_inst + 1);
 						if (operands[0].kind == MOP_MREG && operands[0].value == X86_RSP) {
@@ -169,63 +170,47 @@ x86_generate(stream *out, mach_program program, symbol_table *symtab, regalloc_i
 							operands[1].value = stack_size;
 						}
 					}
+#endif
+					b32 first_inst = true;
+					b32 first_operand = true;
 
-					isize inst_count = func->inst_count;
-					while (inst_count-- > 0) {
-						mach_inst *inst = (mach_inst *)code;
-						mach_operand *operands = (mach_operand *)(inst + 1);
-						isize operand_count = inst->operand_count;
-						isize inst_size = sizeof(*inst) + operand_count * sizeof(*operands);
-
-						x86_opcode opcode = (x86_opcode)inst->opcode;
-						if (opcode == X86_LABEL) {
-							stream_print(out, ".L");
-							x86_emit_operand(out, operands[0], symtab);
-							stream_print(out, ":\n");
-						} else if (opcode == X86_RET) {
-							stream_print(out, "\tjmp .exit\n");
+					// TODO: We need to ensure that instructions do not
+					// contain two address operands, e.g. mov [rax], [rax]
+					for (isize i = 0; i < program.size; i++) {
+						mach_operand operand = program.code[i];
+						if (first_operand) {
+							first_operand = false;
 						} else {
-							if (opcode == X86_MOV || opcode == X86_MOVSS) {
-								if  (equals_operand(operands[0], operands[1])) {
-									continue;
-								}
-							}
-
-							// TODO: This is probably unsafe.
-							b32 both_spill = (operands[0].kind == MOP_SPILL
-								&& operands[1].kind == MOP_SPILL);
-							if (both_spill) {
-								mach_operand rax = make_operand(MOP_MREG, X86_RAX, operands[0].size);
-								stream_print(out, "\tmov ");
-								x86_emit_operand(out, rax, symtab);
-								stream_print(out, ", ");
-								x86_emit_operand(out, operands[1], symtab);
-								operands[1] = rax;
-								stream_print(out, "\n");
-							}
-
-							stream_print(out, "\t");
-							stream_print(out, x86_get_opcode_name(opcode));
-							stream_print(out, " ");
-							for (isize j = 0; j < operand_count; j++) {
-								if (operands[j].flags & MOP_IMPLICIT) {
-									continue;
-								}
-
-								if (j != 0) {
-									stream_print(out, ", ");
-								}
-
-								x86_emit_operand(out, operands[j], symtab);
-							}
-
-							stream_print(out, "\n");
+							stream_print(out, ", ");
 						}
 
-						code += inst_size;
+						switch (operand.kind) {
+						case MOP_INST:
+							if (!first_inst) {
+								putchar('\n');
+							} else {
+								first_inst = false;
+							}
+
+							if (operand.value == X86_LABEL) {
+								stream_print(out, ".L");
+							} else if (operand.value == X86_RET) {
+								stream_print(out, "\tjmp .exit\n");
+							} else {
+								stream_print(out, "\t");
+								stream_print(out, x86_get_opcode_name(operand.value));
+								stream_print(out, " ");
+							}
+
+							first_operand = true;
+							break;
+						default:
+							x86_emit_operand(out, operand, symtab);
+							break;
+						}
 					}
 
-					stream_print(out, ".exit:\n");
+					stream_print(out, "\n.exit:\n");
 					if (stack_size > 0) {
 						stream_print(out, "\tadd rsp, ");
 						stream_printu(out, stack_size);

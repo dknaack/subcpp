@@ -1,10 +1,6 @@
-typedef struct {
-	u32 opcode:24;
-	u32 operand_count:8;
-} mach_inst;
-
 typedef enum {
 	MOP_INVALID,
+	MOP_INST,
 	MOP_MREG,
 	MOP_VREG,
 	MOP_SPILL,
@@ -31,13 +27,12 @@ typedef struct {
 } mach_operand;
 
 typedef struct {
-	i32 inst_offset;
 	i32 inst_count;
 	i32 stack_size;
 } mach_function;
 
 typedef struct {
-	void *code;
+	mach_operand *code;
 	mach_function *funcs;
 	u32 *tmp_mregs;
 
@@ -109,29 +104,18 @@ make_global(u32 index)
 	return operand;
 }
 
-static mach_inst *
-get_inst(void *code, u32 *offsets, u32 index)
-{
-	mach_inst *inst = (mach_inst *)((char *)code + offsets[index]);
-	return inst;
-}
-
-static void
-push_inst(mach_program *program, u32 opcode, u32 operand_count)
-{
-	mach_inst inst = {0};
-	inst.opcode = opcode;
-	inst.operand_count = operand_count;
-	ASSERT(program->size + sizeof(inst) + operand_count
-		* sizeof(mach_operand) <= program->max_size);
-	memcpy((char *)program->code + program->size, &inst, sizeof(inst));
-	program->size += sizeof(inst);
-}
-
 static void
 push_operand(mach_program *p, mach_operand arg)
 {
 	ASSERT(arg.kind != MOP_VREG || arg.value < p->max_vreg_count);
 	memcpy((char *)p->code + p->size, &arg, sizeof(arg));
 	p->size += sizeof(arg);
+}
+
+static void
+push_inst(mach_program *p, u32 opcode, u32 operand_count)
+{
+	mach_operand operand = make_operand(MOP_INST, opcode, 0);
+	(void)operand_count;
+	push_operand(p, operand);
 }

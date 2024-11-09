@@ -430,64 +430,64 @@ print_ir_program(ir_program program)
 }
 
 static void
-print_x86_operand(mach_operand operand)
+print_x86_program(mach_program p)
 {
-	u32 value = operand.value;
-	switch (operand.kind) {
-	case MOP_VREG:
-		printf("%%%d%s", value, operand.size == 4 ? "d" : "");
-		break;
-	case MOP_MREG:
-		printf("%s", x86_get_register_name(value, operand.size));
-		break;
-	case MOP_LABEL:
-		printf("L%d:", value);
-		break;
-	case MOP_CONST:
-		printf("%d", value);
-		break;
-	case MOP_GLOBAL:
-		printf("global_%d", value);
-		break;
-	case MOP_SPILL:
-		printf("spill");
-		break;
-	default:
-		printf("?");
-		break;
-	}
+	isize lineno = 1;
+	b32 first_inst = true;
+	b32 first_operand = true;
+	char *name = "(invalid)";
 
-}
-
-static void
-print_x86_program(mach_program program)
-{
-	char *code = program.code;
-	char *end = code + program.size;
-	isize i = 0;
-	while (code < end) {
-		printf("%2ld|", i++);
-
-		mach_inst *inst = (mach_inst *)code;
-		code += sizeof(*inst) + inst->operand_count * sizeof(mach_operand);
-		if (inst->opcode != X86_LABEL) {
-			printf("\tX86.%s ", x86_get_opcode_name(inst->opcode));
+	for (isize i = 0; i < p.size; i++) {
+		mach_operand operand = p.code[i];
+		if (first_operand) {
+			first_operand = false;
 		} else {
-			printf("L");
+			printf(", ");
 		}
 
-		mach_operand *operands = (mach_operand *)(inst + 1);
-		for (isize j = 0; j < inst->operand_count; j++) {
-			print_x86_operand(operands[j]);
-			if (j + 1 < inst->operand_count) {
-				printf(", ");
+		switch (operand.kind) {
+		case MOP_INST:
+			if (!first_inst) {
+				putchar('\n');
+			} else {
+				first_inst = false;
 			}
-		}
 
-		putchar('\n');
+			if (operand.value == X86_LABEL) {
+				printf("%2ld|L", lineno++);
+			} else {
+				name = x86_get_opcode_name(operand.value);
+				printf("%2ld|\t%s ", lineno++, name);
+			}
+
+			first_operand = true;
+			break;
+		case MOP_VREG:
+			printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
+			break;
+		case MOP_MREG:
+			name = x86_get_register_name(operand.value, operand.size);
+			printf("%s", name);
+			break;
+		case MOP_LABEL:
+			printf("L%d", operand.value);
+			break;
+		case MOP_CONST:
+			printf("%d", operand.value);
+			break;
+		case MOP_GLOBAL:
+			printf("global_%d", operand.value);
+			break;
+		case MOP_SPILL:
+			printf("spill");
+			break;
+		default:
+			printf("?");
+			break;
+		}
 	}
 
-	printf("\n");
+	putchar('\n');
 }
 
 static void
