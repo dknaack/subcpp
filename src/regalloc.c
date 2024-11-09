@@ -55,18 +55,18 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	regalloc_info info = {0};
 	info.used = ALLOC(arena, p.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
-	mach_token *operands = p.tokens + offset;
+	mach_token *tokens = p.tokens + offset;
 
 	// NOTE: Compute the instruction index of each label
 	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
 	for (isize i = 0; i < inst_count; i++) {
-		if (operands[i].kind == MACH_INST
-			&& operands[i].value == X86_LABEL
+		if (tokens[i].kind == MACH_INST
+			&& tokens[i].value == X86_LABEL
 			&& i + 1 < inst_count)
 		{
-			// A label should only have one operand: The index of the label.
-			ASSERT(operands[i + 1].kind == MACH_CONST);
-			isize label_index = operands[i + 1].value;
+			// A label should only have one token: The index of the label.
+			ASSERT(tokens[i + 1].kind == MACH_CONST);
+			isize label_index = tokens[i + 1].value;
 			ASSERT(label_index < p.max_label_count);
 			label_offset[label_index] = i;
 		}
@@ -94,15 +94,15 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 					union_rows(live_matrix, i, i + 1);
 				}
 
-				mach_token operand = operands[i];
-				switch (operand.kind) {
+				mach_token token = tokens[i];
+				switch (token.kind) {
 				case MACH_INVALID:
 					{
-						ASSERT(!"Invalid operand");
+						ASSERT(!"Invalid token");
 					} break;
 				case MACH_LABEL:
 					{
-						isize inst_index = label_offset[operand.value];
+						isize inst_index = label_offset[token.value];
 						ASSERT(inst_index < inst_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
@@ -115,22 +115,22 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 					} break;
 				case MACH_VREG:
 					{
-						if (operand.flags & MACH_DEF) {
-							set_bit(live_matrix, i, operand.value, 1);
+						if (token.flags & MACH_DEF) {
+							set_bit(live_matrix, i, token.value, 1);
 						}
 
-						if (operand.flags & MACH_USE) {
-							set_bit(live_matrix, i, operand.value, 1);
+						if (token.flags & MACH_USE) {
+							set_bit(live_matrix, i, token.value, 1);
 						}
 					} break;
 				case MACH_MREG:
 					{
-						if (operand.flags & MACH_DEF) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - operand.value, 1);
+						if (token.flags & MACH_DEF) {
+							set_bit(live_matrix, i, live_matrix.width - 1 - token.value, 1);
 						}
 
-						if (operand.flags & MACH_USE) {
-							set_bit(live_matrix, i, live_matrix.width - 1 - operand.value, 1);
+						if (token.flags & MACH_USE) {
+							set_bit(live_matrix, i, live_matrix.width - 1 - token.value, 1);
 						}
 					} break;
 				default:
@@ -184,9 +184,9 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	// Determine floating-pointer registers
 	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
 	for (u32 j = 0; j < inst_count; j++) {
-		b32 is_vreg = (operands[j].kind == MACH_VREG);
-		if (is_vreg && (operands[j].flags & MACH_ISFLOAT)) {
-			u32 reg = operands[j].value;
+		b32 is_vreg = (tokens[j].kind == MACH_VREG);
+		if (is_vreg && (tokens[j].flags & MACH_ISFLOAT)) {
+			u32 reg = tokens[j].value;
 			is_float_vreg[reg] = true;
 		}
 	}
@@ -293,18 +293,18 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < p.mreg_count);
 			info.used[mreg] |= !is_empty;
-			mreg_map[curr_reg] = make_operand(MACH_MREG, mreg, 0);
+			mreg_map[curr_reg] = make_mach_token(MACH_MREG, mreg, 0);
 		}
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < inst_count; i++) {
-		if (operands[i].kind == MACH_VREG) {
-			u32 reg = operands[i].value;
+		if (tokens[i].kind == MACH_VREG) {
+			u32 reg = tokens[i].value;
 			ASSERT(reg < p.max_vreg_count);
 			ASSERT(mreg_map[reg].kind != MACH_INVALID);
-			operands[i].kind = mreg_map[reg].kind;
-			operands[i].value = mreg_map[reg].value;
+			tokens[i].kind = mreg_map[reg].kind;
+			tokens[i].value = mreg_map[reg].value;
 		}
 	}
 

@@ -53,60 +53,60 @@ typedef struct {
 } regalloc_info;
 
 static b32
-equals_operand(mach_token a, mach_token b)
+equals_token(mach_token a, mach_token b)
 {
 	b32 result = (a.kind == b.kind && a.value == b.value);
 	return result;
 }
 
 static mach_token
-make_operand(u32 kind, u32 value, u32 size)
+make_mach_token(u32 kind, u32 value, u32 size)
 {
-	mach_token operand = {0};
-	operand.kind = kind;
-	operand.value = value;
-	operand.size = size;
+	mach_token token = {0};
+	token.kind = kind;
+	token.value = value;
+	token.size = size;
 	ASSERT(size <= 16);
-	return operand;
+	return token;
 }
 
 static mach_token
 make_spill(u32 index)
 {
-	mach_token operand = make_operand(MACH_SPILL, index, 8);
-	return operand;
+	mach_token token = make_mach_token(MACH_SPILL, index, 8);
+	return token;
 }
 
 static mach_token
 make_float(u32 index)
 {
-	mach_token operand = make_operand(MACH_FLOAT, index, 4);
-	return operand;
+	mach_token token = make_mach_token(MACH_FLOAT, index, 4);
+	return token;
 }
 
 static mach_token
 make_label(u32 value)
 {
-	mach_token operand = make_operand(MACH_LABEL, value, 0);
-	return operand;
+	mach_token token = make_mach_token(MACH_LABEL, value, 0);
+	return token;
 }
 
 static mach_token
 make_func(u32 index)
 {
-	mach_token operand = make_operand(MACH_FUNC, index, 8);
-	return operand;
+	mach_token token = make_mach_token(MACH_FUNC, index, 8);
+	return token;
 }
 
 static mach_token
 make_global(u32 index)
 {
-	mach_token operand = make_operand(MACH_GLOBAL, index, 8);
-	return operand;
+	mach_token token = make_mach_token(MACH_GLOBAL, index, 8);
+	return token;
 }
 
 static void
-push_operand(mach_program *p, mach_token arg)
+push_token(mach_program *p, mach_token arg)
 {
 	ASSERT(arg.kind != MACH_INVALID);
 	ASSERT(arg.kind != MACH_VREG || arg.value < p->max_vreg_count);
@@ -114,9 +114,9 @@ push_operand(mach_program *p, mach_token arg)
 }
 
 static void
-push_inst(mach_program *p, u32 opcode, u32 operand_count)
+push_inst(mach_program *p, u32 opcode, u32 token_count)
 {
-	mach_token operand = make_operand(MACH_INST, opcode, 0);
-	(void)operand_count;
-	push_operand(p, operand);
+	mach_token token = make_mach_token(MACH_INST, opcode, 0);
+	(void)token_count;
+	push_token(p, token);
 }

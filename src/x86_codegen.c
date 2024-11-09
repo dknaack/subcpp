@@ -1,12 +1,12 @@
 static void
-x86_emit_operand(stream *out, mach_token operand, symbol_table *symtab)
+x86_emit_token(stream *out, mach_token token, symbol_table *symtab)
 {
 	x86_register reg;
 
-	b32 print_size = (operand.kind == MACH_SPILL
-		|| (operand.flags & MACH_INDIRECT));
+	b32 print_size = (token.kind == MACH_SPILL
+		|| (token.flags & MACH_INDIRECT));
 	if (print_size) {
-		switch (operand.size) {
+		switch (token.size) {
 		case 1:
 			stream_print(out, "byte");
 			break;
@@ -25,46 +25,46 @@ x86_emit_operand(stream *out, mach_token operand, symbol_table *symtab)
 		}
 	}
 
-	switch (operand.kind) {
+	switch (token.kind) {
 	case MACH_GLOBAL:
 		{
-			ASSERT(operand.value < symtab->symbol_count);
-			symbol *sym = &symtab->symbols[operand.value];
+			ASSERT(token.value < symtab->symbol_count);
+			symbol *sym = &symtab->symbols[token.value];
 			if (sym->name.length > 0) {
 				stream_prints(out, sym->name);
 			} else {
 				stream_print(out, "L#");
-				stream_printu(out, operand.value);
+				stream_printu(out, token.value);
 			}
 		} break;
 	case MACH_SPILL:
 		stream_print(out, "[rsp+");
-		stream_printu(out, operand.value);
+		stream_printu(out, token.value);
 		stream_print(out, "]");
 		break;
 	case MACH_LABEL:
 		stream_print(out, ".L");
-		stream_printu(out, operand.value);
+		stream_printu(out, token.value);
 		break;
 	case MACH_MREG:
-		if (operand.flags & MACH_INDIRECT) {
+		if (token.flags & MACH_INDIRECT) {
 			stream_print(out, "[");
-			operand.size = 8;
+			token.size = 8;
 		}
 
-		reg = (x86_register)operand.value;
-		stream_print(out, x86_get_register_name(reg, operand.size));
+		reg = (x86_register)token.value;
+		stream_print(out, x86_get_register_name(reg, token.size));
 
-		if (operand.flags & MACH_INDIRECT) {
+		if (token.flags & MACH_INDIRECT) {
 			stream_print(out, "]");
 		}
 		break;
 	case MACH_CONST:
-		stream_printu(out, operand.value);
+		stream_printu(out, token.value);
 		break;
 	case MACH_FLOAT:
 		stream_print(out, "[float#");
-		stream_printu(out, operand.value);
+		stream_printu(out, token.value);
 		stream_print(out, "]");
 		break;
 	case MACH_FUNC:
@@ -73,12 +73,12 @@ x86_emit_operand(stream *out, mach_token operand, symbol_table *symtab)
 		} break;
 	case MACH_VREG:
 		stream_print(out, "v");
-		stream_printu(out, operand.value);
+		stream_printu(out, token.value);
 		//ASSERT(!"Cannot use virtual register during code generation");
 		break;
 	default:
 		ASSERT(false);
-		stream_print(out, "(invalid operand)");
+		stream_print(out, "(invalid token)");
 	}
 }
 
@@ -140,7 +140,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 						u32 mreg = x86_preserved_regs[j];
 						if (info[func_index].used[mreg]) {
 							stream_print(out, "\tpush ");
-							x86_emit_operand(out, make_operand(MACH_MREG, mreg, 8), symtab);
+							x86_emit_token(out, make_mach_token(MACH_MREG, mreg, 8), symtab);
 							stream_print(out, "\n");
 							used_volatile_register_count++;
 						}
@@ -152,10 +152,10 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 					char *code = (char *)p.tokens + func->inst_offset;
 					mach_inst *first_inst = (mach_inst *)code;
 					if (first_inst->opcode == X86_SUB) {
-						mach_token *operands = (mach_token *)(first_inst + 1);
-						if (operands[0].kind == MACH_MREG && operands[0].value == X86_RSP) {
-							ASSERT(operands[1].kind == MACH_CONST);
-							stack_size = operands[1].value;
+						mach_token *tokens = (mach_token *)(first_inst + 1);
+						if (tokens[0].kind == MACH_MREG && tokens[0].value == X86_RSP) {
+							ASSERT(tokens[1].kind == MACH_CONST);
+							stack_size = tokens[1].value;
 
 							stack_size += 8 * info[func_index].spill_count;
 							stack_size += used_volatile_register_count;
@@ -164,22 +164,22 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 								stack_size += 24 - (stack_size & 15);
 							}
 
-							operands[1].value = stack_size;
+							tokens[1].value = stack_size;
 						}
 					}
 #endif
 					b32 first_inst = true;
-					b32 first_operand = true;
+					b32 first_token = true;
 
 					// TODO: We need to ensure that instructions do not
-					// contain two address operands, e.g. mov [rax], [rax]
+					// contain two address tokens, e.g. mov [rax], [rax]
 					for (isize i = 0; i < p.token_count; i++) {
-						mach_token operand = p.tokens[i];
-						if (operand.flags & MACH_IMPLICIT) {
+						mach_token token = p.tokens[i];
+						if (token.flags & MACH_IMPLICIT) {
 							continue;
 						}
 
-						switch (operand.kind) {
+						switch (token.kind) {
 						case MACH_INST:
 							if (first_inst) {
 								first_inst = false;
@@ -187,31 +187,31 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 								stream_print(out, "\n");
 							}
 
-							if (operand.value == X86_LABEL) {
+							if (token.value == X86_LABEL) {
 								if (i + 1 < p.token_count) {
 									stream_print(out, ".L");
 									stream_printu(out, p.tokens[i + 1].value);
 									stream_print(out, ":");
 									i++;
 								}
-							} else if (operand.value == X86_RET) {
+							} else if (token.value == X86_RET) {
 								stream_print(out, "\tjmp .exit\n");
 							} else {
 								stream_print(out, "\t");
-								stream_print(out, x86_get_opcode_name(operand.value));
+								stream_print(out, x86_get_opcode_name(token.value));
 								stream_print(out, " ");
 							}
 
-							first_operand = true;
+							first_token = true;
 							break;
 						default:
-							if (first_operand) {
-								first_operand = false;
+							if (first_token) {
+								first_token = false;
 							} else {
 								stream_print(out, ", ");
 							}
 
-							x86_emit_operand(out, operand, symtab);
+							x86_emit_token(out, token, symtab);
 							break;
 						}
 					}
@@ -229,7 +229,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 						u32 mreg = x86_preserved_regs[j];
 						if (info[func_index].used[mreg]) {
 							stream_print(out, "\tpop ");
-							x86_emit_operand(out, make_operand(MACH_MREG, mreg, 8), symtab);
+							x86_emit_token(out, make_mach_token(MACH_MREG, mreg, 8), symtab);
 							stream_print(out, "\n");
 						}
 					}

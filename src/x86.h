@@ -90,6 +90,7 @@ typedef struct {
 	mach_program *program;
 	ir_inst *inst;
 	i32 *ref_count;
+	i32 vreg_count;
 } x86_context;
 
 static u32 x86_temp_regs[] = {
