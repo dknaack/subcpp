@@ -105,7 +105,7 @@ static u32 x86_temp_regs[] = {
 	X86_R11,
 };
 
-static u32 x86_preserved_regs[] = {
+static u32 x86_saved_regs[] = {
 	X86_RBX,
 	X86_RBP,
 	X86_R12,
