@@ -507,7 +507,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				}
 
 
-				u32 param_reg = ir_emit(ctx, IR_VOID, IR_CALL, param_value, prev_param);
+				ir_type param_ir_type = ir_type_from(param_type);
+				u32 param_reg = ir_emit(ctx, param_ir_type, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
 				ast_node *param_node = get_node(pool, param_id);
