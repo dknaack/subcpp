@@ -50,7 +50,7 @@ swap_u32(u32 *a, isize i, isize j)
 }
 
 static regalloc_info
-regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
+regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 {
 	regalloc_info info = {0};
 	info.used = ALLOC(arena, p.mreg_count, b32);
@@ -59,10 +59,10 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 
 	// NOTE: Compute the instruction index of each label
 	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
-	for (isize i = 0; i < inst_count; i++) {
+	for (isize i = 0; i < token_count; i++) {
 		if (tokens[i].kind == MACH_INST
 			&& tokens[i].value == X86_LABEL
-			&& i + 1 < inst_count)
+			&& i + 1 < token_count)
 		{
 			// A label should only have one token: The index of the label.
 			ASSERT(tokens[i + 1].kind == MACH_CONST);
@@ -77,20 +77,20 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	// certain instruction then the matrix has a one at the corresponding
 	// column and row.
 	isize reg_count = p.mreg_count + p.max_vreg_count;
-	bit_matrix live_matrix = bit_matrix_init(reg_count, inst_count, arena);
+	bit_matrix live_matrix = bit_matrix_init(reg_count, token_count, arena);
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
 		arena_temp temp = arena_temp_begin(arena);
 		bit_matrix prev_live_matrix =
-			bit_matrix_init(reg_count, inst_count, arena);
+			bit_matrix_init(reg_count, token_count, arena);
 
 		b32 has_matrix_changed = false;
 		do {
-			isize i = inst_count;
+			isize i = token_count;
 			while (i-- > 0) {
 				clear_row(live_matrix, i);
 				/* TODO: successor of jump instructions */
-				if (i + 1 != inst_count) {
+				if (i + 1 != token_count) {
 					union_rows(live_matrix, i, i + 1);
 				}
 
@@ -104,7 +104,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 				case MACH_LABEL:
 					{
 						isize inst_index = label_offset[token.value];
-						ASSERT(inst_index < inst_count);
+						ASSERT(inst_index < token_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
 				case MACH_FUNC:
@@ -178,7 +178,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 
 	// Determine floating-pointer registers
 	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
-	for (u32 j = 0; j < inst_count; j++) {
+	for (u32 j = 0; j < token_count; j++) {
 		b32 is_vreg = (tokens[j].kind == MACH_VREG);
 		if (is_vreg && (tokens[j].flags & MACH_FLOAT)) {
 			u32 reg = tokens[j].value;
@@ -293,7 +293,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
-	for (u32 i = 0; i < inst_count; i++) {
+	for (u32 i = 0; i < token_count; i++) {
 		if (tokens[i].kind == MACH_VREG) {
 			ASSERT(tokens[i].kind == MACH_VREG);
 			u32 vreg = tokens[i].value;
@@ -314,8 +314,8 @@ regalloc(mach_program p, arena *arena)
 	regalloc_info *info = ALLOC(arena, p.func_count, regalloc_info);
 	isize offset = 0;
 	for (isize i = 0; i < p.func_count; i++) {
-		info[i] = regalloc_range(p, offset, p.funcs[i].inst_count, arena);
-		offset += p.funcs[i].inst_count;
+		info[i] = regalloc_range(p, offset, p.funcs[i].token_count, arena);
+		offset += p.funcs[i].token_count;
 	}
 
 	return info;

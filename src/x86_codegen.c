@@ -124,7 +124,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 				if (j == SECTION_TEXT) {
 					stream_print(out, ":\n");
 					mach_function *func = &p.funcs[sym_id.value];
-					if (func->inst_count == 0) {
+					if (func->token_count == 0) {
 						// NOTE: Do not print empty functions
 						goto next;
 					}
@@ -169,7 +169,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 
 					// TODO: We need to ensure that instructions do not
 					// contain two address tokens, e.g. mov [rax], [rax]
-					for (isize i = 0; i < func->inst_count; i++) {
+					for (isize i = 0; i < func->token_count; i++) {
 						mach_token token = func_tokens[i];
 						if (token.flags & MACH_IMPLICIT) {
 							continue;
@@ -193,7 +193,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 							} else if (token.value == X86_RET) {
 								stream_print(out, "\tjmp .exit\n");
 							} else {
-								if (i + 2 < func->inst_count
+								if (i + 2 < func->token_count
 									&& func_tokens[i + 1].kind == MACH_SPILL
 									&& func_tokens[i + 2].kind == MACH_SPILL)
 								{
@@ -246,7 +246,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 					}
 
 					stream_print(out, "\tret\n\n");
-					func_tokens += func->inst_count;
+					func_tokens += func->token_count;
 				} else if (j == SECTION_DATA || j == SECTION_RODATA) {
 					// NOTE: Inside data or rodata section, symbols contain byte data
 					if (sym->data) {

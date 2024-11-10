@@ -696,7 +696,7 @@ x86_select(ir_program p, arena *arena)
 		ir_function *ir_func = &p.funcs[sym_id.value];
 		mach_function *mach_func = &result.funcs[sym_id.value];
 		ASSERT(sym_id.value < (i32)result.func_count);
-		isize first_inst = result.token_count;
+		isize first_token = result.token_count;
 
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
@@ -724,8 +724,8 @@ x86_select(ir_program p, arena *arena)
 			x86_select_inst(&ctx, j, dst);
 		}
 
-		isize last_inst = result.token_count;
-		mach_func->inst_count = last_inst - first_inst;
+		isize last_token = result.token_count;
+		mach_func->token_count = last_token - first_token;
 		sym_id = sym->next;
 	}
 

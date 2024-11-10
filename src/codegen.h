@@ -27,7 +27,7 @@ typedef struct {
 
 typedef struct {
 	symbol_id sym_id;
-	i32 inst_count;
+	i32 token_count;
 	i32 stack_size;
 } mach_function;
 
