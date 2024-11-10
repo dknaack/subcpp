@@ -417,7 +417,7 @@ print_ir_program(ir_program program)
 		i32 *ref_count = get_ref_count(inst, func->inst_count, temp);
 		for (isize j = 0; j < func->inst_count; j++) {
 			if (ref_count[j] == 0) {
-				printf("\t");
+				printf("\t%%%zd = ", j);
 				print_ir_inst(inst, j);
 				printf("\n");
 			}
