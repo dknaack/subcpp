@@ -1,4 +1,11 @@
 static void
+x86_emit0(x86_context *ctx, x86_opcode opcode)
+{
+	mach_program *program = ctx->program;
+	push_inst(program, opcode, 0);
+}
+
+static void
 x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 {
 	mach_program *program = ctx->program;
@@ -536,10 +543,20 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_RET:
 		{
-			mach_token rax = make_mach_token(MACH_MREG, X86_RAX, size);
-			x86_select_inst(ctx, op0, rax);
-			rax.flags |= MACH_IMPLICIT;
-			x86_emit1(ctx, X86_RET, rax);
+			mach_token return_reg;
+			if (is_float) {
+				return_reg = make_mach_token(MACH_MREG, X86_XMM0, size);
+			} else {
+				return_reg = make_mach_token(MACH_MREG, X86_RAX, size);
+			}
+
+			if (type != IR_VOID) {
+				x86_select_inst(ctx, op0, return_reg);
+				return_reg.flags |= MACH_IMPLICIT;
+				x86_emit1(ctx, X86_RET, return_reg);
+			} else {
+				x86_emit0(ctx, X86_RET);
+			}
 		} break;
 	case IR_SEXT:
 		{
