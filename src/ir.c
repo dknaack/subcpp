@@ -887,7 +887,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_LABEL:
 		{
 			ir_opcode opcode = node->kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
-			u32 *label = &ctx->node_addr[node_id.value];
+			label_info *label_info = get_label_info(*ctx->info, node_id);
+			u32 *label = &ctx->node_addr[label_info->label_id.value];
 			if (!*label) {
 				*label = new_label(ctx);
 			}
