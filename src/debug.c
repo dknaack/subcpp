@@ -331,7 +331,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		printf("(copy.%s %%%d)", type, op0);
 		break;
 	case IR_ALLOC:
-		printf("(%s.%s %d %d)", get_ir_opcode_str(inst[i].opcode), type, op0, op1);
+		printf("(%%%d = alloc.%s %d %d)", dst, type, op0, op1);
 		break;
 	case IR_MOV:
 	case IR_ADD:
