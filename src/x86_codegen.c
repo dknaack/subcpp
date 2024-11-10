@@ -193,6 +193,22 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 							} else if (token.value == X86_RET) {
 								stream_print(out, "\tjmp .exit\n");
 							} else {
+								if (i + 2 < func->inst_count
+									&& func_tokens[i + 1].kind == MACH_SPILL
+									&& func_tokens[i + 2].kind == MACH_SPILL)
+								{
+									isize op1_size = func_tokens[i + 2].size;
+									mach_token new_token = make_mach_token(MACH_MREG, X86_RCX, op1_size);
+
+									stream_print(out, "\tmov ");
+									x86_emit_token(out, new_token, symtab);
+									stream_print(out, ", ");
+									x86_emit_token(out, func_tokens[i + 2], symtab);
+									stream_print(out, "\n");
+
+									func_tokens[i + 2] = new_token;
+								}
+
 								stream_print(out, "\t");
 								stream_print(out, x86_get_opcode_name(token.value));
 								stream_print(out, " ");
