@@ -33,6 +33,13 @@ typedef struct {
 	ast_id default_case;
 } switch_info;
 
+typedef struct label_info label_info;
+struct label_info {
+	label_info *next;
+	ast_id label_id;
+	str name;
+};
+
 typedef struct {
 	type_id *at;
 	type *data;
@@ -44,7 +51,7 @@ typedef struct {
 	info_id *of;
 	info_kind *kind;
 
-	u32 *labels;
+	label_info *labels;
 	case_info *cases;
 	switch_info *switches;
 	type_pool types;
@@ -106,6 +113,7 @@ typedef struct {
 	type_pool *types;
 	semantic_info *info;
 	ast_id switch_id;
+	label_info *labels;
 } semantic_context;
 
 static type *
@@ -357,4 +365,15 @@ get_case_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.case_count);
 	case_info *_case = &info.cases[sym_id.value];
 	return _case;
+}
+
+static label_info *
+get_label_info(semantic_info info, ast_id node_id)
+{
+	ASSERT(info.kind[node_id.value] == INFO_LABEL);
+	info_id sym_id = info.of[node_id.value];
+
+	ASSERT(sym_id.value < info.label_count);
+	label_info *_label = &info.labels[sym_id.value];
+	return _label;
 }

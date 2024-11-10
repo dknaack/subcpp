@@ -394,7 +394,6 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_STMT_CONTINUE:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_FOR:
-	case AST_STMT_GOTO:
 	case AST_STMT_IF:
 	case AST_STMT_LABEL:
 	case AST_STMT_RETURN:
@@ -441,6 +440,16 @@ check_node(semantic_context ctx, ast_id node_id)
 
 				switch_sym->default_case = node_id;
 				check_node(ctx, children[0]);
+			}
+		} break;
+	case AST_STMT_GOTO:
+		{
+			for (label_info *label = ctx.labels; label; label = label->next) {
+				if (equals(label->name, node->token.value)) {
+					info->kind[node_id.value] = INFO_LABEL;
+					info->of[node_id.value] = info->of[label->label_id.value];
+					break;
+				}
 			}
 		} break;
 	case AST_STMT_SWITCH:
@@ -909,6 +918,46 @@ check_node(semantic_context ctx, ast_id node_id)
 	return node_type;
 }
 
+static label_info *
+get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
+{
+	label_info *result = NULL;
+	ast_node *node = get_node(pool, node_id);
+	if (node->kind == AST_STMT_LABEL) {
+		result = get_label_info(info, node_id);
+		result->name = node->token.value;
+		result->label_id = node_id;
+	}
+
+	ast_id child_id = node->children;
+	while (child_id.value != 0) {
+		label_info *list = get_labels(child_id, pool, info, perm);
+
+		// Merge result and list
+		label_info dummy = {0};
+		label_info *tail = &dummy;
+		while (result && list) {
+			if (compare(result->name, list->name) < 0) {
+				tail->next = result;
+				result->next = result;
+			} else if (compare(result->name, list->name)) {
+				tail->next = list;
+				list->next = list;
+			} else {
+				ASSERT(!"Label defined twice!");
+			}
+		}
+
+		tail->next = result ? result : list;
+		result = dummy.next;
+
+		ast_node *child = get_node(pool, child_id);
+		child_id = child->next;
+	}
+
+	return result;
+}
+
 static semantic_info
 check(ast_pool *pool, arena *perm)
 {
@@ -916,15 +965,16 @@ check(ast_pool *pool, arena *perm)
 	info.of = ALLOC(perm, pool->size, info_id);
 	info.kind = ALLOC(perm, pool->size, info_kind);
 
+	// Preallocate the basic types
 	for (type_kind type = TYPE_VOID; type <= TYPE_DOUBLE; type++) {
 		type_id type_id = basic_type(type, &info.types);
 		ASSERT(type_id.value == (i32)type);
 	}
 
+	// Count the number of infos and assign their ID
 	info.switch_count = 1;
 	info.case_count = 1;
 	info.label_count = 1;
-
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		switch (node->kind) {
@@ -945,60 +995,9 @@ check(ast_pool *pool, arena *perm)
 		}
 	}
 
-	info.labels   = ALLOC(perm, info.label_count, u32);
+	info.labels   = ALLOC(perm, info.label_count, label_info);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
-
-	// NOTE: Check labels, ensure that no label is defined twice and merge
-	// gotos with their corresponding label.
-	if (info.label_count > 1) {
-		arena_temp temp = arena_temp_begin(perm);
-		ast_id *label_id = ALLOC(perm, info.label_count, ast_id);
-		for (isize i = 1; i < pool->size; i++) {
-			isize j = i;
-			isize l = 0;
-			for (; i < pool->size; i++) {
-				ast_node *node = &pool->nodes[i];
-				if (node->kind == AST_EXTERN_DEF) {
-					break;
-				} else if (node->kind == AST_STMT_LABEL) {
-					label_id[l++].value = i;
-					for (isize k = 0; k < l; k++) {
-						ast_node *label_node = &pool->nodes[label_id[k].value];
-						if (label_node == node) {
-							continue;
-						}
-
-						if (equals(label_node->token.value, node->token.value)) {
-							errorf(node->token.loc, "Label was already defined");
-						}
-					}
-				}
-			}
-
-			for (; j < i; j++) {
-				ast_node *node = &pool->nodes[j];
-				if (node->kind != AST_STMT_GOTO) {
-					continue;
-				}
-
-				for (isize k = 0; k < l; k++) {
-					ast_node *label_node = &pool->nodes[label_id[k].value];
-					if (equals(label_node->token.value, node->token.value)) {
-						info.of[j] = info.of[label_id[k].value];
-						break;
-					}
-				}
-
-				if (info.of[j].value == 0) {
-					errorf(node->token.loc, "No label was found");
-				}
-			}
-		}
-
-		arena_temp_end(temp);
-	}
-
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	semantic_context ctx = {0};
@@ -1009,6 +1008,7 @@ check(ast_pool *pool, arena *perm)
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
+		ctx.labels = get_labels(node_id, pool, info, perm);
 		check_node(ctx, node_id);
 		node_id = get_node(pool, node_id)->next;
 	}

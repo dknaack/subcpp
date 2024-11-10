@@ -33,6 +33,18 @@ make_str(char *cstr)
 	return result;
 }
 
+static i32
+compare(str a, str b)
+{
+	i32 result = 0;
+
+	while (result == 0 && a.length-- > 0 && b.length-- > 0) {
+		result = (*a.at > *b.at) - (*a.at < *b.at);
+	}
+
+	return result + (a.length > 0) - (b.length > 0);
+}
+
 static b32
 equals(str a, str b)
 {
@@ -40,13 +52,8 @@ equals(str a, str b)
 		return false;
 	}
 
-	while (a.length-- > 0) {
-		if (*a.at++ != *b.at++) {
-			return false;
-		}
-	}
-
-	return true;
+	b32 result = (compare(a, b) == 0);
+	return result;
 }
 
 static str
