@@ -293,11 +293,12 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < inst_count; i++) {
 		if (tokens[i].kind == MACH_VREG) {
-			u32 reg = tokens[i].value;
-			ASSERT(reg < p.max_vreg_count);
-			ASSERT(mreg_map[reg].kind != MACH_INVALID);
-			tokens[i].kind = mreg_map[reg].kind;
-			tokens[i].value = mreg_map[reg].value;
+			ASSERT(tokens[i].kind == MACH_VREG);
+			u32 vreg = tokens[i].value;
+			ASSERT(vreg < p.max_vreg_count);
+			tokens[i].kind = mreg_map[vreg].kind;
+			tokens[i].value = mreg_map[vreg].value;
+			ASSERT(tokens[i].kind == MACH_MREG || tokens[i].kind == MACH_SPILL);
 		}
 	}
 
