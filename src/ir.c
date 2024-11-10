@@ -258,6 +258,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				sym->name = node->token.value;
 
 				ir_function *func = &ctx->program->funcs[*node_addr];
+				ASSERT(*node_addr < ctx->program->func_count);
 				func->sym_id = sym_id;
 
 				if (children[1].value != 0) {
@@ -1020,7 +1021,7 @@ static ir_program
 translate(ast_pool *pool, semantic_info *info, arena *arena)
 {
 	// Count the total number of symbols
-	isize symbol_count = 0;
+	isize symbol_count = 1;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node *node = &pool->nodes[i];
 		token_kind token = node->token.kind;
@@ -1039,8 +1040,8 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	program.func_count = symbol_count;
 
 	// initialize the symbol table
-	program.symtab.symbols = ALLOC(arena, 1 + symbol_count, symbol);
-	program.symtab.max_symbol_count = 1 + symbol_count;
+	program.symtab.symbols = ALLOC(arena, symbol_count, symbol);
+	program.symtab.max_symbol_count = symbol_count;
 	program.symtab.symbol_count = 1; // Reserve the first symbol as NULL symbol.
 
 	// initialize the context
