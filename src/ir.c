@@ -1078,10 +1078,13 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 			u32 op1 = inst[j].op1;
 
 			ir_opcode_info info = get_opcode_info(inst[j].opcode);
-			if (is_register_operand(info.op0)) {
-				inst[j].type = inst[op0].type;
-			} else if (is_register_operand(info.op1)) {
+			// If a store instruction has the type from the first operand, then
+			// it will always be a pointer type, even if we're dealing with a
+			// float. Therefore, we propagate the second operand first.
+			if (is_register_operand(info.op1)) {
 				inst[j].type = inst[op1].type;
+			} else if (is_register_operand(info.op0)) {
+				inst[j].type = inst[op0].type;
 			}
 		}
 	}
