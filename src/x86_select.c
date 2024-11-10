@@ -1,7 +1,7 @@
 static void
-x86_emit1(x86_context ctx, x86_opcode opcode, mach_token dst)
+x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 {
-	mach_program *program = ctx.program;
+	mach_program *program = ctx->program;
 	dst.flags |= MACH_DEF | MACH_USE;
 
 	switch (opcode) {
@@ -40,10 +40,9 @@ x86_emit1(x86_context ctx, x86_opcode opcode, mach_token dst)
 }
 
 static void
-x86_emit2(x86_context ctx, x86_opcode opcode,
-	mach_token dst, mach_token src)
+x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 {
-	mach_program *program = ctx.program;
+	mach_program *program = ctx->program;
 	ASSERT(dst.kind != 0 && src.kind != 0);
 	ASSERT(dst.size > 0 && src.size > 0);
 
@@ -135,12 +134,12 @@ x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 	}
 }
 
-static void x86_select_inst(x86_context ctx, isize inst_index, mach_token dst);
+static void x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst);
 
 static mach_token
-x86_select_const(x86_context ctx, isize inst_index)
+x86_select_const(x86_context *ctx, isize inst_index)
 {
-	ir_inst *inst = ctx.inst;
+	ir_inst *inst = ctx->inst;
 	mach_token result;
 	u32 size = ir_sizeof(inst[inst_index].type);
 	if (inst[inst_index].opcode == IR_CONST) {
@@ -154,9 +153,9 @@ x86_select_const(x86_context ctx, isize inst_index)
 }
 
 static void
-x86_select_inst(x86_context ctx, isize inst_index, mach_token dst)
+x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 {
-	ir_inst *inst = ctx.inst;
+	ir_inst *inst = ctx->inst;
 	ir_type type = inst[inst_index].type;
 	u32 size = ir_sizeof(type);
 	u32 op0 = inst[inst_index].op0;
@@ -695,7 +694,7 @@ x86_select(ir_program p, arena *arena)
 				}
 			}
 
-			x86_select_inst(ctx, j, dst);
+			x86_select_inst(&ctx, j, dst);
 		}
 
 		isize last_inst = result.token_count;
