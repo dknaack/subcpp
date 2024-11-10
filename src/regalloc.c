@@ -122,12 +122,14 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 					break;
 				}
 
-				if (token.flags & MACH_DEF) {
-					set_bit(live_matrix, i, value, 1);
-				}
+				if (token.kind == MACH_VREG || token.kind == MACH_MREG) {
+					if (token.flags & MACH_DEF) {
+						set_bit(live_matrix, i, value, 1);
+					}
 
-				if (token.flags & MACH_USE) {
-					set_bit(live_matrix, i, value, 1);
+					if (token.flags & MACH_USE) {
+						set_bit(live_matrix, i, value, 1);
+					}
 				}
 			}
 
