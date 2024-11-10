@@ -10,9 +10,9 @@ new_label(ir_context *ctx)
 }
 
 static u32
-ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
+ir_emit(ir_context *ctx, i32 size, ir_opcode opcode, u32 op0, u32 op1)
 {
-	ASSERT(type <= IR_F64);
+	ASSERT(size <= 8);
 	ASSERT(ctx->program->inst_count + ctx->func_inst_count <= ctx->max_inst_count);
 	if (opcode == IR_STORE) ASSERT(op1 != 0);
 
@@ -25,7 +25,7 @@ ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 
 	ir_inst *inst = &ctx->func_insts[result];
 	inst->opcode = opcode;
-	inst->type = type;
+	inst->size = size;
 	inst->op0 = op0;
 	inst->op1 = op1;
 
@@ -33,28 +33,28 @@ ir_emit(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
 }
 
 static u32
-ir_emit2(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0, u32 op1)
+ir_emit2(ir_context *ctx, i32 size, ir_opcode opcode, u32 op0, u32 op1)
 {
 	ASSERT(op0 != 0);
 	ASSERT(op1 != 0);
-	u32 result = ir_emit(ctx, type, opcode, op0, op1);
+	u32 result = ir_emit(ctx, size, opcode, op0, op1);
 	return result;
 }
 
 static u32
-ir_emit1(ir_context *ctx, ir_type type, ir_opcode opcode, u32 op0)
+ir_emit1(ir_context *ctx, i32 size, ir_opcode opcode, u32 op0)
 {
 	ASSERT(opcode == IR_CONST || op0 != 0);
-	u32 result = ir_emit(ctx, type, opcode, op0, 0);
+	u32 result = ir_emit(ctx, size, opcode, op0, 0);
 	ASSERT(opcode != IR_GLOBAL || op0 < ctx->program->symtab.symbol_count);
 	return result;
 }
 
 static u32
-ir_emit0(ir_context *ctx, ir_type type, ir_opcode opcode)
+ir_emit0(ir_context *ctx, i32 size, ir_opcode opcode)
 {
-	u32 result = ir_emit(ctx, type, opcode, 0, 0);
-	if (opcode == IR_VAR) ASSERT(type != IR_VOID);
+	u32 result = ir_emit(ctx, size, opcode, 0, 0);
+	if (opcode == IR_VAR) ASSERT(size != 0);
 	return result;
 }
 
@@ -62,7 +62,7 @@ static u32
 ir_emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	u32 result = ir_emit(ctx, IR_I64, IR_ALLOC, size, ctx->stack_size);
+	u32 result = ir_emit(ctx, 8, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
 	return result;
 }
@@ -73,25 +73,25 @@ ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 	u32 continue_label = new_label(ctx);
 	u32 break_label = new_label(ctx);
 
-	u32 counter_reg = ir_emit0(ctx, IR_I64, IR_VAR);
-	u32 zero = ir_emit1(ctx, IR_I64, IR_CONST, 0);
-	u32 one = ir_emit1(ctx, IR_I64, IR_CONST, 1);
-	ir_emit2(ctx, IR_VOID, IR_MOV, counter_reg, zero);
+	u32 counter_reg = ir_emit0(ctx, 8, IR_VAR);
+	u32 zero = ir_emit1(ctx, 8, IR_CONST, 0);
+	u32 one = ir_emit1(ctx, 8, IR_CONST, 1);
+	ir_emit2(ctx, 0, IR_MOV, counter_reg, zero);
 
-	ir_emit1(ctx, IR_VOID, IR_LABEL, continue_label);
-	u32 size_reg = ir_emit1(ctx, IR_I64, IR_CONST, size);
-	u32 comparison = ir_emit2(ctx, IR_I32, IR_LT, counter_reg, size_reg);
-	ir_emit2(ctx, IR_VOID, IR_JIZ, comparison, break_label);
+	ir_emit1(ctx, 0, IR_LABEL, continue_label);
+	u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
+	u32 comparison = ir_emit2(ctx, 4, IR_LT, counter_reg, size_reg);
+	ir_emit2(ctx, 0, IR_JIZ, comparison, break_label);
 
-	u32 dst_ptr = ir_emit2(ctx, IR_I64, IR_ADD, dst, counter_reg);
-	u32 src_ptr = ir_emit2(ctx, IR_I64, IR_ADD, src, counter_reg);
-	u32 src_byte = ir_emit1(ctx, IR_I8, IR_LOAD, src_ptr);
-	ir_emit2(ctx, IR_I8, IR_STORE, dst_ptr, src_byte);
+	u32 dst_ptr = ir_emit2(ctx, 8, IR_ADD, dst, counter_reg);
+	u32 src_ptr = ir_emit2(ctx, 8, IR_ADD, src, counter_reg);
+	u32 src_byte = ir_emit1(ctx, 1, IR_LOAD, src_ptr);
+	ir_emit2(ctx, 1, IR_STORE, dst_ptr, src_byte);
 
-	u32 next = ir_emit2(ctx, IR_I64, IR_ADD, counter_reg, one);
-	ir_emit2(ctx, IR_VOID, IR_MOV, counter_reg, next);
-	ir_emit1(ctx, IR_VOID, IR_JMP, continue_label);
-	ir_emit1(ctx, IR_VOID, IR_LABEL, break_label);
+	u32 next = ir_emit2(ctx, 8, IR_ADD, counter_reg, one);
+	ir_emit2(ctx, 0, IR_MOV, counter_reg, next);
+	ir_emit1(ctx, 0, IR_JMP, continue_label);
+	ir_emit1(ctx, 0, IR_LABEL, break_label);
 }
 
 static u32
@@ -100,13 +100,12 @@ ir_load(ir_context *ctx, u32 addr, type_id type_id)
 	u32 result = 0;
 
 	type *type = get_type_data(&ctx->info->types, type_id);
+	isize size = type_sizeof(type_id, &ctx->info->types);
 	if (is_compound_type(type->kind)) {
-		isize size = type_sizeof(type_id, &ctx->info->types);
 		result = ir_emit_alloca(ctx, size);
 		ir_memcpy(ctx, result, addr, size);
 	} else {
-		ir_type ir_type = ir_type_from(type);
-		result = ir_emit1(ctx, ir_type, IR_LOAD, addr);
+		result = ir_emit1(ctx, size, IR_LOAD, addr);
 	}
 
 	return result;
@@ -121,8 +120,8 @@ ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 		isize size = type_sizeof(type_id, &ctx->info->types);
 		ir_memcpy(ctx, dst, src, size);
 	} else {
-		ir_type ir_type = ir_type_from(type);
-		ir_emit2(ctx, ir_type, IR_STORE, dst, src);
+		isize size = type_sizeof(type_id, &ctx->info->types);
+		ir_emit2(ctx, size, IR_STORE, dst, src);
 	}
 }
 
@@ -134,8 +133,8 @@ ir_mov(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 		isize size = type_sizeof(type_id, &ctx->info->types);
 		ir_memcpy(ctx, dst, src, size);
 	} else {
-		ir_type ir_type = ir_type_from(type);
-		ir_emit2(ctx, ir_type, IR_MOV, dst, src);
+		isize size = type_sizeof(type_id, &ctx->info->types);
+		ir_emit2(ctx, size, IR_MOV, dst, src);
 	}
 }
 
@@ -176,8 +175,8 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 				isize child_align = type_alignof(child_type, types);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
-				u32 offset_reg = ir_emit1(ctx, IR_I64, IR_CONST, offset);
-				u32 addr = ir_emit2(ctx, IR_I64, IR_ADD, result, offset_reg);
+				u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
+				u32 addr = ir_emit2(ctx, 8, IR_ADD, result, offset_reg);
 				translate_initializer(ctx, pool, node_id, addr);
 
 				isize child_size = type_sizeof(child_type, types);
@@ -245,7 +244,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 *node_addr = &ctx->node_addr[node_id.value];
 			ast_node *type = get_node(pool, children[0]);
 			if (*node_addr != 0) {
-				result = ir_emit1(ctx, IR_I64, IR_GLOBAL, *node_addr);
+				result = ir_emit1(ctx, 8, IR_GLOBAL, *node_addr);
 				ASSERT(result != 0);
 			} else if (node->flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
@@ -278,7 +277,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						type_id param_type = get_type_id(types, param_id);
 						isize param_size = type_sizeof(param_type, types);
 						isize param_index = func->param_count++;
-						u32 param_reg = ir_emit(ctx, IR_VOID, IR_PARAM, param_index, param_size);
+						u32 param_reg = ir_emit(ctx, 0, IR_PARAM, param_index, param_size);
 
 						u32 param_local = ir_emit_alloca(ctx, param_size);
 						ir_store(ctx, param_local, param_reg, param_type);
@@ -335,39 +334,60 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			token_kind operator = node->token.kind;
 			ir_opcode opcode = IR_NOP;
 
-			switch (operator) {
-			case TOKEN_PLUS:          opcode = IR_ADD;   break;
-			case TOKEN_MINUS:         opcode = IR_SUB;   break;
-			case TOKEN_STAR:          opcode = IR_MUL;   break;
-			case TOKEN_SLASH:         opcode = IR_DIV;   break;
-			case TOKEN_PERCENT:       opcode = IR_MOD;   break;
-			case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
-			case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
-			case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
-			case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
-			case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
-			case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
-			case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
-			case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
-			case TOKEN_EQUAL:         opcode = IR_STORE; break;
-			case TOKEN_EQUAL_EQUAL:   opcode = IR_EQL;   break;
-			case TOKEN_BANG_EQUAL:    opcode = IR_EQL;   break;
-			case TOKEN_LESS:          opcode = IR_LT;    break;
-			case TOKEN_GREATER:       opcode = IR_GT;    break;
-			case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
-			case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
-			case TOKEN_LESS_EQUAL:    opcode = IR_LEQ;   break;
-			case TOKEN_GREATER_EQUAL: opcode = IR_GEQ;   break;
-			case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
-			case TOKEN_AMP:           opcode = IR_AND;   break;
-			case TOKEN_BAR:           opcode = IR_OR;    break;
-			case TOKEN_CARET:         opcode = IR_XOR;   break;
-			case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
-			case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
-			default:                  ASSERT(!"Invalid operator");
+			type_id type_id = get_type_id(types, node_id);
+			if (type_id.value == TYPE_FLOAT || type_id.value == TYPE_DOUBLE) {
+				switch (operator) {
+				case TOKEN_PLUS:          opcode = IR_FADD;   break;
+				case TOKEN_MINUS:         opcode = IR_FSUB;   break;
+				case TOKEN_STAR:          opcode = IR_FMUL;   break;
+				case TOKEN_SLASH:         opcode = IR_FDIV;   break;
+				case TOKEN_PLUS_EQUAL:    opcode = IR_FSTORE; break;
+				case TOKEN_MINUS_EQUAL:   opcode = IR_FSTORE; break;
+				case TOKEN_STAR_EQUAL:    opcode = IR_FSTORE; break;
+				case TOKEN_SLASH_EQUAL:   opcode = IR_FSTORE; break;
+				case TOKEN_EQUAL:         opcode = IR_FSTORE; break;
+				case TOKEN_EQUAL_EQUAL:   opcode = IR_FEQ;   break;
+				case TOKEN_BANG_EQUAL:    opcode = IR_FEQ;   break;
+				case TOKEN_LESS:          opcode = IR_FLT;    break;
+				case TOKEN_GREATER:       opcode = IR_FGT;    break;
+				case TOKEN_LESS_EQUAL:    opcode = IR_FLE;   break;
+				case TOKEN_GREATER_EQUAL: opcode = IR_FGE;   break;
+				default:                  ASSERT(!"Invalid operator");
+				}
+			} else {
+				switch (operator) {
+				case TOKEN_PLUS:          opcode = IR_ADD;   break;
+				case TOKEN_MINUS:         opcode = IR_SUB;   break;
+				case TOKEN_STAR:          opcode = IR_MUL;   break;
+				case TOKEN_SLASH:         opcode = IR_DIV;   break;
+				case TOKEN_PERCENT:       opcode = IR_MOD;   break;
+				case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
+				case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
+				case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
+				case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
+				case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
+				case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
+				case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
+				case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
+				case TOKEN_EQUAL:         opcode = IR_STORE; break;
+				case TOKEN_EQUAL_EQUAL:   opcode = IR_EQ;   break;
+				case TOKEN_BANG_EQUAL:    opcode = IR_EQ;   break;
+				case TOKEN_LESS:          opcode = IR_LT;    break;
+				case TOKEN_GREATER:       opcode = IR_GT;    break;
+				case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
+				case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
+				case TOKEN_LESS_EQUAL:    opcode = IR_LE;   break;
+				case TOKEN_GREATER_EQUAL: opcode = IR_GE;   break;
+				case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
+				case TOKEN_AMP:           opcode = IR_AND;   break;
+				case TOKEN_BAR:           opcode = IR_OR;    break;
+				case TOKEN_CARET:         opcode = IR_XOR;   break;
+				case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
+				case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
+				default:                  ASSERT(!"Invalid operator");
+				}
 			}
 
-			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (is_comparison_opcode(opcode) && (node_type->kind & TYPE_UNSIGNED)) {
 				// TODO: Use switch instead of addition?
@@ -379,41 +399,41 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 end_label = new_label(ctx);
 				u32 zero_label = new_label(ctx);
 
-				result = ir_emit0(ctx, IR_I32, IR_VAR);
+				result = ir_emit0(ctx, 4, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, pool, children[0], false);
-				ir_emit2(ctx, IR_VOID, IR_JIZ, lhs_reg, zero_label);
+				ir_emit2(ctx, 0, IR_JIZ, lhs_reg, zero_label);
 
 				u32 rhs_reg = translate_node(ctx, pool, children[1], false);
-				ir_emit2(ctx, IR_VOID, IR_JIZ, rhs_reg, zero_label);
+				ir_emit2(ctx, 0, IR_JIZ, rhs_reg, zero_label);
 
-				u32 one = ir_emit1(ctx, IR_I32, IR_CONST, 1);
-				ir_emit2(ctx, IR_VOID, IR_MOV, result, one);
-				ir_emit1(ctx, IR_VOID, IR_JMP, end_label);
+				u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
+				ir_emit2(ctx, 0, IR_MOV, result, one);
+				ir_emit1(ctx, 0, IR_JMP, end_label);
 
-				ir_emit1(ctx, IR_VOID, IR_LABEL, zero_label);
-				u32 zero = ir_emit1(ctx, IR_I32, IR_CONST, 0);
-				ir_emit2(ctx, IR_VOID, IR_MOV, result, zero);
-				ir_emit1(ctx, IR_VOID, IR_LABEL, end_label);
+				ir_emit1(ctx, 0, IR_LABEL, zero_label);
+				u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
+				ir_emit2(ctx, 0, IR_MOV, result, zero);
+				ir_emit1(ctx, 0, IR_LABEL, end_label);
 			} else if (operator == TOKEN_BAR_BAR) {
 				// NOTE: Logical or operation
 				u32 end_label = new_label(ctx);
 				u32 one_label = new_label(ctx);
 
-				result = ir_emit0(ctx, IR_I32, IR_VAR);
+				result = ir_emit0(ctx, 4, IR_VAR);
 				u32 lhs_reg = translate_node(ctx, pool, children[0], false);
-				ir_emit2(ctx, IR_VOID, IR_JNZ, lhs_reg, one_label);
+				ir_emit2(ctx, 0, IR_JNZ, lhs_reg, one_label);
 
 				u32 rhs_reg = translate_node(ctx, pool, children[1], false);
-				ir_emit2(ctx, IR_VOID, IR_JNZ, rhs_reg, one_label);
+				ir_emit2(ctx, 0, IR_JNZ, rhs_reg, one_label);
 
-				u32 zero = ir_emit1(ctx, IR_I32, IR_CONST, 0);
-				ir_emit2(ctx, IR_VOID, IR_MOV, result, zero);
-				ir_emit1(ctx, IR_VOID, IR_JMP, end_label);
+				u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
+				ir_emit2(ctx, 0, IR_MOV, result, zero);
+				ir_emit1(ctx, 0, IR_JMP, end_label);
 
-				ir_emit1(ctx, IR_VOID, IR_LABEL, one_label);
-				u32 one = ir_emit1(ctx, IR_I32, IR_CONST, 1);
-				ir_emit2(ctx, IR_VOID, IR_MOV, result, one);
-				ir_emit1(ctx, IR_VOID, IR_LABEL, end_label);
+				ir_emit1(ctx, 0, IR_LABEL, one_label);
+				u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
+				ir_emit2(ctx, 0, IR_MOV, result, one);
+				ir_emit1(ctx, 0, IR_LABEL, end_label);
 			} else if (opcode == IR_STORE) {
 				// NOTE: Assignment operation
 				switch (operator) {
@@ -432,10 +452,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, pool, children[0], true);
 				u32 rhs_reg = translate_node(ctx, pool, children[1], false);
 				if (operator != TOKEN_EQUAL) {
-					ir_type type = ir_type_from(node_type);
-					u32 value = ir_emit1(ctx, type, IR_LOAD, lhs_reg);
-					result = ir_emit2(ctx, type, opcode, value, rhs_reg);
-					ir_emit2(ctx, IR_VOID, IR_STORE, lhs_reg, result);
+					isize size = type_sizeof(type_id, types);
+					u32 value = ir_emit1(ctx, size, IR_LOAD, lhs_reg);
+					result = ir_emit2(ctx, size, opcode, value, rhs_reg);
+					ir_emit2(ctx, 0, IR_STORE, lhs_reg, result);
 				} else {
 					ir_store(ctx, lhs_reg, rhs_reg, type_id);
 					if (!is_lvalue) {
@@ -451,21 +471,21 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, pool, children[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, children[1], false);
 				isize size = type_sizeof(type_id, types);
-				u32 size_reg = ir_emit1(ctx, IR_I64, IR_CONST, size);
-				u32 offset = ir_emit2(ctx, IR_I64, IR_MUL, rhs_reg, size_reg);
-				result = ir_emit2(ctx, IR_I64, IR_ADD, lhs_reg, offset);
+				u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
+				u32 offset = ir_emit2(ctx, 8, IR_MUL, rhs_reg, size_reg);
+				result = ir_emit2(ctx, 8, IR_ADD, lhs_reg, offset);
 				if (!is_lvalue) {
 					result = ir_load(ctx, result, type_id);
 				}
 			} else {
 				u32 lhs_reg = translate_node(ctx, pool, children[0], false);
 				u32 rhs_reg = translate_node(ctx, pool, children[1], false);
-				ir_type type = ir_type_from(node_type);
+				isize size = type_sizeof(type_id, &ctx->info->types);
 
-				result = ir_emit2(ctx, type, opcode, lhs_reg, rhs_reg);
+				result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
 				if (operator == TOKEN_BANG_EQUAL) {
-					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
-					lhs_reg = ir_emit2(ctx, type, IR_SUB, one, lhs_reg);
+					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
+					lhs_reg = ir_emit2(ctx, size, IR_SUB, one, lhs_reg);
 				}
 			}
 
@@ -479,17 +499,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 called_reg = translate_node(ctx, pool, children[0], true);
 
 			// Make struct return value first argument
-			ir_type result_type;
+			isize result_size;
 			u32 prev_param = 0;
 			type_id return_type_id = called_type->base_type;
 			type *return_type = get_type_data(types, return_type_id);
 			if (is_compound_type(return_type->kind)) {
 				isize size = type_sizeof(return_type_id, types);
 				u32 param = ir_emit_alloca(ctx, size);
-				prev_param = ir_emit2(ctx, IR_VOID, IR_CALL, param, 0);
-				result_type = IR_I64;
+				prev_param = ir_emit2(ctx, 0, IR_CALL, param, 0);
+				result_size = 8;
 			} else {
-				result_type = ir_type_from(return_type);
+				result_size = type_sizeof(return_type_id, &ctx->info->types);
 			}
 
 			// Load parameters
@@ -499,16 +519,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				type_id param_type_id = get_type_id(types, param_id);
 				type *param_type = get_type_data(types, param_type_id);
+				isize size = type_sizeof(param_type_id, types);
 				if (is_compound_type(param_type->kind)) {
-					isize size = type_sizeof(param_type_id, types);
 					u32 tmp = ir_emit_alloca(ctx, size);
 					ir_memcpy(ctx, tmp, param_value, size);
 					param_value = tmp;
 				}
 
 
-				ir_type param_ir_type = ir_type_from(param_type);
-				u32 param_reg = ir_emit(ctx, param_ir_type, IR_CALL, param_value, prev_param);
+				u32 param_reg = ir_emit(ctx, size, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
 				ast_node *param_node = get_node(pool, param_id);
@@ -519,25 +538,24 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (node_type->kind != TYPE_VOID) {
-				result = ir_emit(ctx, result_type, IR_CALL, called_reg, prev_param);
+				result = ir_emit(ctx, result_size, IR_CALL, called_reg, prev_param);
 			} else {
 				ASSERT(!"TODO");
 			}
 		} break;
 	case AST_EXPR_CAST:
 		{
+#if 0
 			type_id cast_type_id = get_type_id(types, children[0]);
-			type *cast_type = get_type_data(types, cast_type_id);
 			type_id expr_type_id = get_type_id(types, children[0]);
+			type *cast_type = get_type_data(types, cast_type_id);
 			type *expr_type = get_type_data(types, expr_type_id);
 			if (cast_type->kind != TYPE_VOID) {
 				isize cast_size = type_sizeof(cast_type_id, types);
 				isize expr_size = type_sizeof(expr_type_id, types);
-
 				result = translate_node(ctx, pool, children[1], false);
-				ir_type cast_ir_type = ir_type_from(cast_type);
-				ir_type expr_ir_type = ir_type_from(expr_type);
-				if (expr_type != cast_type) {
+
+				if (expr_type_id.value != cast_type_id.value) {
 					if (cast_ir_type == IR_F32 || cast_ir_type == IR_F64
 						|| expr_ir_type == IR_F32 || expr_ir_type == IR_F64)
 					{
@@ -556,6 +574,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				ASSERT(result != 0);
 			}
+#endif
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
@@ -571,8 +590,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
 			if (!is_lvalue && !is_compound_type(node_type->kind)) {
-				ir_type type = ir_type_from(node_type);
-				result = ir_emit1(ctx, type, IR_LOAD, result);
+				isize size = type_sizeof(type_id, &ctx->info->types);
+				result = ir_emit1(ctx, size, IR_LOAD, result);
 			}
 
 			ASSERT(result != 0);
@@ -583,12 +602,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_LITERAL_INT:
 				{
 					i64 value = parse_i64(node->token.value);
-					result = ir_emit1(ctx, IR_I32, IR_CONST, value);
+					result = ir_emit1(ctx, 4, IR_CONST, value);
 				} break;
 			case TOKEN_LITERAL_CHAR:
 				{
 					char value = parse_char(node->token.value);
-					result = ir_emit1(ctx, IR_I8, IR_CONST, value);
+					result = ir_emit1(ctx, 1, IR_CONST, value);
 				} break;
 
 			case TOKEN_LITERAL_FLOAT:
@@ -605,8 +624,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					// Load the global variable
 					symbol_id sym_id = get_symbol_id(symtab, sym);
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, sym_id.value);
-					result = ir_emit1(ctx, IR_F32, IR_LOAD, result);
+					result = ir_emit1(ctx, 8, IR_GLOBAL, sym_id.value);
+					result = ir_emit1(ctx, 4, IR_FLOAD, result);
 				} break;
 			case TOKEN_LITERAL_STRING:
 				{
@@ -657,7 +676,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					// Load the string
 					symbol_id sym_id = get_symbol_id(symtab, sym);
-					result = ir_emit1(ctx, IR_I64, IR_GLOBAL, sym_id.value);
+					result = ir_emit1(ctx, 8, IR_GLOBAL, sym_id.value);
 				} break;
 			default:
 				ASSERT(!"Invalid literal");
@@ -673,16 +692,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			}
 
 			u32 offset = type_offsetof(operand_type, node->token.value, types);
-			u32 offset_reg = ir_emit1(ctx, IR_I64, IR_CONST, offset);
+			u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
 			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
 			u32 base_reg = translate_node(ctx, pool, children[0], base_is_lvalue);
-			result = ir_emit2(ctx, IR_I64, IR_ADD, base_reg, offset_reg);
+			result = ir_emit2(ctx, 8, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
 				type_id type_id = get_type_id(types, node_id);
 				type *node_type = get_type_data(types, type_id);
 				if (!is_compound_type(node_type->kind)) {
-					ir_type type = ir_type_from(node_type);
-					result = ir_emit1(ctx, type, IR_LOAD, result);
+					isize size = type_sizeof(type_id, &ctx->info->types);
+					result = ir_emit1(ctx, size, IR_LOAD, result);
 				} else {
 					isize size = type_sizeof(type_id, types);
 					u32 tmp = ir_emit_alloca(ctx, size);
@@ -706,13 +725,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					}
 
 					type_id type_id = get_type_id(types, node_id);
-					type *node_type = get_type_data(types, type_id);
-					ir_type type = ir_type_from(node_type);
+					isize size = type_sizeof(type_id, &ctx->info->types);
 					u32 addr = translate_node(ctx, pool, children[0], true);
-					result = ir_emit1(ctx, type, IR_LOAD, addr);
-					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
-					u32 value = ir_emit2(ctx, type, opcode, result, one);
-					ir_emit2(ctx, IR_VOID, IR_STORE, addr, value);
+					result = ir_emit1(ctx, size, IR_LOAD, addr);
+					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
+					u32 value = ir_emit2(ctx, size, opcode, result, one);
+					ir_emit2(ctx, 0, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -727,7 +745,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			sem_ctx.ast = pool;
 
 			isize size = eval_ast(sem_ctx, node_id);
-			result = ir_emit1(ctx, IR_I64, IR_CONST, size);
+			result = ir_emit1(ctx, 8, IR_CONST, size);
 		} break;
 	case AST_EXPR_TERNARY:
 		{
@@ -742,22 +760,23 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			if (is_compound_type(node_type->kind)) {
 				result = ir_emit_alloca(ctx, type_sizeof(type_id, types));
 			} else {
-				result = ir_emit0(ctx, ir_type_from(node_type), IR_VAR);
+				isize size = type_sizeof(type_id, &ctx->info->types);
+				result = ir_emit0(ctx, size, IR_VAR);
 			}
 
-			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
+			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
 
 			ast_id if_branch = children[1];
 			u32 if_reg = translate_node(ctx, pool, if_branch, false);
 			ir_mov(ctx, result, if_reg, type_id);
-			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
+			ir_emit1(ctx, 0, IR_JMP, endif_label);
 
-			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
+			ir_emit1(ctx, 0, IR_LABEL, else_label);
 			ast_id else_branch = children[2];
 			u32 else_reg = translate_node(ctx, pool, else_branch, false);
 			ir_mov(ctx, result, else_reg, type_id);
 
-			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
+			ir_emit1(ctx, 0, IR_LABEL, endif_label);
 		} break;
 	case AST_EXPR_UNARY:
 		{
@@ -772,7 +791,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			case TOKEN_TILDE:
 				{
 					result = translate_node(ctx, pool, children[0], false);
-					result = ir_emit1(ctx, IR_VOID, IR_NOT, result);
+					result = ir_emit1(ctx, 0, IR_NOT, result);
 				} break;
 			case TOKEN_PLUS:
 				{
@@ -780,17 +799,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				} break;
 			case TOKEN_MINUS:
 				{
-					ir_type type = ir_type_from(node_type);
-					u32 zero = ir_emit1(ctx, type, IR_CONST, 0);
+					isize size = type_sizeof(type_id, &ctx->info->types);
+					u32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, pool, children[0], false);
-					result = ir_emit2(ctx, type, IR_SUB, zero, result);
+					result = ir_emit2(ctx, size, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
-					ir_type type = ir_type_from(node_type);
-					u32 zero = ir_emit1(ctx, type, IR_CONST, 0);
+					isize size = type_sizeof(type_id, &ctx->info->types);
+					u32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, pool, children[0], false);
-					result = ir_emit2(ctx, type, IR_EQL, result, zero);
+					result = ir_emit2(ctx, size, IR_EQ, result, zero);
 				} break;
 			case TOKEN_STAR:
 				{
@@ -807,12 +826,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						opcode = IR_SUB;
 					}
 
-					ir_type type = ir_type_from(node_type);
+					isize size = type_sizeof(type_id, &ctx->info->types);
 					u32 addr = translate_node(ctx, pool, children[0], true);
-					u32 value = ir_emit1(ctx, type, IR_LOAD, addr);
-					u32 one = ir_emit1(ctx, type, IR_CONST, 1);
-					result = ir_emit2(ctx, type, opcode, value, one);
-					ir_emit2(ctx, IR_VOID, IR_STORE, addr, result);
+					u32 value = ir_emit1(ctx, size, IR_LOAD, addr);
+					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
+					result = ir_emit2(ctx, size, opcode, value, one);
+					ir_emit2(ctx, 0, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -827,17 +846,17 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_BREAK:
 		{
-			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->break_label);
+			ir_emit1(ctx, 0, IR_JMP, ctx->break_label);
 		} break;
 	case AST_STMT_CASE:
 		{
 			case_info *case_info = get_case_info(*ctx->info, node_id);
-			ir_emit1(ctx, IR_VOID, IR_LABEL, case_info->label);
+			ir_emit1(ctx, 0, IR_LABEL, case_info->label);
 			translate_node(ctx, pool, children[1], false);
 		} break;
 	case AST_STMT_CONTINUE:
 		{
-			ir_emit1(ctx, IR_VOID, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, 0, IR_JMP, ctx->continue_label);
 		} break;
 	case AST_STMT_DEFAULT:
 		ASSERT(!"Should have been handled by SWITCH");
@@ -851,12 +870,12 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ast_id cond = children[0];
 			ast_id body = children[1];
 
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
 			translate_node(&new_ctx, pool, body, false);
 
 			u32 cond_reg = translate_node(&new_ctx, pool, cond, false);
-			ir_emit2(&new_ctx, IR_VOID, IR_JNZ, cond_reg, new_ctx.continue_label);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
+			ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, new_ctx.continue_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_FOR:
 		{
@@ -867,22 +886,22 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 cond_label = new_label(&new_ctx);
 
 			translate_node(&new_ctx, pool, children[0], false);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, cond_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, cond_label);
 
 			ast_node *cond = get_node(pool, children[1]);
 			if (cond->kind == AST_NONE) {
-				ir_emit0(&new_ctx, IR_VOID, IR_NOP);
+				ir_emit0(&new_ctx, 0, IR_NOP);
 			} else {
 				u32 cond_reg = translate_node(&new_ctx, pool, children[1], false);
-				ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+				ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
 			}
 
 			translate_node(&new_ctx, pool, children[3], false);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
 
 			translate_node(&new_ctx, pool, children[2], false);
-			ir_emit1(&new_ctx, IR_VOID, IR_JMP, cond_label);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
+			ir_emit1(&new_ctx, 0, IR_JMP, cond_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
@@ -894,7 +913,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				*label = new_label(ctx);
 			}
 
-			ir_emit1(ctx, IR_VOID, opcode, *label);
+			ir_emit1(ctx, 0, opcode, *label);
 			if (children[0].value != 0) {
 				translate_node(ctx, pool, children[0], false);
 			}
@@ -905,40 +924,40 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 else_label = new_label(ctx);
 
 			u32 cond_reg = translate_node(ctx, pool, children[0], false);
-			ir_emit2(ctx, IR_VOID, IR_JIZ, cond_reg, else_label);
+			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
 
 			translate_node(ctx, pool, children[1], false);
-			ir_emit1(ctx, IR_VOID, IR_JMP, endif_label);
+			ir_emit1(ctx, 0, IR_JMP, endif_label);
 
-			ir_emit1(ctx, IR_VOID, IR_LABEL, else_label);
+			ir_emit1(ctx, 0, IR_LABEL, else_label);
 			if (children[2].value != 0) {
 				translate_node(ctx, pool, children[2], false);
 			}
 
-			ir_emit1(ctx, IR_VOID, IR_LABEL, endif_label);
+			ir_emit1(ctx, 0, IR_LABEL, endif_label);
 		} break;
 	case AST_STMT_RETURN:
 		{
 			u32 value = 0;
 			b32 returns_struct = false;
 			isize struct_size = 0;
-			ir_type ir_type = IR_VOID;
+			isize size = 0;
 			if (children[0].value != 0) {
 				value = translate_node(ctx, pool, children[0], false);
 				type_id value_type_id = get_type_id(types, children[0]);
 				type *value_type = get_type_data(types, value_type_id);
 				returns_struct = is_compound_type(value_type->kind);
 				struct_size = type_sizeof(value_type_id, types);
-				ir_type = ir_type_from(value_type);
+				size = type_sizeof(value_type_id, &ctx->info->types);
 			}
 
 			if (returns_struct) {
 				ir_memcpy(ctx, 1, value, struct_size);
 			}
 
-			ir_emit1(ctx, ir_type, IR_RET, value);
+			ir_emit1(ctx, size, IR_RET, value);
 			// NOTE: For dead code elimination
-			ir_emit1(ctx, IR_VOID, IR_LABEL, new_label(ctx));
+			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_SWITCH:
 		{
@@ -953,8 +972,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 				ast_node *case_node = get_node(pool, case_info->case_id);
 				u32 case_reg = translate_node(&new_ctx, pool, case_node->children, false);
-				u32 cond_reg = ir_emit2(&new_ctx, IR_I64, IR_EQL, switch_reg, case_reg);
-				ir_emit2(&new_ctx, IR_VOID, IR_JNZ, cond_reg, case_info->label);
+				u32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
+				ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, case_info->label);
 			}
 
 			if (switch_info->default_case.value != 0) {
@@ -962,9 +981,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				translate_node(&new_ctx, pool, default_node->children, false);
 			}
 
-			ir_emit1(&new_ctx, IR_VOID, IR_JMP, new_ctx.break_label);
+			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.break_label);
 			translate_node(&new_ctx, pool, children[1], false);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_STMT_WHILE:
 		{
@@ -973,15 +992,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			new_ctx.break_label = new_label(&new_ctx);
 			new_ctx.continue_label = new_label(&new_ctx);
 
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.continue_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
 			ast_id cond = children[0];
 			u32 cond_reg = translate_node(&new_ctx, pool, cond, false);
-			ir_emit2(&new_ctx, IR_VOID, IR_JIZ, cond_reg, new_ctx.break_label);
+			ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
 
 			ast_id body = children[1];
 			translate_node(&new_ctx, pool, body, false);
-			ir_emit1(&new_ctx, IR_VOID, IR_JMP, new_ctx.continue_label);
-			ir_emit1(&new_ctx, IR_VOID, IR_LABEL, new_ctx.break_label);
+			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.continue_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
@@ -1064,16 +1083,19 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 		node_id = get_node(pool, node_id)->next;
 	}
 
-	// NOTE: Propagate types through the instructions
+	// TODO: Remove this
+	// NOTE: Propagate sizes through the instructions
 	for (isize i = 0; i < program.func_count; i++) {
 		ir_function *func = &program.funcs[i];
 		ir_inst *inst = program.insts + func->inst_index;
 		for (isize j = 0; j < func->inst_count; j++) {
-			if (inst[j].type != IR_VOID || inst[j].opcode == IR_CAST
+#if 0
+			if (inst[j].type != 0 || inst[j].opcode == IR_CAST
 				|| inst[j].opcode == IR_CASTU)
 			{
 				continue;
 			}
+#endif
 
 			u32 op0 = inst[j].op0;
 			u32 op1 = inst[j].op1;
@@ -1083,9 +1105,9 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 			// it will always be a pointer type, even if we're dealing with a
 			// float. Therefore, we propagate the second operand first.
 			if (is_register_operand(info.op1)) {
-				inst[j].type = inst[op1].type;
+				inst[j].size = inst[op1].size;
 			} else if (is_register_operand(info.op0)) {
-				inst[j].type = inst[op0].type;
+				inst[j].size = inst[op0].size;
 			}
 		}
 	}

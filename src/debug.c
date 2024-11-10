@@ -17,22 +17,6 @@ get_builtin_str(ir_builtin builtin)
 	return "(invalid builtin)";
 }
 
-static char *
-get_ir_type_str(ir_type type)
-{
-	switch (type) {
-	case IR_VOID: return "void";
-	case IR_I8:   return "i8";
-	case IR_I16:  return "i16";
-	case IR_I32:  return "i32";
-	case IR_I64:  return "i64";
-	case IR_F32:  return "f32";
-	case IR_F64:  return "f64";
-	}
-
-	return "(invalid)";
-}
-
 static void
 print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 {
@@ -310,7 +294,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 	u32 dst = i;
 	u32 op0 = inst[i].op0;
 	u32 op1 = inst[i].op1;
-	char *type = get_ir_type_str(inst[i].type);
+	char *type = "(TODO)";
 	switch (inst[i].opcode) {
 	case IR_NOP:
 		printf("nop");
@@ -320,6 +304,9 @@ print_ir_inst(ir_inst *inst, u32 i)
 		break;
 	case IR_VAR:
 		printf("(var.%s %%%d)", type, dst);
+		break;
+	case IR_FVAR:
+		printf("(fvar.%s %%%d)", type, dst);
 		break;
 	case IR_CONST:
 		printf("(const.%s %d)", type, op0);
@@ -337,13 +324,13 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_ADD:
 	case IR_AND:
 	case IR_DIV:
-	case IR_EQL:
-	case IR_GEQ:
-	case IR_GEQU:
+	case IR_EQ:
+	case IR_GE:
+	case IR_GEU:
 	case IR_GT:
 	case IR_GTU:
-	case IR_LEQ:
-	case IR_LEQU:
+	case IR_LE:
+	case IR_LEU:
 	case IR_LT:
 	case IR_LTU:
 	case IR_MOD:
@@ -354,6 +341,17 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_STORE:
 	case IR_SUB:
 	case IR_XOR:
+	case IR_FMOV:
+	case IR_FSTORE:
+	case IR_FADD:
+	case IR_FSUB:
+	case IR_FMUL:
+	case IR_FDIV:
+	case IR_FEQ:
+	case IR_FGT:
+	case IR_FGE:
+	case IR_FLT:
+	case IR_FLE:
 		printf("(%s.%s ", get_ir_opcode_str(inst[i].opcode), type);
 		print_ir_inst(inst, op0);
 		printf(" ");
@@ -369,14 +367,17 @@ print_ir_inst(ir_inst *inst, u32 i)
 		print_ir_inst(inst, op0);
 		printf(" L%d)", op1);
 		break;
-	case IR_CAST:
-	case IR_CASTU:
 	case IR_LOAD:
 	case IR_NOT:
 	case IR_RET:
 	case IR_TRUNC:
 	case IR_SEXT:
 	case IR_ZEXT:
+	case IR_CVT:
+	case IR_FCVT:
+	case IR_FLOAD:
+	case IR_FRET:
+	case IR_FCOPY:
 		printf("(%s.%s ", get_ir_opcode_str(inst[i].opcode), type);
 		print_ir_inst(inst, op0);
 		printf(")");
@@ -386,7 +387,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		print_ir_inst(inst, op0);
 
 		for (isize j = op1; j; j = inst[j].op1) {
-			printf(" %s", get_ir_type_str(inst[j].type));
+			printf(" %d", inst[j].size);
 			print_ir_inst(inst, inst[j].op0);
 		}
 

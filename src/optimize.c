@@ -22,6 +22,10 @@ multiply(u32 a, u32 b)
 static void
 optimize(ir_program program, arena *arena)
 {
+#if 1
+	(void)program;
+	(void)arena;
+#else
 	// Promote stack variables
 	for (isize f = 0; f < program.func_count; f++) {
 		ir_function *func = &program.funcs[f];
@@ -317,4 +321,5 @@ next_block:
 
 		arena_temp_end(temp);
 	}
+#endif
 }

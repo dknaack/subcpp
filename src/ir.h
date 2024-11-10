@@ -10,56 +10,71 @@ typedef enum {
 	IR_PARAM,
 	IR_VAR,
 
-	// data movement
+	// data movement operators
 	IR_COPY,
 	IR_LOAD,
 	IR_MOV,
 	IR_STORE,
 
-	// control-flow operations
+	// control-flow operators
 	IR_CALL,
 	IR_JIZ,
 	IR_JMP,
 	IR_JNZ,
+	IR_RET,
 
-	// data operations
+	// integer operators
 	IR_ADD,
-	IR_AND,
-	IR_CAST,
-	IR_CASTU,
 	IR_DIV,
-	IR_EQL,
-	IR_GEQ,
-	IR_GEQU,
-	IR_GT,
-	IR_GTU,
-	IR_LEQ,
-	IR_LEQU,
-	IR_LT,
-	IR_LTU,
 	IR_MOD,
 	IR_MUL,
+	IR_SUB,
+
+	// comparison operators
+	IR_EQ,
+	IR_GT,
+	IR_GE,
+	IR_LT,
+	IR_LE,
+	IR_GTU,
+	IR_GEU,
+	IR_LTU,
+	IR_LEU,
+
+	// bitwise operators
+	IR_AND,
 	IR_NOT,
 	IR_OR,
-	IR_RET,
-	IR_SEXT,
 	IR_SHL,
 	IR_SHR,
-	IR_SUB,
-	IR_TRUNC,
 	IR_XOR,
-	IR_ZEXT,
-} ir_opcode;
 
-typedef enum {
-	IR_VOID,
-	IR_I8,
-	IR_I16,
-	IR_I32,
-	IR_I64,
-	IR_F32,
-	IR_F64,
-} ir_type;
+	// conversion operators
+	IR_CVT,
+	IR_SEXT,
+	IR_TRUNC,
+	IR_ZEXT,
+
+	// float operations
+	IR_FVAR,
+	IR_FMOV,
+	IR_FSTORE,
+	IR_FLOAD,
+	IR_FCOPY,
+
+	IR_FADD,
+	IR_FSUB,
+	IR_FMUL,
+	IR_FDIV,
+
+	IR_FEQ,
+	IR_FGT,
+	IR_FGE,
+	IR_FLT,
+	IR_FLE,
+	IR_FRET,
+	IR_FCVT,
+} ir_opcode;
 
 typedef enum {
 	BUILTIN_POPCOUNT,
@@ -123,8 +138,8 @@ typedef struct {
 } ir_opcode_info;
 
 typedef struct {
-	ir_opcode opcode:24;
-	ir_type type:8;
+	ir_opcode opcode;
+	u8 size;
 	u32 op0;
 	u32 op1;
 } ir_inst;
@@ -193,77 +208,19 @@ static b32
 is_comparison_opcode(ir_opcode ir_opcode)
 {
 	switch (ir_opcode) {
-	case IR_EQL:
+	case IR_EQ:
 	case IR_LT:
 	case IR_GT:
-	case IR_LEQ:
-	case IR_GEQ:
+	case IR_LE:
+	case IR_GE:
 	case IR_LTU:
 	case IR_GTU:
-	case IR_LEQU:
-	case IR_GEQU:
+	case IR_LEU:
+	case IR_GEU:
 		return true;
 	default:
 		return false;
 	}
-}
-
-static isize
-ir_sizeof(ir_type type)
-{
-	switch (type) {
-	case IR_I8:   return 1;
-	case IR_I16:  return 2;
-	case IR_I32:  return 4;
-	case IR_I64:  return 8;
-	case IR_F32:  return 4;
-	case IR_F64:  return 8;
-	case IR_VOID: return 0;
-	}
-
-	return 0;
-}
-
-// TODO: This depends on the underlying system. For example, a long can either
-// be 4 bytes or 8 bytes.
-static ir_type
-ir_type_from(type *type)
-{
-	switch (type->kind) {
-	case TYPE_VOID:
-		return IR_VOID;
-	case TYPE_CHAR:
-	case TYPE_CHAR_UNSIGNED:
-		return IR_I8;
-	case TYPE_SHORT:
-	case TYPE_SHORT_UNSIGNED:
-		return IR_I16;
-	case TYPE_INT:
-	case TYPE_INT_UNSIGNED:
-		return IR_I32;
-	case TYPE_LONG:
-	case TYPE_LONG_UNSIGNED:
-		return IR_I32;
-	case TYPE_LLONG:
-	case TYPE_LLONG_UNSIGNED:
-		return IR_I64;
-	case TYPE_FLOAT:
-		return IR_F32;
-	case TYPE_DOUBLE:
-		return IR_F64;
-	case TYPE_POINTER:
-	case TYPE_ARRAY:
-		return IR_I64;
-	case TYPE_FUNCTION:
-		return IR_I64;
-	case TYPE_BITFIELD:
-		// TODO: Implement bit fields properly
-		return IR_I64;
-	default:
-		ASSERT(!"Invalid type");
-	}
-
-	return IR_VOID;
 }
 
 static char *
@@ -272,6 +229,8 @@ get_ir_opcode_str(ir_opcode opcode)
 	switch (opcode) {
 	case IR_NOP:
 		return "nop";
+
+	// declarations
 	case IR_ALLOC:
 		return "alloc";
 	case IR_BUILTIN:
@@ -286,6 +245,8 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "param";
 	case IR_VAR:
 		return "var";
+
+	// data movement operators
 	case IR_COPY:
 		return "copy";
 	case IR_LOAD:
@@ -294,6 +255,8 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "mov";
 	case IR_STORE:
 		return "store";
+
+	// control-flow operators
 	case IR_CALL:
 		return "call";
 	case IR_JIZ:
@@ -302,62 +265,103 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "jmp";
 	case IR_JNZ:
 		return "jnz";
+	case IR_RET:
+		return "ret";
+
+	// integer operators
 	case IR_ADD:
 		return "add";
-	case IR_AND:
-		return "and";
-	case IR_CAST:
-		return "cast";
-	case IR_CASTU:
-		return "castu";
 	case IR_DIV:
 		return "div";
-	case IR_EQL:
-		return "eql";
-	case IR_GEQ:
-		return "geq";
-	case IR_GEQU:
-		return "gequ";
-	case IR_GT:
-		return "gt";
-	case IR_GTU:
-		return "gtu";
-	case IR_LEQ:
-		return "leq";
-	case IR_LEQU:
-		return "lequ";
-	case IR_LT:
-		return "lt";
-	case IR_LTU:
-		return "ltu";
 	case IR_MOD:
 		return "mod";
 	case IR_MUL:
 		return "mul";
+	case IR_SUB:
+		return "sub";
+
+	// comparison operators
+	case IR_EQ:
+		return "eq";
+	case IR_GT:
+		return "gt";
+	case IR_GE:
+		return "ge";
+	case IR_LT:
+		return "lt";
+	case IR_LE:
+		return "le";
+	case IR_GTU:
+		return "gtu";
+	case IR_GEU:
+		return "geu";
+	case IR_LTU:
+		return "ltu";
+	case IR_LEU:
+		return "leu";
+
+	// bitwise operators
+	case IR_AND:
+		return "and";
 	case IR_NOT:
 		return "not";
 	case IR_OR:
 		return "or";
-	case IR_RET:
-		return "ret";
-	case IR_SEXT:
-		return "sext";
 	case IR_SHL:
 		return "shl";
 	case IR_SHR:
 		return "shr";
-	case IR_SUB:
-		return "sub";
-	case IR_TRUNC:
-		return "trunc";
 	case IR_XOR:
 		return "xor";
+
+	// conversion operators
+	case IR_CVT:
+		return "cvt";
+	case IR_SEXT:
+		return "sext";
+	case IR_TRUNC:
+		return "trunc";
 	case IR_ZEXT:
 		return "zext";
-	default:
-		ASSERT(!"Invalid opcode");
-		return "(invalid)";
+
+	// float operations
+	case IR_FVAR:
+		return "fvar";
+	case IR_FMOV:
+		return "fmov";
+	case IR_FSTORE:
+		return "fstore";
+	case IR_FLOAD:
+		return "fload";
+	case IR_FCOPY:
+		return "fcopy";
+
+	case IR_FADD:
+		return "fadd";
+	case IR_FSUB:
+		return "fsub";
+	case IR_FMUL:
+		return "fmul";
+	case IR_FDIV:
+		return "fdiv";
+
+	case IR_FEQ:
+		return "feq";
+	case IR_FGT:
+		return "fgt";
+	case IR_FGE:
+		return "fge";
+	case IR_FLT:
+		return "flt";
+	case IR_FLE:
+		return "fle";
+	case IR_FRET:
+		return "fret";
+	case IR_FCVT:
+		return "fcvt";
 	}
+
+	return "(invalid)";
 }
 
 static ir_opcode_info
@@ -368,8 +372,6 @@ get_opcode_info(ir_opcode opcode)
 	case IR_JMP:
 		info.op0 = IR_OPERAND_LABEL;
 		break;
-	case IR_CAST:
-	case IR_CASTU:
 	case IR_RET:
 	case IR_LOAD:
 	case IR_COPY:
@@ -377,10 +379,17 @@ get_opcode_info(ir_opcode opcode)
 	case IR_SEXT:
 	case IR_ZEXT:
 	case IR_NOT:
+	case IR_CVT:
+	case IR_FCVT:
+	case IR_FCOPY:
+	case IR_FLOAD:
+	case IR_FRET:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
 	case IR_MOV:
+	case IR_FMOV:
 	case IR_STORE:
+	case IR_FSTORE:
 		info.op0 = IR_OPERAND_REG_DST;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
@@ -390,19 +399,28 @@ get_opcode_info(ir_opcode opcode)
 	case IR_MUL:
 	case IR_DIV:
 	case IR_MOD:
-	case IR_EQL:
+	case IR_EQ:
 	case IR_LT:
 	case IR_GT:
-	case IR_LEQ:
-	case IR_GEQ:
+	case IR_LE:
+	case IR_GE:
 	case IR_LTU:
 	case IR_GTU:
-	case IR_LEQU:
-	case IR_GEQU:
+	case IR_LEU:
+	case IR_GEU:
 	case IR_OR:
 	case IR_SHL:
 	case IR_SHR:
 	case IR_XOR:
+	case IR_FADD:
+	case IR_FSUB:
+	case IR_FMUL:
+	case IR_FDIV:
+	case IR_FEQ:
+	case IR_FLT:
+	case IR_FGT:
+	case IR_FLE:
+	case IR_FGE:
 		info.op0 = IR_OPERAND_REG_SRC;
 		info.op1 = IR_OPERAND_REG_SRC;
 		break;
@@ -435,6 +453,7 @@ get_opcode_info(ir_opcode opcode)
 		break;
 	case IR_NOP:
 	case IR_VAR:
+	case IR_FVAR:
 		break;
 	}
 
