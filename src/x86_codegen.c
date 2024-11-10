@@ -219,8 +219,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 						stream_print(out, "\n");
 					}
 
-					isize j = LENGTH(x86_saved_regs);
-					while (j-- > 0) {
+					for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 						u32 mreg = x86_saved_regs[j];
 						if (info[func_index].used[mreg]) {
 							stream_print(out, "\tpop ");
