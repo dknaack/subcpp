@@ -386,7 +386,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		print_ir_inst(inst, op0);
 
 		for (isize j = op1; j; j = inst[j].op1) {
-			printf(" ");
+			printf(" %s", get_ir_type_str(inst[j].type));
 			print_ir_inst(inst, inst[j].op0);
 		}
 
