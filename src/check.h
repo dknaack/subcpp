@@ -18,7 +18,6 @@ typedef enum {
 	INFO_DECL,
 	INFO_LABEL,
 	INFO_SWITCH,
-	INFO_STRING,
 	INFO_COUNT
 } info_kind;
 
@@ -47,7 +46,6 @@ typedef struct {
 	info_kind *kind;
 
 	u32 *labels;
-	str *strings;
 	case_info *cases;
 	switch_info *switches;
 	type_pool types;
@@ -56,7 +54,6 @@ typedef struct {
 	isize switch_count;
 	isize case_count;
 	isize label_count;
-	isize string_count;
 } semantic_info;
 
 typedef enum {
