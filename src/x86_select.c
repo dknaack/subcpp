@@ -55,6 +55,7 @@ x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 
 	switch (opcode) {
 	case X86_MOV:
+		ASSERT(!(dst.flags & MACH_ISFLOAT) && !(src.flags & MACH_ISFLOAT));
 		if (!equals_token(dst, src)) {
 			push_inst(program, opcode, 2);
 			if (dst.flags & MACH_INDIRECT) {
@@ -163,13 +164,17 @@ static void
 x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 {
 	ir_inst *inst = ctx->inst;
-	ir_type type = inst[inst_index].type;
-	u32 size = ir_sizeof(type);
 	u32 op0 = inst[inst_index].op0;
 	u32 op1 = inst[inst_index].op1;
-	ir_opcode opcode = inst[inst_index].opcode;
-	b32 is_float = (type == IR_F32 || type == IR_F64);
 
+	ir_type type = inst[inst_index].type;
+	b32 is_float = (type == IR_F32 || type == IR_F64);
+	if (is_float) {
+		dst.flags |= MACH_ISFLOAT;
+	}
+
+	u32 size = ir_sizeof(type);
+	ir_opcode opcode = inst[inst_index].opcode;
 	switch (opcode) {
 	case IR_GLOBAL:
 		{
@@ -458,19 +463,24 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_GEQU:
 	case IR_LEQU:
 		{
+			is_float = (inst[op1].type == IR_F32);
 			x86_opcode x86_opcode = is_float ? X86_COMISS : X86_CMP;
 			mach_token dst_byte = dst;
 			dst_byte.size = 1;
 
-			mach_token src = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
-			if (is_float) {
-				dst.flags |= MACH_ISFLOAT;
-				src.flags |= MACH_ISFLOAT;
+			mach_token lhs = make_mach_token(MACH_VREG, op0, ir_sizeof(inst[op0].type));
+			if (inst[op0].type == IR_F32 || inst[op0].type == IR_F64) {
+				lhs.flags |= MACH_ISFLOAT;
 			}
 
-			x86_select_inst(ctx, op0, dst);
-			x86_select_inst(ctx, op1, src);
-			x86_emit2(ctx, x86_opcode, dst, src);
+			mach_token rhs = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
+			if (inst[op1].type == IR_F32 || inst[op1].type == IR_F64) {
+				rhs.flags |= MACH_ISFLOAT;
+			}
+
+			x86_select_inst(ctx, op0, lhs);
+			x86_select_inst(ctx, op1, rhs);
+			x86_emit2(ctx, x86_opcode, lhs, rhs);
 			x86_emit1(ctx, x86_get_setcc_opcode(opcode), dst_byte);
 			x86_emit2(ctx, X86_MOVZX, dst, dst_byte);
 		} break;
