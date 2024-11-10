@@ -668,7 +668,7 @@ x86_select(ir_program p, arena *arena)
 		symbol *sym = &p.symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
 		mach_function *mach_func = &result.funcs[sym_id.value];
-		result.func_count = MAX(result.func_count, (u32)sym_id.value + 1);
+		ASSERT(sym_id.value < (i32)result.func_count);
 		isize first_inst = result.token_count;
 
 		x86_context ctx = {0};
