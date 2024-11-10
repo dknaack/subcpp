@@ -52,8 +52,13 @@ equals(str a, str b)
 		return false;
 	}
 
-	b32 result = (compare(a, b) == 0);
-	return result;
+	while (a.length-- > 0) {
+		if (*a.at++ != *b.at++) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 static str
