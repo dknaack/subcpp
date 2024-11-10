@@ -97,6 +97,12 @@ typedef struct {
 	i32 value;
 } symbol_id;
 
+typedef enum {
+	LINK_DEFAULT,
+	LINK_EXTERN,
+	LINK_STATIC,
+} linkage;
+
 typedef struct {
 	symbol_id next;
 	linkage linkage;

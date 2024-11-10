@@ -2,12 +2,6 @@ typedef struct member member;
 typedef struct type type;
 typedef struct ast_node ast_node;
 
-typedef enum {
-	LINK_DEFAULT,
-	LINK_EXTERN,
-	LINK_STATIC,
-} linkage;
-
 typedef struct info_id {
 	i32 value;
 } info_id;
