@@ -55,7 +55,7 @@ x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 
 	switch (opcode) {
 	case X86_MOV:
-		ASSERT(!(dst.flags & MACH_ISFLOAT) && !(src.flags & MACH_ISFLOAT));
+		ASSERT(!(dst.flags & MACH_FLOAT) && !(src.flags & MACH_FLOAT));
 		if (!equals_token(dst, src)) {
 			push_inst(program, opcode, 2);
 			if (dst.flags & MACH_INDIRECT) {
@@ -170,7 +170,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	ir_type type = inst[inst_index].type;
 	b32 is_float = (type == IR_F32 || type == IR_F64);
 	if (is_float) {
-		dst.flags |= MACH_ISFLOAT;
+		dst.flags |= MACH_FLOAT;
 	}
 
 	u32 size = ir_sizeof(type);
@@ -277,7 +277,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			b32 is_float = (type == IR_F32 || type == IR_F64);
 			x86_opcode x86_opcode = (is_float ? X86_MOVSS : X86_MOV);
 			if (is_float) {
-				dst.flags |= MACH_ISFLOAT;
+				dst.flags |= MACH_FLOAT;
 			}
 
 			ASSERT(!equals_token(src, dst));
@@ -351,8 +351,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		{
 			if (is_float) {
 				mach_token src = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
-				src.flags |= MACH_ISFLOAT;
-				dst.flags |= MACH_ISFLOAT;
+				src.flags |= MACH_FLOAT;
+				dst.flags |= MACH_FLOAT;
 
 				x86_select_inst(ctx, op0, dst);
 				x86_select_inst(ctx, op1, src);
@@ -385,8 +385,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			ASSERT(opcode != IR_MOD);
 
 			mach_token src = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MACH_ISFLOAT;
-			src.flags |= MACH_ISFLOAT;
+			dst.flags |= MACH_FLOAT;
+			src.flags |= MACH_FLOAT;
 			x86_emit2(ctx, X86_SUBSS, dst, src);
 		} else {
 			if (inst[op1].opcode == IR_CONST && inst[op1].op0 == 1) {
@@ -412,8 +412,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_MUL:
 		if (is_float) {
 			mach_token src = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MACH_ISFLOAT;
-			src.flags |= MACH_ISFLOAT;
+			dst.flags |= MACH_FLOAT;
+			src.flags |= MACH_FLOAT;
 			x86_emit2(ctx, X86_MULSS, dst, src);
 		} else {
 			if (inst[op1].opcode == IR_CONST && inst[op1].op0 == 1) {
@@ -438,8 +438,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			ASSERT(opcode != IR_MOD);
 
 			mach_token src = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
-			dst.flags |= MACH_ISFLOAT;
-			src.flags |= MACH_ISFLOAT;
+			dst.flags |= MACH_FLOAT;
+			src.flags |= MACH_FLOAT;
 			x86_emit2(ctx, X86_DIVSS, dst, src);
 		} else {
 			mach_token rax = make_mach_token(MACH_MREG, X86_RAX, ir_sizeof(inst[op0].type));
@@ -470,12 +470,12 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 
 			mach_token lhs = make_mach_token(MACH_VREG, op0, ir_sizeof(inst[op0].type));
 			if (inst[op0].type == IR_F32 || inst[op0].type == IR_F64) {
-				lhs.flags |= MACH_ISFLOAT;
+				lhs.flags |= MACH_FLOAT;
 			}
 
 			mach_token rhs = make_mach_token(MACH_VREG, op1, ir_sizeof(inst[op1].type));
 			if (inst[op1].type == IR_F32 || inst[op1].type == IR_F64) {
-				rhs.flags |= MACH_ISFLOAT;
+				rhs.flags |= MACH_FLOAT;
 			}
 
 			x86_select_inst(ctx, op0, lhs);
@@ -535,8 +535,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				mach_token src = x86_select_const(ctx, inst[op0].op1);
 				src.size = dst.size;
 				if (is_float) {
-					dst.flags |= MACH_ISFLOAT;
-					src.flags |= MACH_ISFLOAT;
+					dst.flags |= MACH_FLOAT;
+					src.flags |= MACH_FLOAT;
 				}
 
 				x86_opcode cmp_opcode = (is_float ? X86_COMISS : X86_CMP);
@@ -717,7 +717,7 @@ x86_select(ir_program p, arena *arena)
 				isize op0_size = ir_sizeof(inst[inst[j].op0].type);
 				dst = make_mach_token(MACH_VREG, inst[j].op0, op0_size);
 				if (inst[j].type == IR_F32 || inst[j].type == IR_F64) {
-					dst.flags |= MACH_ISFLOAT;
+					dst.flags |= MACH_FLOAT;
 				}
 			}
 

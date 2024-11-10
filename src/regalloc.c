@@ -180,7 +180,7 @@ regalloc_range(mach_program p, isize offset, isize inst_count, arena *arena)
 	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
 	for (u32 j = 0; j < inst_count; j++) {
 		b32 is_vreg = (tokens[j].kind == MACH_VREG);
-		if (is_vreg && (tokens[j].flags & MACH_ISFLOAT)) {
+		if (is_vreg && (tokens[j].flags & MACH_FLOAT)) {
 			u32 reg = tokens[j].value;
 			is_float_vreg[reg] = true;
 		}

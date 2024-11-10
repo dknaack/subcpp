@@ -15,7 +15,7 @@ typedef enum {
 	MACH_DEF      = (1 << 1),
 	MACH_IMPLICIT = (1 << 2),
 	MACH_INDIRECT = (1 << 3),
-	MACH_ISFLOAT  = (1 << 4),
+	MACH_FLOAT    = (1 << 4),
 } mach_token_flags;
 
 typedef struct {
