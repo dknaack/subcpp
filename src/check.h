@@ -15,7 +15,6 @@ typedef struct info_id {
 typedef enum {
 	INFO_NONE,
 	INFO_CASE,
-	INFO_DECL,
 	INFO_LABEL,
 	INFO_SWITCH,
 	INFO_COUNT
@@ -50,7 +49,6 @@ typedef struct {
 	switch_info *switches;
 	type_pool types;
 
-	isize decl_count;
 	isize switch_count;
 	isize case_count;
 	isize label_count;
