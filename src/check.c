@@ -875,6 +875,9 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_TYPE_TAG:
 		{
+			type_id definition = get_type_id(types, children[0]);
+			ASSERT(definition.value != 0);
+
 			// TODO: Set this as an opaque type
 			type_id base_type = check_node(ctx, children[0]);
 			node_type = opaque_type(base_type, types);
