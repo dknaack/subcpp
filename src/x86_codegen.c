@@ -94,6 +94,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 			continue;
 		}
 
+		mach_token *func_tokens = p.tokens;
 		symbol_id sym_id = symtab->section[j];
 		while (sym_id.value != 0) {
 			symbol *sym = &symtab->symbols[sym_id.value];
@@ -168,8 +169,8 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 
 					// TODO: We need to ensure that instructions do not
 					// contain two address tokens, e.g. mov [rax], [rax]
-					for (isize i = 0; i < p.token_count; i++) {
-						mach_token token = p.tokens[i];
+					for (isize i = 0; i < func->inst_count; i++) {
+						mach_token token = func_tokens[i];
 						if (token.flags & MACH_IMPLICIT) {
 							continue;
 						}
@@ -185,7 +186,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 							if (token.value == X86_LABEL) {
 								if (i + 1 < p.token_count) {
 									stream_print(out, ".L");
-									stream_printu(out, p.tokens[i + 1].value);
+									stream_printu(out, func_tokens[i + 1].value);
 									stream_print(out, ":");
 									i++;
 								}
@@ -229,6 +230,7 @@ x86_generate(stream *out, mach_program p, symbol_table *symtab, regalloc_info *i
 					}
 
 					stream_print(out, "\tret\n\n");
+					func_tokens += func->inst_count;
 				} else if (j == SECTION_DATA || j == SECTION_RODATA) {
 					// NOTE: Inside data or rodata section, symbols contain byte data
 					if (sym->data) {
