@@ -522,9 +522,22 @@ check_node(semantic_context ctx, ast_id node_id)
 			type_id rhs = check_node(ctx, children[1]);
 			type *lhs_type = get_type_data(types, lhs);
 			type *rhs_type = get_type_data(types, rhs);
-			node_type = lhs;
 
 			u32 operator = node->token.kind;
+			switch (operator) {
+			case TOKEN_EQUAL_EQUAL:
+			case TOKEN_BANG_EQUAL:
+			case TOKEN_LESS:
+			case TOKEN_GREATER:
+			case TOKEN_LESS_EQUAL:
+			case TOKEN_GREATER_EQUAL:
+				// NOTE: Comparison operators always return integers
+				node_type = basic_type(TYPE_INT, types);
+				break;
+			default:
+				node_type = lhs;
+			}
+
 			if (operator == TOKEN_LBRACKET) {
 				// NOTE: ensure that one operand is a pointer and the other one
 				// is an integral type.
