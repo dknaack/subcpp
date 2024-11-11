@@ -278,8 +278,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						type_id param_type = get_type_id(types, param_id);
 						isize param_size = type_sizeof(param_type, types);
 						isize param_index = func->param_count++;
-						u32 param_reg = ir_emit(ctx, 0, IR_PARAM, param_index, param_size);
 
+						u32 param_reg = ir_emit(ctx, param_size, IR_PARAM, param_index, param_size);
 						u32 param_local = ir_emit_alloca(ctx, param_size);
 						ir_store(ctx, param_local, param_reg, param_type);
 						ctx->node_addr[param_id.value] = param_local;
