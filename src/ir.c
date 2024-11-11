@@ -116,11 +116,12 @@ ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 {
 	ASSERT(src != 0);
 	type *type = get_type_data(&ctx->info->types, type_id);
+	isize size = type_sizeof(type_id, &ctx->info->types);
+	ASSERT(size > 0);
+
 	if (is_compound_type(type->kind)) {
-		isize size = type_sizeof(type_id, &ctx->info->types);
 		ir_memcpy(ctx, dst, src, size);
 	} else {
-		isize size = type_sizeof(type_id, &ctx->info->types);
 		ir_emit2(ctx, size, IR_STORE, dst, src);
 	}
 }
@@ -455,7 +456,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					isize size = type_sizeof(type_id, types);
 					u32 value = ir_emit1(ctx, size, IR_LOAD, lhs_reg);
 					result = ir_emit2(ctx, size, opcode, value, rhs_reg);
-					ir_emit2(ctx, 0, IR_STORE, lhs_reg, result);
+					ir_emit2(ctx, size, IR_STORE, lhs_reg, result);
 				} else {
 					ir_store(ctx, lhs_reg, rhs_reg, type_id);
 					if (!is_lvalue) {
@@ -526,7 +527,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					param_value = tmp;
 				}
 
-
+				ASSERT(size > 0);
 				u32 param_reg = ir_emit(ctx, size, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
@@ -730,7 +731,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					result = ir_emit1(ctx, size, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
 					u32 value = ir_emit2(ctx, size, opcode, result, one);
-					ir_emit2(ctx, 0, IR_STORE, addr, value);
+					ir_emit2(ctx, size, IR_STORE, addr, value);
 					if (is_lvalue) {
 						result = addr;
 					}
@@ -831,7 +832,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					u32 value = ir_emit1(ctx, size, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
 					result = ir_emit2(ctx, size, opcode, value, one);
-					ir_emit2(ctx, 0, IR_STORE, addr, result);
+					ir_emit2(ctx, size, IR_STORE, addr, result);
 					if (is_lvalue) {
 						result = addr;
 					}
