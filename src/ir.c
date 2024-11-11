@@ -1085,17 +1085,16 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 
 	// TODO: Remove this
 	// NOTE: Propagate sizes through the instructions
+#if 0
 	for (isize i = 0; i < program.func_count; i++) {
 		ir_function *func = &program.funcs[i];
 		ir_inst *inst = program.insts + func->inst_index;
 		for (isize j = 0; j < func->inst_count; j++) {
-#if 0
 			if (inst[j].type != 0 || inst[j].opcode == IR_CAST
 				|| inst[j].opcode == IR_CASTU)
 			{
 				continue;
 			}
-#endif
 
 			u32 op0 = inst[j].op0;
 			u32 op1 = inst[j].op1;
@@ -1111,6 +1110,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 			}
 		}
 	}
+#endif
 
 	return program;
 }
