@@ -876,6 +876,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 cond_reg = translate_node(&new_ctx, pool, cond, false);
 			ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
+
+			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->label_count = new_ctx.label_count;
+			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_FOR:
 		{
@@ -902,6 +906,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, pool, children[2], false);
 			ir_emit1(&new_ctx, 0, IR_JMP, cond_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
+
+			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->label_count = new_ctx.label_count;
+			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
@@ -984,11 +992,14 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.break_label);
 			translate_node(&new_ctx, pool, children[1], false);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
+
+			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->label_count = new_ctx.label_count;
+			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_WHILE:
 		{
 			ir_context new_ctx = *ctx;
-
 			new_ctx.break_label = new_label(&new_ctx);
 			new_ctx.continue_label = new_label(&new_ctx);
 
@@ -1001,6 +1012,10 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, pool, body, false);
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
+
+			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->label_count = new_ctx.label_count;
+			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
