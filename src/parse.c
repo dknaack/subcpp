@@ -1,51 +1,34 @@
-typedef struct scope_entry scope_entry;
-struct scope_entry {
-	str key;
-	ast_id node_id;
-	b8 is_type;
-
-	i32 depth;
-	scope_entry *next;
-};
-
-typedef struct scope scope;
-struct scope {
-	scope *parent;
-	scope_entry *idents;
-	scope_entry *tags;
-};
-
-static scope
-new_scope(scope *parent)
+static environment
+new_environment(environment *parent)
 {
-	scope s = {0};
-	s.parent = parent;
-	return s;
+	environment env = {0};
+	env.typedefs.parent = &parent->typedefs;
+	env.idents.parent = &parent->idents;
+	env.tags.parent = &parent->tags;
+	return env;
 }
 
 static scope_entry *
-upsert_ident(scope *s, str key, arena *perm)
+upsert_scope(scope *s, str key, arena *perm)
 {
 	if (!s) {
 		return NULL;
 	}
 
-	scope_entry *e = NULL;
-	for (e = s->idents; e; e = e->next) {
-		if (equals(key, e->key)) {
-			return e;
+	scope_entry **e = NULL;
+	for (e = &s->entries; *e != NULL; e = &(*e)->next) {
+		if (equals(key, (*e)->key)) {
+			return *e;
 		}
 	}
 
 	if (!perm) {
-		return upsert_ident(s->parent, key, NULL);
+		return upsert_scope(s->parent, key, NULL);
 	}
 
-	e = ALLOC(perm, 1, scope_entry);
-	e->next = s->idents;
-	e->key = key;
-	s->idents = e;
-	return e;
+	*e = ALLOC(perm, 1, scope_entry);
+	(*e)->key = key;
+	return *e;
 }
 
 static ast_id
@@ -229,11 +212,11 @@ typedef enum {
 	PARSE_STMT = PARSE_OPT,
 } parse_decl_flags;
 
-static ast_list parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena);
-static ast_id parse_initializer(parse_context *ctx, scope *s, ast_pool *pool, arena *arena);
+static ast_list parse_decl(parse_context *ctx, u32 flags, environment *env, ast_pool *pool, arena *arena);
+static ast_id parse_initializer(parse_context *ctx, environment *env, ast_pool *pool, arena *arena);
 
 static ast_id
-parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, arena *arena)
+parse_expr(parse_context *ctx, precedence prev_prec, environment *env, ast_pool *pool, arena *arena)
 {
 	ast_id expr = {0};
 
@@ -242,7 +225,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 	case TOKEN_IDENT:
 		{
 			get_token(ctx);
-			scope_entry *e = upsert_ident(s, token.value, NULL);
+			scope_entry *e = upsert_scope(&env->idents, token.value, NULL);
 			if (e) {
 				ASSERT(e->node_id.value != 0);
 				expr = new_node(pool, AST_EXPR_IDENT, token, e->node_id);
@@ -264,7 +247,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 		{
 			get_token(ctx);
 
-			ast_list decl = parse_decl(ctx, PARSE_CAST, s, pool, arena);
+			ast_list decl = parse_decl(ctx, PARSE_CAST, env, pool, arena);
 			if (decl.first.value != 0) {
 				ast_list children = {0};
 				ast_id type = decl.first;
@@ -272,16 +255,16 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 
 				expect(ctx, TOKEN_RPAREN);
 				if (ctx->peek[0].kind == TOKEN_LBRACE) {
-					ast_id initializer = parse_initializer(ctx, s, pool, arena);
+					ast_id initializer = parse_initializer(ctx, env, pool, arena);
 					append_node(pool, &children, initializer);
 					expr = new_node(pool, AST_EXPR_COMPOUND, token, children.first);
 				} else {
-					ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
+					ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, env, pool, arena);
 					append_node(pool, &children, subexpr);
 					expr = new_node(pool, AST_EXPR_CAST, token, children.first);
 				}
 			} else {
-				expr = parse_expr(ctx, 0, s, pool, arena);
+				expr = parse_expr(ctx, 0, env, pool, arena);
 				if (expr.value == 0) {
 					syntax_error(ctx, "Expected expression");
 					return expr;
@@ -297,13 +280,13 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 			get_token(ctx);
 
 			if (accept(ctx, TOKEN_LPAREN)) {
-				ast_list decl = parse_decl(ctx, PARSE_CAST, s, pool, arena);
+				ast_list decl = parse_decl(ctx, PARSE_CAST, env, pool, arena);
 				// TODO: Add node type for compound initializers
 				ast_id initializer = {0};
 				if (decl.first.value != 0) {
 					expect(ctx, TOKEN_RPAREN);
 					if (ctx->peek[0].kind == TOKEN_LBRACE) {
-						initializer = parse_initializer(ctx, s, pool, arena);
+						initializer = parse_initializer(ctx, env, pool, arena);
 						(void)initializer;
 					} else {
 						ast_node *decl_node = get_node(pool, decl.first);
@@ -312,7 +295,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 						expr = new_node(pool, AST_EXPR_SIZEOF, token, type);
 					}
 				} else {
-					ast_id subexpr = parse_expr(ctx, 0, s, pool, arena);
+					ast_id subexpr = parse_expr(ctx, 0, env, pool, arena);
 					if (subexpr.value == 0) {
 						syntax_error(ctx, "Expected expression");
 						return expr;
@@ -323,7 +306,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 					expr = new_node(pool, AST_EXPR_SIZEOF, token, subexpr);
 				}
 			} else {
-				ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
+				ast_id subexpr = parse_expr(ctx, PREC_PRIMARY, env, pool, arena);
 				expr = new_node(pool, AST_EXPR_SIZEOF, token, subexpr);
 			}
 		} break;
@@ -337,16 +320,16 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 	case TOKEN_MINUS_MINUS:
 		{
 			get_token(ctx);
-			ast_id operand = parse_expr(ctx, PREC_PRIMARY, s, pool, arena);
+			ast_id operand = parse_expr(ctx, PREC_PRIMARY, env, pool, arena);
 			expr = new_node(pool, AST_EXPR_UNARY, token, operand);
 		} break;
 	case TOKEN_BUILTIN_VA_ARG:
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
-			ast_id subexpr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id subexpr = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_COMMA);
-			ast_id type = parse_decl(ctx, PARSE_CAST, s, pool, arena).first;
+			ast_id type = parse_decl(ctx, PARSE_CAST, env, pool, arena).first;
 			expect(ctx, TOKEN_RPAREN);
 
 			ast_id called = new_node(pool, AST_BUILTIN, token, ast_id_nil);
@@ -389,7 +372,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 				ast_id params = {0};
 				ast_id *p = &params;
 				do {
-					*p = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+					*p = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 					ASSERT(p->value != 0);
 					ast_node *expr_node = get_node(pool, *p);
 					p = &expr_node->next;
@@ -426,9 +409,9 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 				expr = new_node(pool, AST_EXPR_POSTFIX, token, operand);
 			} else if (operator == TOKEN_QMARK) {
 				ast_id cond = expr;
-				ast_id lhs = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				ast_id lhs = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				expect(ctx, TOKEN_COLON);
-				ast_id rhs = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				ast_id rhs = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 
 				ast_list children = {0};
 				append_node(pool, &children, cond);
@@ -442,7 +425,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 
 				precedence new_prec = prec + is_left_associative(operator);
 				ast_id lhs = expr;
-				ast_id rhs = parse_expr(ctx, new_prec, s, pool, arena);
+				ast_id rhs = parse_expr(ctx, new_prec, env, pool, arena);
 				if (token.kind == TOKEN_LBRACKET) {
 					expect(ctx, TOKEN_RBRACKET);
 				}
@@ -459,7 +442,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, scope *s, ast_pool *pool, a
 }
 
 static ast_id
-parse_initializer(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
+parse_initializer(parse_context *ctx, environment *env, ast_pool *pool, arena *arena)
 {
 	ast_id children = {0};
 	ast_id *p = &children;
@@ -468,9 +451,9 @@ parse_initializer(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 	expect(ctx, TOKEN_LBRACE);
 	do {
 		if (ctx->peek[0].kind == TOKEN_LBRACE) {
-			*p = parse_initializer(ctx, s, pool, arena);
+			*p = parse_initializer(ctx, env, pool, arena);
 		} else {
-			*p = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			*p = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 		}
 
 		if (!accept(ctx, TOKEN_COMMA)) {
@@ -522,7 +505,7 @@ get_qualifier(token_kind token)
 }
 
 static ast_list
-parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena)
+parse_declarator(parse_context *ctx, u32 flags, environment *env, ast_pool *pool, arena *arena)
 {
 	ast_list pointer_declarator = {0};
 	while (ctx->peek[0].kind == TOKEN_STAR) {
@@ -550,7 +533,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 		result.first = result.last = new_node(pool, AST_DECL, token, ast_id_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
-		result = parse_declarator(ctx, flags, s, pool, arena);
+		result = parse_declarator(ctx, flags, env, pool, arena);
 		expect(ctx, TOKEN_RPAREN);
 	} else if (!(flags & (PARSE_NO_IDENT | PARSE_OPT_IDENT))) {
 		syntax_error(ctx, "Expected '(' or identifier");
@@ -562,7 +545,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 		if (accept(ctx, TOKEN_LBRACKET)) {
 			ast_id size = {0};
 			if (!accept(ctx, TOKEN_RBRACKET)) {
-				size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				size = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				expect(ctx, TOKEN_RBRACKET);
 			}
 
@@ -574,7 +557,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 				get_token(ctx);
 				get_token(ctx);
 			} else if (!accept(ctx, TOKEN_RPAREN)) {
-				scope tmp = new_scope(s);
+				environment tmp = new_environment(env);
 				do {
 					if (accept(ctx, TOKEN_ELLIPSIS)) {
 						// TODO: Mark function as variadic
@@ -612,7 +595,7 @@ parse_declarator(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena 
 }
 
 static ast_list
-parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena)
+parse_decl(parse_context *ctx, u32 flags, environment *env, ast_pool *pool, arena *arena)
 {
 	ast_list list = {0};
 	ast_id base_type = {0};
@@ -635,8 +618,8 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 			break;
 		case TOKEN_IDENT:
 			{
-				scope_entry *e = upsert_ident(s, token.value, NULL);
-				if (base_type.value == 0 && e && e->is_type) {
+				scope_entry *e = upsert_scope(&env->typedefs, token.value, NULL);
+				if (base_type.value == 0 && e != NULL) {
 					base_type = new_node(pool, AST_TYPE_IDENT, token, e->node_id);
 					ASSERT(e->node_id.value != 0);
 					get_token(ctx);
@@ -660,12 +643,12 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 					ast_id node;
 					ast_id expr = {0};
 					if (accept(ctx, TOKEN_EQUAL)) {
-						expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+						expr = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 					}
 
 					node = new_node(pool, AST_ENUMERATOR, token, expr);
 					append_node(pool, &enumerators, node);
-					scope_entry *e = upsert_ident(s, token.value, arena);
+					scope_entry *e = upsert_scope(&env->idents, token.value, arena);
 					e->node_id = node;
 
 					if (!accept(ctx, TOKEN_COMMA)) {
@@ -737,7 +720,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	}
 
 	do {
-		ast_list declarator = parse_declarator(ctx, flags, s, pool, arena);
+		ast_list declarator = parse_declarator(ctx, flags, env, pool, arena);
 		insert_child(pool, &declarator, base_type);
 		ASSERT(declarator.first.value != 0);
 
@@ -752,16 +735,16 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 			decl_node->flags |= qualifiers;
 			ASSERT(decl_node->children.value != decl.value);
 
-			scope_entry *e = upsert_ident(s, decl_node->token.value, arena);
-			ASSERT(s->parent == NULL || e->node_id.value == 0);
-			e->is_type = ((qualifiers & AST_TYPEDEF) != 0);
+			str name = decl_node->token.value;
+			scope *s = (qualifiers & AST_TYPEDEF) ? &env->typedefs : &env->idents;
+			scope_entry *e = upsert_scope(s, name, arena);
 			e->node_id = decl;
 		} else {
 			type = declarator.first;
 		}
 
 		if ((flags & PARSE_BITFIELD) && accept(ctx, TOKEN_COLON)) {
-			ast_id size = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id size = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, type);
@@ -777,9 +760,9 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		if (!(flags & PARSE_NO_INITIALIZER) && accept(ctx, TOKEN_EQUAL)) {
 			ast_id initializer = {0};
 			if (ctx->peek[0].kind == TOKEN_LBRACE) {
-				initializer = parse_initializer(ctx, s, pool, arena);
+				initializer = parse_initializer(ctx, env, pool, arena);
 			} else {
-				initializer = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				initializer = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			}
 
 			ast_list children = {0};
@@ -800,7 +783,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 }
 
 static ast_id
-parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
+parse_stmt(parse_context *ctx, environment *env, ast_pool *pool, arena *arena)
 {
 	ast_id result = {0};
 
@@ -823,9 +806,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 	case TOKEN_CASE:
 		{
 			get_token(ctx);
-			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id expr = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_COLON);
-			ast_id stmt = parse_stmt(ctx, s, pool, arena);
+			ast_id stmt = parse_stmt(ctx, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, expr);
@@ -842,15 +825,15 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_COLON);
-			ast_id stmt = parse_stmt(ctx, s, pool, arena);
+			ast_id stmt = parse_stmt(ctx, env, pool, arena);
 			result = new_node(pool, AST_STMT_DEFAULT, token, stmt);
 		} break;
 	case TOKEN_DO:
 		{
 			get_token(ctx);
-			ast_id body = parse_stmt(ctx, s, pool, arena);
+			ast_id body = parse_stmt(ctx, env, pool, arena);
 			expect(ctx, TOKEN_WHILE);
-			ast_id cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id cond = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_SEMICOLON);
 
 			ast_list children = {0};
@@ -860,17 +843,17 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		} break;
 	case TOKEN_FOR:
 		{
-			scope tmp = new_scope(s);
-			s = &tmp;
+			environment tmp = new_environment(env);
+			env = &tmp;
 
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
 
 			ast_id init = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				init = parse_decl(ctx, PARSE_STMT, s, pool, arena).first;
+				init = parse_decl(ctx, PARSE_STMT, env, pool, arena).first;
 				if (init.value == 0) {
-					init = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+					init = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				}
 
 				expect(ctx, TOKEN_SEMICOLON);
@@ -880,7 +863,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 			ast_id cond = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				cond = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
 				cond = new_node(pool, AST_NONE, token, ast_id_nil);
@@ -888,13 +871,13 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 
 			ast_id post = {0};
 			if (!accept(ctx, TOKEN_RPAREN)) {
-				post = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				post = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				expect(ctx, TOKEN_RPAREN);
 			} else {
 				post = new_node(pool, AST_NONE, token, ast_id_nil);
 			}
 
-			ast_id stmt = parse_stmt(ctx, s, pool, arena);
+			ast_id stmt = parse_stmt(ctx, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, init);
@@ -915,17 +898,17 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
-			ast_id cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id cond = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_RPAREN);
 
-			ast_id if_branch = parse_stmt(ctx, s, pool, arena);
+			ast_id if_branch = parse_stmt(ctx, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, cond);
 			append_node(pool, &children, if_branch);
 
 			if (accept(ctx, TOKEN_ELSE)) {
-				ast_id else_branch = parse_stmt(ctx, s, pool, arena);
+				ast_id else_branch = parse_stmt(ctx, env, pool, arena);
 				append_node(pool, &children, else_branch);
 			}
 
@@ -935,9 +918,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
-			ast_id cond = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id cond = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_RPAREN);
-			ast_id body = parse_stmt(ctx, s, pool, arena);
+			ast_id body = parse_stmt(ctx, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, cond);
@@ -949,7 +932,7 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 			get_token(ctx);
 			ast_id expr = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+				expr = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 				expect(ctx, TOKEN_SEMICOLON);
 			}
 
@@ -959,9 +942,9 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_LPAREN);
-			ast_id expr = parse_expr(ctx, PREC_ASSIGN, s, pool, arena);
+			ast_id expr = parse_expr(ctx, PREC_ASSIGN, env, pool, arena);
 			expect(ctx, TOKEN_RPAREN);
-			ast_id body = parse_stmt(ctx, s, pool, arena);
+			ast_id body = parse_stmt(ctx, env, pool, arena);
 
 			ast_list children = {0};
 			append_node(pool, &children, expr);
@@ -975,13 +958,13 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		} break;
 	case TOKEN_LBRACE:
 		{
-			scope tmp = new_scope(s);
-			s = &tmp;
+			environment tmp = new_environment(env);
+			env = &tmp;
 
 			ast_list children = {0};
 			expect(ctx, TOKEN_LBRACE);
 			while (!ctx->error && !accept(ctx, TOKEN_RBRACE)) {
-				ast_id stmt = parse_stmt(ctx, s, pool, arena);
+				ast_id stmt = parse_stmt(ctx, env, pool, arena);
 				append_node(pool, &children, stmt);
 			}
 
@@ -993,15 +976,15 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 		{
 			get_token(ctx);
 			get_token(ctx);
-			ast_id stmt = parse_stmt(ctx, s, pool, arena);
+			ast_id stmt = parse_stmt(ctx, env, pool, arena);
 			result = new_node(pool, AST_STMT_LABEL, token, stmt);
 		} else {
 			// TODO: Handle multiple declarations in one statement
-			ast_list decl = parse_decl(ctx, PARSE_STMT, s, pool, arena);
+			ast_list decl = parse_decl(ctx, PARSE_STMT, env, pool, arena);
 			if (decl.first.value != 0) {
 				result = new_node(pool, AST_STMT_COMPOUND, ctx->peek[0], decl.first);
 			} else {
-				result = parse_expr(ctx, PREC_NONE, s, pool, arena);
+				result = parse_expr(ctx, PREC_NONE, env, pool, arena);
 			}
 
 			expect(ctx, TOKEN_SEMICOLON);
@@ -1022,13 +1005,13 @@ parse_stmt(parse_context *ctx, scope *s, ast_pool *pool, arena *arena)
 	return result;
 }
 
-static void make_builtin(str name, b32 is_type, ast_pool *pool, scope *s, arena *arena)
+static void make_builtin(str name, b32 is_type, ast_pool *pool, environment *env, arena *arena)
 {
 	token token = {0};
 	token.value = name;
 
-	scope_entry *e = upsert_ident(s, name, arena);
-	e->is_type = is_type;
+	scope *s = is_type ? &env->typedefs : &env->idents;
+	scope_entry *e = upsert_scope(s, name, arena);
 	e->node_id = new_node(pool, AST_DECL, token, ast_id_nil);
 	ASSERT(e->node_id.value != 0);
 }
@@ -1038,16 +1021,16 @@ parse(parse_context *ctx, arena *arena)
 {
 	ast_pool pool = {0};
 	ast_list list = {0};
-	scope s = new_scope(NULL);
+	environment env = {0};
 
 	// Insert __builtin_va_list into scope
-	make_builtin(S("__builtin_va_list"),  true,  &pool, &s, arena);
-	make_builtin(S("__builtin_va_start"), false, &pool, &s, arena);
-	make_builtin(S("__builtin_va_end"),   false, &pool, &s, arena);
-	make_builtin(S("__builtin_va_arg"),   false, &pool, &s, arena);
+	make_builtin(S("__builtin_va_list"),  true,  &pool, &env, arena);
+	make_builtin(S("__builtin_va_start"), false, &pool, &env, arena);
+	make_builtin(S("__builtin_va_end"),   false, &pool, &env, arena);
+	make_builtin(S("__builtin_va_arg"),   false, &pool, &env, arena);
 
 	do {
-		ast_list decls = parse_decl(ctx, PARSE_EXTERNAL_DECL, &s, &pool, arena);
+		ast_list decls = parse_decl(ctx, PARSE_EXTERNAL_DECL, &env, &pool, arena);
 		if (decls.first.value == 0) {
 			syntax_error(ctx, "Expected declaration");
 			break;
@@ -1064,13 +1047,13 @@ parse(parse_context *ctx, arena *arena)
 			token token = ctx->peek[0];
 			if (token.kind == TOKEN_LBRACE) {
 				// Introduce parameters in the new scope
-				scope tmp = new_scope(&s);
+				environment tmp = new_environment(&env);
 				ast_node *return_node = get_node(&pool, type->children);
 				for (ast_id param = return_node->next; param.value != 0;) {
 					ast_node *param_node = get_node(&pool, param);
 					str param_name = param_node->token.value;
 
-					scope_entry *e = upsert_ident(&tmp, param_name, arena);
+					scope_entry *e = upsert_scope(&tmp.idents, param_name, arena);
 					e->node_id = param;
 					ASSERT(e->node_id.value != 0);
 

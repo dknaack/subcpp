@@ -185,6 +185,25 @@ struct lexer_state {
 	lexer_state *prev;
 };
 
+typedef struct scope_entry scope_entry;
+struct scope_entry {
+	str key;
+	ast_id node_id;
+	scope_entry *next;
+};
+
+typedef struct scope scope;
+struct scope {
+	scope *parent;
+	scope_entry *entries;
+};
+
+typedef struct {
+	scope typedefs;
+	scope idents;
+	scope tags;
+} environment;
+
 typedef struct parse_context parse_context;
 struct parse_context {
 	lexer_state *lexer;
