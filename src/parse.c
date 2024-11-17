@@ -48,31 +48,6 @@ upsert_ident(scope *s, str key, arena *perm)
 	return e;
 }
 
-static scope_entry *
-upsert_tag(scope *s, str key, arena *perm)
-{
-	if (!s) {
-		return NULL;
-	}
-
-	scope_entry *e = NULL;
-	for (e = s->tags; e; e = e->next) {
-		if (equals(key, e->key)) {
-			return e;
-		}
-	}
-
-	e = upsert_tag(s->parent, key, NULL);
-	if (!e && perm) {
-		e = ALLOC(perm, 1, scope_entry);
-		e->next = s->tags;
-		e->key = key;
-		s->tags = e;
-	}
-
-	return e;
-}
-
 static ast_id
 new_node(ast_pool *p, ast_node_kind kind, token token, ast_id children)
 {
@@ -642,7 +617,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 	ast_list list = {0};
 	ast_id base_type = {0};
 	u32 qualifiers = 0;
-	token ident, qualifier_token = {0};
+	token qualifier_token = {0};
 
 	b32 found_qualifier = true;
 	while (found_qualifier) {
@@ -707,61 +682,7 @@ parse_decl(parse_context *ctx, u32 flags, scope *s, ast_pool *pool, arena *arena
 		case TOKEN_UNION:
 			{
 				token = get_token(ctx);
-				ast_id def_id = {0};
-
-				// Compound types with a tag ALWAYS create a new empty node.
-				// That node is filled in later by the actual definition of
-				// the struct/union.
-				ident = ctx->peek[0];
-				if (ident.kind == TOKEN_IDENT) {
-					get_token(ctx);
-					scope_entry *e = upsert_tag(s, ident.value, arena);
-					b32 is_opaque = false;
-					if (e->node_id.value == 0) {
-						e->node_id = new_node(pool, AST_TYPE_COMPOUND, token, ast_id_nil);
-						is_opaque = true;
-					} else {
-						ast_node *def_node = get_node(pool, e->node_id);
-						is_opaque = (def_node->children.value == 0);
-					}
-
-					def_id = e->node_id;
-					base_type = new_node(pool, AST_TYPE_TAG, ident, def_id);
-					if (is_opaque) {
-						get_node(pool, base_type)->flags |= AST_OPAQUE;
-					}
-
-					ASSERT(get_node(pool, e->node_id)->kind != AST_EXTERN_DEF);
-				} else {
-					def_id = base_type;
-				}
-
-				if (accept(ctx, TOKEN_LBRACE)) {
-					ast_node *def_node = get_node(pool, def_id);
-					ASSERT(def_node->children.value == 0);
-
-					scope tmp = new_scope(s);
-					ast_list members = {0};
-					while (!ctx->error && !accept(ctx, TOKEN_RBRACE)) {
-						ast_list decl = parse_decl(ctx, PARSE_STRUCT_MEMBER, &tmp, pool, arena);
-						if (decl.first.value != 0) {
-							append_list(pool, &members, decl);
-						} else {
-							syntax_error(ctx, "WTF");
-							ctx->error = true;
-						}
-
-						expect(ctx, TOKEN_SEMICOLON);
-					}
-
-					// IMPORTANT: DO NOT REMOVE. Reallocations may cause the
-					// pointer to be invalidated. Therefore, we have to
-					// retrieve the node again.
-					def_node = get_node(pool, def_id);
-					def_node->children = members.first;
-					ASSERT(def_node->kind != AST_TYPE_TAG);
-					ASSERT(def_node->children.value != 0);
-				}
+				ASSERT(!"TODO");
 			} break;
 		default:
 			{
