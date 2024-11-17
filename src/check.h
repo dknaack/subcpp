@@ -1,8 +1,4 @@
-typedef struct member member;
-typedef struct type type;
-typedef struct ast_node ast_node;
-
-typedef struct info_id {
+typedef struct {
 	i32 value;
 } info_id;
 
@@ -33,27 +29,6 @@ struct label_info {
 	ast_id label_id;
 	str name;
 };
-
-typedef struct {
-	type_id *at;
-	type *data;
-	isize size;
-	isize cap;
-} type_pool;
-
-typedef struct {
-	info_id *of;
-	info_kind *kind;
-
-	label_info *labels;
-	case_info *cases;
-	switch_info *switches;
-	type_pool types;
-
-	isize switch_count;
-	isize case_count;
-	isize label_count;
-} semantic_info;
 
 typedef enum {
 	TYPE_UNKNOWN,
@@ -88,18 +63,40 @@ typedef enum {
 	TYPE_UNSIGNED = 1,
 } type_kind;
 
+typedef struct member member;
 struct member {
 	member *next;
 	str name;
 	type_id type;
 };
 
-struct type {
+typedef struct {
 	type_kind kind;
 	type_id base_type;
 	member *members;
 	i64 size;
-};
+} type;
+
+typedef struct {
+	type_id *at;
+	type *data;
+	isize size;
+	isize cap;
+} type_pool;
+
+typedef struct {
+	info_id *of;
+	info_kind *kind;
+
+	label_info *labels;
+	case_info *cases;
+	switch_info *switches;
+	type_pool types;
+
+	isize switch_count;
+	isize case_count;
+	isize label_count;
+} semantic_info;
 
 typedef struct {
 	ast_pool *ast;

@@ -1,6 +1,3 @@
-typedef struct ast_node ast_node;
-typedef struct type type;
-
 typedef enum {
 	AST_INVALID,         // {}
 	AST_NONE,            // {}
@@ -75,13 +72,13 @@ typedef struct {
 	ast_id first, last;
 } ast_list;
 
-struct ast_node {
+typedef struct {
 	ast_node_kind kind;
 	ast_node_flags flags;
 	token token;
 	ast_id next;
 	ast_id children;
-};
+} ast_node;
 
 typedef struct {
 	ast_node *nodes;
