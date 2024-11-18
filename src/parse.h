@@ -80,7 +80,7 @@ typedef struct {
 	ast_id children;
 } ast_node;
 
-typedef struct {
+typedef struct ast_pool {
 	ast_node *nodes;
 	ast_id root;
 	isize cap;

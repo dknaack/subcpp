@@ -204,10 +204,11 @@ typedef struct {
 	scope tags;
 } environment;
 
-typedef struct parse_context parse_context;
-struct parse_context {
+typedef struct ast_pool ast_pool;
+typedef struct {
 	lexer_state *lexer;
 	token peek[2];
+	ast_pool *pool;
 	b8 error;
 
 	/* internal */
@@ -217,7 +218,7 @@ struct parse_context {
 	file *files_head;
 	file *files_tail;
 	i32 file_count;
-};
+} parse_context;
 
 static location
 get_location(parse_context *ctx)
