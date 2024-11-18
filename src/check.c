@@ -895,16 +895,8 @@ check_node(semantic_context ctx, ast_id node_id)
 				enum_id = enum_node->next;
 			}
 		} break;
-	case AST_TYPE_TAG:
-		{
-			type_id definition = get_type_id(types, children[0]);
-			ASSERT(definition.value != 0);
-
-			// TODO: Set this as an opaque type
-			type_id base_type = check_node(ctx, children[0]);
-			node_type = opaque_type(base_type, types);
-		} break;
-	case AST_TYPE_COMPOUND:
+	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
 		{
 			// NOTE: Collect the members of the struct
 			member *members = NULL;
@@ -940,7 +932,7 @@ get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
 		result = get_label_info(info, node_id);
 		result->name = node->token.value;
 		result->label_id = node_id;
-	} else if (node->kind == AST_EXPR_IDENT || node->kind == AST_TYPE_TAG) {
+	} else if (node->kind == AST_EXPR_IDENT) {
 		return result;
 	}
 
