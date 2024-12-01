@@ -1025,22 +1025,26 @@ static void make_builtin(parse_context *ctx, str name, b32 is_type, environment 
 }
 
 static ast_pool
-parse(parse_context *ctx, arena *arena)
+parse(char *filename, arena *perm)
 {
 	ast_pool pool = {0};
-	ast_list list = {0};
 	environment env = {0};
 
-	// Insert __builtin_va_list into scope
-	make_builtin(ctx, S("__builtin_va_list"),  true, &env);
-	make_builtin(ctx, S("__builtin_va_start"), false, &env);
-	make_builtin(ctx, S("__builtin_va_end"),   false, &env);
-	make_builtin(ctx, S("__builtin_va_arg"),   false, &env);
+	str contents = read_file(filename, perm);
+	parse_context ctx = tokenize(filename, contents, perm);
+	ctx.pool = &pool;
 
+	// Insert __builtin_va_list into scope
+	make_builtin(&ctx, S("__builtin_va_list"),  true, &env);
+	make_builtin(&ctx, S("__builtin_va_start"), false, &env);
+	make_builtin(&ctx, S("__builtin_va_end"),   false, &env);
+	make_builtin(&ctx, S("__builtin_va_arg"),   false, &env);
+
+	ast_list list = {0};
 	do {
-		ast_list decls = parse_decl(ctx, PARSE_EXTERNAL_DECL, &env);
+		ast_list decls = parse_decl(&ctx, PARSE_EXTERNAL_DECL, &env);
 		if (decls.first.value == 0) {
-			syntax_error(ctx, "Expected declaration");
+			syntax_error(&ctx, "Expected declaration");
 			break;
 		}
 
@@ -1052,7 +1056,7 @@ parse(parse_context *ctx, arena *arena)
 		ast_id type_id = decl->children;
 		ast_node *type = get_node(&pool, decl->children);
 		if (decl->next.value == 0 && type->kind == AST_TYPE_FUNC) {
-			token token = ctx->peek[0];
+			token token = ctx.peek[0];
 			if (token.kind == TOKEN_LBRACE) {
 				// Introduce parameters in the new scope
 				environment tmp = new_environment(&env);
@@ -1061,7 +1065,7 @@ parse(parse_context *ctx, arena *arena)
 					ast_node *param_node = get_node(&pool, param);
 					str param_name = param_node->token.value;
 
-					scope_entry *e = upsert_scope(&tmp.idents, param_name, arena);
+					scope_entry *e = upsert_scope(&tmp.idents, param_name, perm);
 					e->node_id = param;
 					ASSERT(e->node_id.value != 0);
 
@@ -1070,18 +1074,18 @@ parse(parse_context *ctx, arena *arena)
 					param = param_node->next;
 				}
 
-				ast_id body = parse_stmt(ctx, &tmp);
+				ast_id body = parse_stmt(&ctx, &tmp);
 				ast_node *type = get_node(&pool, type_id);
 				type->next = body;
 			} else {
-				expect(ctx, TOKEN_SEMICOLON);
+				expect(&ctx, TOKEN_SEMICOLON);
 			}
 		} else {
-			expect(ctx, TOKEN_SEMICOLON);
+			expect(&ctx, TOKEN_SEMICOLON);
 		}
 
 		append_list(&pool, &list, decls);
-	} while (!ctx->error && !accept(ctx, TOKEN_EOF));
+	} while (!ctx.error && !accept(&ctx, TOKEN_EOF));
 
 	pool.root = list.first;
 
@@ -1094,7 +1098,7 @@ parse(parse_context *ctx, arena *arena)
 
 	if (pool.root.value == 0) {
 		ASSERT(!"syntax error");
-		ctx->error = true;
+		ctx.error = true;
 	}
 
 	return pool;
