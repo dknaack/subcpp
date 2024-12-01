@@ -1011,19 +1011,6 @@ parse_stmt(parse_context *ctx, environment *env)
 	return result;
 }
 
-static void make_builtin(parse_context *ctx, str name, b32 is_type, environment *env)
-{
-	ast_pool *pool = ctx->pool;
-	arena *arena = ctx->arena;
-	token token = {0};
-	token.value = name;
-
-	scope *s = is_type ? &env->typedefs : &env->idents;
-	scope_entry *e = upsert_scope(s, name, arena);
-	e->node_id = new_node(pool, AST_DECL, token, ast_id_nil);
-	ASSERT(e->node_id.value != 0);
-}
-
 static ast_pool
 parse(char *filename, arena *perm)
 {
@@ -1034,11 +1021,23 @@ parse(char *filename, arena *perm)
 	parse_context ctx = tokenize(filename, contents, perm);
 	ctx.pool = &pool;
 
-	// Insert __builtin_va_list into scope
-	make_builtin(&ctx, S("__builtin_va_list"),  true, &env);
-	make_builtin(&ctx, S("__builtin_va_start"), false, &env);
-	make_builtin(&ctx, S("__builtin_va_end"),   false, &env);
-	make_builtin(&ctx, S("__builtin_va_arg"),   false, &env);
+	// Insert builtins into scope
+	struct { str name; b32 is_type; } builtins[] = {
+		{ S("__builtin_va_list"),  true  },
+		{ S("__builtin_va_start"), false },
+		{ S("__builtin_va_end"),   false },
+		{ S("__builtin_va_arg"),   false },
+	};
+
+	for (isize i = 0; i < LENGTH(builtins); i++) {
+		token token = {0};
+		token.value = builtins[i].name;
+
+		scope *s = builtins[i].is_type ? &env.typedefs : &env.idents;
+		scope_entry *e = upsert_scope(s, builtins[i].name, perm);
+		e->node_id = new_node(&pool, AST_DECL, token, ast_id_nil);
+		ASSERT(e->node_id.value != 0);
+	}
 
 	ast_list list = {0};
 	do {
