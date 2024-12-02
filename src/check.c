@@ -1,3 +1,27 @@
+static scope
+new_scope(scope *parent)
+{
+	scope s = {0};
+	s.parent = parent;
+	return s;
+}
+
+static info_id *
+add_scope_entry(scope *s, str name, arena *perm)
+{
+	for (scope_entry *e = s->entries; e; e = e->next) {
+		if (equals(e->name, name)) {
+			return &e->info;
+		}
+	}
+
+	scope_entry *e = ALLOC(perm, 1, scope_entry);
+	e->name = name;
+	e->next = s->entries;
+	s->entries = e;
+	return &e->info;
+}
+
 static b32
 is_integer(type_id type)
 {
@@ -390,7 +414,6 @@ check_node(semantic_context ctx, ast_id node_id)
 			ASSERT(!"TODO");
 		} break;
 	case AST_STMT_BREAK:
-	case AST_STMT_COMPOUND:
 	case AST_STMT_CONTINUE:
 	case AST_STMT_DO_WHILE:
 	case AST_STMT_FOR:
@@ -426,6 +449,20 @@ check_node(semantic_context ctx, ast_id node_id)
 				}
 
 				check_node(ctx, children[0]);
+			}
+		} break;
+	case AST_STMT_COMPOUND:
+		{
+			scope idents = {ctx.idents};
+			scope tags = {ctx.tags};
+			ctx.idents = &idents;
+			ctx.tags = &tags;
+
+			ast_id child_id = children[0];
+			while (child_id.value != 0) {
+				check_node(ctx, child_id);
+				ast_node *child = get_node(pool, child_id);
+				child_id = child->next;
 			}
 		} break;
 	case AST_STMT_DEFAULT:
@@ -752,6 +789,13 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
+			info_id *info = add_scope_entry(ctx.idents, node->token.value, arena);
+			if (info->value == 0) {
+				// TODO: Create new decl_info
+			} else {
+				// TODO: Ensure that old decl is compatible with this decl
+			}
+
 			if (children[1].value != 0) {
 				ast_node *init = get_node(pool, children[1]);
 				if (init->kind == AST_INIT) {
@@ -1007,11 +1051,15 @@ check(ast_pool *pool, arena *perm)
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
+	scope idents = {0};
+	scope tags = {0};
 	semantic_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.types = &info.types;
 	ctx.info = &info;
+	ctx.idents = &idents;
+	ctx.tags = &tags;
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {

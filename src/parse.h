@@ -90,6 +90,19 @@ typedef struct ast_pool {
 
 static const ast_id ast_id_nil = {0};
 
+typedef struct parse_scope_entry parse_scope_entry;
+struct parse_scope_entry {
+	str name;
+	b32 is_type;
+	parse_scope_entry *next;
+};
+
+typedef struct parse_scope parse_scope;
+struct parse_scope {
+	parse_scope *parent;
+	parse_scope_entry *entries;
+};
+
 typedef enum {
 	PREC_NONE    =  0,
 	PREC_COMMA   =  2,

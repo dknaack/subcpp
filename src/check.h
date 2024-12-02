@@ -5,6 +5,7 @@ typedef struct {
 typedef enum {
 	INFO_NONE,
 	INFO_CASE,
+	INFO_DECL,
 	INFO_LABEL,
 	INFO_SWITCH,
 	INFO_COUNT
@@ -28,6 +29,12 @@ struct label_info {
 	label_info *next;
 	ast_id label_id;
 	str name;
+};
+
+typedef struct decl_info decl_info;
+struct decl_info {
+	str name;
+	ast_id definition;
 };
 
 typedef enum {
@@ -98,6 +105,19 @@ typedef struct {
 	isize label_count;
 } semantic_info;
 
+typedef struct scope_entry scope_entry;
+struct scope_entry {
+	scope_entry *next;
+	str name;
+	info_id info;
+};
+
+typedef struct scope scope;
+struct scope {
+	scope *parent;
+	scope_entry *entries;
+};
+
 typedef struct {
 	ast_pool *ast;
 	arena *arena;
@@ -105,6 +125,8 @@ typedef struct {
 	semantic_info *info;
 	ast_id switch_id;
 	label_info *labels;
+	scope *idents;
+	scope *tags;
 } semantic_context;
 
 static type *
