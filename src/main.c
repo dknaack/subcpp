@@ -109,9 +109,7 @@ main(int argc, char *argv[])
 
 	// NOTE: front-end
 	arena *arena = new_arena(1024 * 1024 * 1024);
-	str src = read_file(input, arena);
-	parse_context pc = tokenize(input, src, arena);
-	ast_pool pool = parse(&pc, arena);
+	ast_pool pool = parse(input, arena);
 	semantic_info sem_info = check(&pool, arena);
 	ir_program ir_program = translate(&pool, &sem_info, arena);
 
