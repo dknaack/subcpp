@@ -33,8 +33,7 @@ struct label_info {
 
 typedef struct decl_info decl_info;
 struct decl_info {
-	str name;
-	ast_id definition;
+	ast_id node_id;
 };
 
 typedef enum {
@@ -98,11 +97,13 @@ typedef struct {
 	label_info *labels;
 	case_info *cases;
 	switch_info *switches;
+	decl_info *decls;
 	type_pool types;
 
 	isize switch_count;
 	isize case_count;
 	isize label_count;
+	isize decl_count;
 } semantic_info;
 
 typedef struct scope_entry scope_entry;
@@ -389,4 +390,15 @@ get_label_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.label_count);
 	label_info *_label = &info.labels[sym_id.value];
 	return _label;
+}
+
+static decl_info *
+get_decl_info(semantic_info info, ast_id node_id)
+{
+	ASSERT(info.kind[node_id.value] == INFO_DECL);
+	info_id sym_id = info.of[node_id.value];
+
+	ASSERT(sym_id.value < info.decl_count);
+	decl_info *decl = &info.decls[sym_id.value];
+	return decl;
 }
