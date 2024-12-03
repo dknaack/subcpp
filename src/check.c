@@ -981,8 +981,6 @@ get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
 		result = get_label_info(info, node_id);
 		result->name = node->token.value;
 		result->label_id = node_id;
-	} else if (node->kind == AST_EXPR_IDENT) {
-		return result;
 	}
 
 	ast_id child_id = node->children;
