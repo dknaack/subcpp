@@ -809,7 +809,21 @@ check_node(semantic_context ctx, ast_id node_id)
 				decl_info *decl = get_decl_info(*info, node_id);
 				decl->node_id = node_id;
 			} else {
-				// TODO: Ensure that old decl is compatible with this decl
+				// TODO: Ensure that the type of the old declaration is
+				// compatible with the current declaration.
+				decl_info *decl = get_decl_info(*info, node_id);
+
+				// Ensure that there is only one definition
+				ast_id decl_children[2];
+				get_children(pool, decl->node_id, decl_children, 2);
+				if (decl_children[1].value != 0 && children[1].value != 0) {
+					errorf(node->token.loc, "Already defined");
+				}
+
+				// Store definitions over declarations
+				if (children[1].value != 0) {
+					decl->node_id = node_id;
+				}
 			}
 
 			if (children[1].value != 0) {
