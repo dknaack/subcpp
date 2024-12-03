@@ -674,8 +674,13 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			type_id ref_type = get_type_id(types, node->children);
-			node_type = ref_type;
+			info_id *origin = upsert_scope(ctx.idents, node->token.value, NULL);
+			if (origin == NULL) {
+				errorf(node->token.loc, "Undefined variable");
+			} else {
+				info->of[node_id.value] = *origin;
+				info->kind[node_id.value] = INFO_DECL;
+			}
 		} break;
 	case AST_EXPR_LITERAL:
 		{
