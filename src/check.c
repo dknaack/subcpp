@@ -789,9 +789,14 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			info_id *info = add_scope_entry(ctx.idents, node->token.value, arena);
-			if (info->value == 0) {
-				// TODO: Create new decl_info
+			info_id *scope_info = add_scope_entry(ctx.idents, node->token.value, arena);
+			if (scope_info->value == 0) {
+				info->of[node_id.value].value = info->decl_count++;
+				info->kind[node_id.value] = INFO_LABEL;
+				*scope_info = info->of[node_id.value];
+
+				decl_info *decl = get_decl_info(*info, node_id);
+				decl->node_id = node_id;
 			} else {
 				// TODO: Ensure that old decl is compatible with this decl
 			}
@@ -1023,6 +1028,7 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// Count the number of infos and assign their ID
+	isize decl_count = 1;
 	info.switch_count = 1;
 	info.case_count = 1;
 	info.label_count = 1;
@@ -1041,6 +1047,9 @@ check(ast_pool *pool, arena *perm)
 			info.of[i].value = info.label_count++;
 			info.kind[i] = INFO_LABEL;
 			break;
+		case AST_DECL:
+			decl_count++;
+			break;
 		default:
 			break;
 		}
@@ -1049,6 +1058,7 @@ check(ast_pool *pool, arena *perm)
 	info.labels   = ALLOC(perm, info.label_count, label_info);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
+	info.decls    = ALLOC(perm, info.decl_count, decl_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	scope idents = {0};
