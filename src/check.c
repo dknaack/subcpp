@@ -7,7 +7,7 @@ new_scope(scope *parent)
 }
 
 static info_id *
-add_scope_entry(scope *s, str name, arena *perm)
+upsert_scope(scope *s, str name, arena *perm)
 {
 	for (scope_entry *e = s->entries; e; e = e->next) {
 		if (equals(e->name, name)) {
@@ -15,11 +15,15 @@ add_scope_entry(scope *s, str name, arena *perm)
 		}
 	}
 
-	scope_entry *e = ALLOC(perm, 1, scope_entry);
-	e->name = name;
-	e->next = s->entries;
-	s->entries = e;
-	return &e->info;
+	if (perm) {
+		scope_entry *e = ALLOC(perm, 1, scope_entry);
+		e->name = name;
+		e->next = s->entries;
+		s->entries = e;
+		return &e->info;
+	}
+
+	return NULL;
 }
 
 static b32
@@ -789,7 +793,9 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			info_id *scope_info = add_scope_entry(ctx.idents, node->token.value, arena);
+			info_id *scope_info = upsert_scope(ctx.idents, node->token.value, arena);
+			ASSERT(scope_info != NULL);
+
 			if (scope_info->value == 0) {
 				info->of[node_id.value].value = info->decl_count++;
 				info->kind[node_id.value] = INFO_LABEL;
