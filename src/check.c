@@ -680,6 +680,9 @@ check_node(semantic_context ctx, ast_id node_id)
 			} else {
 				info->of[node_id.value] = *origin;
 				info->kind[node_id.value] = INFO_DECL;
+
+				decl_info *decl = get_decl_info(*info, node_id);
+				node_type = get_type_id(types, decl->node_id);
 			}
 		} break;
 	case AST_EXPR_LITERAL:
