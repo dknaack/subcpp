@@ -1052,6 +1052,7 @@ check(ast_pool *pool, arena *perm)
 
 	// Count the number of infos and assign their ID
 	isize decl_count = 1;
+	info.decl_count = 1;
 	info.switch_count = 1;
 	info.case_count = 1;
 	info.label_count = 1;
