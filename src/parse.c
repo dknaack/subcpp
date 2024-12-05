@@ -1,11 +1,3 @@
-static parse_scope
-new_parse_scope(parse_scope *s)
-{
-	parse_scope result = {0};
-	result.parent = s;
-	return result;
-}
-
 static b32
 add_ident(parse_scope *s, str name, b32 is_type, arena *perm)
 {
@@ -519,7 +511,7 @@ parse_declarator(parse_context *ctx, u32 flags, parse_scope *s)
 				get_token(ctx);
 				get_token(ctx);
 			} else if (!accept(ctx, TOKEN_RPAREN)) {
-				parse_scope param_scope = new_parse_scope(s);
+				parse_scope param_scope = {s};
 				do {
 					if (accept(ctx, TOKEN_ELLIPSIS)) {
 						// TODO: Mark function as variadic
@@ -846,7 +838,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 		} break;
 	case TOKEN_FOR:
 		{
-			parse_scope tmp = new_parse_scope(s);
+			parse_scope tmp = {s};
 			s = &tmp;
 
 			get_token(ctx);
@@ -961,7 +953,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 		} break;
 	case TOKEN_LBRACE:
 		{
-			parse_scope tmp = new_parse_scope(s);
+			parse_scope tmp = {s};
 			s = &tmp;
 
 			ast_list children = {0};
@@ -1049,7 +1041,7 @@ parse(char *filename, arena *perm)
 			token token = ctx.peek[0];
 			if (token.kind == TOKEN_LBRACE) {
 				// Introduce parameters in the new scope
-				parse_scope func_scope = new_parse_scope(&s);
+				parse_scope func_scope = {&s};
 				ast_node *return_node = get_node(&pool, type->children);
 				for (ast_id param = return_node->next; param.value != 0;) {
 					ast_node *param_node = get_node(&pool, param);
