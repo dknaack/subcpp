@@ -1,11 +1,3 @@
-static scope
-new_scope(scope *parent)
-{
-	scope s = {0};
-	s.parent = parent;
-	return s;
-}
-
 static info_id *
 upsert_scope(scope *s, str name, arena *perm)
 {
