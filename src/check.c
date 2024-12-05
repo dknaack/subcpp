@@ -803,7 +803,7 @@ check_node(semantic_context ctx, ast_id node_id)
 
 			if (scope_info->value == 0) {
 				info->of[node_id.value].value = info->decl_count++;
-				info->kind[node_id.value] = INFO_LABEL;
+				info->kind[node_id.value] = INFO_DECL;
 				*scope_info = info->of[node_id.value];
 
 				decl_info *decl = get_decl_info(*info, node_id);
