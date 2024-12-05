@@ -21,9 +21,9 @@ upsert_scope(scope *s, str name, arena *perm)
 		e->next = s->entries;
 		s->entries = e;
 		return &e->info;
+	} else {
+		return upsert_scope(s->parent, name, NULL);
 	}
-
-	return NULL;
 }
 
 static b32
