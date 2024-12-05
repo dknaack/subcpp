@@ -1,6 +1,10 @@
 static info_id *
 upsert_scope(scope *s, str name, arena *perm)
 {
+	if (!s) {
+		return NULL;
+	}
+
 	for (scope_entry *e = s->entries; e; e = e->next) {
 		if (equals(e->name, name)) {
 			return &e->info;
