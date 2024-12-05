@@ -174,37 +174,6 @@ expect(parse_context *ctx, token_kind expected_token)
 	}
 }
 
-static b32
-is_left_associative(token_kind token)
-{
-	switch (token) {
-	case TOKEN_EQUAL:
-	case TOKEN_PLUS_EQUAL:
-	case TOKEN_MINUS_EQUAL:
-	case TOKEN_STAR_EQUAL:
-	case TOKEN_SLASH_EQUAL:
-	case TOKEN_PERCENT_EQUAL:
-	case TOKEN_AMP_EQUAL:
-	case TOKEN_BAR_EQUAL:
-	case TOKEN_CARET_EQUAL:
-		return false;
-	default:
-		return true;
-	}
-}
-
-static b32
-is_postfix_operator(token_kind token)
-{
-	switch (token) {
-	case TOKEN_PLUS_PLUS:
-	case TOKEN_MINUS_MINUS:
-		return true;
-	default:
-		return false;
-	}
-}
-
 typedef enum {
 	PARSE_SINGLE_DECL    = 1 << 0,
 	PARSE_BITFIELD       = 1 << 1,
@@ -409,7 +378,10 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			}
 
 			get_token(ctx);
-			if (is_postfix_operator(token.kind)) {
+
+			b32 is_postfix_operator = token.kind == TOKEN_PLUS_PLUS
+				|| token.kind == TOKEN_MINUS_MINUS;
+			if (is_postfix_operator) {
 				ast_id operand = expr;
 				expr = new_node(pool, AST_EXPR_POSTFIX, token, operand);
 			} else if (operator == TOKEN_QMARK) {
@@ -428,7 +400,25 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 					prec = PREC_NONE;
 				}
 
-				precedence new_prec = prec + is_left_associative(operator);
+				b32 is_left_associative = false;
+				switch (operator) {
+				case TOKEN_EQUAL:
+				case TOKEN_PLUS_EQUAL:
+				case TOKEN_MINUS_EQUAL:
+				case TOKEN_STAR_EQUAL:
+				case TOKEN_SLASH_EQUAL:
+				case TOKEN_PERCENT_EQUAL:
+				case TOKEN_AMP_EQUAL:
+				case TOKEN_BAR_EQUAL:
+				case TOKEN_CARET_EQUAL:
+					is_left_associative = false;
+					break;
+				default:
+					is_left_associative = true;
+					break;
+				}
+
+				precedence new_prec = prec + is_left_associative;
 				ast_id lhs = expr;
 				ast_id rhs = parse_expr(ctx, new_prec, s);
 				if (token.kind == TOKEN_LBRACKET) {
