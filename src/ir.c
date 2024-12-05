@@ -586,7 +586,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_IDENT:
 		{
 			// Global variables must be loaded as globals first
-			decl_info *decl = get_decl_info(*ctx->info, children[0]);
+			decl_info *decl = get_decl_info(*ctx->info, node_id);
 			result = translate_node(ctx, pool, decl->node_id, true);
 
 			type_id type_id = get_type_id(types, node_id);
