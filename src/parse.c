@@ -475,41 +475,6 @@ parse_initializer(parse_context *ctx, parse_scope *s)
 	return init;
 }
 
-static ast_node_flags
-get_qualifier(token_kind token)
-{
-	switch (token) {
-	case TOKEN_AUTO:
-		return AST_AUTO;
-	case TOKEN_CONST:
-		return AST_CONST;
-	case TOKEN_EXTERN:
-		return AST_EXTERN;
-	case TOKEN_LONG:
-		return AST_LONG;
-	case TOKEN_REGISTER:
-		return AST_REGISTER;
-	case TOKEN_RESTRICT:
-		return AST_RESTRICT;
-	case TOKEN_SHORT:
-		return AST_SHORT;
-	case TOKEN_SIGNED:
-		return AST_SIGNED;
-	case TOKEN_STATIC:
-		return AST_STATIC;
-	case TOKEN_THREAD_LOCAL:
-		return AST_THREAD_LOCAL;
-	case TOKEN_TYPEDEF:
-		return AST_TYPEDEF;
-	case TOKEN_UNSIGNED:
-		return AST_UNSIGNED;
-	case TOKEN_VOLATILE:
-		return AST_VOLATILE;
-	default:
-		return 0;
-	}
-}
-
 static ast_list
 parse_declarator(parse_context *ctx, u32 flags, parse_scope *s)
 {
@@ -674,7 +639,52 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			} break;
 		default:
 			{
-				u32 qualifier = get_qualifier(token.kind);
+				u32 qualifier = 0;
+				switch (token.kind) {
+				case TOKEN_AUTO:
+					qualifier = AST_AUTO;
+					break;
+				case TOKEN_CONST:
+					qualifier = AST_CONST;
+					break;
+				case TOKEN_EXTERN:
+					qualifier = AST_EXTERN;
+					break;
+				case TOKEN_LONG:
+					qualifier = AST_LONG;
+					break;
+				case TOKEN_REGISTER:
+					qualifier = AST_REGISTER;
+					break;
+				case TOKEN_RESTRICT:
+					qualifier = AST_RESTRICT;
+					break;
+				case TOKEN_SHORT:
+					qualifier = AST_SHORT;
+					break;
+				case TOKEN_SIGNED:
+					qualifier = AST_SIGNED;
+					break;
+				case TOKEN_STATIC:
+					qualifier = AST_STATIC;
+					break;
+				case TOKEN_THREAD_LOCAL:
+					qualifier = AST_THREAD_LOCAL;
+					break;
+				case TOKEN_TYPEDEF:
+					qualifier = AST_TYPEDEF;
+					break;
+				case TOKEN_UNSIGNED:
+					qualifier = AST_UNSIGNED;
+					break;
+				case TOKEN_VOLATILE:
+					qualifier = AST_VOLATILE;
+					break;
+				default:
+					qualifier = 0;
+					break;
+				}
+
 				if (qualifiers & AST_LONG && (qualifier == AST_LONG)) {
 					qualifier = AST_LLONG;
 				}
