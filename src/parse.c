@@ -1011,16 +1011,10 @@ parse(char *filename, arena *perm)
 	ctx.pool = &pool;
 
 	// Insert builtins into scope
-	struct { str name; b32 is_type; } builtins[] = {
-		{ S("__builtin_va_list"),  true  },
-		{ S("__builtin_va_start"), false },
-		{ S("__builtin_va_end"),   false },
-		{ S("__builtin_va_arg"),   false },
-	};
-
-	for (isize i = 0; i < LENGTH(builtins); i++) {
-		add_ident(&s, builtins[i].name, builtins[i].is_type, perm);
-	}
+	add_ident(&s, S("__builtin_va_list"),  true,  perm);
+	add_ident(&s, S("__builtin_va_start"), false, perm);
+	add_ident(&s, S("__builtin_va_end"),   false, perm);
+	add_ident(&s, S("__builtin_va_arg"),   false, perm);
 
 	ast_list list = {0};
 	do {
