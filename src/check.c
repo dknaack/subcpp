@@ -421,6 +421,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_STMT_LABEL:
 	case AST_STMT_RETURN:
 	case AST_STMT_WHILE:
+	case AST_STMT_DECL:
 		{
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {

@@ -27,6 +27,7 @@ typedef enum {
 	AST_STMT_CASE,       // {expr, stmt}
 	AST_STMT_COMPOUND,   // {stmt*}
 	AST_STMT_CONTINUE,   // {}
+	AST_STMT_DECL,
 	AST_STMT_DEFAULT,    // {stmt}
 	AST_STMT_DO_WHILE,   // {expr, stmt}
 	AST_STMT_FOR,        // {(expr|decl)?, expr?, expr?, stmt}

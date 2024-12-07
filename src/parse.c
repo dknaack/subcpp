@@ -977,7 +977,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 			// TODO: Handle multiple declarations in one statement
 			ast_list decl = parse_decl(ctx, PARSE_STMT, s);
 			if (decl.first.value != 0) {
-				result = new_node(pool, AST_STMT_COMPOUND, ctx->peek[0], decl.first);
+				result = new_node(pool, AST_STMT_DECL, ctx->peek[0], decl.first);
 			} else {
 				result = parse_expr(ctx, PREC_NONE, s);
 			}

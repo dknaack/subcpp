@@ -860,6 +860,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->continue_label);
 		} break;
+	case AST_STMT_DECL:
+		{
+			ast_id child_id = node->children;
+			while (child_id.value != 0) {
+				translate_node(ctx, pool, child_id, false);
+				ast_node *child = get_node(pool, child_id);
+				child_id = child->next;
+			}
+		} break;
 	case AST_STMT_DEFAULT:
 		ASSERT(!"Should have been handled by SWITCH");
 		break;
