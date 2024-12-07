@@ -672,7 +672,8 @@ check_node(semantic_context ctx, ast_id node_id)
 		{
 			info_id *origin = upsert_scope(ctx.idents, node->token.value, NULL);
 			if (origin == NULL) {
-				errorf(node->token.loc, "Undefined variable");
+				errorf(node->token.loc, "Undefined variable: %.*s",
+					(int)node->token.value.length, node->token.value.at);
 			} else {
 				info->of[node_id.value] = *origin;
 				info->kind[node_id.value] = INFO_DECL;
