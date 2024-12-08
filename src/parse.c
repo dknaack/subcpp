@@ -32,7 +32,7 @@ is_typename(parse_scope *s, str name)
 }
 
 static ast_id
-new_node(ast_pool *p, ast_node_kind kind, token token, ast_id children)
+new_node_with_flags(ast_pool *p, ast_node_kind kind, ast_node_flags flags, token token, ast_id children)
 {
 	if (p->size + 1 >= p->cap) {
 		if (!p->cap) {
@@ -53,10 +53,18 @@ new_node(ast_pool *p, ast_node_kind kind, token token, ast_id children)
 	id.value = p->size++;
 	ast_node *node = &p->nodes[id.value];
 	node->kind = kind;
+	node->flags = flags;
 	node->token = token;
 	node->children = children;
 	node->next.value = 0;
 	return id;
+}
+
+static ast_id
+new_node(ast_pool *p, ast_node_kind kind, token token, ast_id children)
+{
+	ast_id result = new_node_with_flags(p, kind, 0, token, children);
+	return result;
 }
 
 static void
@@ -459,7 +467,7 @@ parse_initializer(parse_context *ctx, parse_scope *s)
 }
 
 static ast_list
-parse_declarator(parse_context *ctx, u32 flags, parse_scope *s)
+parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 {
 	ast_pool *pool = ctx->pool;
 	ast_list pointer_declarator = {0};
@@ -486,10 +494,10 @@ parse_declarator(parse_context *ctx, u32 flags, parse_scope *s)
 
 		token token = get_token(ctx);
 		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
-		result.first = result.last = new_node(pool, kind, token, ast_id_nil);
+		result.first = result.last = new_node_with_flags(pool, kind, qualifiers, token, ast_id_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
-		result = parse_declarator(ctx, flags, s);
+		result = parse_declarator(ctx, flags, qualifiers, s);
 		expect(ctx, TOKEN_RPAREN);
 	} else if (!(flags & (PARSE_NO_IDENT | PARSE_OPT_IDENT))) {
 		syntax_error(ctx, "Expected '(' or identifier");
@@ -719,7 +727,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	}
 
 	do {
-		ast_list declarator = parse_declarator(ctx, flags, s);
+		ast_list declarator = parse_declarator(ctx, flags, qualifiers, s);
 		insert_child(pool, &declarator, base_type);
 		ASSERT(declarator.first.value != 0);
 
