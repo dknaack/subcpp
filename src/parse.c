@@ -173,11 +173,12 @@ typedef enum {
 	PARSE_NO_IDENT       = 1 << 3,
 	PARSE_OPT_IDENT      = 1 << 4,
 	PARSE_OPT            = 1 << 5,
+	PARSE_EXTERN_DEF     = 1 << 6, // return AST_EXTERN_DEF instead of AST_DECL
 
 	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
 	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER | PARSE_OPT_IDENT,
 	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
-	PARSE_EXTERNAL_DECL = 0,
+	PARSE_EXTERNAL_DECL = PARSE_EXTERN_DEF,
 	PARSE_STMT = PARSE_OPT,
 } parse_decl_flags;
 
@@ -484,7 +485,8 @@ parse_declarator(parse_context *ctx, u32 flags, parse_scope *s)
 		}
 
 		token token = get_token(ctx);
-		result.first = result.last = new_node(pool, AST_DECL, token, ast_id_nil);
+		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
+		result.first = result.last = new_node(pool, kind, token, ast_id_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, s);
