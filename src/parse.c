@@ -185,7 +185,7 @@ typedef enum {
 
 	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
 	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER | PARSE_OPT_IDENT,
-	PARSE_STRUCT_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
+	PARSE_MEMBER = PARSE_BITFIELD | PARSE_NO_INITIALIZER,
 	PARSE_EXTERNAL_DECL = PARSE_EXTERN_DEF,
 	PARSE_STMT = PARSE_OPT,
 } parse_decl_flags;
@@ -564,7 +564,9 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 
 	b32 found_qualifier = true;
 	while (found_qualifier) {
-		token token = ctx->peek[0];
+		token ident, token;
+
+		token = ctx->peek[0];
 		switch (token.kind) {
 		case TOKEN_FLOAT:
 		case TOKEN_DOUBLE:
@@ -621,7 +623,33 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		case TOKEN_UNION:
 			{
 				token = get_token(ctx);
-				ASSERT(!"TODO");
+
+				// parse optional tag
+				ident = ctx->peek[0];
+				b32 has_tag = accept(ctx, TOKEN_IDENT);
+				if (!has_tag) {
+					// for anonymous structs we store the original token,
+					// so errors will report the location of the struct/union.
+					ident = token;
+				}
+
+				// parse members
+				ast_list member_list = {0};
+				if (accept(ctx, TOKEN_LBRACE)) {
+					parse_scope member_scope = {s};
+					while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE) {
+						ast_list decl = parse_decl(ctx, PARSE_MEMBER, &member_scope);
+						append_list(pool, &member_list, decl);
+					}
+
+					expect(ctx, TOKEN_RBRACE);
+				} else if (!has_tag) {
+					// no tag and no definition, so next call will always fail.
+					expect(ctx, TOKEN_LBRACE);
+				}
+
+				ast_node_kind kind = token.kind == TOKEN_STRUCT ? AST_TYPE_STRUCT : AST_TYPE_UNION;
+				base_type = new_node(pool, kind, ident, member_list.first);
 			} break;
 		default:
 			{
