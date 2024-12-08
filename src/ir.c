@@ -164,13 +164,13 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 {
 	type_pool *types = &ctx->info->types;
 
-	ast_node *node = get_node(pool, node_id);
-	switch (node->kind) {
+	ast_node node = get_node(pool, node_id);
+	switch (node.kind) {
 	case AST_INIT:
 		{
 			usize offset = 0;
 
-			node_id = node->children;
+			node_id = node.children;
 			while (node_id.value != 0) {
 				type_id child_type = get_type_id(types, node_id);
 				isize child_align = type_alignof(child_type, types);
@@ -183,8 +183,8 @@ translate_initializer(ir_context *ctx, ast_pool *pool, ast_id node_id, u32 resul
 				isize child_size = type_sizeof(child_type, types);
 				offset += child_size;
 
-				ast_node *node = get_node(pool, node_id);
-				node_id = node->next;
+				ast_node node = get_node(pool, node_id);
+				node_id = node.next;
 			}
 		} break;
 	default:
@@ -207,8 +207,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	ast_id children[4] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
 
-	ast_node *node = get_node(pool, node_id);
-	switch (node->kind) {
+	ast_node node = get_node(pool, node_id);
+	switch (node.kind) {
 	case AST_INVALID:
 		ASSERT(!"Invalid node");
 		break;
@@ -226,8 +226,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				result = ir_emit_alloca(ctx, size);
 
 				if (children[1].value != 0) {
-					ast_node *init_expr = get_node(pool, children[1]);
-					if (init_expr->kind == AST_INIT) {
+					ast_node init_expr = get_node(pool, children[1]);
+					if (init_expr.kind == AST_INIT) {
 						translate_initializer(ctx, pool, children[1], result);
 					} else {
 						u32 value = translate_node(ctx, pool, children[1], false);
@@ -243,19 +243,19 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_EXTERN_DEF:
 		{
 			u32 *node_addr = &ctx->node_addr[node_id.value];
-			ast_node *type = get_node(pool, children[0]);
+			ast_node type = get_node(pool, children[0]);
 			if (*node_addr != 0) {
 				result = ir_emit1(ctx, 8, IR_GLOBAL, *node_addr);
 				ASSERT(result != 0);
-			} else if (node->flags & AST_TYPEDEF) {
+			} else if (node.flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
-			} else if (type->kind == AST_TYPE_FUNC) {
+			} else if (type.kind == AST_TYPE_FUNC) {
 				// Create a new symbol for the function
 				symbol *sym = new_symbol(ctx, SECTION_TEXT);
 				symbol_id sym_id = get_symbol_id(symtab, sym);
 				*node_addr = sym_id.value;
-				sym->linkage = get_linkage(node->flags);
-				sym->name = node->token.value;
+				sym->linkage = get_linkage(node.flags);
+				sym->name = node.token.value;
 
 				ir_function *func = &ctx->program->funcs[*node_addr];
 				ASSERT(*node_addr < ctx->program->func_count);
@@ -271,9 +271,9 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 					ctx->label_count = 1;
 
 					// NOTE: Emit parameter registers
-					ast_id return_id = type->children;
-					ast_node *return_type = get_node(pool, return_id);
-					ast_id param_id = return_type->next;
+					ast_id return_id = type.children;
+					ast_node return_type = get_node(pool, return_id);
+					ast_id param_id = return_type.next;
 					while (param_id.value != 0) {
 						type_id param_type = get_type_id(types, param_id);
 						isize param_size = type_sizeof(param_type, types);
@@ -284,8 +284,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 						ir_store(ctx, param_local, param_reg, param_type);
 						ctx->node_addr[param_id.value] = param_local;
 
-						ast_node *param = get_node(pool, param_id);
-						param_id = param->next;
+						ast_node param = get_node(pool, param_id);
+						param_id = param.next;
 					}
 
 					// translate the function body
@@ -307,8 +307,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				section section = is_initialized ? SECTION_DATA : SECTION_BSS;
 
 				symbol *sym = new_symbol(ctx, section);
-				sym->linkage = get_linkage(node->flags);
-				sym->name = node->token.value;
+				sym->linkage = get_linkage(node.flags);
+				sym->name = node.token.value;
 				type_id node_type = get_type_id(types, node_id);
 				sym->size = type_sizeof(node_type, types);
 				*node_addr = get_symbol_id(symtab, sym).value;
@@ -325,14 +325,14 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			ast_id child = children[0];
 			while (child.value != 0) {
-				ast_node *child_node = get_node(pool, child);
+				ast_node child_node = get_node(pool, child);
 				translate_node(ctx, pool, child, false);
-				child = child_node->next;
+				child = child_node.next;
 			}
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			token_kind operator = node->token.kind;
+			token_kind operator = node.token.kind;
 			ir_opcode opcode = IR_NOP;
 
 			type_id type_id = get_type_id(types, node_id);
@@ -531,8 +531,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				u32 param_reg = ir_emit(ctx, size, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
-				ast_node *param_node = get_node(pool, param_id);
-				param_id = param_node->next;
+				ast_node param_node = get_node(pool, param_id);
+				param_id = param_node.next;
 			}
 
 			// Call the function
@@ -600,15 +600,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_LITERAL:
 		{
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
 				{
-					i64 value = parse_i64(node->token.value);
+					i64 value = parse_i64(node.token.value);
 					result = ir_emit1(ctx, 4, IR_CONST, value);
 				} break;
 			case TOKEN_LITERAL_CHAR:
 				{
-					char value = parse_char(node->token.value);
+					char value = parse_char(node.token.value);
 					result = ir_emit1(ctx, 1, IR_CONST, value);
 				} break;
 
@@ -616,11 +616,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				{
 					// Convert the string into a floating-point number
 					double *value = ALLOC(arena, 1, double);
-					*value = strtod(node->token.value.at, NULL);
+					*value = strtod(node.token.value.at, NULL);
 
 					// Allocate a new global variable and store the value
 					symbol *sym = new_symbol(ctx, SECTION_RODATA);
-					sym->linkage = get_linkage(node->flags);
+					sym->linkage = get_linkage(node.flags);
 					sym->data = value;
 					sym->size = sizeof(double);
 
@@ -631,7 +631,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 				} break;
 			case TOKEN_LITERAL_STRING:
 				{
-					str escaped = node->token.value;
+					str escaped = node.token.value;
 					str unescaped = {0};
 					unescaped.at = ALLOC(arena, escaped.length + 1, char);
 					for (isize i = 1; i < escaped.length - 1; i++) {
@@ -672,7 +672,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 
 					// Allocate a new symbol and store the string
 					symbol *sym = new_symbol(ctx, SECTION_RODATA);
-					sym->linkage = get_linkage(node->flags);
+					sym->linkage = get_linkage(node.flags);
 					sym->data = unescaped.at;
 					sym->size = unescaped.length;
 
@@ -689,13 +689,13 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_MEMBER_PTR:
 		{
 			type_id operand_type = get_type_id(types, children[0]);
-			if (node->kind == AST_EXPR_MEMBER_PTR) {
+			if (node.kind == AST_EXPR_MEMBER_PTR) {
 				operand_type = get_type_data(types, operand_type)->base_type;
 			}
 
-			u32 offset = type_offsetof(operand_type, node->token.value, types);
+			u32 offset = type_offsetof(operand_type, node.token.value, types);
 			u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
-			b32 base_is_lvalue = (node->kind == AST_EXPR_MEMBER_PTR);
+			b32 base_is_lvalue = (node.kind == AST_EXPR_MEMBER_PTR);
 			u32 base_reg = translate_node(ctx, pool, children[0], base_is_lvalue);
 			result = ir_emit2(ctx, 8, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
@@ -716,7 +716,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_POSTFIX:
 		{
-			token_kind operator = node->token.kind;
+			token_kind operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_PLUS_PLUS:
 			case TOKEN_MINUS_MINUS:
@@ -784,7 +784,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		{
 			type_id type_id = get_type_id(types, node_id);
 			type *node_type = get_type_data(types, type_id);
-			token_kind operator = node->token.kind;
+			token_kind operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_AMP:
 				{
@@ -862,11 +862,11 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_DECL:
 		{
-			ast_id child_id = node->children;
+			ast_id child_id = node.children;
 			while (child_id.value != 0) {
 				translate_node(ctx, pool, child_id, false);
-				ast_node *child = get_node(pool, child_id);
-				child_id = child->next;
+				ast_node child = get_node(pool, child_id);
+				child_id = child.next;
 			}
 		} break;
 	case AST_STMT_DEFAULT:
@@ -903,8 +903,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, pool, children[0], false);
 			ir_emit1(&new_ctx, 0, IR_LABEL, cond_label);
 
-			ast_node *cond = get_node(pool, children[1]);
-			if (cond->kind == AST_NONE) {
+			ast_node cond = get_node(pool, children[1]);
+			if (cond.kind == AST_NONE) {
 				ir_emit0(&new_ctx, 0, IR_NOP);
 			} else {
 				u32 cond_reg = translate_node(&new_ctx, pool, children[1], false);
@@ -925,7 +925,7 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
 		{
-			ir_opcode opcode = node->kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
+			ir_opcode opcode = node.kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
 			label_info *label_info = get_label_info(*ctx->info, node_id);
 			u32 *label = &ctx->node_addr[label_info->label_id.value];
 			if (!*label) {
@@ -989,15 +989,15 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			for (case_info *case_info = switch_info->first; case_info; case_info = case_info->next) {
 				case_info->label = new_label(&new_ctx);
 
-				ast_node *case_node = get_node(pool, case_info->case_id);
-				u32 case_reg = translate_node(&new_ctx, pool, case_node->children, false);
+				ast_node case_node = get_node(pool, case_info->case_id);
+				u32 case_reg = translate_node(&new_ctx, pool, case_node.children, false);
 				u32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
 				ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, case_info->label);
 			}
 
 			if (switch_info->default_case.value != 0) {
-				ast_node *default_node = get_node(pool, switch_info->default_case);
-				translate_node(&new_ctx, pool, default_node->children, false);
+				ast_node default_node = get_node(pool, switch_info->default_case);
+				translate_node(&new_ctx, pool, default_node.children, false);
 			}
 
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.break_label);
@@ -1070,9 +1070,9 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	// Count the total number of symbols
 	isize symbol_count = 1;
 	for (isize i = 1; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		token_kind token = node->token.kind;
-		if (node->kind == AST_EXTERN_DEF || (node->kind == AST_EXPR_LITERAL
+		ast_node node = pool->nodes[i];
+		token_kind token = node.token.kind;
+		if (node.kind == AST_EXTERN_DEF || (node.kind == AST_EXPR_LITERAL
 			&& (token == TOKEN_LITERAL_FLOAT || token == TOKEN_LITERAL_STRING)))
 		{
 			symbol_count++;
@@ -1106,7 +1106,7 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
 		translate_node(&ctx, pool, node_id, false);
-		node_id = get_node(pool, node_id)->next;
+		node_id = get_node(pool, node_id).next;
 	}
 
 	// TODO: Remove this

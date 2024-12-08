@@ -27,10 +27,10 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		return;
 	}
 
-	ast_node *node = get_node(pool, node_id);
+	ast_node node = get_node(pool, node_id);
 	get_children(pool, node_id, children, LENGTH(children));
 
-	switch (node->kind) {
+	switch (node.kind) {
 	case AST_INVALID:
 		printf("(invalid)");
 		break;
@@ -38,8 +38,8 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_EXTERN_DEF:
 	case AST_DECL:
-		printf("%.*s: ", (int)node->token.value.length, node->token.value.at);
-		print_ast_node(pool, node->children, indent);
+		printf("%.*s: ", (int)node.token.value.length, node.token.value.at);
+		print_ast_node(pool, node.children, indent);
 		if (children[0].value != 0) {
 			printf(" = ");
 			print_ast_node(pool, children[0], indent);
@@ -62,7 +62,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		while (node_id.value != 0) {
 			print_ast_node(pool, node_id, indent);
 
-			node_id = get_node(pool, node_id)->next;
+			node_id = get_node(pool, node_id).next;
 			if (node_id.value != 0) {
 				printf(", ");
 			}
@@ -78,16 +78,16 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		print_ast_node(pool, children[1], indent);
 		break;
 	case AST_EXPR_LITERAL:
-		printf("%.*s", (int)node->token.value.length, node->token.value.at);
+		printf("%.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		print_ast_node(pool, children[0], indent);
-		printf(".%.*s", (int)node->token.value.length, node->token.value.at);
+		printf(".%.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case AST_EXPR_POSTFIX:
 		print_ast_node(pool, children[0], indent);
-		switch (node->token.kind) {
+		switch (node.token.kind) {
 		case TOKEN_PLUS_PLUS:
 			printf("++");
 			break;
@@ -108,7 +108,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		print_ast_node(pool, children[2], indent);
 		break;
 	case AST_EXPR_UNARY:
-		switch (node->token.kind) {
+		switch (node.token.kind) {
 		case TOKEN_PLUS_PLUS:
 			printf("++");
 			break;
@@ -160,7 +160,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf(");");
 		break;
 	case AST_STMT_GOTO:
-		printf("goto %.*s", (int)node->token.value.length, node->token.value.at);
+		printf("goto %.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case AST_STMT_FOR:
 		printf("for (");
@@ -184,7 +184,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		}
 		break;
 	case AST_STMT_LABEL:
-		printf("%.*s:\n", (int)node->token.value.length, node->token.value.at);
+		printf("%.*s:\n", (int)node.token.value.length, node.token.value.at);
 		print_ast_node(pool, children[0], indent);
 		break;
 	case AST_STMT_COMPOUND:
@@ -242,7 +242,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_TYPE_IDENT:
 	case AST_EXPR_IDENT:
-		printf("%.*s", (int)node->token.value.length, node->token.value.at);
+		printf("%.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case AST_TYPE_POINTER:
 		printf("*");
@@ -258,7 +258,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		printf("(enum)");
 		break;
 	case AST_TYPE_BASIC:
-		switch (node->token.kind) {
+		switch (node.token.kind) {
 		case TOKEN_CHAR:
 			printf("char");
 			break;

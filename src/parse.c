@@ -72,7 +72,7 @@ append_node(ast_pool *p, ast_list *list, ast_id node)
 {
 	ASSERT(node.value != 0);
 	if (list->last.value != 0) {
-		ast_node *tail = get_node(p, list->last);
+		ast_node *tail = &p->nodes[list->last.value];
 		tail->next = list->last = node;
 	} else {
 		list->first = list->last = node;
@@ -85,7 +85,7 @@ append_list(ast_pool *p, ast_list *list1, ast_list list2)
 	if (list1->last.value == 0) {
 		*list1 = list2;
 	} else {
-		ast_node *tail = get_node(p, list1->last);
+		ast_node *tail = &p->nodes[list1->last.value];
 		tail->next = list2.first;
 		if (list2.last.value != 0) {
 			list1->last = list2.last;
@@ -102,8 +102,8 @@ insert_child(ast_pool *p, ast_list *list, ast_id child_id)
 	if (list->first.value == 0) {
 		list->first = list->last = child_id;
 	} else {
-		ast_node *parent = get_node(p, list->last);
-		ast_node *child = get_node(p, child_id);
+		ast_node *parent = &p->nodes[list->last.value];
+		ast_node *child = &p->nodes[child_id.value];
 		child->next = parent->children;
 		parent->children = child_id;
 		list->last = child_id;
@@ -121,8 +121,8 @@ insert_root(ast_pool *p, ast_list *list, ast_id parent)
 	if (list->first.value == 0) {
 		list->first = list->last = parent;
 	} else {
-		ast_node *child_node = get_node(p, list->first);
-		ast_node *parent_node = get_node(p, parent);
+		ast_node *child_node = &p->nodes[list->first.value];
+		ast_node *parent_node = &p->nodes[parent.value];
 		child_node->next = parent_node->children;
 		parent_node->children = list->first;
 		list->first = parent;
@@ -264,8 +264,8 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 						initializer = parse_initializer(ctx, s);
 						(void)initializer;
 					} else {
-						ast_node *decl_node = get_node(pool, decl.first);
-						ast_id type = decl_node->children;
+						ast_node node = get_node(pool, decl.first);
+						ast_id type = node.children;
 
 						expr = new_node(pool, AST_EXPR_SIZEOF, token, type);
 					}
@@ -344,16 +344,13 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			ast_list children = {0};
 			append_node(pool, &children, expr);
 			if (!accept(ctx, TOKEN_RPAREN)) {
-				ast_id params = {0};
-				ast_id *p = &params;
+				ast_list param_list = {0};
 				do {
-					*p = parse_expr(ctx, PREC_ASSIGN, s);
-					ASSERT(p->value != 0);
-					ast_node *expr_node = get_node(pool, *p);
-					p = &expr_node->next;
+					ast_id param = parse_expr(ctx, PREC_ASSIGN, s);
+					append_node(pool, &param_list, param);
 				} while (!ctx->error && accept(ctx, TOKEN_COMMA));
 				expect(ctx, TOKEN_RPAREN);
-				append_node(pool, &children, params);
+				append_node(pool, &children, param_list.first);
 			}
 
 			expr = new_node(pool, AST_EXPR_CALL, token, children.first);
@@ -441,28 +438,26 @@ static ast_id
 parse_initializer(parse_context *ctx, parse_scope *s)
 {
 	ast_pool *pool = ctx->pool;
-	ast_id children = {0};
-	ast_id *p = &children;
+	ast_list children = {0};
 
 	token first_token = ctx->peek[0];
 	expect(ctx, TOKEN_LBRACE);
 	do {
+		ast_id node = {0};
 		if (ctx->peek[0].kind == TOKEN_LBRACE) {
-			*p = parse_initializer(ctx, s);
+			node = parse_initializer(ctx, s);
 		} else {
-			*p = parse_expr(ctx, PREC_ASSIGN, s);
+			node = parse_expr(ctx, PREC_ASSIGN, s);
 		}
 
+		append_node(pool, &children, node);
 		if (!accept(ctx, TOKEN_COMMA)) {
 			break;
 		}
-
-		ast_node *node = get_node(pool, *p);
-		p = &node->next;
 	} while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE);
 
 	expect(ctx, TOKEN_RBRACE);
-	ast_id init = new_node(pool, AST_INIT, first_token, children);
+	ast_id init = new_node(pool, AST_INIT, first_token, children.first);
 	return init;
 }
 
@@ -482,7 +477,6 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 		}
 
 		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_id_nil);
-
 		insert_root(pool, &pointer_declarator, node);
 	}
 
@@ -732,17 +726,17 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		ASSERT(declarator.first.value != 0);
 
 		ast_id decl = declarator.first;
-		ast_node *decl_node = get_node(pool, decl);
-		ast_id type = decl_node->children;
+		ast_node decl_node = get_node(pool, decl);
+		ast_id type = decl_node.children;
 		if (!(flags & PARSE_OPT) && decl.value == 0) {
 			syntax_error(ctx, "Expected declaration");
 		}
 
-		if (decl_node->kind == AST_DECL) {
-			decl_node->flags |= qualifiers;
-			ASSERT(decl_node->children.value != decl.value);
+		b32 has_ident = (decl_node.kind == AST_DECL || decl_node.kind == AST_EXTERN_DEF);
+		if (has_ident) {
+			ASSERT(decl_node.children.value != decl.value);
 			b32 is_type = (qualifiers & AST_TYPEDEF) != 0;
-			add_ident(s, decl_node->token.value, is_type, arena);
+			add_ident(s, decl_node.token.value, is_type, arena);
 		} else {
 			type = declarator.first;
 		}
@@ -755,7 +749,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			append_node(pool, &children, size);
 			ast_id bitfield = new_node(pool, AST_TYPE_BITFIELD, ctx->peek[0], children.first);
 
-			ast_node *decl_node = get_node(pool, decl);
+			ast_node *decl_node = &pool->nodes[decl.value];
 			decl_node->children = bitfield;
 			ASSERT(bitfield.value != 0);
 		}
@@ -773,7 +767,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			append_node(pool, &children, type);
 			append_node(pool, &children, initializer);
 
-			ast_node *decl_node = get_node(pool, decl);
+			ast_node *decl_node = &pool->nodes[decl.value];
 			decl_node->children = children.first;
 			ASSERT(children.first.value != 0);
 		}
@@ -1028,34 +1022,36 @@ parse(char *filename, arena *perm)
 
 	ast_list list = {0};
 	do {
-		ast_list decls = parse_decl(&ctx, PARSE_EXTERNAL_DECL, &s);
-		if (decls.first.value == 0) {
+		ast_list decl_list = parse_decl(&ctx, PARSE_EXTERNAL_DECL, &s);
+		if (decl_list.first.value == 0) {
 			syntax_error(&ctx, "Expected declaration");
 			break;
 		}
 
-		ast_node *decl = get_node(&pool, decls.first);
-		ASSERT(decl->kind == AST_DECL);
-		ASSERT(decls.first.value != decl->children.value);
-		decl->kind = AST_EXTERN_DEF;
+		ast_node decl = get_node(&pool, decl_list.first);
+		ASSERT(decl.kind == AST_DECL || decl.kind == AST_EXTERN_DEF);
+		ASSERT(decl_list.first.value != decl.children.value);
 
-		ast_id type_id = decl->children;
-		ast_node *type = get_node(&pool, decl->children);
-		if (decl->next.value == 0 && type->kind == AST_TYPE_FUNC) {
+		ast_id type_id = decl.children;
+		ast_node type = get_node(&pool, type_id);
+
+		b32 is_single_decl = (decl.next.value == 0);
+		b32 is_func = (type.kind == AST_TYPE_FUNC);
+		if (is_single_decl && is_func) {
 			token token = ctx.peek[0];
 			if (token.kind == TOKEN_LBRACE) {
 				// Introduce parameters in the new scope
 				parse_scope func_scope = {&s};
-				ast_node *return_node = get_node(&pool, type->children);
-				for (ast_id param = return_node->next; param.value != 0;) {
-					ast_node *param_node = get_node(&pool, param);
-					str param_name = param_node->token.value;
+				ast_node return_node = get_node(&pool, type.children);
+				for (ast_id param = return_node.next; param.value != 0;) {
+					ast_node param_node = get_node(&pool, param);
+					str param_name = param_node.token.value;
 					add_ident(&func_scope, param_name, false, perm);
-					param = param_node->next;
+					param = param_node.next;
 				}
 
 				ast_id body = parse_stmt(&ctx, &func_scope);
-				ast_node *type = get_node(&pool, type_id);
+				ast_node *type = &pool.nodes[type_id.value];
 				type->next = body;
 			} else {
 				expect(&ctx, TOKEN_SEMICOLON);
@@ -1064,7 +1060,7 @@ parse(char *filename, arena *perm)
 			expect(&ctx, TOKEN_SEMICOLON);
 		}
 
-		append_list(&pool, &list, decls);
+		append_list(&pool, &list, decl_list);
 	} while (!ctx.error && !accept(&ctx, TOKEN_EOF));
 
 	pool.root = list.first;

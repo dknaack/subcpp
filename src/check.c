@@ -298,13 +298,13 @@ eval_ast(semantic_context ctx, ast_id node_id)
 	ast_id children[3] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
 
-	ast_node *node = get_node(pool, node_id);
-	switch (node->kind) {
+	ast_node node = get_node(pool, node_id);
+	switch (node.kind) {
 	case AST_EXPR_LITERAL:
 		{
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
-				result = parse_i64(node->token.value);
+				result = parse_i64(node.token.value);
 				break;
 			default:
 				ASSERT(!"TODO");
@@ -314,7 +314,7 @@ eval_ast(semantic_context ctx, ast_id node_id)
 		{
 			i64 lhs = eval_ast(ctx, children[0]);
 			i64 rhs = eval_ast(ctx, children[1]);
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_PLUS:          result = lhs +  rhs; break;
 			case TOKEN_MINUS:         result = lhs -  rhs; break;
 			case TOKEN_STAR:          result = lhs *  rhs; break;
@@ -337,7 +337,7 @@ eval_ast(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_MINUS: result = -result; break;
 			case TOKEN_BANG:  result = !result; break;
 			case TOKEN_TILDE: result = ~result; break;
@@ -371,7 +371,8 @@ eval_ast(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			result = eval_ast(ctx, children[0]);
+			// TODO: Evaluate the constant definition for this identifier
+			ASSERT(!"TODO");
 		} break;
 	default:
 		ASSERT(!"Invalid node");
@@ -393,9 +394,9 @@ check_node(semantic_context ctx, ast_id node_id)
 		return nil;
 	}
 
-	ast_node *node = get_node(pool, node_id);
+	ast_node node = get_node(pool, node_id);
 	type_id node_type = get_type_id(types, node_id);
-	b32 was_checked = (node->kind != AST_INIT && node_type.value != 0);
+	b32 was_checked = (node.kind != AST_INIT && node_type.value != 0);
 	if (was_checked) {
 		return node_type;
 	}
@@ -403,7 +404,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	ast_id children[3] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
 
-	switch (node->kind) {
+	switch (node.kind) {
 	case AST_INVALID:
 		pool->error = true;
 		break;
@@ -426,18 +427,18 @@ check_node(semantic_context ctx, ast_id node_id)
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
-				ast_node *child = get_node(pool, child_id);
-				child_id = child->next;
+				ast_node child = get_node(pool, child_id);
+				child_id = child.next;
 			}
 		} break;
 	case AST_STMT_ASM:
 		{
-			ASSERT(node->token.kind == TOKEN_LITERAL_STRING);
+			ASSERT(node.token.kind == TOKEN_LITERAL_STRING);
 		} break;
 	case AST_STMT_CASE:
 		{
 			if (ctx.switch_id.value == 0) {
-				errorf(node->token.loc, "case outside switch");
+				errorf(node.token.loc, "case outside switch");
 			} else {
 				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
 				case_info *case_sym = get_case_info(*info, node_id);
@@ -462,18 +463,18 @@ check_node(semantic_context ctx, ast_id node_id)
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
-				ast_node *child = get_node(pool, child_id);
-				child_id = child->next;
+				ast_node child = get_node(pool, child_id);
+				child_id = child.next;
 			}
 		} break;
 	case AST_STMT_DEFAULT:
 		{
 			if (ctx.switch_id.value == 0) {
-				errorf(node->token.loc, "default outside switch");
+				errorf(node.token.loc, "default outside switch");
 			} else {
 				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
 				if (switch_sym->default_case.value != 0) {
-					errorf(node->token.loc, "Duplicate default label");
+					errorf(node.token.loc, "Duplicate default label");
 				}
 
 				switch_sym->default_case = node_id;
@@ -483,7 +484,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_STMT_GOTO:
 		{
 			for (label_info *label = ctx.labels; label; label = label->next) {
-				if (equals(label->name, node->token.value)) {
+				if (equals(label->name, node.token.value)) {
 					info->kind[node_id.value] = INFO_LABEL;
 					info->of[node_id.value] = info->of[label->label_id.value];
 					break;
@@ -514,40 +515,40 @@ check_node(semantic_context ctx, ast_id node_id)
 				}
 
 				member *member = type_data->members;
-				ast_id child = node->children;
+				ast_id child = node.children;
 				while (member && child.value != 0) {
-					ast_node *value = get_node(pool, child);
-					if (value->kind == AST_INIT) {
+					ast_node value = get_node(pool, child);
+					if (value.kind == AST_INIT) {
 						set_type(types, node_id, member->type);
 					}
 
 					type_id value_type = check_node(ctx, child);
 					// TODO: Type conversion
 					if (!are_compatible(member->type, value_type, types)) {
-						//errorf(list_node->token.loc, "Invalid type");
+						//errorf(list_node.token.loc, "Invalid type");
 					}
 
 					member = member->next;
-					child = value->next;
+					child = value.next;
 				}
 
 				if (member == NULL && node_id.value != 0) {
 #if 0
-					errorf(node->token.loc, "Too many fields in the initializer");
+					errorf(node.token.loc, "Too many fields in the initializer");
 #endif
 				}
 			} else if (type_data->kind == TYPE_ARRAY) {
 				type_id expected = type_data->base_type;
-				node_id = node->children;
+				node_id = node.children;
 				while (node_id.value != 0) {
-					ast_node *value = get_node(pool, node_id);
-					if (value->kind == AST_INIT) {
+					ast_node value = get_node(pool, node_id);
+					if (value.kind == AST_INIT) {
 						set_type(types, node_id, expected);
 					}
 
 					type_id found = check_node(ctx, node_id);
 					if (!are_compatible(found, expected, types)) {
-						errorf(node->token.loc, "Invalid array member type");
+						errorf(node.token.loc, "Invalid array member type");
 					}
 
 					node_id = children[1];
@@ -561,7 +562,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			type *lhs_type = get_type_data(types, lhs);
 			type *rhs_type = get_type_data(types, rhs);
 
-			u32 operator = node->token.kind;
+			u32 operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_EQUAL_EQUAL:
 			case TOKEN_BANG_EQUAL:
@@ -585,7 +586,7 @@ check_node(semantic_context ctx, ast_id node_id)
 					node_type = rhs_type->base_type;
 				} else {
 					pool->error = true;
-					errorf(node->token.loc, "Incompatible types: %s, %s",
+					errorf(node.token.loc, "Incompatible types: %s, %s",
 						type_get_name(lhs_type->kind),
 						type_get_name(rhs_type->kind));
 				}
@@ -610,45 +611,45 @@ check_node(semantic_context ctx, ast_id node_id)
 				}
 			} else {
 				if (!are_compatible(lhs, rhs, types)) {
-					errorf(node->token.loc, "Incompatible types");
+					errorf(node.token.loc, "Incompatible types");
 				}
 			}
 		} break;
 	case AST_EXPR_CALL:
 		{
-			type_id called_id = check_node(ctx, node->children);
+			type_id called_id = check_node(ctx, node.children);
 			type *called = get_type_data(types, called_id);
 			if (called->kind != TYPE_FUNCTION) {
 				pool->error = true;
-				errorf(node->token.loc, "Not a function: %s", type_get_name(called->kind));
+				errorf(node.token.loc, "Not a function: %s", type_get_name(called->kind));
 			}
 
 			member *param_member = called->members;
 			ast_id param_id = children[1];
 			while (param_member && param_id.value != 0) {
-				ast_node *param_node = get_node(pool, param_id);
+				ast_node param_node = get_node(pool, param_id);
 				type_id param = check_node(ctx, param_id);
 				ASSERT(param_member->type.value != 0);
 				if (!are_compatible(param_member->type, param, types)) {
-					errorf(param_node->token.loc, "Invalid parameter type");
+					errorf(param_node.token.loc, "Invalid parameter type");
 				}
 
 				param_member = param_member->next;
-				param_id = param_node->next;
+				param_id = param_node.next;
 			}
 
 			while (param_id.value != 0) {
 				check_node(ctx, param_id);
 
-				ast_node *param_node = get_node(pool, param_id);
-				param_id = param_node->next;
+				ast_node param_node = get_node(pool, param_id);
+				param_id = param_node.next;
 			}
 
 #if 0
 			if (param_member && param_id.value == 0) {
-				errorf(node->token.loc, "Too few arguments");
+				errorf(node.token.loc, "Too few arguments");
 			} else if (!param_member && param_id.value != 0) {
-				errorf(node->token.loc, "Too many arguments");
+				errorf(node.token.loc, "Too many arguments");
 			}
 #endif
 
@@ -657,27 +658,28 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_CAST:
 		{
-			type_id cast_type = check_node(ctx, node->children);
+			type_id cast_type = check_node(ctx, node.children);
 			node_type = cast_type;
 			check_node(ctx, children[1]);
 			// TODO: Ensure that this cast is valid.
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
-			type_id expr_type = check_node(ctx, node->children);
+			type_id expr_type = check_node(ctx, node.children);
 			set_type(types, children[1], expr_type);
 			check_node(ctx, children[1]);
 			node_type = expr_type;
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			info_id *origin = upsert_scope(ctx.idents, node->token.value, NULL);
+			info_id *origin = upsert_scope(ctx.idents, node.token.value, NULL);
 			if (origin == NULL) {
-				errorf(node->token.loc, "Undefined variable: %.*s",
-					(int)node->token.value.length, node->token.value.at);
+				errorf(node.token.loc, "Undefined variable: %.*s",
+					(int)node.token.value.length, node.token.value.at);
 			} else {
 				info->of[node_id.value] = *origin;
 				info->kind[node_id.value] = INFO_DECL;
+				ASSERT(origin->value != 0);
 
 				decl_info *decl = get_decl_info(*info, node_id);
 				node_type = get_type_id(types, decl->node_id);
@@ -686,7 +688,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_LITERAL:
 		{
 			type_id base_type = {0};
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
 				// TODO: If zero, set type to zero
 				node_type = basic_type(TYPE_INT, types);
@@ -708,11 +710,11 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		{
-			type_id operand_id = check_node(ctx, node->children);
+			type_id operand_id = check_node(ctx, node.children);
 			type *operand = get_type_data(types, operand_id);
-			if (node->kind == AST_EXPR_MEMBER_PTR) {
+			if (node.kind == AST_EXPR_MEMBER_PTR) {
 				if (operand->kind != TYPE_POINTER) {
-					errorf(node->token.loc, "Left-hand side is not a pointer");
+					errorf(node.token.loc, "Left-hand side is not a pointer");
 					pool->error = true;
 				}
 
@@ -724,16 +726,16 @@ check_node(semantic_context ctx, ast_id node_id)
 			}
 
 			if (operand->kind != TYPE_STRUCT && operand->kind != TYPE_UNION) {
-				errorf(node->token.loc, "Left-hand side is not a struct");
+				errorf(node.token.loc, "Left-hand side is not a struct");
 				pool->error = true;
 			}
 
-			str member_name = node->token.value;
+			str member_name = node.token.value;
 			member *s = get_member(operand->members, member_name);
 			if (s) {
 				node_type = s->type;
 			} else {
-				errorf(node->token.loc, "Member '%.*s' does not exist",
+				errorf(node.token.loc, "Member '%.*s' does not exist",
 					member_name.length, member_name.at);
 			}
 		} break;
@@ -744,15 +746,15 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_POSTFIX:
 	case AST_EXPR_UNARY:
 		{
-			type_id operand_id = check_node(ctx, node->children);
+			type_id operand_id = check_node(ctx, node.children);
 			type *operand = get_type_data(types, operand_id);
-			switch (node->token.kind) {
+			switch (node.token.kind) {
 			case TOKEN_STAR:
 				if (operand->kind == TYPE_POINTER) {
 					node_type = operand->base_type;
 				} else {
 					pool->error = true;
-					errorf(node->token.loc, "Expected pointer type");
+					errorf(node.token.loc, "Expected pointer type");
 				}
 				break;
 			case TOKEN_AMP:
@@ -779,15 +781,15 @@ check_node(semantic_context ctx, ast_id node_id)
 		{
 			type_id cond_id = check_node(ctx, children[0]);
 			if (!is_integer(cond_id)) {
-				ast_node *cond_node = get_node(pool, node->children);
-				errorf(cond_node->token.loc, "Not an integer expression");
+				ast_node cond_node = get_node(pool, node.children);
+				errorf(cond_node.token.loc, "Not an integer expression");
 			}
 
 			type_id lhs = check_node(ctx, children[1]);
 			type_id rhs = check_node(ctx, children[2]);
 			if (!are_compatible(lhs, rhs, types)) {
-				ast_node *lhs_node = get_node(pool, children[1]);
-				location loc = lhs_node->token.loc;
+				ast_node lhs_node = get_node(pool, children[1]);
+				location loc = lhs_node.token.loc;
 				errorf(loc, "Invalid type in ternary expression");
 			}
 
@@ -799,7 +801,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			info_id *scope_info = upsert_scope(ctx.idents, node->token.value, arena);
+			info_id *scope_info = upsert_scope(ctx.idents, node.token.value, arena);
 			ASSERT(scope_info != NULL);
 
 			if (scope_info->value == 0) {
@@ -818,7 +820,7 @@ check_node(semantic_context ctx, ast_id node_id)
 				ast_id decl_children[2];
 				get_children(pool, decl->node_id, decl_children, 2);
 				if (decl_children[1].value != 0 && children[1].value != 0) {
-					errorf(node->token.loc, "Already defined");
+					errorf(node.token.loc, "Already defined");
 				}
 
 				// Store definitions over declarations
@@ -828,8 +830,8 @@ check_node(semantic_context ctx, ast_id node_id)
 			}
 
 			if (children[1].value != 0) {
-				ast_node *init = get_node(pool, children[1]);
-				if (init->kind == AST_INIT) {
+				ast_node init = get_node(pool, children[1]);
+				if (init.kind == AST_INIT) {
 					set_type(types, children[1], node_type);
 				}
 
@@ -837,7 +839,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			}
 		} break;
 	case AST_TYPE_BASIC:
-		switch (node->token.kind) {
+		switch (node.token.kind) {
 		case TOKEN_BUILTIN_VA_LIST:
 			node_type = basic_type(TYPE_BUILTIN_VA_LIST, types);
 			break;
@@ -849,7 +851,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = basic_type(TYPE_FLOAT, types);
 			break;
 		case TOKEN_CHAR:
-			if (node->flags & AST_UNSIGNED) {
+			if (node.flags & AST_UNSIGNED) {
 				node_type = basic_type(TYPE_CHAR_UNSIGNED, types);
 			} else {
 				node_type = basic_type(TYPE_CHAR, types);
@@ -857,7 +859,7 @@ check_node(semantic_context ctx, ast_id node_id)
 
 			break;
 		case TOKEN_INT:
-			switch (node->flags & (AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED)) {
+			switch (node.flags & (AST_LONG | AST_LLONG | AST_SHORT | AST_UNSIGNED)) {
 			case AST_LLONG | AST_UNSIGNED:
 				node_type = basic_type(TYPE_LLONG_UNSIGNED, types);
 				break;
@@ -906,7 +908,7 @@ check_node(semantic_context ctx, ast_id node_id)
 
 			type_id base_type = check_node(ctx, children[0]);
 			if (base_type.value == TYPE_VOID) {
-				errorf(node->token.loc, "array of voids");
+				errorf(node.token.loc, "array of voids");
 			}
 
 			node_type = array_type(base_type, size, types);
@@ -925,23 +927,23 @@ check_node(semantic_context ctx, ast_id node_id)
 			member **m = &params;
 			ast_id param_id = children[1];
 			while (param_id.value != 0) {
-				ast_node *param = get_node(pool, param_id);
+				ast_node param = get_node(pool, param_id);
 				type_id param_type = check_node(ctx, param_id);
 				*m = ALLOC(arena, 1, member);
-				(*m)->name = param->token.value;
+				(*m)->name = param.token.value;
 				(*m)->type = param_type;
 				ASSERT((*m)->type.value != 0);
 				m = &(*m)->next;
 
-				param_id = param->next;
+				param_id = param.next;
 			}
 
 			node_type = function_type(return_type, params, types);
 		} break;
 	case AST_TYPE_IDENT:
 		{
-			ASSERT(node->children.value != 0);
-			type_id ref_type = get_type_id(types, node->children);
+			ASSERT(node.children.value != 0);
+			type_id ref_type = get_type_id(types, node.children);
 			node_type = ref_type;
 		} break;
 	case AST_ENUMERATOR:
@@ -952,22 +954,22 @@ check_node(semantic_context ctx, ast_id node_id)
 		{
 			node_type = basic_type(TYPE_INT, types);
 
-			ast_id enum_id = node->children;
+			ast_id enum_id = node.children;
 			i32 value = 0;
 			while (enum_id.value != 0) {
-				ast_node *enum_node = get_node(pool, enum_id);
-				if (enum_node->children.value != 0) {
-					value = eval_ast(ctx, enum_node->children);
+				ast_node enum_node = get_node(pool, enum_id);
+				if (enum_node.children.value != 0) {
+					value = eval_ast(ctx, enum_node.children);
 				}
 
 				// TODO: Should we replace the whole enumerator or just the
 				// underlying value. Modifying just the value would likely be
 				// easier for error handling...
-				enum_node->kind = AST_EXPR_LITERAL;
+				enum_node.kind = AST_EXPR_LITERAL;
 				// TODO: Set the value of the enumerator
 				(void)value;
 				set_type(types, enum_id, basic_type(TYPE_INT, types));
-				enum_id = enum_node->next;
+				enum_id = enum_node.next;
 			}
 		} break;
 	case AST_TYPE_STRUCT:
@@ -976,21 +978,21 @@ check_node(semantic_context ctx, ast_id node_id)
 			// NOTE: Collect the members of the struct
 			member *members = NULL;
 			member **ptr = &members;
-			ast_id decl_id = node->children;
+			ast_id decl_id = node.children;
 			while (decl_id.value != 0) {
 				type_id decl_type = check_node(ctx, decl_id);
-				ast_node *decl_node = get_node(pool, decl_id);
+				ast_node decl_node = get_node(pool, decl_id);
 
 				*ptr = ALLOC(arena, 1, member);
-				(*ptr)->name = decl_node->token.value;
+				(*ptr)->name = decl_node.token.value;
 				(*ptr)->type = decl_type;
 				ptr = &(*ptr)->next;
 
-				decl_id = decl_node->next;
+				decl_id = decl_node.next;
 			}
 
-			ASSERT(node->token.value.at != NULL || members != NULL);
-			node_type = compound_type(node->token.kind, members, types);
+			ASSERT(node.token.value.at != NULL || members != NULL);
+			node_type = compound_type(node.token.kind, members, types);
 		} break;
 	}
 
@@ -1002,14 +1004,14 @@ static label_info *
 get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
 {
 	label_info *result = NULL;
-	ast_node *node = get_node(pool, node_id);
-	if (node->kind == AST_STMT_LABEL) {
+	ast_node node = get_node(pool, node_id);
+	if (node.kind == AST_STMT_LABEL) {
 		result = get_label_info(info, node_id);
-		result->name = node->token.value;
+		result->name = node.token.value;
 		result->label_id = node_id;
 	}
 
-	ast_id child_id = node->children;
+	ast_id child_id = node.children;
 	while (child_id.value != 0) {
 		label_info *list = get_labels(child_id, pool, info, perm);
 
@@ -1031,8 +1033,8 @@ get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
 		tail->next = result ? result : list;
 		result = dummy.next;
 
-		ast_node *child = get_node(pool, child_id);
-		child_id = child->next;
+		ast_node child = get_node(pool, child_id);
+		child_id = child.next;
 	}
 
 	return result;
@@ -1058,8 +1060,8 @@ check(ast_pool *pool, arena *perm)
 	info.case_count = 1;
 	info.label_count = 1;
 	for (isize i = 0; i < pool->size; i++) {
-		ast_node *node = &pool->nodes[i];
-		switch (node->kind) {
+		ast_node node = pool->nodes[i];
+		switch (node.kind) {
 		case AST_STMT_SWITCH:
 			info.of[i].value = info.switch_count++;
 			info.kind[i] = INFO_SWITCH;
@@ -1100,7 +1102,7 @@ check(ast_pool *pool, arena *perm)
 	while (node_id.value != 0) {
 		ctx.labels = get_labels(node_id, pool, info, perm);
 		check_node(ctx, node_id);
-		node_id = get_node(pool, node_id)->next;
+		node_id = get_node(pool, node_id).next;
 	}
 
 	return info;

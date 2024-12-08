@@ -179,36 +179,31 @@ get_precedence(token_kind token)
 	}
 }
 
-static ast_node *
+static ast_node
 get_node(ast_pool *p, ast_id id)
 {
+	ast_node result = {0};
+
 	if (0 < id.value && id.value < p->size) {
-		return p->nodes + id.value;
+		result = p->nodes[id.value];
+	} else {
+		ASSERT(!"Out of bounds");
 	}
 
-	ASSERT(!"ID is out of bounds");
-	return NULL;
-}
-
-static ast_node *
-get_node_of_kind(ast_pool *p, ast_id id, ast_node_kind kind)
-{
-	ast_node *node = get_node(p, id);
-	ASSERT(node->kind == kind);
-	return node;
+	return result;
 }
 
 static i32
 get_children(ast_pool *p, ast_id id, ast_id *children, i32 max_count)
 {
 	i32 count = 0;
-	ast_node *node = get_node(p, id);
+	ast_node node = get_node(p, id);
 
-	ast_id child_id = node->children;
+	ast_id child_id = node.children;
 	for (count = 0; child_id.value != 0 && count < max_count; count++) {
-		ast_node *child = get_node(p, child_id);
+		ast_node child = get_node(p, child_id);
 		children[count] = child_id;
-		child_id = child->next;
+		child_id = child.next;
 	}
 
 	return count;
