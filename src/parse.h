@@ -89,7 +89,7 @@ typedef struct ast_pool {
 	b32 error;
 } ast_pool;
 
-static const ast_id ast_id_nil = {0};
+static const ast_id ast_nil = {0};
 
 typedef struct parse_scope_entry parse_scope_entry;
 struct parse_scope_entry {

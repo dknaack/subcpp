@@ -208,7 +208,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 				return expr;
 			}
 
-			expr = new_node(pool, AST_EXPR_IDENT, token, ast_id_nil);
+			expr = new_node(pool, AST_EXPR_IDENT, token, ast_nil);
 		} break;
 	case TOKEN_LITERAL_STRING:
 	case TOKEN_LITERAL_CHAR:
@@ -216,7 +216,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 	case TOKEN_LITERAL_INT:
 		{
 			get_token(ctx);
-			expr = new_node(pool, AST_EXPR_LITERAL, token, ast_id_nil);
+			expr = new_node(pool, AST_EXPR_LITERAL, token, ast_nil);
 		} break;
 	case TOKEN_LPAREN:
 		{
@@ -307,7 +307,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			ast_id type = parse_decl(ctx, PARSE_CAST, s).first;
 			expect(ctx, TOKEN_RPAREN);
 
-			ast_id called = new_node(pool, AST_BUILTIN, token, ast_id_nil);
+			ast_id called = new_node(pool, AST_BUILTIN, token, ast_nil);
 
 			ast_list children = {0};
 			append_node(pool, &children, called);
@@ -319,11 +319,11 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 	case TOKEN_BUILTIN_VA_END:
 		{
 			get_token(ctx);
-			expr = new_node(pool, AST_BUILTIN, token, ast_id_nil);
+			expr = new_node(pool, AST_BUILTIN, token, ast_nil);
 		} break;
 	default:
 		syntax_error(ctx, "Expected expression");
-		return ast_id_nil;
+		return ast_nil;
 	}
 
 	ASSERT(expr.value != 0);
@@ -476,7 +476,7 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 			// qualifier multiple times.
 		}
 
-		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_id_nil);
+		ast_id node = new_node(pool, AST_TYPE_POINTER, token, ast_nil);
 		insert_root(pool, &pointer_declarator, node);
 	}
 
@@ -488,7 +488,7 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 
 		token token = get_token(ctx);
 		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
-		result.first = result.last = new_node_with_flags(pool, kind, qualifiers, token, ast_id_nil);
+		result.first = result.last = new_node_with_flags(pool, kind, qualifiers, token, ast_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, qualifiers, s);
@@ -573,13 +573,13 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		case TOKEN_CHAR:
 		case TOKEN_VOID:
 		case TOKEN_BUILTIN_VA_LIST:
-			base_type = new_node(pool, AST_TYPE_BASIC, token, ast_id_nil);
+			base_type = new_node(pool, AST_TYPE_BASIC, token, ast_nil);
 			get_token(ctx);
 			break;
 		case TOKEN_IDENT:
 			{
 				if (base_type.value == 0 && is_typename(s, token.value)) {
-					base_type = new_node(pool, AST_TYPE_IDENT, token, ast_id_nil);
+					base_type = new_node(pool, AST_TYPE_IDENT, token, ast_nil);
 					get_token(ctx);
 				} else {
 					found_qualifier = false;
@@ -703,7 +703,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
 	if (base_type.value == 0 && (qualifiers & int_mask) != 0) {
 		qualifier_token.kind = TOKEN_INT;
-		base_type = new_node(pool, AST_TYPE_BASIC, qualifier_token, ast_id_nil);
+		base_type = new_node(pool, AST_TYPE_BASIC, qualifier_token, ast_nil);
 	}
 
 	if (base_type.value == 0) {
@@ -791,7 +791,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 	case TOKEN_ASM:
 		{
 			get_token(ctx);
-			result = new_node(pool, AST_STMT_ASM, token, ast_id_nil);
+			result = new_node(pool, AST_STMT_ASM, token, ast_nil);
 			expect(ctx, TOKEN_LPAREN);
 			expect(ctx, TOKEN_LITERAL_STRING);
 			expect(ctx, TOKEN_RPAREN);
@@ -800,7 +800,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node(pool, AST_STMT_BREAK, token, ast_id_nil);
+			result = new_node(pool, AST_STMT_BREAK, token, ast_nil);
 		} break;
 	case TOKEN_CASE:
 		{
@@ -818,7 +818,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 		{
 			get_token(ctx);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node(pool, AST_STMT_CONTINUE, token, ast_id_nil);
+			result = new_node(pool, AST_STMT_CONTINUE, token, ast_nil);
 		} break;
 	case TOKEN_DEFAULT:
 		{
@@ -857,7 +857,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
-				init = new_node(pool, AST_NONE, token, ast_id_nil);
+				init = new_node(pool, AST_NONE, token, ast_nil);
 			}
 
 			ast_id cond = {0};
@@ -865,7 +865,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 				cond = parse_expr(ctx, PREC_ASSIGN, s);
 				expect(ctx, TOKEN_SEMICOLON);
 			} else {
-				cond = new_node(pool, AST_NONE, token, ast_id_nil);
+				cond = new_node(pool, AST_NONE, token, ast_nil);
 			}
 
 			ast_id post = {0};
@@ -873,7 +873,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 				post = parse_expr(ctx, PREC_ASSIGN, s);
 				expect(ctx, TOKEN_RPAREN);
 			} else {
-				post = new_node(pool, AST_NONE, token, ast_id_nil);
+				post = new_node(pool, AST_NONE, token, ast_nil);
 			}
 
 			ast_id stmt = parse_stmt(ctx, s);
@@ -891,7 +891,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 			token = ctx->peek[0];
 			expect(ctx, TOKEN_IDENT);
 			expect(ctx, TOKEN_SEMICOLON);
-			result = new_node(pool, AST_STMT_GOTO, token, ast_id_nil);
+			result = new_node(pool, AST_STMT_GOTO, token, ast_nil);
 		} break;
 	case TOKEN_IF:
 		{
@@ -953,7 +953,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 	case TOKEN_SEMICOLON:
 		{
 			get_token(ctx);
-			result = new_node(pool, AST_NONE, token, ast_id_nil);
+			result = new_node(pool, AST_NONE, token, ast_nil);
 		} break;
 	case TOKEN_LBRACE:
 		{
