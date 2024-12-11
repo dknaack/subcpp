@@ -1085,7 +1085,7 @@ check(ast_pool *pool, arena *perm)
 	info.labels   = ALLOC(perm, info.label_count, label_info);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
-	info.decls    = ALLOC(perm, info.decl_count, decl_info);
+	info.decls    = ALLOC(perm, decl_count, decl_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	scope idents = {0};
