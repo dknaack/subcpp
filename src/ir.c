@@ -925,10 +925,16 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
 		{
-			ir_opcode opcode = node.kind == AST_STMT_LABEL ? IR_LABEL : IR_JMP;
-			label_info *label_info = get_label_info(*ctx->info, node_id);
-			u32 *label = &ctx->node_addr[label_info->label_id.value];
-			if (!*label) {
+			ast_id label_id = node_id;
+			ir_opcode opcode = IR_LABEL;
+
+			if (node.kind == AST_STMT_GOTO) {
+				label_id = ctx->info->at[node_id.value].id;
+				opcode = IR_JMP;
+			}
+
+			u32 *label = &ctx->node_addr[label_id.value];
+			if (*label == 0) {
 				*label = new_label(ctx);
 			}
 

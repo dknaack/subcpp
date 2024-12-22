@@ -485,8 +485,7 @@ check_node(semantic_context ctx, ast_id node_id)
 		{
 			for (label_info *label = ctx.labels; label; label = label->next) {
 				if (equals(label->name, node.token.value)) {
-					info->kind[node_id.value] = INFO_LABEL;
-					info->of[node_id.value] = info->of[label->label_id.value];
+					info->at[node_id.value].id = label->label_id;
 					break;
 				}
 			}
@@ -995,7 +994,10 @@ get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
 	label_info *result = NULL;
 	ast_node node = get_node(pool, node_id);
 	if (node.kind == AST_STMT_LABEL) {
-		result = get_label_info(info, node_id);
+		info_id sym_id = info.of[node_id.value];
+		ASSERT(sym_id.value < info.label_count);
+
+		result = &info.labels[sym_id.value];
 		result->name = node.token.value;
 		result->label_id = node_id;
 	}
@@ -1059,7 +1061,6 @@ check(ast_pool *pool, arena *perm)
 			break;
 		case AST_STMT_LABEL:
 			info.of[i].value = info.label_count++;
-			info.kind[i] = INFO_LABEL;
 			break;
 		default:
 			break;

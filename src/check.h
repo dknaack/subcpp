@@ -5,7 +5,6 @@ typedef struct {
 typedef enum {
 	INFO_NONE,
 	INFO_CASE,
-	INFO_LABEL,
 	INFO_SWITCH,
 	INFO_COUNT
 } info_kind;
@@ -379,15 +378,4 @@ get_case_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.case_count);
 	case_info *_case = &info.cases[sym_id.value];
 	return _case;
-}
-
-static label_info *
-get_label_info(semantic_info info, ast_id node_id)
-{
-	ASSERT(info.kind[node_id.value] == INFO_LABEL);
-	info_id sym_id = info.of[node_id.value];
-
-	ASSERT(sym_id.value < info.label_count);
-	label_info *_label = &info.labels[sym_id.value];
-	return _label;
 }
