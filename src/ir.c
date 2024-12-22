@@ -852,8 +852,8 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			case_info *case_info = get_case_info(*ctx->info, node_id);
-			ir_emit1(ctx, 0, IR_LABEL, case_info->label);
+			u32 label = ctx->node_addr[node_id.value];
+			ir_emit1(ctx, 0, IR_LABEL, label);
 			translate_node(ctx, pool, children[1], false);
 		} break;
 	case AST_STMT_CONTINUE:
@@ -991,18 +991,26 @@ translate_node(ir_context *ctx, ast_pool *pool, ast_id node_id, b32 is_lvalue)
 			u32 switch_reg = translate_node(&new_ctx, pool, children[0], false);
 			new_ctx.break_label = new_label(&new_ctx);
 
-			switch_info *switch_info = get_switch_info(*new_ctx.info, node_id);
-			for (case_info *case_info = switch_info->first; case_info; case_info = case_info->next) {
-				case_info->label = new_label(&new_ctx);
+			ast_id case_id = ctx->info->at[node_id.value].id;
+			ast_id default_id = {0};
+			while (case_id.value != 0) {
+				u32 label = new_label(&new_ctx);
+				new_ctx.node_addr[case_id.value] = label;
 
-				ast_node case_node = get_node(pool, case_info->case_id);
-				u32 case_reg = translate_node(&new_ctx, pool, case_node.children, false);
-				u32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
-				ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, case_info->label);
+				ast_node case_node = get_node(pool, case_id);
+				if (case_node.kind == AST_STMT_CASE) {
+					u32 case_reg = translate_node(&new_ctx, pool, case_node.children, false);
+					u32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
+					ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, label);
+				} else {
+					default_id = case_id;
+				}
+
+				case_id = new_ctx.info->at[case_id.value].id;
 			}
 
-			if (switch_info->default_case.value != 0) {
-				ast_node default_node = get_node(pool, switch_info->default_case);
+			if (default_id.value != 0) {
+				ast_node default_node = get_node(pool, default_id);
 				translate_node(&new_ctx, pool, default_node.children, false);
 			}
 

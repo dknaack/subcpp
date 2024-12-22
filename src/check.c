@@ -440,16 +440,9 @@ check_node(semantic_context ctx, ast_id node_id)
 			if (ctx.switch_id.value == 0) {
 				errorf(node.token.loc, "case outside switch");
 			} else {
-				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
-				case_info *case_sym = get_case_info(*info, node_id);
-				case_sym->case_id = node_id;
-
-				if (switch_sym->last) {
-					switch_sym->last = switch_sym->last->next = case_sym;
-				} else {
-					switch_sym->first = switch_sym->last = case_sym;
-				}
-
+				// Prepend current case to list in switch statement
+				info->at[node_id.value].id = info->at[ctx.switch_id.value].id;
+				info->at[ctx.switch_id.value].id = node_id;
 				check_node(ctx, children[0]);
 			}
 		} break;
@@ -472,12 +465,22 @@ check_node(semantic_context ctx, ast_id node_id)
 			if (ctx.switch_id.value == 0) {
 				errorf(node.token.loc, "default outside switch");
 			} else {
-				switch_info *switch_sym = get_switch_info(*info, ctx.switch_id);
-				if (switch_sym->default_case.value != 0) {
-					errorf(node.token.loc, "Duplicate default label");
+				// Append default statement to the list in switch statement
+				ast_id *case_id = &info->at[ctx.switch_id.value].id;
+				ast_id prev_id = {0};
+				while (case_id->value != 0) {
+					prev_id = *case_id;
+					case_id = &info->at[case_id->value].id;
 				}
 
-				switch_sym->default_case = node_id;
+				if (prev_id.value != 0) {
+					ast_node prev_case = get_node(pool, prev_id);
+					if (prev_case.kind == AST_STMT_DEFAULT) {
+						errorf(node.token.loc, "Duplicate default label");
+					}
+				}
+
+				*case_id = node_id;
 				check_node(ctx, children[0]);
 			}
 		} break;
@@ -1045,20 +1048,10 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// Count the number of infos and assign their ID
-	info.switch_count = 1;
-	info.case_count = 1;
 	info.label_count = 1;
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node node = pool->nodes[i];
 		switch (node.kind) {
-		case AST_STMT_SWITCH:
-			info.of[i].value = info.switch_count++;
-			info.kind[i] = INFO_SWITCH;
-			break;
-		case AST_STMT_CASE:
-			info.of[i].value = info.case_count++;
-			info.kind[i] = INFO_CASE;
-			break;
 		case AST_STMT_LABEL:
 			info.of[i].value = info.label_count++;
 			break;
@@ -1068,8 +1061,6 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	info.labels   = ALLOC(perm, info.label_count, label_info);
-	info.cases    = ALLOC(perm, info.case_count, case_info);
-	info.switches = ALLOC(perm, info.switch_count, switch_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
 	info.at       = ALLOC(perm, pool->size, ast_info);
 

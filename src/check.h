@@ -4,23 +4,8 @@ typedef struct {
 
 typedef enum {
 	INFO_NONE,
-	INFO_CASE,
-	INFO_SWITCH,
 	INFO_COUNT
 } info_kind;
-
-typedef struct case_info case_info;
-struct case_info {
-	case_info *next;
-	ast_id case_id;
-	u32 label;
-};
-
-typedef struct {
-	case_info *first;
-	case_info *last;
-	ast_id default_case;
-} switch_info;
 
 typedef struct label_info label_info;
 struct label_info {
@@ -94,12 +79,8 @@ typedef struct {
 	info_kind *kind;
 
 	label_info *labels;
-	case_info *cases;
-	switch_info *switches;
 	type_pool types;
 
-	isize switch_count;
-	isize case_count;
 	isize label_count;
 
 	ast_info *at;
@@ -356,26 +337,4 @@ get_member(member *list, str key)
 	}
 
 	return NULL;
-}
-
-static switch_info *
-get_switch_info(semantic_info info, ast_id node_id)
-{
-	ASSERT(info.kind[node_id.value] == INFO_SWITCH);
-	info_id sym_id = info.of[node_id.value];
-
-	ASSERT(sym_id.value < info.switch_count);
-	switch_info *_switch = &info.switches[sym_id.value];
-	return _switch;
-}
-
-static case_info *
-get_case_info(semantic_info info, ast_id node_id)
-{
-	ASSERT(info.kind[node_id.value] == INFO_CASE);
-	info_id sym_id = info.of[node_id.value];
-
-	ASSERT(sym_id.value < info.case_count);
-	case_info *_case = &info.cases[sym_id.value];
-	return _case;
 }
