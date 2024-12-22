@@ -1039,24 +1039,13 @@ check(ast_pool *pool, arena *perm)
 {
 	semantic_info info = {0};
 	info.at = ALLOC(perm, pool->size, ast_info);
+	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	// Preallocate the basic types
 	for (type_kind type = TYPE_VOID; type <= TYPE_DOUBLE; type++) {
 		type_id type_id = basic_type(type, &info.types);
 		ASSERT(type_id.value == (i32)type);
 	}
-
-	// Count the number of infos and assign their ID
-	isize label_count = 1;
-	for (isize i = 0; i < pool->size; i++) {
-		ast_node node = pool->nodes[i];
-		if (node.kind == AST_STMT_LABEL) {
-			info.at[i].i = label_count++;
-		}
-	}
-
-	label_info *labels = ALLOC(perm, label_count, label_info);
-	info.types.at = ALLOC(perm, pool->size, type_id);
 
 	scope idents = {0};
 	scope tags = {0};
@@ -1070,7 +1059,17 @@ check(ast_pool *pool, arena *perm)
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
+		isize label_count = 1;
+		for (isize i = 0; i < pool->size; i++) {
+			ast_node node = pool->nodes[i];
+			if (node.kind == AST_STMT_LABEL) {
+				info.at[i].i = label_count++;
+			}
+		}
+
+		label_info *labels = ALLOC(perm, label_count, label_info);
 		ctx.labels = get_labels(node_id, pool, info, labels, label_count);
+
 		check_node(ctx, node_id);
 		node_id = get_node(pool, node_id).next;
 	}
