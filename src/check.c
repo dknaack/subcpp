@@ -1,27 +1,3 @@
-static ast_id *
-upsert_scope(scope *s, str key, arena *perm)
-{
-	if (!s) {
-		return NULL;
-	}
-
-	for (scope_entry *e = s->entries; e; e = e->next) {
-		if (equals(e->key, key)) {
-			return &e->value;
-		}
-	}
-
-	if (perm) {
-		scope_entry *e = ALLOC(perm, 1, scope_entry);
-		e->key = key;
-		e->next = s->entries;
-		s->entries = e;
-		return &e->value;
-	} else {
-		return upsert_scope(s->parent, key, NULL);
-	}
-}
-
 static b32
 is_integer(type_id type)
 {
@@ -143,6 +119,126 @@ are_compatible(type_id lhs_id, type_id rhs_id, type_pool *pool)
 	default:
 		return (lhs->kind == rhs->kind);
 	}
+}
+
+static ast_id *
+intern_node(semantic_context ctx, ast_node node)
+{
+	ast_pool *pool = ctx.ast;
+	ast_map *map = ctx.map;
+	semantic_info *info = ctx.info;
+	ast_id child_id = node.children;
+	b32 is_ident = false;
+	b32 is_tag = false;
+
+	// TODO: Push a scope marker
+
+	u64 h = HASH_INIT;
+	switch (node.kind) {
+	case AST_TYPE_ARRAY:
+	case AST_TYPE_BITFIELD:
+	case AST_TYPE_FUNC:
+	case AST_TYPE_POINTER:
+		hash(&h, &node.kind, sizeof(node.kind));
+		hash(&h, &node.flags, sizeof(node.flags));
+		while (child_id.value != 0) {
+			ast_node child = get_node(pool, child_id);
+			ast_id *intern_id = &info->at[child_id.value].id;
+			if (intern_id->value == 0) {
+				intern_id = intern_node(ctx, child);
+				if (intern_id->value == 0) {
+					*intern_id = child_id;
+				}
+
+				ASSERT(intern_id->value < pool->size);
+				info->at[child_id.value].id = *intern_id;
+			}
+
+			hash(&h, intern_id, sizeof(*intern_id));
+			child_id = child.next;
+		}
+
+		break;
+	case AST_STMT_LABEL:
+		hash(&h, "label#", 4);
+		hash(&h, node.token.value.at, node.token.value.length);
+		break;
+	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
+	case AST_TYPE_ENUM:
+		is_tag = true;
+		hash(&h, "tag#", 4);
+		hash(&h, node.token.value.at, node.token.value.length);
+		break;
+	case AST_DECL:
+	case AST_EXTERN_DEF:
+	case AST_TYPE_IDENT:
+	case AST_EXPR_IDENT:
+		is_ident = true;
+		hash(&h, node.token.value.at, node.token.value.length);
+		break;
+	case AST_TYPE_BASIC:
+		is_ident = true;
+		hash(&h, node.token.value.at, node.token.value.length);
+		break;
+	default:
+		return NULL;
+	}
+
+	for (isize j = 0; j < map->size; j++) {
+		// TODO: Use power of two size for hash map
+		isize i = (h + j) % map->size;
+		ast_id intern_id = map->at[i];
+
+		b32 is_empty = (intern_id.value == 0);
+		if (is_empty) {
+			return &map->at[i];
+		}
+
+		b32 are_equal = false;
+		ast_node intern_node = get_node(pool, intern_id);
+		if (is_ident) {
+			are_equal = (node.token.kind == intern_node.token.kind
+				&& equals(node.token.value, intern_node.token.value));
+		} else if (is_tag) {
+			b32 is_compound_type = (intern_node.kind == AST_TYPE_STRUCT
+				|| intern_node.kind == AST_TYPE_UNION);
+			are_equal = (is_compound_type
+				&& equals(node.token.value, intern_node.token.value));
+		} else if (node.kind == AST_STMT_LABEL) {
+			are_equal = (intern_node.kind == AST_STMT_LABEL
+				&& equals(node.token.value, intern_node.token.value));
+		} else {
+			are_equal = (node.kind == intern_node.kind);
+
+			ast_id child_id = node.children;
+			ast_id intern_child_id = intern_node.children;
+			while (are_equal && child_id.value != 0 && intern_child_id.value != 0) {
+				ast_id a = info->at[intern_child_id.value].id;
+				ast_id b = info->at[child_id.value].id;
+				if (a.value != b.value) {
+					are_equal = false;
+					break;
+				}
+
+				ast_node intern_child = get_node(pool, intern_child_id);
+				intern_child_id = intern_child.next;
+
+				ast_node child = get_node(pool, child_id);
+				child_id = child.next;
+			}
+
+			if (child_id.value != 0 || intern_child_id.value != 0) {
+				are_equal = false;
+			}
+		}
+
+		if (are_equal) {
+			return &map->at[i];
+		}
+	}
+
+	return NULL;
 }
 
 static type_id
@@ -448,11 +544,6 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_STMT_COMPOUND:
 		{
-			scope idents = {ctx.idents};
-			scope tags = {ctx.tags};
-			ctx.idents = &idents;
-			ctx.tags = &tags;
-
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
@@ -674,12 +765,11 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			ast_id *origin = upsert_scope(ctx.idents, node.token.value, NULL);
-			if (origin == NULL) {
+			ast_id *origin = intern_node(ctx, node);
+			if (origin == NULL || origin->value == 0) {
 				errorf(node.token.loc, "Undefined variable: %.*s",
 					(int)node.token.value.length, node.token.value.at);
 			} else {
-				ASSERT(origin->value != 0);
 				info->at[node_id.value].id = *origin;
 				node_type = get_type_id(types, *origin);
 			}
@@ -800,7 +890,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			ast_id *old_decl = upsert_scope(ctx.idents, node.token.value, arena);
+			ast_id *old_decl = intern_node(ctx, node);
 			ASSERT(old_decl != NULL);
 
 			if (old_decl->value == 0) {
@@ -1047,15 +1137,16 @@ check(ast_pool *pool, arena *perm)
 		ASSERT(type_id.value == (i32)type);
 	}
 
-	scope idents = {0};
-	scope tags = {0};
+	ast_map map = {0};
+	map.size = pool->size * 2;
+	map.at = ALLOC(perm, map.size, ast_id);
+
 	semantic_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.types = &info.types;
 	ctx.info = &info;
-	ctx.idents = &idents;
-	ctx.tags = &tags;
+	ctx.map = &map;
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {

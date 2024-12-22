@@ -79,28 +79,19 @@ typedef struct {
 	ast_info *at;
 } semantic_info;
 
-typedef struct scope_entry scope_entry;
-struct scope_entry {
-	scope_entry *next;
-	str key;
-	ast_id value;
-};
-
-typedef struct scope scope;
-struct scope {
-	scope *parent;
-	scope_entry *entries;
-};
+typedef struct {
+	ast_id *at;
+	isize size;
+} ast_map;
 
 typedef struct {
 	ast_pool *ast;
+	ast_map *map;
 	arena *arena;
 	type_pool *types;
 	semantic_info *info;
 	ast_id switch_id;
 	label_info *labels;
-	scope *idents;
-	scope *tags;
 } semantic_context;
 
 static type *
