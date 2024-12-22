@@ -75,14 +75,7 @@ typedef union {
 } ast_info;
 
 typedef struct {
-	info_id *of;
-	info_kind *kind;
-
-	label_info *labels;
 	type_pool types;
-
-	isize label_count;
-
 	ast_info *at;
 } semantic_info;
 

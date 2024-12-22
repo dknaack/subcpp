@@ -992,22 +992,22 @@ check_node(semantic_context ctx, ast_id node_id)
 }
 
 static label_info *
-get_labels(ast_id node_id, ast_pool *pool, semantic_info info, arena *perm)
+get_labels(ast_id node_id, ast_pool *pool, semantic_info info, label_info *labels, isize label_count)
 {
 	label_info *result = NULL;
 	ast_node node = get_node(pool, node_id);
 	if (node.kind == AST_STMT_LABEL) {
-		info_id sym_id = info.of[node_id.value];
-		ASSERT(sym_id.value < info.label_count);
+		isize sym_id = info.at[node_id.value].i;
+		ASSERT(sym_id < label_count);
 
-		result = &info.labels[sym_id.value];
+		result = &labels[sym_id];
 		result->name = node.token.value;
 		result->label_id = node_id;
 	}
 
 	ast_id child_id = node.children;
 	while (child_id.value != 0) {
-		label_info *list = get_labels(child_id, pool, info, perm);
+		label_info *list = get_labels(child_id, pool, info, labels, label_count);
 
 		// Merge result and list
 		label_info dummy = {0};
@@ -1038,8 +1038,7 @@ static semantic_info
 check(ast_pool *pool, arena *perm)
 {
 	semantic_info info = {0};
-	info.of = ALLOC(perm, pool->size, info_id);
-	info.kind = ALLOC(perm, pool->size, info_kind);
+	info.at = ALLOC(perm, pool->size, ast_info);
 
 	// Preallocate the basic types
 	for (type_kind type = TYPE_VOID; type <= TYPE_DOUBLE; type++) {
@@ -1048,21 +1047,16 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// Count the number of infos and assign their ID
-	info.label_count = 1;
+	isize label_count = 1;
 	for (isize i = 0; i < pool->size; i++) {
 		ast_node node = pool->nodes[i];
-		switch (node.kind) {
-		case AST_STMT_LABEL:
-			info.of[i].value = info.label_count++;
-			break;
-		default:
-			break;
+		if (node.kind == AST_STMT_LABEL) {
+			info.at[i].i = label_count++;
 		}
 	}
 
-	info.labels   = ALLOC(perm, info.label_count, label_info);
+	label_info *labels = ALLOC(perm, label_count, label_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
-	info.at       = ALLOC(perm, pool->size, ast_info);
 
 	scope idents = {0};
 	scope tags = {0};
@@ -1076,7 +1070,7 @@ check(ast_pool *pool, arena *perm)
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
-		ctx.labels = get_labels(node_id, pool, info, perm);
+		ctx.labels = get_labels(node_id, pool, info, labels, label_count);
 		check_node(ctx, node_id);
 		node_id = get_node(pool, node_id).next;
 	}
