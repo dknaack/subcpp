@@ -5,7 +5,6 @@ typedef struct {
 typedef enum {
 	INFO_NONE,
 	INFO_CASE,
-	INFO_DECL,
 	INFO_LABEL,
 	INFO_SWITCH,
 	INFO_COUNT
@@ -29,11 +28,6 @@ struct label_info {
 	label_info *next;
 	ast_id label_id;
 	str name;
-};
-
-typedef struct decl_info decl_info;
-struct decl_info {
-	ast_id node_id;
 };
 
 typedef enum {
@@ -90,6 +84,12 @@ typedef struct {
 	isize cap;
 } type_pool;
 
+typedef union {
+	ast_id id;
+	i64 i;
+	f64 f;
+} ast_info;
+
 typedef struct {
 	info_id *of;
 	info_kind *kind;
@@ -97,20 +97,20 @@ typedef struct {
 	label_info *labels;
 	case_info *cases;
 	switch_info *switches;
-	decl_info *decls;
 	type_pool types;
 
 	isize switch_count;
 	isize case_count;
 	isize label_count;
-	isize decl_count;
+
+	ast_info *at;
 } semantic_info;
 
 typedef struct scope_entry scope_entry;
 struct scope_entry {
 	scope_entry *next;
-	str name;
-	info_id info;
+	str key;
+	ast_id value;
 };
 
 typedef struct scope scope;
@@ -390,15 +390,4 @@ get_label_info(semantic_info info, ast_id node_id)
 	ASSERT(sym_id.value < info.label_count);
 	label_info *_label = &info.labels[sym_id.value];
 	return _label;
-}
-
-static decl_info *
-get_decl_info(semantic_info info, ast_id node_id)
-{
-	ASSERT(info.kind[node_id.value] == INFO_DECL);
-	info_id sym_id = info.of[node_id.value];
-
-	ASSERT(sym_id.value < info.decl_count);
-	decl_info *decl = &info.decls[sym_id.value];
-	return decl;
 }

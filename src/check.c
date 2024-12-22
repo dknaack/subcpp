@@ -1,24 +1,24 @@
-static info_id *
-upsert_scope(scope *s, str name, arena *perm)
+static ast_id *
+upsert_scope(scope *s, str key, arena *perm)
 {
 	if (!s) {
 		return NULL;
 	}
 
 	for (scope_entry *e = s->entries; e; e = e->next) {
-		if (equals(e->name, name)) {
-			return &e->info;
+		if (equals(e->key, key)) {
+			return &e->value;
 		}
 	}
 
 	if (perm) {
 		scope_entry *e = ALLOC(perm, 1, scope_entry);
-		e->name = name;
+		e->key = key;
 		e->next = s->entries;
 		s->entries = e;
-		return &e->info;
+		return &e->value;
 	} else {
-		return upsert_scope(s->parent, name, NULL);
+		return upsert_scope(s->parent, key, NULL);
 	}
 }
 
@@ -672,17 +672,14 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			info_id *origin = upsert_scope(ctx.idents, node.token.value, NULL);
+			ast_id *origin = upsert_scope(ctx.idents, node.token.value, NULL);
 			if (origin == NULL) {
 				errorf(node.token.loc, "Undefined variable: %.*s",
 					(int)node.token.value.length, node.token.value.at);
 			} else {
-				info->of[node_id.value] = *origin;
-				info->kind[node_id.value] = INFO_DECL;
 				ASSERT(origin->value != 0);
-
-				decl_info *decl = get_decl_info(*info, node_id);
-				node_type = get_type_id(types, decl->node_id);
+				info->at[node_id.value].id = *origin;
+				node_type = get_type_id(types, *origin);
 			}
 		} break;
 	case AST_EXPR_LITERAL:
@@ -801,31 +798,23 @@ check_node(semantic_context ctx, ast_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			info_id *scope_info = upsert_scope(ctx.idents, node.token.value, arena);
-			ASSERT(scope_info != NULL);
+			ast_id *old_decl = upsert_scope(ctx.idents, node.token.value, arena);
+			ASSERT(old_decl != NULL);
 
-			if (scope_info->value == 0) {
-				info->of[node_id.value].value = info->decl_count++;
-				info->kind[node_id.value] = INFO_DECL;
-				*scope_info = info->of[node_id.value];
-
-				decl_info *decl = get_decl_info(*info, node_id);
-				decl->node_id = node_id;
+			if (old_decl->value == 0) {
+				*old_decl = node_id;
 			} else {
 				// TODO: Ensure that the type of the old declaration is
 				// compatible with the current declaration.
-				decl_info *decl = get_decl_info(*info, node_id);
-
-				// Ensure that there is only one definition
 				ast_id decl_children[2];
-				get_children(pool, decl->node_id, decl_children, 2);
+				get_children(pool, *old_decl, decl_children, 2);
 				if (decl_children[1].value != 0 && children[1].value != 0) {
 					errorf(node.token.loc, "Already defined");
 				}
 
 				// Store definitions over declarations
 				if (children[1].value != 0) {
-					decl->node_id = node_id;
+					*old_decl = node_id;
 				}
 			}
 
@@ -1054,8 +1043,6 @@ check(ast_pool *pool, arena *perm)
 	}
 
 	// Count the number of infos and assign their ID
-	isize decl_count = 1;
-	info.decl_count = 1;
 	info.switch_count = 1;
 	info.case_count = 1;
 	info.label_count = 1;
@@ -1074,9 +1061,6 @@ check(ast_pool *pool, arena *perm)
 			info.of[i].value = info.label_count++;
 			info.kind[i] = INFO_LABEL;
 			break;
-		case AST_DECL:
-			decl_count++;
-			break;
 		default:
 			break;
 		}
@@ -1085,8 +1069,8 @@ check(ast_pool *pool, arena *perm)
 	info.labels   = ALLOC(perm, info.label_count, label_info);
 	info.cases    = ALLOC(perm, info.case_count, case_info);
 	info.switches = ALLOC(perm, info.switch_count, switch_info);
-	info.decls    = ALLOC(perm, decl_count, decl_info);
 	info.types.at = ALLOC(perm, pool->size, type_id);
+	info.at       = ALLOC(perm, pool->size, ast_info);
 
 	scope idents = {0};
 	scope tags = {0};
