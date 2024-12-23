@@ -644,7 +644,7 @@ check_node(semantic_context ctx, ast_id node_id)
 				tmp.kind = AST_TYPE_POINTER;
 				tmp.token.kind = TOKEN_STAR;
 				tmp.children = intern_id;
-				intern_node(ctx, tmp, ast_nil);
+				intern_id = intern_node(ctx, tmp, ast_nil);
 			}
 
 			node_type.value = intern_id.value;
