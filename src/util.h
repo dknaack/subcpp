@@ -94,17 +94,16 @@ copy(str dst, str src)
 	}
 }
 
-static u64
-hash(str str)
+#define HASH_INIT 0xcbf29ce484222325ull
+
+static void
+hash(u64 *h, void *data, isize size)
 {
-	u64 h = 0xcbf29ce484222325ull;
-
-	while (str.length-- > 0) {
-		h *= 0x00000100000001B3;
-		h ^= *str.at++;
+	char *byte = data;
+	while (size-- > 0) {
+		*h *= 0x00000100000001B3;
+		*h ^= *byte++;
 	}
-
-	return h;
 }
 
 static char *

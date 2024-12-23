@@ -99,9 +99,9 @@ ir_load(ir_context *ctx, u32 addr, type_id type_id)
 {
 	u32 result = 0;
 
-	type *type = get_type_data(&ctx->info->types, type_id);
-	isize size = type_sizeof(type_id, &ctx->info->types);
-	if (is_compound_type(type->kind)) {
+	ast_node type = get_type(ctx->ast, type_id);
+	isize size = get_node_size(ctx->ast, type_id);
+	if (is_compound_type(type.kind)) {
 		result = ir_emit_alloca(ctx, size);
 		ir_memcpy(ctx, result, addr, size);
 	} else {
@@ -115,11 +115,11 @@ static void
 ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 {
 	ASSERT(src != 0);
-	type *type = get_type_data(&ctx->info->types, type_id);
-	isize size = type_sizeof(type_id, &ctx->info->types);
+	ast_node type = get_type(ctx->ast, type_id);
+	isize size = get_node_size(ctx->ast, type_id);
 	ASSERT(size > 0);
 
-	if (is_compound_type(type->kind)) {
+	if (is_compound_type(type.kind)) {
 		ir_memcpy(ctx, dst, src, size);
 	} else {
 		ir_emit2(ctx, size, IR_STORE, dst, src);
@@ -129,12 +129,11 @@ ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 static void
 ir_mov(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 {
-	type *type = get_type_data(&ctx->info->types, type_id);
-	if (is_compound_type(type->kind)) {
-		isize size = type_sizeof(type_id, &ctx->info->types);
+	isize size = get_node_size(ctx->ast, type_id);
+	ast_node type = get_type(ctx->ast, type_id);
+	if (is_compound_type(type.kind)) {
 		ir_memcpy(ctx, dst, src, size);
 	} else {
-		isize size = type_sizeof(type_id, &ctx->info->types);
 		ir_emit2(ctx, size, IR_MOV, dst, src);
 	}
 }
@@ -162,7 +161,7 @@ static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
 static void
 translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 {
-	type_pool *types = &ctx->info->types;
+	semantic_info *info = ctx->info;
 	ast_pool *pool = ctx->ast;
 
 	ast_node node = get_node(pool, node_id);
@@ -173,15 +172,15 @@ translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 
 			node_id = node.children;
 			while (node_id.value != 0) {
-				type_id child_type = get_type_id(types, node_id);
-				isize child_align = type_alignof(child_type, types);
+				type_id child_type = get_type_id(info, node_id);
+				isize child_align = get_node_alignment(pool, child_type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
 				u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
 				u32 addr = ir_emit2(ctx, 8, IR_ADD, result, offset_reg);
 				translate_initializer(ctx, node_id, addr);
 
-				isize child_size = type_sizeof(child_type, types);
+				isize child_size = get_node_size(pool, child_type);
 				offset += child_size;
 
 				ast_node node = get_node(pool, node_id);
@@ -190,7 +189,7 @@ translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 		} break;
 	default:
 		{
-			type_id node_type = get_type_id(types, node_id);
+			type_id node_type = get_type_id(info, node_id);
 			u32 expr = translate_node(ctx, node_id, false);
 			ir_store(ctx, result, expr, node_type);
 		} break;
@@ -201,7 +200,7 @@ static u32
 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 {
 	ast_pool *pool = ctx->ast;
-	type_pool *types = &ctx->info->types;
+	semantic_info *info = ctx->info;
 	symbol_table *symtab = &ctx->program->symtab;
 	arena *arena = ctx->arena;
 	u32 result = 0;
@@ -223,8 +222,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 	case AST_DECL:
 		{
 			if (ctx->node_addr[node_id.value] == 0) {
-				type_id type = get_type_id(types, node_id);
-				isize size = type_sizeof(type, types);
+				type_id type = get_type_id(info, node_id);
+				isize size = get_node_size(pool, type);
 				result = ir_emit_alloca(ctx, size);
 
 				if (children[1].value != 0) {
@@ -277,8 +276,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					ast_node return_type = get_node(pool, return_id);
 					ast_id param_id = return_type.next;
 					while (param_id.value != 0) {
-						type_id param_type = get_type_id(types, param_id);
-						isize param_size = type_sizeof(param_type, types);
+						type_id param_type = get_type_id(info, param_id);
+						isize param_size = get_node_size(pool, param_type);
 						isize param_index = func->param_count++;
 
 						u32 param_reg = ir_emit(ctx, param_size, IR_PARAM, param_index, param_size);
@@ -311,8 +310,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				symbol *sym = new_symbol(ctx, section);
 				sym->linkage = get_linkage(node.flags);
 				sym->name = node.token.value;
-				type_id node_type = get_type_id(types, node_id);
-				sym->size = type_sizeof(node_type, types);
+				type_id node_type = get_type_id(info, node_id);
+				sym->size = get_node_size(pool, node_type);
 				*node_addr = get_symbol_id(symtab, sym).value;
 
 				if (is_initialized) {
@@ -337,8 +336,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			token_kind operator = node.token.kind;
 			ir_opcode opcode = IR_NOP;
 
-			type_id type_id = get_type_id(types, node_id);
-			if (type_id.value == TYPE_FLOAT || type_id.value == TYPE_DOUBLE) {
+			type_id type_id = get_type_id(info, node_id);
+			ast_node node_type = get_type(pool, type_id);
+
+			b32 is_float = (node.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
+			if (is_float) {
 				switch (operator) {
 				case TOKEN_PLUS:          opcode = IR_FADD;   break;
 				case TOKEN_MINUS:         opcode = IR_FSUB;   break;
@@ -391,8 +393,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				}
 			}
 
-			type *node_type = get_type_data(types, type_id);
-			if (is_comparison_opcode(opcode) && (node_type->kind & TYPE_UNSIGNED)) {
+			if (is_comparison_opcode(opcode) && (node_type.flags & AST_UNSIGNED)) {
 				// TODO: Use switch instead of addition?
 				opcode += IR_LTU - IR_LT;
 			}
@@ -455,7 +456,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				u32 lhs_reg = translate_node(ctx, children[0], true);
 				u32 rhs_reg = translate_node(ctx, children[1], false);
 				if (operator != TOKEN_EQUAL) {
-					isize size = type_sizeof(type_id, types);
+					isize size = get_node_size(pool, type_id);
 					u32 value = ir_emit1(ctx, size, IR_LOAD, lhs_reg);
 					result = ir_emit2(ctx, size, opcode, value, rhs_reg);
 					ir_emit2(ctx, size, IR_STORE, lhs_reg, result);
@@ -473,7 +474,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				// NOTE: Array access
 				u32 lhs_reg = translate_node(ctx, children[0], false);
 				u32 rhs_reg = translate_node(ctx, children[1], false);
-				isize size = type_sizeof(type_id, types);
+				isize size = get_node_size(pool, type_id);
 				u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
 				u32 offset = ir_emit2(ctx, 8, IR_MUL, rhs_reg, size_reg);
 				result = ir_emit2(ctx, 8, IR_ADD, lhs_reg, offset);
@@ -483,7 +484,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			} else {
 				u32 lhs_reg = translate_node(ctx, children[0], false);
 				u32 rhs_reg = translate_node(ctx, children[1], false);
-				isize size = type_sizeof(type_id, &ctx->info->types);
+				isize size = get_node_size(pool, type_id);
 
 				result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
 				if (operator == TOKEN_BANG_EQUAL) {
@@ -496,23 +497,25 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CALL:
 		{
-			type_id called_type_id = get_type_id(types, children[0]);
-			type *called_type = get_type_data(types, called_type_id);
-			ASSERT(called_type->kind == TYPE_FUNCTION);
+			type_id called_type_id = get_type_id(info, children[0]);
+			ast_node called_type = get_type(pool, called_type_id);
+			ASSERT(called_type.kind == AST_TYPE_FUNC);
+
 			u32 called_reg = translate_node(ctx, children[0], true);
 
 			// Make struct return value first argument
 			isize result_size;
 			u32 prev_param = 0;
-			type_id return_type_id = called_type->base_type;
-			type *return_type = get_type_data(types, return_type_id);
-			if (is_compound_type(return_type->kind)) {
-				isize size = type_sizeof(return_type_id, types);
+
+			type_id return_type_id = {called_type.children.value};
+			ast_node return_type = get_type(pool, return_type_id);
+			if (is_compound_type(return_type.kind)) {
+				isize size = get_node_size(pool, return_type_id);
 				u32 param = ir_emit_alloca(ctx, size);
 				prev_param = ir_emit2(ctx, 0, IR_CALL, param, 0);
 				result_size = 8;
 			} else {
-				result_size = type_sizeof(return_type_id, &ctx->info->types);
+				result_size = get_node_size(pool, return_type_id);
 			}
 
 			// Load parameters
@@ -520,10 +523,10 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			while (param_id.value != 0) {
 				u32 param_value = translate_node(ctx, param_id, false);
 
-				type_id param_type_id = get_type_id(types, param_id);
-				type *param_type = get_type_data(types, param_type_id);
-				isize size = type_sizeof(param_type_id, types);
-				if (is_compound_type(param_type->kind)) {
+				type_id param_type_id = get_type_id(info, param_id);
+				ast_node param_type = get_type(pool, param_type_id);
+				isize size = get_node_size(pool, param_type_id);
+				if (is_compound_type(param_type.kind)) {
 					u32 tmp = ir_emit_alloca(ctx, size);
 					ir_memcpy(ctx, tmp, param_value, size);
 					param_value = tmp;
@@ -537,10 +540,12 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				param_id = param_node.next;
 			}
 
-			// Call the function
-			type_id type_id = get_type_id(types, node_id);
-			type *node_type = get_type_data(types, type_id);
-			if (node_type->kind != TYPE_VOID) {
+			type_id type_id = get_type_id(info, node_id);
+			ast_node node_type = get_type(pool, type_id);
+
+			b32 is_void = (node_type.kind == AST_TYPE_BASIC && node_type.token.kind == TOKEN_VOID);
+			if (is_void) {
+				// Call the function
 				result = ir_emit(ctx, result_size, IR_CALL, called_reg, prev_param);
 			} else {
 				ASSERT(!"TODO");
@@ -548,14 +553,15 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_CAST:
 		{
+			ASSERT(!"TODO");
 #if 0
-			type_id cast_type_id = get_type_id(types, children[0]);
-			type_id expr_type_id = get_type_id(types, children[0]);
-			type *cast_type = get_type_data(types, cast_type_id);
-			type *expr_type = get_type_data(types, expr_type_id);
+			type_id cast_type_id = get_type_id(info, children[0]);
+			type_id expr_type_id = get_type_id(info, children[0]);
+			ast_node cast_type = get_type(pool, cast_type_id);
+			ast_node expr_type = get_type(pool, expr_type_id);
 			if (cast_type->kind != TYPE_VOID) {
-				isize cast_size = type_sizeof(cast_type_id, types);
-				isize expr_size = type_sizeof(expr_type_id, types);
+				isize cast_size = get_node_size(pool, cast_type_id);
+				isize expr_size = get_node_size(pool, expr_type_id);
 				result = translate_node(ctx, children[1], false);
 
 				if (expr_type_id.value != cast_type_id.value) {
@@ -581,20 +587,20 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_COMPOUND:
 		{
-			type_id node_type = get_type_id(types, node_id);
-			result = ir_emit_alloca(ctx, type_sizeof(node_type, types));
+			type_id node_type = get_type_id(info, node_id);
+			result = ir_emit_alloca(ctx, get_node_size(pool, node_type));
 			translate_initializer(ctx, children[1], result);
 		} break;
 	case AST_EXPR_IDENT:
 		{
 			// Global variables must be loaded as globals first
-			ast_id decl_id = ctx->info->at[node_id.value].id;
+			ast_id decl_id = ctx->info->at[node_id.value].ref;
 			result = translate_node(ctx, decl_id, true);
 
-			type_id type_id = get_type_id(types, node_id);
-			type *node_type = get_type_data(types, type_id);
-			if (!is_lvalue && !is_compound_type(node_type->kind)) {
-				isize size = type_sizeof(type_id, &ctx->info->types);
+			type_id type_id = get_type_id(info, node_id);
+			ast_node node_type = get_type(pool, type_id);
+			if (!is_lvalue && !is_compound_type(node_type.kind)) {
+				isize size = get_node_size(pool, type_id);
 				result = ir_emit1(ctx, size, IR_LOAD, result);
 			}
 
@@ -690,24 +696,28 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_MEMBER:
 	case AST_EXPR_MEMBER_PTR:
 		{
-			type_id operand_type = get_type_id(types, children[0]);
+			type_id operand_type = get_type_id(info, children[0]);
 			if (node.kind == AST_EXPR_MEMBER_PTR) {
-				operand_type = get_type_data(types, operand_type)->base_type;
+				ast_id base_type = get_type(pool, operand_type).children;
+				operand_type.value = base_type.value;
 			}
 
-			u32 offset = type_offsetof(operand_type, node.token.value, types);
+			// TODO: Combine these two functions or add info to this expression.
+			ast_id member_id = get_member(pool, operand_type, node.token.value);
+			u32 offset = get_member_offset(pool, operand_type, member_id);
+
 			u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
 			b32 base_is_lvalue = (node.kind == AST_EXPR_MEMBER_PTR);
 			u32 base_reg = translate_node(ctx, children[0], base_is_lvalue);
 			result = ir_emit2(ctx, 8, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
-				type_id type_id = get_type_id(types, node_id);
-				type *node_type = get_type_data(types, type_id);
-				if (!is_compound_type(node_type->kind)) {
-					isize size = type_sizeof(type_id, &ctx->info->types);
+				type_id type_id = get_type_id(info, node_id);
+				ast_node node_type = get_type(pool, type_id);
+				if (!is_compound_type(node_type.kind)) {
+					isize size = get_node_size(pool, type_id);
 					result = ir_emit1(ctx, size, IR_LOAD, result);
 				} else {
-					isize size = type_sizeof(type_id, types);
+					isize size = get_node_size(pool, type_id);
 					u32 tmp = ir_emit_alloca(ctx, size);
 					ir_memcpy(ctx, tmp, result, size);
 					result = tmp;
@@ -728,8 +738,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 						opcode = IR_SUB;
 					}
 
-					type_id type_id = get_type_id(types, node_id);
-					isize size = type_sizeof(type_id, &ctx->info->types);
+					type_id type_id = get_type_id(info, node_id);
+					isize size = get_node_size(pool, type_id);
 					u32 addr = translate_node(ctx, children[0], true);
 					result = ir_emit1(ctx, size, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
@@ -759,12 +769,12 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ast_id cond = children[0];
 			u32 cond_reg = translate_node(ctx, cond, false);
 
-			type_id type_id = get_type_id(types, node_id);
-			type *node_type = get_type_data(types, type_id);
-			if (is_compound_type(node_type->kind)) {
-				result = ir_emit_alloca(ctx, type_sizeof(type_id, types));
+			type_id type_id = get_type_id(info, node_id);
+			ast_node node_type = get_type(pool, type_id);
+			if (is_compound_type(node_type.kind)) {
+				result = ir_emit_alloca(ctx, get_node_size(pool, type_id));
 			} else {
-				isize size = type_sizeof(type_id, &ctx->info->types);
+				isize size = get_node_size(pool, type_id);
 				result = ir_emit0(ctx, size, IR_VAR);
 			}
 
@@ -784,8 +794,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_UNARY:
 		{
-			type_id type_id = get_type_id(types, node_id);
-			type *node_type = get_type_data(types, type_id);
+			type_id type_id = get_type_id(info, node_id);
+			ast_node node_type = get_type(pool, type_id);
 			token_kind operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_AMP:
@@ -803,14 +813,14 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				} break;
 			case TOKEN_MINUS:
 				{
-					isize size = type_sizeof(type_id, &ctx->info->types);
+					isize size = get_node_size(pool, type_id);
 					u32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, children[0], false);
 					result = ir_emit2(ctx, size, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
-					isize size = type_sizeof(type_id, &ctx->info->types);
+					isize size = get_node_size(pool, type_id);
 					u32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, children[0], false);
 					result = ir_emit2(ctx, size, IR_EQ, result, zero);
@@ -818,7 +828,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, children[0], false);
-					if (!is_lvalue && node_type->kind != TYPE_FUNCTION) {
+					if (!is_lvalue && node_type.kind != AST_TYPE_FUNC) {
 						result = ir_load(ctx, result, type_id);
 					}
 				} break;
@@ -830,7 +840,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 						opcode = IR_SUB;
 					}
 
-					isize size = type_sizeof(type_id, &ctx->info->types);
+					isize size = get_node_size(pool, type_id);
 					u32 addr = translate_node(ctx, children[0], true);
 					u32 value = ir_emit1(ctx, size, IR_LOAD, addr);
 					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
@@ -931,7 +941,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_opcode opcode = IR_LABEL;
 
 			if (node.kind == AST_STMT_GOTO) {
-				label_id = ctx->info->at[node_id.value].id;
+				label_id = ctx->info->at[node_id.value].ref;
 				opcode = IR_JMP;
 			}
 
@@ -971,11 +981,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			isize size = 0;
 			if (children[0].value != 0) {
 				value = translate_node(ctx, children[0], false);
-				type_id value_type_id = get_type_id(types, children[0]);
-				type *value_type = get_type_data(types, value_type_id);
-				returns_struct = is_compound_type(value_type->kind);
-				struct_size = type_sizeof(value_type_id, types);
-				size = type_sizeof(value_type_id, &ctx->info->types);
+				type_id value_type_id = get_type_id(info, children[0]);
+				ast_node value_type = get_type(pool, value_type_id);
+				returns_struct = is_compound_type(value_type.kind);
+				struct_size = get_node_size(pool, value_type_id);
+				size = get_node_size(pool, value_type_id);
 			}
 
 			if (returns_struct) {
@@ -993,7 +1003,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			u32 switch_reg = translate_node(&new_ctx, children[0], false);
 			new_ctx.break_label = new_label(&new_ctx);
 
-			ast_id case_id = ctx->info->at[node_id.value].id;
+			ast_id case_id = ctx->info->at[node_id.value].ref;
 			ast_id default_id = {0};
 			while (case_id.value != 0) {
 				u32 label = new_label(&new_ctx);
@@ -1008,7 +1018,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					default_id = case_id;
 				}
 
-				case_id = new_ctx.info->at[case_id.value].id;
+				case_id = new_ctx.info->at[case_id.value].ref;
 			}
 
 			if (default_id.value != 0) {

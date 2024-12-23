@@ -1,12 +1,3 @@
-typedef struct {
-	i32 value;
-} info_id;
-
-typedef enum {
-	INFO_NONE,
-	INFO_COUNT
-} info_kind;
-
 typedef struct label_info label_info;
 struct label_info {
 	label_info *next;
@@ -14,68 +5,17 @@ struct label_info {
 	str name;
 };
 
-typedef enum {
-	TYPE_UNKNOWN,
-	TYPE_VOID,
-
-	// integer types
-	TYPE_CHAR,
-	TYPE_CHAR_UNSIGNED,
-	TYPE_SHORT,
-	TYPE_SHORT_UNSIGNED,
-	TYPE_INT,
-	TYPE_INT_UNSIGNED,
-	TYPE_LONG,
-	TYPE_LONG_UNSIGNED,
-	TYPE_LLONG,
-	TYPE_LLONG_UNSIGNED,
-
-	// float types
-	TYPE_FLOAT,
-	TYPE_DOUBLE,
-
-	// compound types
-	TYPE_ARRAY,
-	TYPE_BITFIELD,
-	TYPE_FUNCTION,
-	TYPE_POINTER,
-	TYPE_STRUCT,
-	TYPE_UNION,
-	TYPE_OPAQUE,
-	TYPE_BUILTIN_VA_LIST,
-
-	TYPE_UNSIGNED = 1,
-} type_kind;
-
-typedef struct member member;
-struct member {
-	member *next;
-	str name;
-	type_id type;
-};
-
-typedef struct {
-	type_kind kind;
-	type_id base_type;
-	member *members;
-	i64 size;
-} type;
-
-typedef struct {
-	type_id *at;
-	type *data;
-	isize size;
-	isize cap;
-} type_pool;
-
 typedef union {
-	ast_id id;
+	// Reference to another node, for switch statements and identifiers
+	ast_id ref;
+	// Reference to another node, which represents the type of this node.
+	// Usually for expressions.
+	type_id type;
 	i64 i;
 	f64 f;
 } ast_info;
 
 typedef struct {
-	type_pool types;
 	ast_info *at;
 } semantic_info;
 
@@ -88,237 +28,165 @@ typedef struct {
 	ast_pool *ast;
 	ast_map *map;
 	arena *arena;
-	type_pool *types;
 	semantic_info *info;
 	ast_id switch_id;
 	label_info *labels;
 } semantic_context;
 
-static type *
-get_type_data(type_pool *p, type_id id)
-{
-	if (0 < id.value) {
-		return p->data + id.value;
-	}
-
-	ASSERT(!"ID is out of bounds");
-	return NULL;
-}
-
-static type_id
-get_type_id(type_pool *p, ast_id id)
-{
-	type_id result = {0};
-
-	if (0 < id.value) {
-		result = p->at[id.value];
-	} else {
-		ASSERT(!"ID is out of bounds");
-	}
-
-	return result;
-}
-
-static void
-set_type(type_pool *p, ast_id id, type_id type)
-{
-	p->at[id.value] = type;
-}
-
-static char *
-type_get_name(type_kind type)
-{
-	switch (type) {
-	case TYPE_VOID:           return "void";
-	case TYPE_CHAR:           return "char";
-	case TYPE_CHAR_UNSIGNED:  return "unsigned char";
-	case TYPE_SHORT:          return "short";
-	case TYPE_SHORT_UNSIGNED: return "unsigned short";
-	case TYPE_INT:            return "int";
-	case TYPE_INT_UNSIGNED:   return "unsigned int";
-	case TYPE_LONG:           return "long";
-	case TYPE_LONG_UNSIGNED:  return "unsigned long";
-	case TYPE_LLONG:          return "long long";
-	case TYPE_LLONG_UNSIGNED: return "unsigned long long";
-	case TYPE_FLOAT:          return "float";
-	case TYPE_DOUBLE:         return "double";
-	case TYPE_FUNCTION:       return "(function)";
-	case TYPE_ARRAY:          return "(array)";
-	case TYPE_POINTER:        return "(pointer)";
-	case TYPE_STRUCT:         return "(struct)";
-	case TYPE_UNION:          return "(union)";
-	case TYPE_BITFIELD:       return "(bitfield)";
-	case TYPE_UNKNOWN:        return "(unknown)";
-	case TYPE_OPAQUE:         return "(opaque)";
-	case TYPE_BUILTIN_VA_LIST: return "va_list";
-	}
-
-	ASSERT(!"Invalid type");
-	return "(invalid)";
-}
-
-static type *
-type_create(type_kind kind, arena *arena)
-{
-	type *t = ALLOC(arena, 1, type);
-	t->kind = kind;
-	return t;
-}
-
-
-static b32 is_compound_type(type_kind kind)
+static b32
+is_type(ast_node_kind kind)
 {
 	switch (kind) {
-	case TYPE_STRUCT:
-	case TYPE_UNION:
-	case TYPE_OPAQUE:
+	case AST_TYPE_BASIC:
+	case AST_TYPE_ARRAY:
+	case AST_TYPE_BITFIELD:
+	case AST_TYPE_ENUM:
+	case AST_TYPE_FUNC:
+	case AST_TYPE_IDENT:
+	case AST_TYPE_POINTER:
+	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
 		return true;
 	default:
 		return false;
 	}
 }
 
-static isize type_alignof(type_id type_id, type_pool *pool);
-
-static isize
-type_sizeof(type_id type_id, type_pool *pool)
+static b32
+is_integer(token_kind kind)
 {
-	ASSERT(type_id.value != 0);
-
-	type *type = get_type_data(pool, type_id);
-	switch (type->kind) {
-	case TYPE_BUILTIN_VA_LIST:
-		// TODO
-		return 8;
-	case TYPE_CHAR:
-	case TYPE_CHAR_UNSIGNED:
-		return 1;
-	case TYPE_SHORT:
-	case TYPE_SHORT_UNSIGNED:
-		return 2;
-	case TYPE_INT:
-	case TYPE_INT_UNSIGNED:
-	case TYPE_FLOAT:
-		return 4;
-	case TYPE_DOUBLE:
-	case TYPE_POINTER:
-	case TYPE_LONG:
-	case TYPE_LONG_UNSIGNED:
-	case TYPE_LLONG:
-	case TYPE_LLONG_UNSIGNED:
-		return 8;
-	case TYPE_VOID:
-	case TYPE_FUNCTION:
-	case TYPE_UNKNOWN:
-		ASSERT(!"Type does not have a size");
-		return 0;
-	case TYPE_BITFIELD:
-		// TODO: Implement bitfield size
-		return 8;
-	case TYPE_ARRAY:
-		{
-			isize target_size = type_sizeof(type->base_type, pool);
-			return type->size * target_size;
-		} break;
-	case TYPE_UNION:
-		{
-			isize size = 0;
-
-			for (member *s = type->members; s; s = s->next) {
-				isize member_size = type_sizeof(s->type, pool);
-				size = MAX(size, member_size);
-			}
-
-			return size;
-		} break;
-	case TYPE_STRUCT:
-		{
-			usize size = 0;
-			for (member *s = type->members; s; s = s->next) {
-				u32 align = type_alignof(s->type, pool);
-				size = (size + align - 1) & ~(align - 1);
-				size += type_sizeof(s->type, pool);
-			}
-			return size;
-		} break;
-	case TYPE_OPAQUE:
-		{
-			if (type->base_type.value != 0) {
-				return type_sizeof(type->base_type, pool);
-			}
-		} break;
+	switch (kind) {
+	case TOKEN_INT:
+	case TOKEN_LONG:
+	case TOKEN_SHORT:
+	case TOKEN_UNSIGNED:
+	case TOKEN_ENUM:
+		return true;
+	default:
+		return false;
 	}
-
-	return 0;
 }
 
-static isize
-type_alignof(type_id type_id, type_pool *pool)
+static b32
+is_pointer(ast_node_kind kind)
 {
-	usize result = 0;
-	type *type = get_type_data(pool, type_id);
+	b32 result = (kind == AST_TYPE_POINTER || kind == AST_TYPE_ARRAY);
+	return result;
+}
 
-	// TODO: proper alignment for structs and arrays
-	if (type->kind == TYPE_ARRAY) {
-		result = 16;
-	} else if (type->kind == TYPE_STRUCT || type->kind == TYPE_UNION) {
-		for (member *s = type->members; s; s = s->next) {
-			u32 align = type_alignof(s->type, pool);
-			result = MAX(result, align);
+static b32 is_compound_type(ast_node_kind kind)
+{
+	b32 result = (kind == AST_TYPE_STRUCT || kind == AST_TYPE_UNION);
+	return result;
+}
+
+static isize get_node_alignment(ast_pool *p, type_id type);
+
+static type_id
+get_type_id(semantic_info *info, ast_id id)
+{
+	type_id result = info->at[id.value].type;
+	return result;
+}
+
+static ast_node
+get_type(ast_pool *p, type_id id)
+{
+	ast_id tmp = {id.value};
+	ast_node result = get_node(p, tmp);
+	return result;
+}
+
+static void
+set_type(semantic_info *info, ast_id node_id, type_id type)
+{
+	info->at[node_id.value].type = type;
+}
+
+static ast_id
+get_member(ast_pool *p, type_id type, str member)
+{
+	ast_id result = get_type(p, type).children;
+	while (result.value != 0) {
+		ast_node child = get_node(p, result);
+		if (equals(child.token.value, member)) {
+			break;
 		}
-	} else {
-		result = type_sizeof(type_id, pool);
 	}
 
 	return result;
 }
 
 static isize
-type_offsetof(type_id type_id, str member_name, type_pool *pool)
+get_node_size(ast_pool *p, type_id node_id)
 {
-	isize offset = 0;
-	type *type = get_type_data(pool, type_id);
+	ASSERT(node_id.value != 0);
 
-	ASSERT(type != NULL);
-	if (type->kind == TYPE_UNION) {
-		b32 found = false;
-
-		for (member *s = type->members; !found && s; s = s->next) {
-			if (equals(member_name, s->name)) {
-				found = true;
+	ast_node node = get_type(p, node_id);
+	switch (node.kind) {
+	case AST_TYPE_BASIC:
+		switch (node.token.kind) {
+		case TOKEN_INT:
+			if (node.flags & AST_LLONG) {
+				return 8;
+			} else if (node.flags & AST_LONG) {
+				return 8;
+			} else if (node.flags & AST_SHORT) {
+				return 2;
+			} else {
+				return 4;
 			}
+		case TOKEN_CHAR:
+			return 1;
+		case TOKEN_FLOAT:
+			return 4;
+		case TOKEN_DOUBLE:
+			// TODO: sizeof long double
+			return 8;
+		default:
+			ASSERT(!"Invalid type");
+			return 0;
 		}
 
-		ASSERT(found);
-	} else if (type->kind == TYPE_STRUCT) {
-		// TODO: member could be in an unnamed struct
-		for (member *s = type->members; s; s = s->next) {
-			u32 align = type_alignof(s->type, pool);
-			offset = (offset + align - 1) & ~(align - 1);
-			if (equals(member_name, s->name)) {
+		break;
+	default:
+		ASSERT(!"Invalid type");
+		return 0;
+	}
+}
+
+static isize
+get_node_alignment(ast_pool *p, type_id type)
+{
+	// TODO: Fix this function
+	isize result = get_node_size(p, type);
+	if (result > 16) {
+		result = 16;
+	}
+
+	return result;
+}
+
+static isize
+get_member_offset(ast_pool *p, type_id type, ast_id member)
+{
+	isize result = 0;
+
+	ast_node type_node = get_type(p, type);
+	if (is_compound_type(type_node.kind)) {
+		ast_id child = type_node.children;
+		while (child.value != 0) {
+			type_id child_type = {child.value};
+			isize align = get_node_alignment(p, child_type);
+			result = (result + align - 1) & ~(result - 1);
+			if (child.value == member.value) {
 				break;
 			}
 
-			offset += type_sizeof(s->type, pool);
-		}
-	} else if (type->kind == TYPE_OPAQUE && type->base_type.value != 0) {
-		offset = type_offsetof(type->base_type, member_name, pool);
-	} else {
-		// TODO: report error
-		ASSERT(!"Type must be struct or union");
-	}
-
-	return offset;
-}
-
-static member *
-get_member(member *list, str key)
-{
-	for (member *m = list; m; m = m->next) {
-		if (equals(m->name, key)) {
-			return m;
+			result += get_node_size(p, child_type);
+			child = get_node(p, child).next;
 		}
 	}
 
-	return NULL;
+	return result;
 }
