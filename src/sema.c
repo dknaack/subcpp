@@ -559,7 +559,10 @@ check_node(semantic_context ctx, ast_id node_id)
 #endif
 			}
 
-			ast_id param_id = called_type.children;
+			ast_id return_type_id = called_type.children;
+			ast_node return_type = get_node(pool, called_type.children);
+
+			ast_id param_id = return_type.next;
 			ast_id child_id = children[1];
 			while (param_id.value != 0 && child_id.value != 0) {
 				type_id child_type = check_node(ctx, child_id);
@@ -588,8 +591,7 @@ check_node(semantic_context ctx, ast_id node_id)
 			}
 #endif
 
-			type_id return_type = get_type_id(info, called_type.children);
-			node_type = return_type;
+			node_type.value = return_type_id.value;
 		} break;
 	case AST_EXPR_CAST:
 		{
