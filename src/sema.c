@@ -769,12 +769,22 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_BASIC:
 	case AST_TYPE_BITFIELD:
-	case AST_TYPE_FUNC:
 	case AST_TYPE_IDENT:
 	case AST_TYPE_POINTER:
+		{
+			ast_id intern_id = intern_node(ctx, node, node_id);
+			node_type.value = intern_id.value;
+		} break;
+	case AST_TYPE_FUNC:
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_UNION:
 		{
+			ast_id child_id = node.children;
+			while (child_id.value != 0) {
+				check_node(ctx, child_id);
+				child_id = get_node(pool, child_id).next;
+			}
+
 			ast_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
