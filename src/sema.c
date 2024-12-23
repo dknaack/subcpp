@@ -621,6 +621,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_LITERAL:
 		{
 			ast_node tmp = {0};
+			tmp.kind = AST_TYPE_BASIC;
 			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
 				tmp.token.kind = TOKEN_INT;
