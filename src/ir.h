@@ -165,6 +165,7 @@ typedef struct {
 
 typedef struct {
 	arena *arena;
+	ast_pool *ast;
 	u32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
