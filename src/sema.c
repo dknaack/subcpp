@@ -327,7 +327,6 @@ check_node(semantic_context ctx, ast_id node_id)
 {
 	semantic_info *info = ctx.info;
 	ast_pool *pool = ctx.ast;
-	arena *arena = ctx.arena;
 
 	if (pool->error) {
 		type_id nil = {0};
