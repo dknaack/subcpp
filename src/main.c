@@ -8,7 +8,7 @@
 
 #include "lex.c"
 #include "parse.c"
-#include "check.c"
+#include "sema.c"
 #include "ir.c"
 #include "optimize.c"
 #include "debug.c"

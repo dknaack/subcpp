@@ -53,7 +53,7 @@ typedef struct {
 #include "util.h"
 #include "lex.h"
 #include "parse.h"
-#include "check.h"
+#include "sema.h"
 #include "ir.h"
 #include "codegen.h"
 #include "regalloc.h"
