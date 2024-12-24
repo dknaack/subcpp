@@ -540,16 +540,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				param_id = param_node.next;
 			}
 
-			type_id type_id = get_type_id(info, node_id);
-			ast_node node_type = get_type(pool, type_id);
-
-			b32 is_void = (node_type.kind == AST_TYPE_BASIC && node_type.token.kind == TOKEN_VOID);
-			if (is_void) {
-				// Call the function
-				result = ir_emit(ctx, result_size, IR_CALL, called_reg, prev_param);
-			} else {
-				ASSERT(!"TODO");
-			}
+			result = ir_emit(ctx, result_size, IR_CALL, called_reg, prev_param);
 		} break;
 	case AST_EXPR_CAST:
 		{
