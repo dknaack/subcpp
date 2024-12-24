@@ -157,6 +157,9 @@ get_node_size(ast_pool *p, type_id node_id)
 		}
 
 		break;
+	case AST_TYPE_POINTER:
+	case AST_TYPE_FUNC:
+		return 8;
 	default:
 		ASSERT(!"Invalid type");
 		return 0;
