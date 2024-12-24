@@ -86,6 +86,14 @@ static type_id
 get_type_id(semantic_info *info, ast_id id)
 {
 	type_id result = info->at[id.value].type;
+
+	// Identifiers do not point to their type, which is why we first extract
+	// the declaration. The declaration then points to the type of the
+	// identifier.
+	if (result.value != info->at[result.value].type.value) {
+		result = info->at[result.value].type;
+	}
+
 	return result;
 }
 

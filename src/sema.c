@@ -820,7 +820,8 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	}
 
-	if (node_type.value != 0) {
+	// Identifiers should reference their declaration, not their type
+	if (node.kind != AST_EXPR_IDENT && node_type.value != 0) {
 		info->at[node_id.value].type = node_type;
 	}
 
