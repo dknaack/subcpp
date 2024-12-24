@@ -54,8 +54,7 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 		hash(&h, node.token.value.at, node.token.value.length);
 		break;
 	case AST_TYPE_BASIC:
-		is_ident = true;
-		hash(&h, node.token.value.at, node.token.value.length);
+		hash(&h, &node.token.kind, sizeof(node.token.kind));
 		break;
 	default:
 		ASSERT(!"Invalid node for interning");
