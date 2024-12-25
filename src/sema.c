@@ -751,9 +751,6 @@ check_node(semantic_context ctx, ast_id node_id)
 				if (is_definition && intern_children[1].value != 0) {
 					errorf(node.token.loc, "Variables was previously defined");
 				}
-
-				// Store definitions over declarations
-				ASSERT(!"TODO: Overwrite declarations with their definitions");
 			}
 
 			if (is_definition) {
