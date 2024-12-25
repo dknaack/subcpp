@@ -12,7 +12,7 @@ typedef enum {
 	AST_EXPR_CALL,       // {expr, expr*}
 	AST_EXPR_CAST,       // {type, expr}
 	AST_EXPR_COMPOUND,   // {type, (expr|init)*}
-	AST_EXPR_IDENT,      // {decl} IMPORTANT: Can be cyclic!
+	AST_EXPR_IDENT,      // {}
 	AST_EXPR_LITERAL,    // {}
 	AST_EXPR_MEMBER,     // {expr}
 	AST_EXPR_MEMBER_PTR, // {expr}
@@ -27,7 +27,7 @@ typedef enum {
 	AST_STMT_CASE,       // {expr, stmt}
 	AST_STMT_COMPOUND,   // {stmt*}
 	AST_STMT_CONTINUE,   // {}
-	AST_STMT_DECL,
+	AST_STMT_DECL,       // {decl+}
 	AST_STMT_DEFAULT,    // {stmt}
 	AST_STMT_DO_WHILE,   // {expr, stmt}
 	AST_STMT_FOR,        // {(expr|decl)?, expr?, expr?, stmt}
