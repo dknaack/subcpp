@@ -149,9 +149,43 @@ parse_f64(str input)
 static char
 parse_char(str input)
 {
-	char result = 0;
-	(void)input;
-	return result;
+	if (input.length > 0) {
+		input.at++;
+	}
+
+	if (input.length > 0 && input.at[input.length - 1] == '\'') {
+		input.length--;
+	}
+
+	if (input.length > 1 && input.at[0] == '\\') {
+		switch (input.at[1]) {
+		case 'f':
+			return 0x0C;
+		case 'n':
+			return 0x0A;
+		case 'r':
+			return 0x0D;
+		case 't':
+			return 0x09;
+		case 'v':
+			return 0x0B;
+		case '\'':
+			return 0x27;
+		case '\\':
+			return 0x5C;
+		case '0':
+			return 0;
+		case 'x':
+			ASSERT(!"TODO");
+			return '\0';
+		default:
+			ASSERT(!"Invalid escape sequence");
+		}
+	} else if (input.length > 0) {
+		return input.at[0];
+	}
+
+	return 0;
 }
 
 static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
