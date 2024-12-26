@@ -198,19 +198,6 @@ are_compatible(semantic_context ctx, type_id lhs_id, type_id rhs_id)
 	}
 }
 
-static linkage
-get_linkage(ast_node_flags flags)
-{
-	linkage result = LINK_DEFAULT;
-	if (flags & AST_EXTERN) {
-		result = LINK_EXTERN;
-	} else if (flags & AST_STATIC) {
-		result = LINK_STATIC;
-	}
-
-	return result;
-}
-
 static i64
 parse_i64(str input)
 {

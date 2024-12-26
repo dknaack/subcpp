@@ -188,6 +188,19 @@ parse_char(str input)
 	return 0;
 }
 
+static linkage
+get_linkage(ast_node_flags flags)
+{
+	linkage result = LINK_DEFAULT;
+	if (flags & AST_EXTERN) {
+		result = LINK_EXTERN;
+	} else if (flags & AST_STATIC) {
+		result = LINK_STATIC;
+	}
+
+	return result;
+}
+
 static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
