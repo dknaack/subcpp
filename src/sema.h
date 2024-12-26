@@ -20,7 +20,13 @@ typedef struct {
 } semantic_info;
 
 typedef struct {
-	ast_id *at;
+	ast_id node_id;
+	i32 scope;
+	i32 scope_depth;
+} ast_map_entry;
+
+typedef struct {
+	ast_map_entry *at;
 	isize size;
 } ast_map;
 
@@ -31,6 +37,9 @@ typedef struct {
 	semantic_info *info;
 	ast_id switch_id;
 	label_info *labels;
+
+	i32 *scope;
+	i32 scope_depth;
 } semantic_context;
 
 static b32

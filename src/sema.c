@@ -61,24 +61,37 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 		return ast_nil;
 	}
 
+	isize dead_index = -1;
 	for (isize j = 0; j < map->size; j++) {
 		// TODO: Use power of two size for hash map
 		isize i = (h + j) % map->size;
-		ast_id intern_id = map->at[i];
+		ast_map_entry entry = map->at[i];
 
-		b32 is_empty = (intern_id.value == 0);
+		b32 is_tombstone = (entry.scope_depth > ctx.scope_depth || ctx.scope[entry.scope_depth - 1] > entry.scope);
+		if ((is_ident || is_tag) && is_tombstone) {
+			dead_index = i;
+			continue;
+		}
+
+		b32 is_empty = (entry.node_id.value == 0);
 		if (is_empty) {
 			if (node_id.value == 0) {
 				node_id = new_node_with_flags(pool, node.kind, node.flags,
 					node.token, node.children);
 			}
 
-			map->at[i] = node_id;
+			if (dead_index >= 0) {
+				i = dead_index;
+			}
+
+			map->at[i].node_id = node_id;
+			map->at[i].scope = ctx.scope[ctx.scope_depth - 1];
+			map->at[i].scope_depth = ctx.scope_depth;
 			break;
 		}
 
 		b32 are_equal = false;
-		ast_node intern_node = get_node(pool, intern_id);
+		ast_node intern_node = get_node(pool, entry.node_id);
 		if (is_ident) {
 			are_equal = (node.token.kind == intern_node.token.kind
 				&& equals(node.token.value, intern_node.token.value));
@@ -113,7 +126,7 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 		}
 
 		if (are_equal) {
-			node_id = map->at[i];
+			node_id = map->at[i].node_id;
 			break;
 		}
 	}
@@ -372,6 +385,8 @@ check_node(semantic_context ctx, ast_id node_id)
 		} break;
 	case AST_STMT_COMPOUND:
 		{
+			ctx.scope[ctx.scope_depth++]++;
+
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
@@ -762,6 +777,8 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_UNION:
 		{
+			ctx.scope[ctx.scope_depth++]++;
+
 			ast_id child_id = node.children;
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
@@ -855,21 +872,49 @@ get_labels(ast_id node_id, ast_pool *pool, semantic_info info, label_info *label
 	return result;
 }
 
+static isize
+get_max_depth(ast_pool *pool, ast_id node_id)
+{
+	isize result = 0;
+
+	if (node_id.value != 0) {
+		ast_id child_id = get_node(pool, node_id).children;
+		while (child_id.value != 0) {
+			isize depth = get_max_depth(pool, child_id);
+			if (depth > result) {
+				result = depth;
+			}
+
+			child_id = get_node(pool, child_id).next;
+		}
+
+		result += 1;
+	}
+
+	return result;
+}
+
 static semantic_info
 check(ast_pool *pool, arena *perm)
 {
 	semantic_info info = {0};
 	info.at = ALLOC(perm, pool->size, ast_info);
 
+	arena_temp temp = arena_temp_begin(perm);
+
 	ast_map map = {0};
 	map.size = pool->size * 2;
-	map.at = ALLOC(perm, map.size, ast_id);
+	map.at = ALLOC(perm, map.size, ast_map_entry);
+
+	isize max_depth = get_max_depth(pool, pool->root);
 
 	semantic_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.info = &info;
 	ctx.map = &map;
+	ctx.scope = ALLOC(perm, max_depth, i32);
+	ctx.scope_depth = 1;
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {
@@ -888,5 +933,6 @@ check(ast_pool *pool, arena *perm)
 		node_id = get_node(pool, node_id).next;
 	}
 
+	arena_temp_end(temp);
 	return info;
 }
