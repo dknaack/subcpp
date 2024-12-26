@@ -25,12 +25,11 @@ typedef enum {
 
 	// integer operators
 	IR_ADD,
+	IR_SUB,
+	IR_MUL,
 	IR_DIV,
 	IR_MOD,
-	IR_MUL,
-	IR_SUB,
 
-	// comparison operators
 	IR_EQ,
 	IR_GT,
 	IR_GE,
@@ -41,7 +40,6 @@ typedef enum {
 	IR_LTU,
 	IR_LEU,
 
-	// bitwise operators
 	IR_AND,
 	IR_NOT,
 	IR_OR,
@@ -49,7 +47,6 @@ typedef enum {
 	IR_SHR,
 	IR_XOR,
 
-	// conversion operators
 	IR_CVT,
 	IR_SEXT,
 	IR_TRUNC,
