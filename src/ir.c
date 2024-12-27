@@ -648,13 +648,19 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_IDENT:
 		{
-			// Global variables must be loaded as globals first
 			ast_id decl_id = ctx->info->at[node_id.value].ref;
 			result = ctx->node_addr[decl_id.value];
-			ASSERT(result != 0);
 
 			type_id type_id = get_type_id(info, node_id);
+			isize size = get_node_size(pool, type_id);
 			ast_node node_type = get_type(pool, type_id);
+
+			// Global variables must be loaded as globals first
+			ast_node decl = get_node(pool, decl_id);
+			if (decl.kind == AST_EXTERN_DEF) {
+				result = ir_emit1(ctx, size, IR_GLOBAL, result);
+			}
+
 			if (!is_lvalue && !is_compound_type(node_type.kind)) {
 				isize size = get_node_size(pool, type_id);
 				result = ir_emit1(ctx, size, IR_LOAD, result);
