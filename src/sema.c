@@ -112,7 +112,8 @@ static ast_id
 intern_node(sema_context ctx, ast_node node, ast_id node_id)
 {
 	ast_pool *pool = ctx.ast;
-	ast_map *map = ctx.map;
+	scope scope = ctx.scope;
+
 	ast_id child_id = node.children;
 	b32 is_ident = false;
 	b32 is_tag = false;
@@ -181,12 +182,12 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 	}
 
 	isize dead_index = -1;
-	for (isize j = 0; j < map->size; j++) {
-		// TODO: Use power of two size for hash map
-		isize i = (h + j) % map->size;
-		ast_map_entry entry = map->at[i];
+	for (isize j = 0; j < scope.max_size; j++) {
+		// TODO: Use power of two size for hash scope
+		isize i = (h + j) % scope.max_size;
+		scope_entry entry = scope.at[i];
 
-		b32 is_tombstone = (entry.scope_depth > ctx.scope_depth || ctx.scope[entry.scope_depth - 1] > entry.scope);
+		b32 is_tombstone = (entry.depth > scope.depth || scope.ages[entry.depth - 1] > entry.age);
 		if ((is_ident || is_tag) && is_tombstone) {
 			dead_index = i;
 			continue;
@@ -195,17 +196,18 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 		b32 is_empty = (entry.node_id.value == 0);
 		if (is_empty) {
 			if (node_id.value == 0) {
-				node_id = new_node_with_flags(pool, node.kind, node.flags,
-					node.token, node.children);
+				node_id = new_node_with_flags(pool,
+					node.kind, node.flags, node.token, node.children);
 			}
 
 			if (dead_index >= 0) {
 				i = dead_index;
 			}
 
-			map->at[i].node_id = node_id;
-			map->at[i].scope = ctx.scope[ctx.scope_depth - 1];
-			map->at[i].scope_depth = ctx.scope_depth;
+			scope.size++;
+			scope.at[i].node_id = node_id;
+			scope.at[i].age = scope.ages[scope.depth - 1];
+			scope.at[i].depth = scope.depth;
 			break;
 		}
 
@@ -245,7 +247,7 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 		}
 
 		if (are_equal) {
-			node_id = map->at[i].node_id;
+			node_id = scope.at[i].node_id;
 			break;
 		}
 	}
@@ -390,7 +392,7 @@ check_node(sema_context ctx, ast_id node_id)
 		} break;
 	case AST_STMT_COMPOUND:
 		{
-			ctx.scope[ctx.scope_depth++]++;
+			ctx.scope.ages[ctx.scope.depth++]++;
 
 			ast_id child_id = children[0];
 			while (child_id.value != 0) {
@@ -774,7 +776,7 @@ check_node(sema_context ctx, ast_id node_id)
 				if (type.kind == AST_TYPE_FUNC) {
 					// Trick to restore the previous scope, which was
 					// introduced by checking the function type.
-					ctx.scope[ctx.scope_depth++]--;
+					ctx.scope.ages[ctx.scope.depth++]--;
 				}
 
 				check_node(ctx, children[1]);
@@ -797,7 +799,7 @@ check_node(sema_context ctx, ast_id node_id)
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_UNION:
 		{
-			ctx.scope[ctx.scope_depth++]++;
+			ctx.scope.ages[ctx.scope.depth++]++;
 
 			ast_id child_id = node.children;
 			while (child_id.value != 0) {
@@ -918,19 +920,14 @@ static void
 check(ast_pool *pool, arena *perm)
 {
 	arena_temp temp = arena_temp_begin(perm);
-
-	ast_map map = {0};
-	map.size = pool->size * 2;
-	map.at = ALLOC(perm, map.size, ast_map_entry);
-
-	isize max_depth = get_max_depth(pool, pool->root);
-
 	sema_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
-	ctx.map = &map;
-	ctx.scope = ALLOC(perm, max_depth, i32);
-	ctx.scope_depth = 1;
+	ctx.scope.depth = 1;
+	ctx.scope.max_size = 2 * pool->size;
+	ctx.scope.max_depth = get_max_depth(pool, pool->root);
+	ctx.scope.at = ALLOC(perm, ctx.scope.max_size, scope_entry);
+	ctx.scope.ages = ALLOC(perm, ctx.scope.max_depth, i32);
 
 	ast_id node_id = pool->root;
 	while (node_id.value != 0) {

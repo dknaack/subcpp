@@ -7,24 +7,23 @@ struct label_info {
 
 typedef struct {
 	ast_id node_id;
-	i32 scope;
-	i32 scope_depth;
-} ast_map_entry;
+	i32 depth;
+	i32 age;
+} scope_entry;
 
 typedef struct {
-	ast_map_entry *at;
-	isize size;
-} ast_map;
+	scope_entry *at;
+	i32 *ages;
+	i32 depth, max_depth;
+	i32 size, max_size;
+} scope;
 
 typedef struct {
 	ast_pool *ast;
-	ast_map *map;
 	arena *arena;
 	ast_id switch_id;
+	scope scope;
 	label_info *labels;
-
-	i32 *scope;
-	i32 scope_depth;
 } sema_context;
 
 static b32
