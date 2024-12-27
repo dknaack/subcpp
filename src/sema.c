@@ -737,7 +737,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_DECL:
 	case AST_EXTERN_DEF:
 		{
-			b32 is_definition = (children[1].value != 0);
+			b32 has_definition = (children[1].value != 0);
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
@@ -747,15 +747,22 @@ check_node(semantic_context ctx, ast_id node_id)
 				// compatible with the current declaration.
 				ast_id intern_children[2];
 				get_children(pool, intern_id, intern_children, 2);
-				if (is_definition && intern_children[1].value != 0) {
+				if (has_definition && intern_children[1].value != 0) {
 					errorf(node.token.loc, "Variables was previously defined");
 				}
 			}
 
-			if (is_definition) {
+			if (has_definition) {
 				ast_node init = get_node(pool, children[1]);
 				if (init.kind == AST_INIT) {
 					set_type(info, children[1], node_type);
+				}
+
+				ast_node type = get_node(pool, children[0]);
+				if (type.kind == AST_TYPE_FUNC) {
+					// Trick to restore the previous scope, which was
+					// introduced by checking the function type.
+					ctx.scope[ctx.scope_depth++]--;
 				}
 
 				check_node(ctx, children[1]);
