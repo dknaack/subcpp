@@ -334,9 +334,6 @@ check_node(semantic_context ctx, ast_id node_id)
 
 	ast_node node = get_node(pool, node_id);
 	type_id node_type = get_type_id(info, node_id);
-	if (node.kind != AST_INIT && node_type.value != 0) {
-		return node_type;
-	}
 
 	ast_id children[3] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
