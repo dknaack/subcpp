@@ -14,9 +14,9 @@ parse_i64(str input)
 	return result;
 }
 
-// TODO: Replace semantic_context with two parameters for pool and ast_pool
+// TODO: Replace sema_context with two parameters for pool and ast_pool
 static i64
-eval_ast(semantic_context ctx, ast_id node_id)
+eval_ast(sema_context ctx, ast_id node_id)
 {
 	ast_pool *pool = ctx.ast;
 	i64 result = 0;
@@ -109,7 +109,7 @@ eval_ast(semantic_context ctx, ast_id node_id)
 
 // Returns node with the same structure or creates it if `node_id == 0`
 static ast_id
-intern_node(semantic_context ctx, ast_node node, ast_id node_id)
+intern_node(sema_context ctx, ast_node node, ast_id node_id)
 {
 	ast_pool *pool = ctx.ast;
 	ast_map *map = ctx.map;
@@ -254,7 +254,7 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 }
 
 static b32
-are_compatible(semantic_context ctx, type_id lhs_id, type_id rhs_id)
+are_compatible(sema_context ctx, type_id lhs_id, type_id rhs_id)
 {
 	ast_pool *pool = ctx.ast;
 
@@ -330,7 +330,7 @@ are_compatible(semantic_context ctx, type_id lhs_id, type_id rhs_id)
 }
 
 static type_id
-check_node(semantic_context ctx, ast_id node_id)
+check_node(sema_context ctx, ast_id node_id)
 {
 	ast_pool *pool = ctx.ast;
 
@@ -925,7 +925,7 @@ check(ast_pool *pool, arena *perm)
 
 	isize max_depth = get_max_depth(pool, pool->root);
 
-	semantic_context ctx = {0};
+	sema_context ctx = {0};
 	ctx.ast = pool;
 	ctx.arena = perm;
 	ctx.map = &map;

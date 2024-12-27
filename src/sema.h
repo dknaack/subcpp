@@ -25,7 +25,7 @@ typedef struct {
 
 	i32 *scope;
 	i32 scope_depth;
-} semantic_context;
+} sema_context;
 
 static b32
 is_type(ast_node_kind kind)

@@ -815,7 +815,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			semantic_context sem_ctx = {0};
+			sema_context sem_ctx = {0};
 			sem_ctx.ast = pool;
 
 			isize size = eval_ast(sem_ctx, node_id);
