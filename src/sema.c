@@ -696,8 +696,12 @@ check_node(semantic_context ctx, ast_id node_id)
 				}
 				break;
 			case TOKEN_AMP:
-				ASSERT(!"TODO: Construct pointer type");
-				break;
+				{
+					ast_node type = {0};
+					type.kind = AST_TYPE_POINTER;
+					type.children.value = operand_id.value;
+					node_type.value = intern_node(ctx, type, ast_nil).value;
+				} break;
 			case TOKEN_BANG:
 			case TOKEN_PLUS:
 			case TOKEN_MINUS:
