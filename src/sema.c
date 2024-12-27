@@ -608,7 +608,7 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_EXPR_IDENT:
 		{
 			ast_id origin = intern_node(ctx, node, node_id);
-			if (origin.value == 0) {
+			if (origin.value == node_id.value) {
 				errorf(node.token.loc, "Undefined variable: %.*s",
 					(int)node.token.value.length, node.token.value.at);
 			} else {
