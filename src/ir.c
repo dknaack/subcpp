@@ -268,25 +268,22 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			if (ctx->node_addr[node_id.value] == 0) {
-				type_id type = get_type_id(info, node_id);
-				isize size = get_node_size(pool, type);
-				result = ir_emit_alloca(ctx, size);
+			ASSERT(ctx->node_addr[node_id.value] == 0);
+			type_id type = get_type_id(info, node_id);
+			isize size = get_node_size(pool, type);
+			result = ir_emit_alloca(ctx, size);
 
-				if (children[1].value != 0) {
-					ast_node init_expr = get_node(pool, children[1]);
-					if (init_expr.kind == AST_INIT) {
-						translate_initializer(ctx, children[1], result);
-					} else {
-						u32 value = translate_node(ctx, children[1], false);
-						ir_store(ctx, result, value, type);
-					}
+			if (children[1].value != 0) {
+				ast_node init_expr = get_node(pool, children[1]);
+				if (init_expr.kind == AST_INIT) {
+					translate_initializer(ctx, children[1], result);
+				} else {
+					u32 value = translate_node(ctx, children[1], false);
+					ir_store(ctx, result, value, type);
 				}
-
-				ctx->node_addr[node_id.value] = result;
-			} else {
-				result = ctx->node_addr[node_id.value];
 			}
+
+			ctx->node_addr[node_id.value] = result;
 		} break;
 	case AST_EXTERN_DEF:
 		{
@@ -633,7 +630,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		{
 			// Global variables must be loaded as globals first
 			ast_id decl_id = ctx->info->at[node_id.value].ref;
-			result = translate_node(ctx, decl_id, true);
+			result = ctx->node_addr[decl_id.value];
+			ASSERT(result != 0);
 
 			type_id type_id = get_type_id(info, node_id);
 			ast_node node_type = get_type(pool, type_id);
