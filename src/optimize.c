@@ -210,7 +210,7 @@ next_block:
 
 				// NOTE: The first instruction is the label itself
 				u32 start = label_addresses[label];
-				for (isize j = start; j; j = inst[j].op1) {
+				for (isize j = start; j < func->inst_count; j++) {
 					u32 i = inst[j].op0;
 					u32 new_label = 0;
 					switch (inst[i].opcode) {
