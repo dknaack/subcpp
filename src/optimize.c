@@ -22,10 +22,6 @@ multiply(u32 a, u32 b)
 static void
 optimize(ir_program program, arena *arena)
 {
-#if 1
-	(void)program;
-	(void)arena;
-#else
 	// Promote stack variables
 	for (isize f = 0; f < program.func_count; f++) {
 		ir_function *func = &program.funcs[f];
@@ -34,7 +30,6 @@ optimize(ir_program program, arena *arena)
 		ir_inst *insts = program.insts + func->inst_index;
 		arena_temp temp = arena_temp_begin(arena);
 		b32 *addr_used = ALLOC(arena, func->inst_count, b32);
-		ir_type *types = ALLOC(arena, func->inst_count, b32);
 		for (isize i = 0; i < func->inst_count; i++) {
 			u32 opcode = insts[i].opcode;
 			u32 op0 = insts[i].op0;
@@ -62,14 +57,11 @@ optimize(ir_program program, arena *arena)
 			if (insts[i].opcode == IR_LOAD) {
 				u32 op0 = insts[i].op0;
 				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					types[op0] = insts[i].type;
 					insts[i].opcode = IR_COPY;
 				}
 			} else if (insts[i].opcode == IR_STORE) {
 				u32 op0 = insts[i].op0;
 				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					u32 op1 = insts[i].op1;
-					types[op1] = insts[op1].type;
 					insts[i].opcode = IR_MOV;
 				}
 			}
@@ -79,7 +71,7 @@ optimize(ir_program program, arena *arena)
 			if (insts[i].opcode == IR_ALLOC) {
 				if (!addr_used[i]) {
 					insts[i].opcode = IR_VAR;
-					insts[i].type = types[i];
+					insts[i].size = insts[i].op0;
 					// NOTE: If the type is void, then this likely means that
 					// the instruction was never used in the first place.
 					//ASSERT(insts[i].type != IR_VOID);
@@ -321,5 +313,4 @@ next_block:
 
 		arena_temp_end(temp);
 	}
-#endif
 }
