@@ -1,3 +1,113 @@
+static i64
+parse_i64(str input)
+{
+	i64 result = 0;
+
+	while (input.length > 0 && is_digit(*input.at)) {
+		result *= 10;
+		result += *input.at - '0';
+
+		input.at++;
+		input.length--;
+	}
+
+	return result;
+}
+
+// TODO: Replace semantic_context with two parameters for pool and ast_pool
+static i64
+eval_ast(semantic_context ctx, ast_id node_id)
+{
+	semantic_info *info = ctx.info;
+	ast_pool *pool = ctx.ast;
+	i64 result = 0;
+
+	ast_id children[3] = {0};
+	get_children(pool, node_id, children, LENGTH(children));
+
+	ast_node node = get_node(pool, node_id);
+	switch (node.kind) {
+	case AST_EXPR_LITERAL:
+		{
+			switch (node.token.kind) {
+			case TOKEN_LITERAL_INT:
+				result = parse_i64(node.token.value);
+				break;
+			default:
+				ASSERT(!"TODO");
+			}
+		} break;
+	case AST_EXPR_BINARY:
+		{
+			i64 lhs = eval_ast(ctx, children[0]);
+			i64 rhs = eval_ast(ctx, children[1]);
+			switch (node.token.kind) {
+			case TOKEN_PLUS:          result = lhs +  rhs; break;
+			case TOKEN_MINUS:         result = lhs -  rhs; break;
+			case TOKEN_STAR:          result = lhs *  rhs; break;
+			case TOKEN_SLASH:         result = lhs /  rhs; break;
+			case TOKEN_PERCENT:       result = lhs %  rhs; break;
+			case TOKEN_EQUAL_EQUAL:   result = lhs == rhs; break;
+			case TOKEN_LESS:          result = lhs <  rhs; break;
+			case TOKEN_GREATER:       result = lhs >  rhs; break;
+			case TOKEN_RSHIFT:        result = lhs << rhs; break;
+			case TOKEN_LSHIFT:        result = lhs >> rhs; break;
+			case TOKEN_LESS_EQUAL:    result = lhs <= rhs; break;
+			case TOKEN_GREATER_EQUAL: result = lhs >= rhs; break;
+			case TOKEN_AMP:           result = lhs &  rhs; break;
+			case TOKEN_BAR:           result = lhs |  rhs; break;
+			case TOKEN_CARET:         result = lhs ^  rhs; break;
+			case TOKEN_AMP_AMP:       result = lhs && rhs; break;
+			case TOKEN_BAR_BAR:       result = lhs || rhs; break;
+			default:                  ASSERT(!"Invalid operator");
+			}
+		} break;
+	case AST_EXPR_UNARY:
+		{
+			switch (node.token.kind) {
+			case TOKEN_MINUS: result = -result; break;
+			case TOKEN_BANG:  result = !result; break;
+			case TOKEN_TILDE: result = ~result; break;
+			case TOKEN_PLUS:
+				break;
+			default:
+				ASSERT(!"Invalid operator");
+			}
+		} break;
+	case AST_EXPR_TERNARY:
+		{
+			ast_id cond = children[0];
+			ast_id lhs = children[1];
+			ast_id rhs = children[2];
+
+			if (eval_ast(ctx, cond)) {
+				result = eval_ast(ctx, lhs);
+			} else {
+				result = eval_ast(ctx, rhs);
+			}
+		} break;
+	case AST_EXPR_SIZEOF:
+		{
+			type_id type = info->at[children[0].value].type;
+			result = get_node_size(pool, type);
+		} break;
+	case AST_EXPR_CAST:
+		{
+			// TODO: Implement casting behavior
+			result = eval_ast(ctx, children[1]);
+		} break;
+	case AST_EXPR_IDENT:
+		{
+			// TODO: Evaluate the constant definition for this identifier
+			ASSERT(!"TODO");
+		} break;
+	default:
+		ASSERT(!"Invalid node");
+	}
+
+	return result;
+}
+
 // Returns node with the same structure or creates it if `node_id == 0`
 static ast_id
 intern_node(semantic_context ctx, ast_node node, ast_id node_id)
@@ -20,8 +130,19 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 	u64 h = HASH_INIT;
 	switch (node.kind) {
 	case AST_TYPE_ARRAY:
-		ASSERT(!"TODO: Evaluate the expression");
-		break;
+		{
+			hash(&h, &node.kind, sizeof(node.kind));
+			hash(&h, &node.flags, sizeof(node.flags));
+
+			ast_id subtype_id = node.children;
+			ast_node subtype = get_node(pool, subtype_id);
+			ast_id intern_id = intern_node(ctx, subtype, subtype_id);
+			hash(&h, &intern_id, sizeof(intern_id));
+
+			ast_id count_id = subtype.next;
+			i64 count = eval_ast(ctx, count_id);
+			hash(&h, &count, sizeof(count));
+		} break;
 	case AST_TYPE_BITFIELD:
 	case AST_TYPE_FUNC:
 	case AST_TYPE_POINTER:
@@ -209,116 +330,6 @@ are_compatible(semantic_context ctx, type_id lhs_id, type_id rhs_id)
 	default:
 		return (lhs.kind == rhs.kind);
 	}
-}
-
-static i64
-parse_i64(str input)
-{
-	i64 result = 0;
-
-	while (input.length > 0 && is_digit(*input.at)) {
-		result *= 10;
-		result += *input.at - '0';
-
-		input.at++;
-		input.length--;
-	}
-
-	return result;
-}
-
-// TODO: Replace semantic_context with two parameters for pool and ast_pool
-static i64
-eval_ast(semantic_context ctx, ast_id node_id)
-{
-	semantic_info *info = ctx.info;
-	ast_pool *pool = ctx.ast;
-	i64 result = 0;
-
-	ast_id children[3] = {0};
-	get_children(pool, node_id, children, LENGTH(children));
-
-	ast_node node = get_node(pool, node_id);
-	switch (node.kind) {
-	case AST_EXPR_LITERAL:
-		{
-			switch (node.token.kind) {
-			case TOKEN_LITERAL_INT:
-				result = parse_i64(node.token.value);
-				break;
-			default:
-				ASSERT(!"TODO");
-			}
-		} break;
-	case AST_EXPR_BINARY:
-		{
-			i64 lhs = eval_ast(ctx, children[0]);
-			i64 rhs = eval_ast(ctx, children[1]);
-			switch (node.token.kind) {
-			case TOKEN_PLUS:          result = lhs +  rhs; break;
-			case TOKEN_MINUS:         result = lhs -  rhs; break;
-			case TOKEN_STAR:          result = lhs *  rhs; break;
-			case TOKEN_SLASH:         result = lhs /  rhs; break;
-			case TOKEN_PERCENT:       result = lhs %  rhs; break;
-			case TOKEN_EQUAL_EQUAL:   result = lhs == rhs; break;
-			case TOKEN_LESS:          result = lhs <  rhs; break;
-			case TOKEN_GREATER:       result = lhs >  rhs; break;
-			case TOKEN_RSHIFT:        result = lhs << rhs; break;
-			case TOKEN_LSHIFT:        result = lhs >> rhs; break;
-			case TOKEN_LESS_EQUAL:    result = lhs <= rhs; break;
-			case TOKEN_GREATER_EQUAL: result = lhs >= rhs; break;
-			case TOKEN_AMP:           result = lhs &  rhs; break;
-			case TOKEN_BAR:           result = lhs |  rhs; break;
-			case TOKEN_CARET:         result = lhs ^  rhs; break;
-			case TOKEN_AMP_AMP:       result = lhs && rhs; break;
-			case TOKEN_BAR_BAR:       result = lhs || rhs; break;
-			default:                  ASSERT(!"Invalid operator");
-			}
-		} break;
-	case AST_EXPR_UNARY:
-		{
-			switch (node.token.kind) {
-			case TOKEN_MINUS: result = -result; break;
-			case TOKEN_BANG:  result = !result; break;
-			case TOKEN_TILDE: result = ~result; break;
-			case TOKEN_PLUS:
-				break;
-			default:
-				ASSERT(!"Invalid operator");
-			}
-		} break;
-	case AST_EXPR_TERNARY:
-		{
-			ast_id cond = children[0];
-			ast_id lhs = children[1];
-			ast_id rhs = children[2];
-
-			if (eval_ast(ctx, cond)) {
-				result = eval_ast(ctx, lhs);
-			} else {
-				result = eval_ast(ctx, rhs);
-			}
-		} break;
-	case AST_EXPR_SIZEOF:
-		{
-			type_id type = info->at[children[0].value].type;
-			result = get_node_size(pool, type);
-		} break;
-	case AST_EXPR_CAST:
-		{
-			// TODO: Implement casting behavior
-			result = eval_ast(ctx, children[1]);
-		} break;
-	case AST_EXPR_IDENT:
-		{
-			// TODO: Evaluate the constant definition for this identifier
-			ASSERT(!"TODO");
-		} break;
-	default:
-		ASSERT(!"Invalid node");
-	}
-
-	return result;
 }
 
 static type_id
