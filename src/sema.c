@@ -502,10 +502,10 @@ check_node(semantic_context ctx, ast_id node_id)
 			case TOKEN_GREATER_EQUAL:
 				{
 					// NOTE: Comparison operators always return integers
-					token int_token = {0};
-					int_token.value = S("int");
-					ast_id node = new_node(pool, AST_TYPE_BASIC, int_token, ast_nil);
-					node_type.value = node.value;
+					ast_node int_type = {0};
+					int_type.kind = AST_TYPE_BASIC;
+					int_type.token.kind = TOKEN_INT;
+					node_type.value = intern_node(ctx, int_type, ast_nil).value;
 				} break;
 			default:
 				node_type = lhs_id;
