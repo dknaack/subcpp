@@ -157,7 +157,7 @@ intern_node(semantic_context ctx, ast_node node, ast_id node_id)
 
 		break;
 	case AST_STMT_LABEL:
-		hash(&h, "label#", 4);
+		hash(&h, "label#", 6);
 		hash(&h, node.token.value.at, node.token.value.length);
 		break;
 	case AST_TYPE_STRUCT:
