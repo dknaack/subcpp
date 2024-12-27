@@ -383,7 +383,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			type_id type_id = get_type_id(info, node_id);
 			ast_node node_type = get_type(pool, type_id);
 
-			b32 is_float = (node.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
+			b32 is_float = (node_type.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
 			if (is_float) {
 				switch (operator) {
 				case TOKEN_PLUS:          opcode = IR_FADD;   break;
