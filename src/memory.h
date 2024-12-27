@@ -56,3 +56,12 @@ arena_temp_end(arena_temp temp)
 {
 	temp.arena->pos = temp.pos;
 }
+
+static arena
+subarena(arena *a, isize size)
+{
+	arena result = {0};
+	result.data = ALLOC(a, size, char);
+	result.size = size;
+	return result;
+}

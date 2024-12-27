@@ -201,6 +201,178 @@ get_linkage(ast_node_flags flags)
 	return result;
 }
 
+typedef union {
+	i64 i;
+	f64 f;
+} ir_value;
+
+static ir_value
+ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
+{
+	ir_value result = {0};
+	for (isize i = 0; i < inst_count; i++) {
+		ir_opcode_info info = get_opcode_info(inst[i].opcode);
+
+		ir_value op0 = {0};
+		isize op0_size = 0;
+		if (is_register_operand(info.op0) && inst[i].op0 != 0) {
+			op0 = values[inst[i].op0];
+			op0_size = inst[inst[i].op0].size;
+		} else {
+			op0.i = inst[i].op0;
+		}
+
+		ir_value op1 = {0};
+		isize op1_size = 0;
+		if (is_register_operand(info.op1) && inst[i].op1 != 0) {
+			op1 = values[inst[i].op1];
+			op1_size = inst[inst[i].op1].size;
+		} else {
+			op1.i = inst[i].op1;
+		}
+
+		result = values[i];
+		switch (inst[i].opcode) {
+		case IR_ALLOC:
+			if (!result.i) {
+				result.i = stack.pos;
+				alloc(&stack, op0.i, 1);
+			}
+
+			break;
+		case IR_CONST:
+			result.i = inst[i].op0;
+			break;
+		case IR_VAR:
+			break;
+		case IR_COPY:
+			result = op0;
+			break;
+		case IR_LOAD:
+		case IR_FLOAD:
+			if (0 <= op0.i && op0.i < (isize)stack.size) {
+				memcpy(&result.i, stack.data + op0.i, op0_size);
+			}
+
+			break;
+		case IR_STORE:
+		case IR_FSTORE:
+			if (0 <= op0.i && op0.i < (isize)stack.size) {
+				memcpy(stack.data + op0.i, &op1.i, op1_size);
+			}
+
+			break;
+		case IR_MOV:
+		case IR_FMOV:
+			values[inst[i].op0] = op1;
+			break;
+		case IR_RET:
+		case IR_FRET:
+			return op0;
+		case IR_ADD:
+			result.i = op0.i + op1.i;
+			break;
+		case IR_SUB:
+			result.i = op0.i - op1.i;
+			break;
+		case IR_MUL:
+			result.i = op0.i * op1.i;
+			break;
+		case IR_DIV:
+			result.i = op0.i / op1.i;
+			break;
+		case IR_MOD:
+			result.i = op0.i % op1.i;
+			break;
+		case IR_EQ:
+			result.i = op0.i == op1.i;
+			break;
+		case IR_GT:
+			result.i = op0.i > op1.i;
+			break;
+		case IR_GE:
+			result.i = op0.i >= op1.i;
+			break;
+		case IR_LT:
+			result.i = op0.i < op1.i;
+			break;
+		case IR_LE:
+			result.i = op0.i <= op1.i;
+			break;
+		case IR_GTU:
+			result.i = op0.i > op1.i;
+			break;
+		case IR_GEU:
+			result.i = op0.i >= op1.i;
+			break;
+		case IR_LTU:
+			result.i = op0.i < op1.i;
+			break;
+		case IR_LEU:
+			result.i = op0.i <= op1.i;
+			break;
+		case IR_AND:
+			result.i = op0.i & op1.i;
+			break;
+		case IR_NOT:
+			result.i = ~op0.i;
+			break;
+		case IR_OR:
+			result.i = op0.i | op1.i;
+			break;
+		case IR_SHL:
+			result.i = op0.i << op1.i;
+			break;
+		case IR_SHR:
+			result.i = op0.i >> op1.i;
+			break;
+		case IR_XOR:
+			result.i = op0.i ^ op1.i;
+			break;
+		case IR_CVT:
+			result.i = op0.f;
+			break;
+		case IR_FADD:
+			result.f = op0.f + op1.f;
+			break;
+		case IR_FSUB:
+			result.f = op0.f - op1.f;
+			break;
+		case IR_FMUL:
+			result.f = op0.f * op1.f;
+			break;
+		case IR_FDIV:
+			result.f = op0.f * op1.f;
+			break;
+		case IR_FEQ:
+			result.i = op0.f == op1.f;
+			break;
+		case IR_FGT:
+			result.i = op0.f > op1.f;
+			break;
+		case IR_FGE:
+			result.i = op0.f >= op1.f;
+			break;
+		case IR_FLT:
+			result.i = op0.f < op1.f;
+			break;
+		case IR_FLE:
+			result.i = op0.f <= op1.f;
+			break;
+		case IR_FCVT:
+			result.f = op0.i;
+			break;
+		default:
+			ASSERT(!"TODO");
+			break;
+		}
+
+		values[i] = result;
+	}
+
+	return result;
+}
+
 static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
@@ -247,7 +419,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 {
 	ast_pool *pool = ctx->ast;
 	symbol_table *symtab = &ctx->program->symtab;
-	arena *arena = ctx->arena;
+	arena *perm = ctx->arena;
 	u32 result = 0;
 
 	ast_id children[4] = {0};
@@ -357,7 +529,21 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				*node_addr = get_symbol_id(symtab, sym).value;
 
 				if (is_initialized) {
-					ASSERT(!"TODO: Translate the global variable into bytes");
+					isize start = ctx->program->inst_count;
+					ctx->func_insts = ctx->program->insts + start;
+					ctx->func_inst_count = 1;
+					ctx->label_count = 1;
+
+					u32 result = ir_emit1(ctx, sym->size, IR_ALLOC, sym->size);
+					translate_initializer(ctx, node_id, result);
+					isize end = ctx->program->inst_count;
+
+					isize inst_count = end - start;
+					arena stack = subarena(perm, sym->size);
+					ir_value *values = ALLOC(perm, inst_count, ir_value);
+					ir_eval(ctx->program->insts + start, inst_count, values, stack);
+
+					sym->data = stack.data;
 				}
 			}
 		} break;
@@ -683,7 +869,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			case TOKEN_LITERAL_FLOAT:
 				{
 					// Convert the string into a floating-point number
-					double *value = ALLOC(arena, 1, double);
+					double *value = ALLOC(perm, 1, double);
 					*value = strtod(node.token.value.at, NULL);
 
 					// Allocate a new global variable and store the value
@@ -701,7 +887,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				{
 					str escaped = node.token.value;
 					str unescaped = {0};
-					unescaped.at = ALLOC(arena, escaped.length + 1, char);
+					unescaped.at = ALLOC(perm, escaped.length + 1, char);
 					for (isize i = 1; i < escaped.length - 1; i++) {
 						char c = escaped.at[i];
 						if (c == '\\') {
