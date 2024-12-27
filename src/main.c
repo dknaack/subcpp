@@ -110,8 +110,8 @@ main(int argc, char *argv[])
 	// NOTE: front-end
 	arena *arena = new_arena(1024 * 1024 * 1024);
 	ast_pool pool = parse(input, arena);
-	semantic_info sem_info = check(&pool, arena);
-	ir_program ir_program = translate(&pool, &sem_info, arena);
+	check(&pool, arena);
+	ir_program ir_program = translate(&pool, arena);
 
 	// NOTE: middle-end
 	print_ir_program(ir_program);

@@ -73,12 +73,23 @@ typedef struct {
 	ast_id first, last;
 } ast_list;
 
+typedef union {
+	// Reference to another node, for switch statements and identifiers
+	ast_id ref;
+	// Reference to another node, which represents the type of this node.
+	// Usually for expressions.
+	type_id type;
+	i64 i;
+	f64 f;
+} ast_info;
+
 typedef struct {
 	ast_node_kind kind;
 	ast_node_flags flags;
 	token token;
 	ast_id next;
 	ast_id children;
+	ast_info info;
 } ast_node;
 
 typedef struct ast_pool {

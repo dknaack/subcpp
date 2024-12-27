@@ -166,7 +166,6 @@ typedef struct {
 	u32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
-	semantic_info *info;
 	symbol_id *section_tail[SECTION_COUNT];
 
 	isize func_inst_count;

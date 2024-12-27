@@ -5,20 +5,6 @@ struct label_info {
 	str name;
 };
 
-typedef union {
-	// Reference to another node, for switch statements and identifiers
-	ast_id ref;
-	// Reference to another node, which represents the type of this node.
-	// Usually for expressions.
-	type_id type;
-	i64 i;
-	f64 f;
-} ast_info;
-
-typedef struct {
-	ast_info *at;
-} semantic_info;
-
 typedef struct {
 	ast_id node_id;
 	i32 scope;
@@ -34,7 +20,6 @@ typedef struct {
 	ast_pool *ast;
 	ast_map *map;
 	arena *arena;
-	semantic_info *info;
 	ast_id switch_id;
 	label_info *labels;
 
@@ -92,15 +77,15 @@ static b32 is_compound_type(ast_node_kind kind)
 static isize get_node_alignment(ast_pool *p, type_id type);
 
 static type_id
-get_type_id(semantic_info *info, ast_id id)
+get_type_id(ast_pool *pool, ast_id id)
 {
-	type_id result = info->at[id.value].type;
+	type_id result = pool->nodes[id.value].info.type;
 
 	// Identifiers do not point to their type, which is why we first extract
 	// the declaration. The declaration then points to the type of the
 	// identifier.
-	if (result.value != info->at[result.value].type.value) {
-		result = info->at[result.value].type;
+	if (result.value != pool->nodes[result.value].info.type.value) {
+		result = pool->nodes[result.value].info.type;
 	}
 
 	return result;
@@ -115,9 +100,9 @@ get_type(ast_pool *p, type_id id)
 }
 
 static void
-set_type(semantic_info *info, ast_id node_id, type_id type)
+set_type(ast_pool *pool, ast_id node_id, type_id type)
 {
-	info->at[node_id.value].type = type;
+	pool->nodes[node_id.value].info.type = type;
 }
 
 static ast_id
