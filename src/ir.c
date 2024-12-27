@@ -1198,34 +1198,5 @@ translate(ast_pool *pool, semantic_info *info, arena *arena)
 		node_id = get_node(pool, node_id).next;
 	}
 
-	// TODO: Remove this
-	// NOTE: Propagate sizes through the instructions
-#if 0
-	for (isize i = 0; i < program.func_count; i++) {
-		ir_function *func = &program.funcs[i];
-		ir_inst *inst = program.insts + func->inst_index;
-		for (isize j = 0; j < func->inst_count; j++) {
-			if (inst[j].type != 0 || inst[j].opcode == IR_CAST
-				|| inst[j].opcode == IR_CASTU)
-			{
-				continue;
-			}
-
-			u32 op0 = inst[j].op0;
-			u32 op1 = inst[j].op1;
-
-			ir_opcode_info info = get_opcode_info(inst[j].opcode);
-			// If a store instruction has the type from the first operand, then
-			// it will always be a pointer type, even if we're dealing with a
-			// float. Therefore, we propagate the second operand first.
-			if (is_register_operand(info.op1)) {
-				inst[j].size = inst[op1].size;
-			} else if (is_register_operand(info.op0)) {
-				inst[j].size = inst[op0].size;
-			}
-		}
-	}
-#endif
-
 	return program;
 }
