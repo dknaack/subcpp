@@ -377,161 +377,181 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_BINARY:
 		{
-			token_kind operator = node.token.kind;
-			ir_opcode opcode = IR_NOP;
-
 			type_id type_id = get_type_id(info, node_id);
 			ast_node node_type = get_type(pool, type_id);
 
+			b32 is_assign = false;
 			b32 is_float = (node_type.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
-			if (is_float) {
-				switch (operator) {
-				case TOKEN_PLUS:          opcode = IR_FADD;   break;
-				case TOKEN_MINUS:         opcode = IR_FSUB;   break;
-				case TOKEN_STAR:          opcode = IR_FMUL;   break;
-				case TOKEN_SLASH:         opcode = IR_FDIV;   break;
-				case TOKEN_PLUS_EQUAL:    opcode = IR_FSTORE; break;
-				case TOKEN_MINUS_EQUAL:   opcode = IR_FSTORE; break;
-				case TOKEN_STAR_EQUAL:    opcode = IR_FSTORE; break;
-				case TOKEN_SLASH_EQUAL:   opcode = IR_FSTORE; break;
-				case TOKEN_EQUAL:         opcode = IR_FSTORE; break;
-				case TOKEN_EQUAL_EQUAL:   opcode = IR_FEQ;   break;
-				case TOKEN_BANG_EQUAL:    opcode = IR_FEQ;   break;
-				case TOKEN_LESS:          opcode = IR_FLT;    break;
-				case TOKEN_GREATER:       opcode = IR_FGT;    break;
-				case TOKEN_LESS_EQUAL:    opcode = IR_FLE;   break;
-				case TOKEN_GREATER_EQUAL: opcode = IR_FGE;   break;
-				default:                  ASSERT(!"Invalid operator");
-				}
-			} else {
-				switch (operator) {
-				case TOKEN_PLUS:          opcode = IR_ADD;   break;
-				case TOKEN_MINUS:         opcode = IR_SUB;   break;
-				case TOKEN_STAR:          opcode = IR_MUL;   break;
-				case TOKEN_SLASH:         opcode = IR_DIV;   break;
-				case TOKEN_PERCENT:       opcode = IR_MOD;   break;
-				case TOKEN_PLUS_EQUAL:    opcode = IR_STORE; break;
-				case TOKEN_MINUS_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_STAR_EQUAL:    opcode = IR_STORE; break;
-				case TOKEN_SLASH_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_PERCENT_EQUAL: opcode = IR_STORE; break;
-				case TOKEN_AMP_EQUAL:     opcode = IR_STORE; break;
-				case TOKEN_BAR_EQUAL:     opcode = IR_STORE; break;
-				case TOKEN_CARET_EQUAL:   opcode = IR_STORE; break;
-				case TOKEN_EQUAL:         opcode = IR_STORE; break;
-				case TOKEN_EQUAL_EQUAL:   opcode = IR_EQ;   break;
-				case TOKEN_BANG_EQUAL:    opcode = IR_EQ;   break;
-				case TOKEN_LESS:          opcode = IR_LT;    break;
-				case TOKEN_GREATER:       opcode = IR_GT;    break;
-				case TOKEN_RSHIFT:        opcode = IR_SHR;   break;
-				case TOKEN_LSHIFT:        opcode = IR_SHL;   break;
-				case TOKEN_LESS_EQUAL:    opcode = IR_LE;   break;
-				case TOKEN_GREATER_EQUAL: opcode = IR_GE;   break;
-				case TOKEN_LBRACKET:      opcode = IR_ADD;   break;
-				case TOKEN_AMP:           opcode = IR_AND;   break;
-				case TOKEN_BAR:           opcode = IR_OR;    break;
-				case TOKEN_CARET:         opcode = IR_XOR;   break;
-				case TOKEN_AMP_AMP:       opcode = IR_JIZ;   break;
-				case TOKEN_BAR_BAR:       opcode = IR_JIZ;   break;
-				default:                  ASSERT(!"Invalid operator");
-				}
-			}
+			b32 is_unsigned = (node_type.flags & AST_UNSIGNED);
 
-			if (is_comparison_opcode(opcode) && (node_type.flags & AST_UNSIGNED)) {
-				// TODO: Use switch instead of addition?
-				opcode += IR_LTU - IR_LT;
-			}
-
-			if (operator == TOKEN_AMP_AMP) {
-				// NOTE: Logical and operation
-				u32 end_label = new_label(ctx);
-				u32 zero_label = new_label(ctx);
-
-				result = ir_emit0(ctx, 4, IR_VAR);
-				u32 lhs_reg = translate_node(ctx, children[0], false);
-				ir_emit2(ctx, 0, IR_JIZ, lhs_reg, zero_label);
-
-				u32 rhs_reg = translate_node(ctx, children[1], false);
-				ir_emit2(ctx, 0, IR_JIZ, rhs_reg, zero_label);
-
-				u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
-				ir_emit2(ctx, 0, IR_MOV, result, one);
-				ir_emit1(ctx, 0, IR_JMP, end_label);
-
-				ir_emit1(ctx, 0, IR_LABEL, zero_label);
-				u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
-				ir_emit2(ctx, 0, IR_MOV, result, zero);
-				ir_emit1(ctx, 0, IR_LABEL, end_label);
-			} else if (operator == TOKEN_BAR_BAR) {
-				// NOTE: Logical or operation
-				u32 end_label = new_label(ctx);
-				u32 one_label = new_label(ctx);
-
-				result = ir_emit0(ctx, 4, IR_VAR);
-				u32 lhs_reg = translate_node(ctx, children[0], false);
-				ir_emit2(ctx, 0, IR_JNZ, lhs_reg, one_label);
-
-				u32 rhs_reg = translate_node(ctx, children[1], false);
-				ir_emit2(ctx, 0, IR_JNZ, rhs_reg, one_label);
-
-				u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
-				ir_emit2(ctx, 0, IR_MOV, result, zero);
-				ir_emit1(ctx, 0, IR_JMP, end_label);
-
-				ir_emit1(ctx, 0, IR_LABEL, one_label);
-				u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
-				ir_emit2(ctx, 0, IR_MOV, result, one);
-				ir_emit1(ctx, 0, IR_LABEL, end_label);
-			} else if (opcode == IR_STORE) {
-				// NOTE: Assignment operation
-				switch (operator) {
-				case TOKEN_PLUS_EQUAL:    opcode = IR_ADD; break;
-				case TOKEN_MINUS_EQUAL:   opcode = IR_SUB; break;
-				case TOKEN_STAR_EQUAL:    opcode = IR_MUL; break;
-				case TOKEN_SLASH_EQUAL:   opcode = IR_DIV; break;
-				case TOKEN_PERCENT_EQUAL: opcode = IR_MOD; break;
-				case TOKEN_AMP_EQUAL:     opcode = IR_AND; break;
-				case TOKEN_BAR_EQUAL:     opcode = IR_OR;  break;
-				case TOKEN_CARET_EQUAL:   opcode = IR_XOR; break;
-				case TOKEN_EQUAL:         opcode = IR_NOP; break;
-				default:                  ASSERT(!"Invalid operator");
-				}
-
-				u32 lhs_reg = translate_node(ctx, children[0], true);
-				u32 rhs_reg = translate_node(ctx, children[1], false);
-				if (operator != TOKEN_EQUAL) {
+			ir_opcode opcode = IR_NOP;
+			switch (node.token.kind) {
+			case TOKEN_PLUS:
+				opcode = is_float ? IR_FADD : IR_ADD;
+				break;
+			case TOKEN_MINUS:
+				opcode = is_float ? IR_FSUB : IR_SUB;
+				break;
+			case TOKEN_STAR:
+				opcode = is_float ? IR_FMUL : IR_MUL;
+				break;
+			case TOKEN_SLASH:
+				opcode = is_float ? IR_FDIV : IR_DIV;
+				break;
+			case TOKEN_PERCENT:
+				opcode = IR_MOD;
+				break;
+			case TOKEN_PLUS_EQUAL:
+				opcode = is_float ? IR_FADD : IR_ADD;
+				is_assign = true;
+				break;
+			case TOKEN_MINUS_EQUAL:
+				opcode = is_float ? IR_FSUB : IR_SUB;
+				is_assign = true;
+				break;
+			case TOKEN_STAR_EQUAL:
+				opcode = is_float ? IR_FMUL : IR_MUL;
+				is_assign = true;
+				break;
+			case TOKEN_SLASH_EQUAL:
+				opcode = is_float ? IR_FDIV : IR_DIV;
+				is_assign = true;
+				break;
+			case TOKEN_PERCENT_EQUAL:
+				opcode = IR_MOD;
+				is_assign = true;
+				break;
+			case TOKEN_AMP_EQUAL:
+				opcode = IR_AND;
+				is_assign = true;
+				break;
+			case TOKEN_BAR_EQUAL:
+				opcode = IR_OR;
+				is_assign = true;
+				break;
+			case TOKEN_CARET_EQUAL:
+				opcode = IR_XOR;
+				is_assign = true;
+				break;
+			case TOKEN_EQUAL:
+				opcode = is_float ? IR_FCOPY : IR_COPY;
+				is_assign = true;
+				break;
+			case TOKEN_EQUAL_EQUAL:
+				opcode = is_float ? IR_FEQ : IR_EQ;
+				break;
+			case TOKEN_BANG_EQUAL:
+				opcode = is_float ? IR_FEQ : IR_EQ;
+				break;
+			case TOKEN_LESS:
+				opcode = is_float ? IR_FLT : is_unsigned ? IR_LTU : IR_LT;
+				break;
+			case TOKEN_GREATER:
+				opcode = is_float ? IR_FGT : is_unsigned ? IR_GTU : IR_GT;
+				break;
+			case TOKEN_LESS_EQUAL:
+				opcode = is_float ? IR_FLE : is_unsigned ? IR_LEU : IR_LE;
+				break;
+			case TOKEN_GREATER_EQUAL:
+				opcode = is_float ? IR_FGE : is_unsigned ? IR_GEU : IR_GE;
+				break;
+			case TOKEN_RSHIFT:
+				opcode = IR_SHR;
+				break;
+			case TOKEN_LSHIFT:
+				opcode = IR_SHL;
+				break;
+			case TOKEN_AMP:
+				opcode = IR_AND;
+				break;
+			case TOKEN_BAR:
+				opcode = IR_OR;
+				break;
+			case TOKEN_CARET:
+				opcode = IR_XOR;
+				break;
+			case TOKEN_LBRACKET:
+				{
+					// NOTE: Array access
+					u32 lhs_reg = translate_node(ctx, children[0], false);
+					u32 rhs_reg = translate_node(ctx, children[1], false);
 					isize size = get_node_size(pool, type_id);
-					u32 value = ir_emit1(ctx, size, IR_LOAD, lhs_reg);
-					result = ir_emit2(ctx, size, opcode, value, rhs_reg);
-					ir_emit2(ctx, size, IR_STORE, lhs_reg, result);
-				} else {
-					ir_store(ctx, lhs_reg, rhs_reg, type_id);
+					u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
+					u32 offset = ir_emit2(ctx, 8, IR_MUL, rhs_reg, size_reg);
+					result = ir_emit2(ctx, 8, IR_ADD, lhs_reg, offset);
 					if (!is_lvalue) {
-						result = ir_load(ctx, lhs_reg, type_id);
-					} else {
-						result = lhs_reg;
+						result = ir_load(ctx, result, type_id);
+					}
+				} break;
+			case TOKEN_AMP_AMP:
+				{
+					// NOTE: Logical and operation
+					u32 end_label = new_label(ctx);
+					u32 zero_label = new_label(ctx);
+
+					result = ir_emit0(ctx, 4, IR_VAR);
+					u32 lhs_reg = translate_node(ctx, children[0], false);
+					ir_emit2(ctx, 0, IR_JIZ, lhs_reg, zero_label);
+
+					u32 rhs_reg = translate_node(ctx, children[1], false);
+					ir_emit2(ctx, 0, IR_JIZ, rhs_reg, zero_label);
+
+					u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
+					ir_emit2(ctx, 0, IR_MOV, result, one);
+					ir_emit1(ctx, 0, IR_JMP, end_label);
+
+					ir_emit1(ctx, 0, IR_LABEL, zero_label);
+					u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
+					ir_emit2(ctx, 0, IR_MOV, result, zero);
+					ir_emit1(ctx, 0, IR_LABEL, end_label);
+				} break;
+			case TOKEN_BAR_BAR:
+				{
+					// NOTE: Logical or operation
+					u32 end_label = new_label(ctx);
+					u32 one_label = new_label(ctx);
+
+					result = ir_emit0(ctx, 4, IR_VAR);
+					u32 lhs_reg = translate_node(ctx, children[0], false);
+					ir_emit2(ctx, 0, IR_JNZ, lhs_reg, one_label);
+
+					u32 rhs_reg = translate_node(ctx, children[1], false);
+					ir_emit2(ctx, 0, IR_JNZ, rhs_reg, one_label);
+
+					u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
+					ir_emit2(ctx, 0, IR_MOV, result, zero);
+					ir_emit1(ctx, 0, IR_JMP, end_label);
+
+					ir_emit1(ctx, 0, IR_LABEL, one_label);
+					u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
+					ir_emit2(ctx, 0, IR_MOV, result, one);
+					ir_emit1(ctx, 0, IR_LABEL, end_label);
+				} break;
+			default:
+				ASSERT(!"Invalid operator");
+			}
+
+			if (opcode != IR_NOP) {
+				u32 lhs_addr = 0;
+				u32 lhs_reg = translate_node(ctx, children[0], is_assign);
+				u32 rhs_reg = translate_node(ctx, children[1], false);
+				isize size = get_node_size(pool, type_id);
+
+				if (is_assign) {
+					lhs_addr = lhs_reg;
+					lhs_reg = ir_emit1(ctx, size, IR_LOAD, lhs_addr);
+				}
+
+				result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
+
+				if (is_assign) {
+					ir_store(ctx, lhs_addr, result, type_id);
+					if (is_lvalue) {
+						result = lhs_addr;
 					}
 				}
 
-				ASSERT(result != 0);
-			} else if (operator == TOKEN_LBRACKET) {
-				// NOTE: Array access
-				u32 lhs_reg = translate_node(ctx, children[0], false);
-				u32 rhs_reg = translate_node(ctx, children[1], false);
-				isize size = get_node_size(pool, type_id);
-				u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
-				u32 offset = ir_emit2(ctx, 8, IR_MUL, rhs_reg, size_reg);
-				result = ir_emit2(ctx, 8, IR_ADD, lhs_reg, offset);
-				if (!is_lvalue) {
-					result = ir_load(ctx, result, type_id);
-				}
-			} else {
-				u32 lhs_reg = translate_node(ctx, children[0], false);
-				u32 rhs_reg = translate_node(ctx, children[1], false);
-				isize size = get_node_size(pool, type_id);
-
-				result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
-				if (operator == TOKEN_BANG_EQUAL) {
+				if (node.token.kind == TOKEN_BANG_EQUAL) {
 					u32 one = ir_emit1(ctx, size, IR_CONST, 1);
 					lhs_reg = ir_emit2(ctx, size, IR_SUB, one, lhs_reg);
 				}
