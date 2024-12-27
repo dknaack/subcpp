@@ -778,6 +778,10 @@ check_node(semantic_context ctx, ast_id node_id)
 	case AST_TYPE_IDENT:
 	case AST_TYPE_POINTER:
 		{
+			if (children[0].value != 0) {
+				check_node(ctx, node.children);
+			}
+
 			ast_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
