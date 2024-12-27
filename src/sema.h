@@ -153,6 +153,13 @@ get_node_size(ast_pool *p, type_id node_id)
 	case AST_TYPE_POINTER:
 	case AST_TYPE_FUNC:
 		return 8;
+	case AST_TYPE_ARRAY:
+		{
+			type_id subtype = get_type_id(p, node.children);
+			isize length = get_type(p, subtype).info.i;
+			isize subtype_size = get_node_size(p, subtype);
+			return length * subtype_size;
+		} break;
 	default:
 		ASSERT(!"Invalid type");
 		return 0;
