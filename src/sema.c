@@ -812,6 +812,9 @@ check_node(sema_context ctx, ast_id node_id)
 				child_id = get_node(pool, child_id).next;
 			}
 
+			// Close the previous scope, so the struct/union tag is inserted in
+			// the correct scope and not with the members of the struct.
+			ctx.scope.depth--;
 			ast_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
