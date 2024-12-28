@@ -1,55 +1,178 @@
 typedef enum {
-	AST_INVALID,         // {}
-	AST_NONE,            // {}
-	AST_BUILTIN,         // {}
-	AST_DECL,            // {type, expr?}
-	AST_ENUMERATOR,      // {expr?}
-	AST_EXTERN_DEF,      // {type, expr?}
-	AST_INIT,            // {(expr|init)}
+	// Represents a node that is not valid.
+	AST_INVALID,
 
-	// expressions
-	AST_EXPR_BINARY,     // {expr, expr}
-	AST_EXPR_CALL,       // {expr, expr*}
-	AST_EXPR_CAST,       // {type, expr}
-	AST_EXPR_COMPOUND,   // {type, (expr|init)*}
-	AST_EXPR_IDENT,      // {}
-	AST_EXPR_LITERAL,    // {}
-	AST_EXPR_MEMBER,     // {expr}
-	AST_EXPR_MEMBER_PTR, // {expr}
-	AST_EXPR_POSTFIX,    // {expr}
-	AST_EXPR_SIZEOF,     // {(expr|type)}
-	AST_EXPR_TERNARY,    // {expr, expr, expr}
-	AST_EXPR_UNARY,      // {expr}
+	// An empty node, used as a placeholder in for statements, for example.
+	AST_NONE,
 
-	// statements
-	AST_STMT_ASM,        // {}
-	AST_STMT_BREAK,      // {}
-	AST_STMT_CASE,       // {expr, stmt}
-	AST_STMT_COMPOUND,   // {stmt*}
-	AST_STMT_CONTINUE,   // {}
-	AST_STMT_DECL,       // {decl+}
-	AST_STMT_DEFAULT,    // {stmt}
-	AST_STMT_DO_WHILE,   // {expr, stmt}
+	// A builtin function, like `printf` or `malloc`.
+	AST_BUILTIN,
+
+	// A declaration of a variable inside a function. The node contains at most
+	// two children. The first child is the type, the second (optional) child
+	// is the initializer. The identifier is stored in the token of the node.
+	AST_DECL,
+
+	// An external declaration, like a function prototype or a global variable.
+	// The node contains at most two children. The first child is the type,
+	// the second child contains the initializer or the function body.
+	AST_EXTERN_DEF,
+
+	// An enumerator in an enum declaration. The first child is the value of the
+	// enumerator, the identifier is stored in the token of the node.
+	AST_ENUMERATOR,
+
+	// An initializer list for a variable or a struct, consisting of a list of
+	// expressions or nested initializer lists.
+	AST_INIT,
+
+	//
+	// Expessions
+	//
+
+	// A binary expression, like `+` or `==`. It contains two expressions for
+	// the left and right operands. The operator is stored in the token of the
+	// node.
+	AST_EXPR_BINARY,
+
+	// A call to a function. The first child is the function expression, the
+	// following children are expressions for the arguments.
+	AST_EXPR_CALL,
+
+	// A cast expression, like `(int) 3`. The first child is the type, the
+	// second child is the expression to cast.
+	AST_EXPR_CAST,
+
+	// A compound expression, like `{1, 2, 3}` or `{.x = 1, .y = 2}`. This node
+	// contains exactly two children. The first child is the type, the second
+	// must be an initializer list.
+	AST_EXPR_COMPOUND,
+
+	// An identifier, like `x` or `foo`. The identifier is stored in the token.
+	AST_EXPR_IDENT,
+
+	// A literal, like `42` or `3.14`. The value is stored in the token.
+	// Different kinds of literals are distinguished by the token kind.
+	AST_EXPR_LITERAL,
+
+	// A member access expression, like `foo.bar`. The first child is the
+	// expression, the identifier for the member is stored in the token.
+	AST_EXPR_MEMBER,
+	AST_EXPR_MEMBER_PTR,
+
+	// A postfix expression, like `foo++` or `bar--`. The first child is the
+	// expression, the operator is stored in the token.
+	AST_EXPR_POSTFIX,
+
+	// A sizeof expression, like `sizeof(int)` or `sizeof foo`. The first child
+	// is the expression or type to get the size of.
+	AST_EXPR_SIZEOF,
+
+	// A ternary expression, like `a ? b : c`. The first child is the condition,
+	// the second child is the expression if the condition is true, the third
+	// child is the expression if the condition is false.
+	AST_EXPR_TERNARY,
+
+	// A unary expression, like `!a` or `++b`. The first child is the expression,
+	// the operator is stored in the token.
+	AST_EXPR_UNARY,
+
+	//
+	// Statements
+	//
+
+	// An assembly statement, like `asm(...)`. The first child must be a string
+	// literal with the assembly code.
+	AST_STMT_ASM,
+
+	// A break statement. This node has no children.
+	AST_STMT_BREAK,
+
+	// A case statement in a switch statement. The first child is the expression
+	// to compare the switch expression to, the second child is the statement.
+	AST_STMT_CASE,
+
+	// A compound statement, like `{a; b;}`. This node contains a list of
+	// statements as children.
+	AST_STMT_COMPOUND,
+
+	// A continue statement. This node has no children.
+	AST_STMT_CONTINUE,
+
+	// A declaration statement, like `int x = 42, y = 3;`. This node contains a
+	// list of declarations as children.
+	AST_STMT_DECL,
+
+	// A default statement in a switch statement. The first child is the statement.
+	AST_STMT_DEFAULT,
+
+	// A do-while statement. The first child is the expression, the second child
+	// is the statement.
+	AST_STMT_DO_WHILE,
+
+	// A for statement. The children are the initialization, the condition, the
+	// increment and the statement. Each of these might be an empty node,
+	// except for the statement.
 	AST_STMT_FOR,        // {(expr|decl)?, expr?, expr?, stmt}
-	AST_STMT_GOTO,       // {}
-	AST_STMT_IF,         // {expr, stmt, stmt?}
-	AST_STMT_LABEL,      // {stmt}
-	AST_STMT_RETURN,     // {expr?}
-	AST_STMT_SWITCH,     // {expr, stmt}
-	AST_STMT_WHILE,      // {expr, stmt}
 
-	// types
-	AST_TYPE_BASIC,      // {}
-	AST_TYPE_ARRAY,      // {type, expr?}
-	AST_TYPE_BITFIELD,   // {type, expr?}
-	AST_TYPE_ENUM,       // {enumerator*}
-	AST_TYPE_FUNC,       // {type, decl*}
-	AST_TYPE_IDENT,      // {decl}
-	AST_TYPE_POINTER,    // {type}
+	// A goto statement. The label is stored in the token.
+	AST_STMT_GOTO,
+
+	// An if statement. The children are the condition, the statement and the
+	// optional else statement.
+	AST_STMT_IF,
+
+	// A labeled statement, like `foo: bar;`. The first child is the statement,
+	// the label is stored in the token.
+	AST_STMT_LABEL,
+
+	// A return statement. The first optional child is the expression to return.
+	AST_STMT_RETURN,
+
+	// A switch statement. The children are the expression and the statement.
+	AST_STMT_SWITCH,
+
+	// A while statement. The children are the expression and the statement.
+	AST_STMT_WHILE,
+
+	//
+	// Types
+	//
+
+	// A basic type, like `int` or `void`. The type is stored in the token.
+	AST_TYPE_BASIC,
+
+	// An array type, like `int[10]` or `char[]`. The first child is the type,
+	// the second child is an expression for the size of the array.
+	AST_TYPE_ARRAY,
+
+	// A bitfield type, like `int:10`. The first child is the type, the second
+	// child is an expression for the size of the bitfield.
+	AST_TYPE_BITFIELD,
+
+	// An enum type, like `enum { ... }`. It contains a list of enumerators.
+	AST_TYPE_ENUM,
+
+	// A function type, like `int (*)(int, int)`. The first child is the return
+	// type, the following children are the parameter types stored as
+	// declarations.
+	AST_TYPE_FUNC,
+
+	// An identifier for a type, like in a typedef. The identifier is stored in
+	// the token.
+	AST_TYPE_IDENT,
+
+	// A pointer type, like `int *` or `void **`. The only child is the base type.
+	AST_TYPE_POINTER,
+
+	// A struct or union type. It contains a list of declarations as children.
+	// Opaque structs and unions contain no children. The tag is stored in the
+	// token.
 	AST_TYPE_STRUCT,
 	AST_TYPE_UNION,
 } ast_node_kind;
 
+// Flags for each node, mostly used for type qualifiers in declarations.
 typedef enum {
 	AST_AUTO         = 1 <<  0,
 	AST_CONST        = 1 <<  1,
@@ -79,16 +202,22 @@ typedef union {
 	// Reference to another node, which represents the type of this node.
 	// Usually for expressions.
 	type_id type;
+	// Could be the value of a literal or the size of an array.
 	i64 i;
+	// Could be the value of a floating point literal.
 	f64 f;
 } ast_info;
 
+// The AST is a tree of tokens, where each node has a reference to its children
+// and the next node in the list of children of the parent node.
 typedef struct {
 	ast_node_kind kind;
 	ast_node_flags flags;
 	token token;
 	ast_id next;
 	ast_id children;
+	// Additional information about the node, depending on the kind of node.
+	// For example, the type of an expression or the value of a literal.
 	ast_info info;
 } ast_node;
 
