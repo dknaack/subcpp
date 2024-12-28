@@ -161,6 +161,39 @@ get_node_size(ast_pool *p, type_id node_id)
 			ASSERT(length != 0 && subtype_size != 0);
 			return length * subtype_size;
 		} break;
+	case AST_TYPE_STRUCT:
+	case AST_TYPE_UNION:
+		{
+			isize result = 0;
+			isize max_align = 0;
+
+			ast_id member_id = node.children;
+			while (member_id.value != 0) {
+				type_id member_type = get_type_id(p, member_id);
+				isize member_size = get_node_size(p, member_type);
+				isize member_align = get_node_alignment(p, member_type);
+
+				if (node.kind == AST_TYPE_UNION) {
+					if (result < member_size) {
+						result = member_size;
+					}
+				} else {
+					isize padding = (result + member_align - 1) & ~(member_align - 1);
+					result += padding;
+					result += member_size;
+				}
+
+				if (member_align > max_align) {
+					max_align = member_align;
+				}
+
+				member_id = get_node(p, member_id).next;
+			}
+
+			isize padding = (result + max_align - 1) & ~(max_align - 1);
+			result += padding;
+			return result;
+		} break;
 	default:
 		ASSERT(!"Invalid type");
 		return 0;
