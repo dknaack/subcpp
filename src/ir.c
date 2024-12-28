@@ -731,7 +731,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					lhs_reg = ir_emit1(ctx, size, IR_LOAD, lhs_addr);
 				}
 
-				result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
+				if (node.token.kind != TOKEN_EQUAL) {
+					result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
+				} else {
+					result = rhs_reg;
+				}
 
 				if (is_assign) {
 					ir_store(ctx, lhs_addr, result, type_id);
