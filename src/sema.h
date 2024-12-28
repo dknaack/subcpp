@@ -113,6 +113,8 @@ get_member(ast_pool *p, type_id type, str member)
 		if (equals(child.token.value, member)) {
 			break;
 		}
+
+		result = child.next;
 	}
 
 	return result;
