@@ -744,7 +744,8 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	}
 
 	if (ctx->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_id decl = new_node(pool, AST_DECL, ctx->peek[0], base_type);
+		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
+		ast_id decl = new_node(pool, kind, ctx->peek[0], base_type);
 		append_node(pool, &list, decl);
 		return list;
 	}
@@ -1058,7 +1059,7 @@ parse(char *filename, arena *perm)
 		}
 
 		ast_node decl = get_node(&pool, decl_list.first);
-		ASSERT(decl.kind == AST_DECL || decl.kind == AST_EXTERN_DEF);
+		ASSERT(decl.kind == AST_EXTERN_DEF);
 		ASSERT(decl_list.first.value != decl.children.value);
 
 		ast_id type_id = decl.children;
