@@ -221,7 +221,7 @@ get_member_offset(ast_pool *p, type_id type, ast_id member)
 	if (is_compound_type(type_node.kind)) {
 		ast_id child = type_node.children;
 		while (child.value != 0) {
-			type_id child_type = {child.value};
+			type_id child_type = get_type_id(p, child);
 			isize align = get_node_alignment(p, child_type);
 			result = (result + align - 1) & ~(align - 1);
 			if (child.value == member.value) {
