@@ -792,6 +792,11 @@ check_node(sema_context ctx, ast_id node_id)
 				check_node(ctx, node.children);
 			}
 
+			if (node.kind == AST_TYPE_ARRAY) {
+				i64 length = eval_ast(ctx, children[1]);
+				pool->nodes[children[1].value].info.i = length;
+			}
+
 			ast_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
