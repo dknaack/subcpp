@@ -639,6 +639,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 					parse_scope member_scope = {s};
 					while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE) {
 						ast_list decl = parse_decl(ctx, PARSE_MEMBER, &member_scope);
+						expect(ctx, TOKEN_SEMICOLON);
 						append_list(pool, &member_list, decl);
 					}
 
