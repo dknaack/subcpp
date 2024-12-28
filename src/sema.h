@@ -223,7 +223,7 @@ get_member_offset(ast_pool *p, type_id type, ast_id member)
 		while (child.value != 0) {
 			type_id child_type = {child.value};
 			isize align = get_node_alignment(p, child_type);
-			result = (result + align - 1) & ~(result - 1);
+			result = (result + align - 1) & ~(align - 1);
 			if (child.value == member.value) {
 				break;
 			}
