@@ -315,7 +315,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		printf("(builtin.%d %s)", size, get_builtin_str(op0));
 		break;
 	case IR_COPY:
-		printf("(copy.%d %%%d)", size, op0);
+		print_ir_inst(inst, op0);
 		break;
 	case IR_ALLOC:
 		printf("(%%%d = alloc.%d %d %d)", dst, size, op0, op1);
