@@ -1,27 +1,105 @@
 typedef enum {
+	// No operation, used during optimization
 	IR_NOP,
 
-	// declarations
+	// Allocates on the stack
+	// - op0: size
+	// - op1: offset
 	IR_ALLOC,
+
+	// Declares a builtin function
+	// - op0: builtin function
 	IR_BUILTIN,
+
+	// Declares a constant
+	// - op0: value
 	IR_CONST,
+
+	// Declares a global variable
+	// - op0: symbol id
 	IR_GLOBAL,
+
+	// Declares a label
+	// - op0: label id
 	IR_LABEL,
+
+	// Declares a parameter
+	// - op0: parameter index
+	// - op1: parameter size
 	IR_PARAM,
+
+	// Declares a variable register. Takes no operands. The size field is used
+	// to store the size of the variable.
 	IR_VAR,
+	IR_FVAR,
 
-	// data movement operators
+	// Copies a register, mainly used during optimization and later removed
+	// - op0: source register
 	IR_COPY,
-	IR_LOAD,
-	IR_MOV,
-	IR_STORE,
+	IR_FCOPY,
 
-	// control-flow operators
+	// Loads a value from memory
+	// - op0: source address
+	IR_LOAD,
+	IR_FLOAD,
+
+	// Moves a value between registers
+	// - op0: destination register
+	// - op1: source register
+	IR_MOV,
+	IR_FMOV,
+
+	// Stores a value to memory
+	// - op0: destination address
+	// - op1: source register
+	IR_STORE,
+	IR_FSTORE,
+
+	// Calls a function. Multiple parameters are reprsented as a linked list of
+	// call instructions. The first call instruction has the called function as
+	// its first operand and the following call instructions have the
+	// parameters as their first operand.
+	// - op0: called function or parameter
+	// - op1: next call instruction
 	IR_CALL,
+
+	// Jumps to a label if the register is zero, otherwise continues.
+	// - op0: register to test
+	// - op1: label to jump to
 	IR_JIZ,
-	IR_JMP,
+
+	// Jumps to a label if the register is not zero, otherwise continues.
+	// - op0: register to test
+	// - op1: label to jump to
 	IR_JNZ,
+
+	// Jumps to a label
+	// - op0: label to jump to
+	IR_JMP,
+
+	// Returns from a function, either an integer or a float (or void).
+	// - op0: optional return value
 	IR_RET,
+	IR_FRET,
+
+	// Converts to an integer or a float, respectively.
+	// - op0: source register
+	IR_CVT,
+	IR_FCVT,
+
+	// Sign extends or zero extends an integer using the size field.
+	// - op0: source register
+	IR_SEXT,
+
+	// Truncates an integer to the size specified in the respective field.
+	// - op0: source register
+	IR_TRUNC,
+
+	// Zero extends an integer to the size specified in the respective field.
+	// - op0: source register
+	IR_ZEXT,
+
+	// The following instructions all have two operands and return a value.
 
 	// integer operators
 	IR_ADD,
@@ -30,6 +108,7 @@ typedef enum {
 	IR_DIV,
 	IR_MOD,
 
+	// comparison operators, where unsigned comparison is suffixed with 'U'
 	IR_EQ,
 	IR_GT,
 	IR_GE,
@@ -40,6 +119,7 @@ typedef enum {
 	IR_LTU,
 	IR_LEU,
 
+	// bitwise operators
 	IR_AND,
 	IR_NOT,
 	IR_OR,
@@ -47,31 +127,30 @@ typedef enum {
 	IR_SHR,
 	IR_XOR,
 
-	IR_CVT,
-	IR_SEXT,
-	IR_TRUNC,
-	IR_ZEXT,
-
-	// float operations
-	IR_FVAR,
-	IR_FMOV,
-	IR_FSTORE,
-	IR_FLOAD,
-	IR_FCOPY,
-
+	// float operators
 	IR_FADD,
 	IR_FSUB,
 	IR_FMUL,
 	IR_FDIV,
 
+	// float comparison operators
 	IR_FEQ,
 	IR_FGT,
 	IR_FGE,
 	IR_FLT,
 	IR_FLE,
-	IR_FRET,
-	IR_FCVT,
 } ir_opcode;
+
+// The IR instructions are graph-based and are stored in a flat array. The
+// operands are stored as indices into the instruction array. The result of an
+// instruction is stored in a register, which is also an index into the
+// instruction array. Hence, these registers can only be assigned once.
+typedef struct {
+	ir_opcode opcode;
+	u8 size;
+	u32 op0;
+	u32 op1;
+} ir_inst;
 
 typedef enum {
 	BUILTIN_POPCOUNT,
@@ -80,17 +159,6 @@ typedef enum {
 	BUILTIN_VA_LIST,
 	BUILTIN_VA_START,
 } ir_builtin;
-
-typedef enum {
-	IR_OPERAND_NONE,
-	IR_OPERAND_REG_SRC,
-	IR_OPERAND_REG_DST,
-	IR_OPERAND_GLOBAL,
-	IR_OPERAND_CONST,
-	IR_OPERAND_LABEL,
-	IR_OPERAND_FUNC,
-	IR_OPERAND_COUNT
-} ir_operand_type;
 
 typedef enum {
 	SECTION_READ  = 1 << 0,
@@ -130,16 +198,21 @@ typedef struct {
 	symbol_id section[SECTION_COUNT];
 } symbol_table;
 
+// Additional information about the types of operands for each opcode.
+typedef enum {
+	IR_OPERAND_NONE,
+	IR_OPERAND_REG_SRC,
+	IR_OPERAND_REG_DST,
+	IR_OPERAND_GLOBAL,
+	IR_OPERAND_CONST,
+	IR_OPERAND_LABEL,
+	IR_OPERAND_FUNC,
+	IR_OPERAND_COUNT
+} ir_operand_type;
+
 typedef struct {
 	ir_operand_type op0, op1;
 } ir_opcode_info;
-
-typedef struct {
-	ir_opcode opcode;
-	u8 size;
-	u32 op0;
-	u32 op1;
-} ir_inst;
 
 typedef struct ir_function ir_function;
 struct ir_function {
