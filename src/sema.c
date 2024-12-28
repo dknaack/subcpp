@@ -552,7 +552,7 @@ check_node(sema_context ctx, ast_id node_id)
 #endif
 			} else {
 				if (!are_compatible(ctx, lhs_id, rhs_id)) {
-					errorf(node.token.loc, "Incompatible pool");
+					errorf(node.token.loc, "Incompatible types in binary expression");
 				}
 			}
 		} break;
