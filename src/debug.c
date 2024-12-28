@@ -402,6 +402,21 @@ print_ir_inst(ir_inst *inst, u32 i)
 	}
 }
 
+static i32 *get_ref_count(ir_inst *inst, isize inst_count, arena *perm);
+
+static void
+print_ir_block(ir_inst *inst, isize inst_count, arena *perm)
+{
+	i32 *ref_count = get_ref_count(inst, inst_count, perm);
+	for (isize j = 0; j < inst_count; j++) {
+		if (ref_count[j] == 0 && inst[j].opcode != IR_NOP) {
+			printf("\t%%%zd = ", j);
+			print_ir_inst(inst, j);
+			printf("\n");
+		}
+	}
+}
+
 static void
 print_ir_program(ir_program program)
 {
@@ -415,14 +430,7 @@ print_ir_program(ir_program program)
 		printf("  inst_index: %d\n", func->inst_index);
 
 		ir_inst *inst = program.insts + func->inst_index;
-		i32 *ref_count = get_ref_count(inst, func->inst_count, temp);
-		for (isize j = 0; j < func->inst_count; j++) {
-			if (ref_count[j] == 0 && inst[j].opcode != IR_NOP) {
-				printf("\t%%%zd = ", j);
-				print_ir_inst(inst, j);
-				printf("\n");
-			}
-		}
+		print_ir_block(inst, func->inst_count, temp);
 
 		free(temp);
 	}
