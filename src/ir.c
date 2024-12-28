@@ -209,8 +209,8 @@ typedef union {
 static ir_value
 ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 {
-	ir_value result = {0};
 	for (isize i = 0; i < inst_count; i++) {
+		ir_value result = {0};
 		ir_opcode_info info = get_opcode_info(inst[i].opcode);
 
 		ir_value op0 = {0};
@@ -233,6 +233,10 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 
 		result = values[i];
 		switch (inst[i].opcode) {
+		case IR_NOP:
+		case IR_LABEL:
+		case IR_GLOBAL:
+			break;
 		case IR_ALLOC:
 			if (!result.i) {
 				result.i = stack.pos;
@@ -370,7 +374,8 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 		values[i] = result;
 	}
 
-	return result;
+	ir_value zero = {0};
+	return zero;
 }
 
 static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
@@ -535,8 +540,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					ctx->label_count = 1;
 
 					u32 result = ir_emit1(ctx, sym->size, IR_ALLOC, sym->size);
-					translate_initializer(ctx, node_id, result);
-					isize end = ctx->program->inst_count;
+					translate_initializer(ctx, children[1], result);
+					isize end = ctx->func_inst_count;
 
 					isize inst_count = end - start;
 					arena stack = subarena(perm, sym->size);

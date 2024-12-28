@@ -25,7 +25,7 @@ static void *
 alloc_nozero(arena *arena, usize count, usize size)
 {
 	arena->pos = (arena->pos + 7) & -8;
-	ASSERT(arena->pos + size * count < arena->size);
+	ASSERT(arena->pos + size * count <= arena->size);
 	void *result = arena->data + arena->pos;
 	arena->pos += size * count;
 	return result;
