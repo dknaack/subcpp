@@ -87,9 +87,10 @@ typedef enum {
 } x86_opcode;
 
 typedef struct {
-	mach_program *program;
 	ir_inst *inst;
-	i32 *ref_count;
+	mach_token *tokens;
+	i32 token_count;
+	i32 max_token_count;
 	i32 vreg_count;
 } x86_context;
 

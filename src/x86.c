@@ -1,47 +1,52 @@
 static void
+x86_push_token(x86_context *ctx, mach_token token)
+{
+	ASSERT(ctx->token_count < ctx->max_token_count);
+	ctx->tokens[ctx->token_count++] = token;
+}
+
+static void
 x86_emit0(x86_context *ctx, x86_opcode opcode)
 {
-	mach_program *program = ctx->program;
-	push_inst(program, opcode, 0);
+	x86_push_token(ctx, make_mach_token(MACH_INST, opcode, 0));
 }
 
 static void
 x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 {
-	mach_program *program = ctx->program;
 	dst.flags |= MACH_DEF | MACH_USE;
 
 	switch (opcode) {
 	case X86_IDIV:
 		{
-			push_inst(program, opcode, 3);
-			push_token(program, dst);
+			x86_emit0(ctx, opcode);
+			x86_push_token(ctx, dst);
 
 			mach_token op0 = make_mach_token(MACH_MREG, X86_RAX, dst.size);
 			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			push_token(program, op0);
+			x86_push_token(ctx, op0);
 
 			mach_token op1 = make_mach_token(MACH_MREG, X86_RDX, dst.size);
 			op1.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			push_token(program, op1);
+			x86_push_token(ctx, op1);
 		} break;
 	case X86_IMUL:
 		{
-			push_inst(program, opcode, 3);
-			push_token(program, dst);
+			x86_emit0(ctx, opcode);
+			x86_push_token(ctx, dst);
 
 			mach_token op0 = make_mach_token(MACH_MREG, X86_RAX, dst.size);
 			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			push_token(program, op0);
+			x86_push_token(ctx, op0);
 
 			mach_token op1 = make_mach_token(MACH_MREG, X86_RDX, dst.size);
 			op1.flags |= MACH_DEF | MACH_IMPLICIT;
-			push_token(program, op1);
+			x86_push_token(ctx, op1);
 		} break;
 	default:
 		{
-			push_inst(program, opcode, 1);
-			push_token(program, dst);
+			x86_emit0(ctx, opcode);
+			x86_push_token(ctx, dst);
 		} break;
 	}
 }
@@ -49,7 +54,6 @@ x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 static void
 x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 {
-	mach_program *program = ctx->program;
 	ASSERT(dst.kind != 0 && src.kind != 0);
 	ASSERT(dst.size > 0 && src.size > 0);
 
@@ -57,33 +61,33 @@ x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 	case X86_MOV:
 		ASSERT(!(dst.flags & MACH_FLOAT) && !(src.flags & MACH_FLOAT));
 		if (!equals_token(dst, src)) {
-			push_inst(program, opcode, 2);
+			x86_emit0(ctx, opcode);
 			if (dst.flags & MACH_INDIRECT) {
 				dst.flags |= MACH_USE;
 			} else {
 				dst.flags |= MACH_DEF;
 			}
 
-			push_token(program, dst);
+			x86_push_token(ctx, dst);
 			src.flags |= MACH_USE;
-			push_token(program, src);
+			x86_push_token(ctx, src);
 			// Why was this here?
 			//ASSERT(!(dst.flags & MACH_INDIRECT));
 		}
 		break;
 	case X86_CMP:
-		push_inst(program, opcode, 2);
+		x86_emit0(ctx, opcode);
 		dst.flags |= MACH_USE;
-		push_token(program, dst);
+		x86_push_token(ctx, dst);
 		src.flags |= MACH_USE;
-		push_token(program, src);
+		x86_push_token(ctx, src);
 		break;
 	default:
-		push_inst(program, opcode, 2);
+		x86_emit0(ctx, opcode);
 		dst.flags |= MACH_DEF | MACH_USE;
-		push_token(program, dst);
+		x86_push_token(ctx, dst);
 		src.flags |= MACH_USE;
-		push_token(program, src);
+		x86_push_token(ctx, src);
 	}
 }
 
@@ -716,33 +720,101 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	}
 }
 
-static mach_program
-x86_select(ir_program p, arena *arena)
+static void
+x86_emit_token(stream *out, mach_token token, symbol_table symtab)
 {
-	mach_program result = {0};
-	result.funcs = ALLOC(arena, p.func_count, mach_function);
-	// TODO: This should be a dynamic array
-	result.max_token_count = 1024 * 1024;
-	result.tokens = alloc(arena, result.max_token_count, 1);
-	result.func_count = p.func_count;
-	result.max_vreg_count = p.max_reg_count;
-	result.max_label_count = p.max_label_count;
-	result.mreg_count = X86_REGISTER_COUNT;
-	result.int_mreg_count = X86_INT_REGISTER_COUNT;
-	result.tmp_mreg_count = LENGTH(x86_temp_regs);
-	result.tmp_mregs = x86_temp_regs;
+	x86_register reg;
 
-	symbol_id sym_id = p.symtab.section[SECTION_TEXT];
+	b32 print_size = (token.kind == MACH_SPILL
+		|| (token.flags & MACH_INDIRECT));
+	if (print_size) {
+		switch (token.size) {
+		case 1:
+			stream_print(out, "byte");
+			break;
+		case 2:
+			stream_print(out, "word");
+			break;
+		case 4:
+			stream_print(out, "dword");
+			break;
+		case 8:
+		case 0:
+			stream_print(out, "qword");
+			break;
+		default:
+			ASSERT(!"Invalid size");
+		}
+	}
+
+	switch (token.kind) {
+	case MACH_GLOBAL:
+		{
+			ASSERT(token.value < symtab.symbol_count);
+			symbol *sym = &symtab.symbols[token.value];
+			if (sym->name.length > 0) {
+				stream_prints(out, sym->name);
+			} else {
+				stream_print(out, "L#");
+				stream_printu(out, token.value);
+			}
+		} break;
+	case MACH_SPILL:
+		stream_print(out, "[rsp+");
+		stream_printu(out, token.value);
+		stream_print(out, "]");
+		break;
+	case MACH_LABEL:
+		stream_print(out, ".L");
+		stream_printu(out, token.value);
+		break;
+	case MACH_MREG:
+		if (token.flags & MACH_INDIRECT) {
+			stream_print(out, "[");
+			token.size = 8;
+		}
+
+		reg = (x86_register)token.value;
+		stream_print(out, x86_get_register_name(reg, token.size));
+
+		if (token.flags & MACH_INDIRECT) {
+			stream_print(out, "]");
+		}
+		break;
+	case MACH_CONST:
+		stream_printu(out, token.value);
+		break;
+	case MACH_FUNC:
+		{
+			ASSERT(!"TODO");
+		} break;
+	case MACH_VREG:
+		stream_print(out, "v");
+		stream_printu(out, token.value);
+		//ASSERT(!"Cannot use virtual register during code generation");
+		break;
+	default:
+		ASSERT(false);
+		stream_print(out, "(invalid token)");
+	}
+}
+
+static void
+x86_generate(stream *out, ir_program p, arena *arena)
+{
+	isize max_token_count = 1024 * 1024;
+	mach_token *tokens = alloc(arena, max_token_count, 1);
+
+	symbol_table symtab = p.symtab;
+	symbol_id sym_id = symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
-		symbol *sym = &p.symtab.symbols[sym_id.value];
+		symbol *sym = &symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
-		mach_function *mach_func = &result.funcs[sym_id.value];
-		ASSERT(sym_id.value < (i32)result.func_count);
-		isize first_token = result.token_count;
 
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
-		ctx.program = &result;
+		ctx.tokens = tokens;
+		ctx.max_token_count = max_token_count;
 
 		// NOTE: Do the instruction selection
 		ir_inst *inst = p.insts + ir_func->inst_index;
@@ -768,10 +840,211 @@ x86_select(ir_program p, arena *arena)
 			x86_select_inst(&ctx, j, dst);
 		}
 
-		isize last_token = result.token_count;
-		mach_func->token_count = last_token - first_token;
+		isize token_count = ctx.token_count;
+
+		regalloc_hints hints = {0};
+		hints.mreg_count = X86_REGISTER_COUNT;
+		hints.vreg_count = ir_func->inst_count;
+		hints.tmp_mregs = x86_temp_regs;
+		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
+		hints.label_count = p.max_label_count;
+
+		regalloc_info info = regalloc(tokens, token_count, hints, arena);
+
+		stream_print(out, ":\n");
+		if (token_count == 0) {
+			// NOTE: Do not print empty functions
+			goto next;
+		}
+
+		// Print function prologue
+		isize used_volatile_register_count = 0;
+		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
+			u32 mreg = x86_saved_regs[j];
+			if (info.used[mreg]) {
+				stream_print(out, "\tpush ");
+				x86_emit_token(out, make_mach_token(MACH_MREG, mreg, 8), symtab);
+				stream_print(out, "\n");
+				used_volatile_register_count++;
+			}
+		}
+
+		// TODO: Set function stack size
+		isize stack_size = 0;
+#if 0
+		char *code = (char *)p.tokens + func->inst_offset;
+		mach_inst *first_inst = (mach_inst *)code;
+		if (first_inst->opcode == X86_SUB) {
+			mach_token *tokens = (mach_token *)(first_inst + 1);
+			if (tokens[0].kind == MACH_MREG && tokens[0].value == X86_RSP) {
+				ASSERT(tokens[1].kind == MACH_CONST);
+				stack_size = tokens[1].value;
+
+				stack_size += 8 * info.spill_count;
+				stack_size += used_volatile_register_count;
+				b32 is_stack_aligned = ((stack_size & 15) == 8);
+				if (!is_stack_aligned) {
+					stack_size += 24 - (stack_size & 15);
+				}
+
+				tokens[1].value = stack_size;
+			}
+		}
+#endif
+		b32 first_inst = true;
+		b32 first_token = true;
+
+		// TODO: We need to ensure that instructions do not
+		// contain two address tokens, e.g. mov [rax], [rax]
+		for (isize i = 0; i < token_count; i++) {
+			mach_token token = tokens[i];
+			if (token.flags & MACH_IMPLICIT) {
+				continue;
+			}
+
+			switch (token.kind) {
+			case MACH_INST:
+				if (first_inst) {
+					first_inst = false;
+				} else {
+					stream_print(out, "\n");
+				}
+
+				if (token.value == X86_LABEL) {
+					if (i + 1 < token_count) {
+						stream_print(out, ".L");
+						stream_printu(out, tokens[i + 1].value);
+						stream_print(out, ":");
+						i++;
+					}
+				} else if (token.value == X86_RET) {
+					stream_print(out, "\tjmp .exit\n");
+				} else {
+					if (i + 2 < token_count
+						&& tokens[i + 1].kind == MACH_SPILL
+						&& tokens[i + 2].kind == MACH_SPILL)
+					{
+						isize op1_size = tokens[i + 2].size;
+						mach_token new_token = make_mach_token(MACH_MREG, X86_RCX, op1_size);
+
+						stream_print(out, "\tmov ");
+						x86_emit_token(out, new_token, symtab);
+						stream_print(out, ", ");
+						x86_emit_token(out, tokens[i + 2], symtab);
+						stream_print(out, "\n");
+
+						tokens[i + 2] = new_token;
+					}
+
+					stream_print(out, "\t");
+					stream_print(out, x86_get_opcode_name(token.value));
+					stream_print(out, " ");
+				}
+
+				first_token = true;
+				break;
+			default:
+				if (first_token) {
+					first_token = false;
+				} else {
+					stream_print(out, ", ");
+				}
+
+				x86_emit_token(out, token, symtab);
+				break;
+			}
+		}
+
+		// Print function epilogue
+		stream_print(out, "\n.exit:\n");
+		if (stack_size > 0) {
+			stream_print(out, "\tadd rsp, ");
+			stream_printu(out, stack_size);
+			stream_print(out, "\n");
+		}
+
+		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
+			u32 mreg = x86_saved_regs[j];
+			if (info.used[mreg]) {
+				stream_print(out, "\tpop ");
+				x86_emit_token(out, make_mach_token(MACH_MREG, mreg, 8), symtab);
+				stream_print(out, "\n");
+			}
+		}
+
+		stream_print(out, "\tret\n\n");
+next:
 		sym_id = sym->next;
 	}
 
-	return result;
+	for (isize j = 0; j < SECTION_COUNT; j++) {
+		if (j == SECTION_TEXT) {
+			stream_print(out, "section .text\n");
+		} else if (j == SECTION_DATA) {
+			stream_print(out, "section .data\n");
+		} else if (j == SECTION_RODATA) {
+			stream_print(out, "section .rodata\n");
+		} else if (j == SECTION_BSS) {
+			stream_print(out, "section .bss\n");
+		} else {
+			// Unsupported section
+			continue;
+		}
+
+		symbol_id sym_id = symtab.section[j];
+		while (sym_id.value != 0) {
+			symbol *sym = &symtab.symbols[sym_id.value];
+			if (sym->linkage == LINK_STATIC) {
+				stream_print(out, "static ");
+				stream_prints(out, sym->name);
+				stream_print(out, "\n");
+			} else if (sym->linkage == LINK_EXTERN) {
+				stream_print(out, "extern ");
+				stream_prints(out, sym->name);
+				stream_print(out, "\n");
+			} else if (sym->name.length > 0) {
+				stream_print(out, "global ");
+				stream_prints(out, sym->name);
+				stream_print(out, "\n");
+			}
+
+			// NOTE: text section was already printed in the loop above
+			if (sym->size > 0) {
+				if (sym->name.length > 0) {
+					stream_prints(out, sym->name);
+				} else {
+					stream_print(out, "L#");
+					stream_printu(out, sym_id.value);
+				}
+
+				if (j == SECTION_DATA || j == SECTION_RODATA) {
+					// NOTE: Inside data or rodata section, symbols contain byte data
+					if (sym->data) {
+						stream_print(out, ": db ");
+						u8 *byte = sym->data;
+						for (isize i = 0; i < sym->size; i++) {
+							if (i != 0) {
+								stream_print(out, ", ");
+							}
+
+							stream_print_hex(out, byte[i]);
+						}
+
+						stream_print(out, "\n");
+					} else {
+						stream_print(out, ": times ");
+						stream_printu(out, sym->size);
+						stream_print(out, " db 0\n");
+					}
+				} else if (j == SECTION_BSS) {
+					// NOTE; Inside bss section, symbols have no data
+					stream_print(out, " resb ");
+					stream_print_hex(out, sym->size);
+					stream_print(out, "\n");
+				}
+			}
+
+			sym_id = sym->next;
+		}
+	}
 }

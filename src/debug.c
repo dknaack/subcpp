@@ -438,6 +438,7 @@ print_ir_program(ir_program program)
 	printf("\n");
 }
 
+#if 0
 static void
 print_x86_program(mach_program p)
 {
@@ -603,3 +604,4 @@ print_tokens(parse_context *ctx)
 		}
 	}
 }
+#endif

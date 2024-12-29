@@ -26,25 +26,14 @@ typedef struct {
 } mach_token;
 
 typedef struct {
-	symbol_id sym_id;
-	i32 token_count;
-	i32 stack_size;
-} mach_function;
-
-typedef struct {
-	mach_token *tokens;
-	mach_function *funcs;
+	b32 *is_float;
 	u32 *tmp_mregs;
-
-	isize token_count;
-	isize max_token_count;
-	u32 tmp_mreg_count;
 	u32 int_mreg_count;
+	u32 tmp_mreg_count;
 	u32 mreg_count;
-	u32 func_count;
-	u32 max_vreg_count;
-	u32 max_label_count;
-} mach_program;
+	u32 vreg_count;
+	u32 label_count;
+} regalloc_hints;
 
 typedef struct {
 	b32 *used;
@@ -95,20 +84,4 @@ make_global(u32 index)
 {
 	mach_token token = make_mach_token(MACH_GLOBAL, index, 8);
 	return token;
-}
-
-static void
-push_token(mach_program *p, mach_token arg)
-{
-	ASSERT(arg.kind != MACH_INVALID);
-	ASSERT(arg.kind != MACH_VREG || arg.value < p->max_vreg_count);
-	p->tokens[p->token_count++] = arg;
-}
-
-static void
-push_inst(mach_program *p, u32 opcode, u32 token_count)
-{
-	mach_token token = make_mach_token(MACH_INST, opcode, 0);
-	(void)token_count;
-	push_token(p, token);
 }

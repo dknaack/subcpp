@@ -50,15 +50,14 @@ swap_u32(u32 *a, isize i, isize j)
 }
 
 static regalloc_info
-regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
+regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *arena)
 {
 	regalloc_info info = {0};
-	info.used = ALLOC(arena, p.mreg_count, b32);
+	info.used = ALLOC(arena, hints.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
-	mach_token *tokens = p.tokens + offset;
 
 	// NOTE: Compute the instruction index of each label
-	isize *label_offset = ALLOC(arena, p.max_label_count, isize);
+	isize *label_offset = ALLOC(arena, hints.label_count, isize);
 	for (isize i = 0; i < token_count; i++) {
 		if (tokens[i].kind == MACH_INST
 			&& tokens[i].value == X86_LABEL
@@ -67,7 +66,7 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 			// A label should only have one token: The index of the label.
 			ASSERT(tokens[i + 1].kind == MACH_CONST);
 			isize label_index = tokens[i + 1].value;
-			ASSERT(label_index < p.max_label_count);
+			ASSERT(label_index < hints.label_count);
 			label_offset[label_index] = i;
 		}
 	}
@@ -76,7 +75,7 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 	// each column corresponds to a register. If a register is live at a
 	// certain instruction then the matrix has a one at the corresponding
 	// column and row.
-	isize reg_count = p.mreg_count + p.max_vreg_count;
+	isize reg_count = hints.mreg_count + hints.vreg_count;
 	bit_matrix live_matrix = bit_matrix_init(reg_count, token_count, arena);
 	{
 		// TODO: use a bitset as matrix instead of a boolean matrix.
@@ -109,8 +108,8 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 					} break;
 				case MACH_FUNC:
 					{
-						for (u32 k = 0; k < p.tmp_mreg_count; k++) {
-							u32 mreg = p.tmp_mregs[k];
+						for (u32 k = 0; k < hints.tmp_mreg_count; k++) {
+							u32 mreg = hints.tmp_mregs[k];
 							set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
 						}
 					} break;
@@ -164,11 +163,11 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < p.max_vreg_count; i++) {
+	for (u32 i = 0; i < hints.vreg_count; i++) {
 		sorted[i] = i;
 	}
 
-	for (u32 i = 1; i < p.max_vreg_count; i++) {
+	for (u32 i = 1; i < hints.vreg_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
@@ -176,19 +175,9 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 		}
 	}
 
-	// Determine floating-pointer registers
-	b32 *is_float_vreg = ALLOC(arena, p.max_vreg_count, b32);
-	for (u32 j = 0; j < token_count; j++) {
-		b32 is_vreg = (tokens[j].kind == MACH_VREG);
-		if (is_vreg && (tokens[j].flags & MACH_FLOAT)) {
-			u32 reg = tokens[j].value;
-			is_float_vreg[reg] = true;
-		}
-	}
-
 	// Initialize the register pool
-	u32 *pool = ALLOC(arena, p.mreg_count, u32);
-	for (u32 i = 0; i < p.mreg_count; i++) {
+	u32 *pool = ALLOC(arena, hints.mreg_count, u32);
+	for (u32 i = 0; i < hints.mreg_count; i++) {
 		pool[i] = i;
 	}
 
@@ -198,8 +187,8 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	mach_token *mreg_map = ALLOC(arena, p.max_vreg_count, mach_token);
-	for (u32 i = 0; i < p.max_vreg_count; i++) {
+	mach_token *mreg_map = ALLOC(arena, hints.vreg_count, mach_token);
+	for (u32 i = 0; i < hints.vreg_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
@@ -217,15 +206,15 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg >= p.max_vreg_count);
+			b32 is_mreg = (inactive_reg >= hints.vreg_count);
 			if (is_mreg) {
 				u32 mreg = reg_count - 1 - inactive_reg;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < p.mreg_count);
+				ASSERT(pool[active_count] < hints.mreg_count);
 			} else if (mreg_map[inactive_reg].kind == MACH_MREG) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < p.mreg_count);
+				ASSERT(pool[active_count] < hints.mreg_count);
 			}
 
 			sorted[j] = sorted[active_start];
@@ -233,14 +222,14 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(curr_reg < p.max_vreg_count);
-		b32 should_spill = (active_count >= p.mreg_count);
+		ASSERT(curr_reg < hints.vreg_count);
+		b32 should_spill = (active_count >= hints.mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < p.mreg_count; i++) {
+			for (u32 i = active_count; i < hints.mreg_count; i++) {
 				u32 mreg = pool[i];
-				b32 is_float_mreg = pool[i] >= p.int_mreg_count;
-				if (is_float_mreg != is_float_vreg[curr_reg]) {
+				b32 is_float_mreg = pool[i] >= hints.int_mreg_count;
+				if (is_float_mreg != hints.is_float[curr_reg]) {
 					continue;
 				}
 
@@ -286,7 +275,7 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 			}
 		} else {
 			u32 mreg = pool[active_count++];
-			ASSERT(mreg < p.mreg_count);
+			ASSERT(mreg < hints.mreg_count);
 			info.used[mreg] |= !is_empty;
 			mreg_map[curr_reg] = make_mach_token(MACH_MREG, mreg, 0);
 		}
@@ -297,7 +286,7 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 		if (tokens[i].kind == MACH_VREG) {
 			ASSERT(tokens[i].kind == MACH_VREG);
 			u32 vreg = tokens[i].value;
-			ASSERT(vreg < p.max_vreg_count);
+			ASSERT(vreg < hints.vreg_count);
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
 			ASSERT(tokens[i].kind == MACH_MREG || tokens[i].kind == MACH_SPILL);
@@ -305,18 +294,5 @@ regalloc_range(mach_program p, isize offset, isize token_count, arena *arena)
 	}
 
 	arena_temp_end(temp);
-	return info;
-}
-
-static regalloc_info *
-regalloc(mach_program p, arena *arena)
-{
-	regalloc_info *info = ALLOC(arena, p.func_count, regalloc_info);
-	isize offset = 0;
-	for (isize i = 0; i < p.func_count; i++) {
-		info[i] = regalloc_range(p, offset, p.funcs[i].token_count, arena);
-		offset += p.funcs[i].token_count;
-	}
-
 	return info;
 }
