@@ -279,7 +279,7 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 	for (u32 i = 0; i < token_count; i++) {
 		if (tokens[i].kind == MACH_REG && tokens[i].value > hints.mreg_count) {
 			u32 vreg = tokens[i].value;
-			ASSERT(vreg < hints.vreg_count);
+			ASSERT(hints.mreg_count <= vreg && vreg < reg_count);
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
 			ASSERT(tokens[i].kind == MACH_REG || tokens[i].kind == MACH_SPILL);
