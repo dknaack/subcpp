@@ -89,6 +89,7 @@ typedef enum {
 typedef struct {
 	ir_inst *inst;
 	mach_token *tokens;
+	b32 *is_float;
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;

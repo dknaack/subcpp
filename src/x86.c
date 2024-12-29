@@ -59,7 +59,6 @@ x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 
 	switch (opcode) {
 	case X86_MOV:
-		ASSERT(!(dst.flags & MACH_FLOAT) && !(src.flags & MACH_FLOAT));
 		if (!equals_token(dst, src)) {
 			x86_emit0(ctx, opcode);
 			if (dst.flags & MACH_INDIRECT) {
@@ -325,7 +324,9 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			x86_opcode x86_opcode = X86_MOV;
 			if (opcode == IR_FLOAD) {
 				x86_opcode = X86_MOVSS;
-				dst.flags |= MACH_FLOAT;
+				if (dst.kind == MACH_VREG) {
+					ctx->is_float[dst.value] = true;
+				}
 			}
 
 			ASSERT(!equals_token(src, dst));
@@ -492,13 +493,13 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			dst_byte.size = 1;
 
 			mach_token lhs = make_mach_token(MACH_VREG, op0, inst[op0].size);
-			if (is_float) {
-				lhs.flags |= MACH_FLOAT;
+			if (is_float && lhs.kind == MACH_VREG) {
+				ctx->is_float[lhs.value] = true;
 			}
 
 			mach_token rhs = make_mach_token(MACH_VREG, op1, inst[op1].size);
-			if (is_float) {
-				rhs.flags |= MACH_FLOAT;
+			if (is_float && rhs.kind == MACH_VREG) {
+				ctx->is_float[rhs.value] = true;
 			}
 
 			x86_select_inst(ctx, op0, lhs);
@@ -557,9 +558,12 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				x86_select_inst(ctx, inst[op0].op0, dst);
 				mach_token src = x86_select_const(ctx, inst[op0].op1);
 				src.size = dst.size;
-				if (is_float) {
-					dst.flags |= MACH_FLOAT;
-					src.flags |= MACH_FLOAT;
+				if (is_float && dst.kind == MACH_VREG) {
+					ctx->is_float[dst.value] = true;
+				}
+
+				if (is_float && src.kind == MACH_VREG) {
+					ctx->is_float[src.value] = true;
 				}
 
 				x86_opcode cmp_opcode = (is_float ? X86_COMISS : X86_CMP);
@@ -690,7 +694,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_FVAR:
 		{
 			mach_token src = make_mach_token(MACH_VREG, inst_index, size);
-			src.flags |= MACH_FLOAT;
+			ctx->is_float[inst_index] = true;
 			x86_emit2(ctx, X86_MOVSS, dst, src);
 		} break;
 	case IR_FADD:
@@ -709,8 +713,10 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			}
 
 			mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
-			src.flags |= MACH_FLOAT;
-			dst.flags |= MACH_FLOAT;
+			ctx->is_float[op1] = true;
+			if (dst.kind == MACH_VREG) {
+				ctx->is_float[dst.value] = true;
+			}
 
 			x86_select_inst(ctx, op0, dst);
 			x86_select_inst(ctx, op1, src);
@@ -803,7 +809,7 @@ static void
 x86_generate(stream *out, ir_program p, arena *arena)
 {
 	isize max_token_count = 1024 * 1024;
-	mach_token *tokens = alloc(arena, max_token_count, 1);
+	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
 	symbol_table symtab = p.symtab;
 	symbol_id sym_id = symtab.section[SECTION_TEXT];
@@ -815,6 +821,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.inst = p.insts + ir_func->inst_index;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
+		ctx.is_float = ALLOC(arena, ir_func->inst_count, b32);
 
 		// NOTE: Do the instruction selection
 		ir_inst *inst = p.insts + ir_func->inst_index;
@@ -833,7 +840,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				isize op0_size = inst[inst[j].op0].size;
 				dst = make_mach_token(MACH_VREG, inst[j].op0, op0_size);
 				if (opcode == IR_FMOV || opcode == IR_FSTORE) {
-					dst.flags |= MACH_FLOAT;
+					ctx.is_float[dst.value] = true;
 				}
 			}
 
@@ -848,6 +855,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		hints.tmp_mregs = x86_temp_regs;
 		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
 		hints.label_count = p.max_label_count;
+		hints.is_float = ctx.is_float;
 
 		regalloc_info info = regalloc(tokens, token_count, hints, arena);
 
