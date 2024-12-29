@@ -20,6 +20,20 @@ x86_encode_opcode(x86_opcode opcode,
 	return result;
 }
 
+static x86_operand_kind
+x86_arg0(u32 token)
+{
+	x86_operand_kind result = (token >> 16) & 15;
+	return result;
+}
+
+static x86_operand_kind
+x86_arg1(u32 token)
+{
+	x86_operand_kind result = (token >> 24) & 15;
+	return result;
+}
+
 static void
 x86_emit0(x86_context *ctx, x86_opcode opcode)
 {
@@ -41,8 +55,8 @@ x86_emit1(x86_context *ctx, x86_opcode opcode,
 		{
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
 			mach_token op1 = make_mach_token(MACH_REG, X86_RDX, dst.size);
-			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			op1.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
+			op0.flags |= MACH_DEF | MACH_USE;
+			op1.flags |= MACH_DEF | MACH_USE;
 
 			x86_push_token(ctx, dst);
 			x86_push_token(ctx, op0);
@@ -52,8 +66,8 @@ x86_emit1(x86_context *ctx, x86_opcode opcode,
 		{
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
 			mach_token op1 = make_mach_token(MACH_REG, X86_RDX, dst.size);
-			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			op1.flags |= MACH_DEF | MACH_IMPLICIT;
+			op0.flags |= MACH_DEF | MACH_USE;
+			op1.flags |= MACH_DEF;
 
 			x86_push_token(ctx, dst);
 			x86_push_token(ctx, op0);
@@ -479,7 +493,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 
 			x86_select_inst(ctx, op0, rax);
 			x86_select_inst(ctx, op1, rcx);
-			x86_emit2(ctx, X86_MOV, X86_REG, rdx.size, rdx, X86_IMM, zero.size, zero);
+			x86_emit2(ctx, X86_MOV, X86_REG, X86_DWORD, rdx, X86_IMM, X86_DWORD, zero);
 			x86_emit1(ctx, X86_IDIV, X86_REG, rcx.size, rcx);
 			x86_emit2(ctx, X86_MOV, X86_REG, dst.size, dst, X86_REG, src.size, src);
 		} break;
@@ -607,7 +621,6 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				x86_emit0(ctx, X86_RET);
 			} else {
 				x86_select_inst(ctx, op0, return_reg);
-				return_reg.flags |= MACH_IMPLICIT;
 				x86_emit1(ctx, X86_RET, 0, 0, return_reg);
 			}
 		} break;
@@ -921,15 +934,12 @@ x86_generate(stream *out, ir_program p, arena *arena)
 #endif
 		b32 first_inst = true;
 		b32 first_token = true;
+		isize operand_count = 0;
 
 		// TODO: We need to ensure that instructions do not
 		// contain two address tokens, e.g. mov [rax], [rax]
 		for (isize i = 0; i < token_count; i++) {
 			mach_token token = tokens[i];
-			if (token.flags & MACH_IMPLICIT) {
-				continue;
-			}
-
 			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
 			switch (token.kind) {
 			case MACH_INST:
@@ -938,6 +948,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				} else {
 					stream_print(out, "\n");
 				}
+
+				operand_count += (x86_arg0(token.value) != X86_NIL);
+				operand_count += (x86_arg1(token.value) != X86_NIL);
 
 				if (opcode == X86_LABEL) {
 					if (i + 1 < token_count) {
@@ -973,13 +986,16 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				first_token = true;
 				break;
 			default:
-				if (first_token) {
-					first_token = false;
-				} else {
-					stream_print(out, ", ");
-				}
+				if (operand_count != 0) {
+					if (first_token) {
+						first_token = false;
+					} else {
+						stream_print(out, ", ");
+					}
 
-				x86_emit_token(out, token, symtab);
+					x86_emit_token(out, token, symtab);
+					operand_count--;
+				}
 				break;
 			}
 		}
