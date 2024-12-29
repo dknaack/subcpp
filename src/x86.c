@@ -790,10 +790,6 @@ x86_emit_token(stream *out, mach_token token, symbol_table symtab)
 	case MACH_CONST:
 		stream_printu(out, token.value);
 		break;
-	case MACH_FUNC:
-		{
-			ASSERT(!"TODO");
-		} break;
 	case MACH_VREG:
 		stream_print(out, "v");
 		stream_printu(out, token.value);

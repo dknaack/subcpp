@@ -5,7 +5,6 @@ typedef enum {
 	MACH_VREG,
 	MACH_SPILL,
 	MACH_LABEL,
-	MACH_FUNC,
 	MACH_GLOBAL,
 	MACH_CONST,
 } mach_token_kind;
@@ -15,6 +14,7 @@ typedef enum {
 	MACH_DEF      = (1 << 1),
 	MACH_IMPLICIT = (1 << 2),
 	MACH_INDIRECT = (1 << 3),
+	MACH_CALL     = (1 << 4),
 } mach_token_flags;
 
 typedef struct {
@@ -68,13 +68,6 @@ static mach_token
 make_label(u32 value)
 {
 	mach_token token = make_mach_token(MACH_LABEL, value, 0);
-	return token;
-}
-
-static mach_token
-make_func(u32 index)
-{
-	mach_token token = make_mach_token(MACH_FUNC, index, 8);
 	return token;
 }
 

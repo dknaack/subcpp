@@ -106,19 +106,19 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 						ASSERT(inst_index < token_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
-				case MACH_FUNC:
-					{
-						for (u32 k = 0; k < hints.tmp_mreg_count; k++) {
-							u32 mreg = hints.tmp_mregs[k];
-							set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
-						}
-					} break;
 				case MACH_MREG:
 					{
 						value = live_matrix.width - 1 - token.value;
 					} break;
 				default:
 					break;
+				}
+
+				if (token.flags & MACH_CALL) {
+					for (u32 k = 0; k < hints.tmp_mreg_count; k++) {
+						u32 mreg = hints.tmp_mregs[k];
+						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
+					}
 				}
 
 				if (token.kind == MACH_VREG || token.kind == MACH_MREG) {
