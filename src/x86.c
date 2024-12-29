@@ -851,6 +851,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		isize token_count = ctx.token_count;
 
 		regalloc_hints hints = {0};
+		hints.int_mreg_count = X86_INT_REGISTER_COUNT;
 		hints.mreg_count = X86_REGISTER_COUNT;
 		hints.vreg_count = ir_func->inst_count;
 		hints.tmp_mregs = x86_temp_regs;
