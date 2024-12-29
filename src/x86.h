@@ -103,12 +103,6 @@ typedef enum {
 } x86_operand_size;
 
 typedef struct {
-	x86_opcode opcode;
-	x86_operand_kind args[2];
-	x86_operand_size size[2];
-} x86_op;
-
-typedef struct {
 	ir_inst *inst;
 	mach_token *tokens;
 	b32 *is_float;
