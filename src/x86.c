@@ -816,13 +816,16 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		symbol *sym = &symtab.symbols[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
 
+		//
+		// 1. Instruction selection
+		//
+
 		x86_context ctx = {0};
 		ctx.inst = p.insts + ir_func->inst_index;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
 		ctx.is_float = ALLOC(arena, ir_func->inst_count, b32);
 
-		// NOTE: Do the instruction selection
 		ir_inst *inst = p.insts + ir_func->inst_index;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
@@ -847,22 +850,29 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		}
 
 		isize token_count = ctx.token_count;
+		if (token_count == 0) {
+			// NOTE: Do not generate code for empty functions
+			goto next;
+		}
+
+		//
+		// 2. Register allocation
+		//
 
 		regalloc_hints hints = {0};
+		hints.is_float = ctx.is_float;
+		hints.tmp_mregs = x86_temp_regs;
 		hints.int_mreg_count = X86_INT_REGISTER_COUNT;
+		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
 		hints.mreg_count = X86_REGISTER_COUNT;
 		hints.vreg_count = ir_func->inst_count;
-		hints.tmp_mregs = x86_temp_regs;
-		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
 		hints.label_count = p.max_label_count;
-		hints.is_float = ctx.is_float;
 
 		regalloc_info info = regalloc(tokens, token_count, hints, arena);
 
-		if (token_count == 0) {
-			// NOTE: Do not print empty functions
-			goto next;
-		}
+		//
+		// 3. Generate the code
+		//
 
 		stream_prints(out, sym->name);
 		stream_print(out, ":\n");
@@ -987,8 +997,11 @@ next:
 		sym_id = sym->next;
 	}
 
+	// Print the remaining sections
 	for (isize j = 0; j < SECTION_COUNT; j++) {
 		if (j == SECTION_TEXT) {
+			// We print the text section again to print the symbol
+			// declarations, like `global main`.
 			stream_print(out, "section .text\n");
 		} else if (j == SECTION_DATA) {
 			stream_print(out, "section .data\n");
