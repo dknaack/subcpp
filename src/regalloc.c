@@ -117,14 +117,12 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 					}
 				}
 
-				if (token.kind == MACH_VREG || token.kind == MACH_MREG) {
-					if (token.flags & MACH_DEF) {
-						set_bit(live_matrix, i, value, 1);
-					}
+				if (token.flags & MACH_DEF) {
+					set_bit(live_matrix, i, value, 1);
+				}
 
-					if (token.flags & MACH_USE) {
-						set_bit(live_matrix, i, value, 1);
-					}
+				if (token.flags & MACH_USE) {
+					set_bit(live_matrix, i, value, 1);
 				}
 			}
 
@@ -207,7 +205,7 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 				u32 mreg = inactive_reg;
 				pool[active_count] = mreg;
 				ASSERT(pool[active_count] < hints.mreg_count);
-			} else if (mreg_map[inactive_reg].kind == MACH_MREG) {
+			} else if (mreg_map[inactive_reg].value < hints.mreg_count) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
 				ASSERT(pool[active_count] < hints.mreg_count);
@@ -273,19 +271,18 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < hints.mreg_count);
 			info.used[mreg] |= !is_empty;
-			mreg_map[curr_reg] = make_mach_token(MACH_MREG, mreg, 0);
+			mreg_map[curr_reg] = make_mach_token(MACH_REG, mreg, 0);
 		}
 	}
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < token_count; i++) {
-		if (tokens[i].kind == MACH_VREG) {
-			ASSERT(tokens[i].kind == MACH_VREG);
+		if (tokens[i].kind == MACH_REG && tokens[i].value > hints.mreg_count) {
 			u32 vreg = tokens[i].value;
 			ASSERT(vreg < hints.vreg_count);
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
-			ASSERT(tokens[i].kind == MACH_MREG || tokens[i].kind == MACH_SPILL);
+			ASSERT(tokens[i].kind == MACH_REG || tokens[i].kind == MACH_SPILL);
 		}
 	}
 
