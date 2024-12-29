@@ -39,26 +39,24 @@ x86_emit1(x86_context *ctx, x86_opcode opcode,
 	switch (opcode) {
 	case X86_IDIV:
 		{
-			x86_push_token(ctx, dst);
-
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
-			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			x86_push_token(ctx, op0);
-
 			mach_token op1 = make_mach_token(MACH_REG, X86_RDX, dst.size);
+			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
 			op1.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
+
+			x86_push_token(ctx, dst);
+			x86_push_token(ctx, op0);
 			x86_push_token(ctx, op1);
 		} break;
 	case X86_IMUL:
 		{
-			x86_push_token(ctx, dst);
-
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
-			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
-			x86_push_token(ctx, op0);
-
 			mach_token op1 = make_mach_token(MACH_REG, X86_RDX, dst.size);
+			op0.flags |= MACH_DEF | MACH_USE | MACH_IMPLICIT;
 			op1.flags |= MACH_DEF | MACH_IMPLICIT;
+
+			x86_push_token(ctx, dst);
+			x86_push_token(ctx, op0);
 			x86_push_token(ctx, op1);
 		} break;
 	default:
@@ -76,37 +74,26 @@ x86_emit2(x86_context *ctx, x86_opcode opcode,
 	ASSERT(dst.kind != 0 && src.kind != 0);
 	ASSERT(dst.size > 0 && src.size > 0);
 
+	if (opcode == X86_MOV && equals_token(dst, src)) {
+		return;
+	}
+
 	mach_token opcode_token = x86_encode_opcode(opcode, dst_kind, dst_size, src_kind, src_size);
 	x86_push_token(ctx, opcode_token);
 
 	switch (opcode) {
-	case X86_MOV:
-		if (!equals_token(dst, src)) {
-			if (dst.flags & MACH_INDIRECT) {
-				dst.flags |= MACH_USE;
-			} else {
-				dst.flags |= MACH_DEF;
-			}
-
-			x86_push_token(ctx, dst);
-			src.flags |= MACH_USE;
-			x86_push_token(ctx, src);
-			// Why was this here?
-			//ASSERT(!(dst.flags & MACH_INDIRECT));
-		}
-		break;
 	case X86_CMP:
-		x86_emit0(ctx, opcode);
 		dst.flags |= MACH_USE;
-		x86_push_token(ctx, dst);
 		src.flags |= MACH_USE;
+
+		x86_push_token(ctx, dst);
 		x86_push_token(ctx, src);
 		break;
 	default:
-		x86_emit0(ctx, opcode);
 		dst.flags |= MACH_DEF | MACH_USE;
-		x86_push_token(ctx, dst);
 		src.flags |= MACH_USE;
+
+		x86_push_token(ctx, dst);
 		x86_push_token(ctx, src);
 	}
 }
@@ -943,6 +930,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				continue;
 			}
 
+			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
 			switch (token.kind) {
 			case MACH_INST:
 				if (first_inst) {
@@ -951,14 +939,14 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					stream_print(out, "\n");
 				}
 
-				if (token.value == X86_LABEL) {
+				if (opcode == X86_LABEL) {
 					if (i + 1 < token_count) {
 						stream_print(out, ".L");
 						stream_printu(out, tokens[i + 1].value);
 						stream_print(out, ":");
 						i++;
 					}
-				} else if (token.value == X86_RET) {
+				} else if (opcode == X86_RET) {
 					stream_print(out, "\tjmp .exit\n");
 				} else {
 					if (i + 2 < token_count
@@ -978,7 +966,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					}
 
 					stream_print(out, "\t");
-					stream_print(out, x86_get_opcode_name(token.value));
+					stream_print(out, x86_get_opcode_name(opcode));
 					stream_print(out, " ");
 				}
 
