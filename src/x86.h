@@ -84,7 +84,23 @@ typedef enum {
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
 	X86_LABEL,
+	X86_OPCODE_MASK = (1 << 16) - 1,
 } x86_opcode;
+
+typedef enum {
+	X86_NIL,
+	X86_IMM,
+	X86_MEM,
+	X86_SYM,
+	X86_REG,
+} x86_operand_kind;
+
+typedef enum {
+	X86_BYTE = 1,
+	X86_WORD,
+	X86_DWORD,
+	X86_QWORD,
+} x86_operand_size;
 
 typedef struct {
 	ir_inst *inst;

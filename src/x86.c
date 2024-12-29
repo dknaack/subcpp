@@ -5,10 +5,26 @@ x86_push_token(x86_context *ctx, mach_token token)
 	ctx->tokens[ctx->token_count++] = token;
 }
 
+static mach_token
+x86_encode_opcode(x86_opcode opcode,
+	x86_operand_kind arg0, x86_operand_size size0,
+	x86_operand_kind arg1, x86_operand_size size1)
+{
+	mach_token result = {0};
+	result.kind = MACH_INST;
+	result.value |= opcode;
+	result.value |= arg0  << 16;
+	result.value |= size0 << 20;
+	result.value |= arg1  << 24;
+	result.value |= size1 << 28;
+	return result;
+}
+
 static void
 x86_emit0(x86_context *ctx, x86_opcode opcode)
 {
-	x86_push_token(ctx, make_mach_token(MACH_INST, opcode, 0));
+	mach_token opcode_token = x86_encode_opcode(opcode, 0, 0, 0, 0);
+	x86_push_token(ctx, opcode_token);
 }
 
 static void
@@ -16,10 +32,12 @@ x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 {
 	dst.flags |= MACH_DEF | MACH_USE;
 
+	mach_token opcode_token = x86_encode_opcode(opcode, X86_REG, dst.size, 0, 0);
+	x86_push_token(ctx, opcode_token);
+
 	switch (opcode) {
 	case X86_IDIV:
 		{
-			x86_emit0(ctx, opcode);
 			x86_push_token(ctx, dst);
 
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
@@ -32,7 +50,6 @@ x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 		} break;
 	case X86_IMUL:
 		{
-			x86_emit0(ctx, opcode);
 			x86_push_token(ctx, dst);
 
 			mach_token op0 = make_mach_token(MACH_REG, X86_RAX, dst.size);
@@ -45,7 +62,6 @@ x86_emit1(x86_context *ctx, x86_opcode opcode, mach_token dst)
 		} break;
 	default:
 		{
-			x86_emit0(ctx, opcode);
 			x86_push_token(ctx, dst);
 		} break;
 	}
@@ -57,10 +73,12 @@ x86_emit2(x86_context *ctx, x86_opcode opcode, mach_token dst, mach_token src)
 	ASSERT(dst.kind != 0 && src.kind != 0);
 	ASSERT(dst.size > 0 && src.size > 0);
 
+	mach_token opcode_token = x86_encode_opcode(opcode, X86_REG, dst.size, X86_REG, src.size);
+	x86_push_token(ctx, opcode_token);
+
 	switch (opcode) {
 	case X86_MOV:
 		if (!equals_token(dst, src)) {
-			x86_emit0(ctx, opcode);
 			if (dst.flags & MACH_INDIRECT) {
 				dst.flags |= MACH_USE;
 			} else {
