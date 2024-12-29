@@ -808,10 +808,11 @@ x86_emit_token(stream *out, mach_token token, symbol_table symtab)
 static void
 x86_generate(stream *out, ir_program p, arena *arena)
 {
+	symbol_table symtab = p.symtab;
 	isize max_token_count = 1024 * 1024;
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
-	symbol_table symtab = p.symtab;
+	stream_print(out, "section .text\n");
 	symbol_id sym_id = symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
 		symbol *sym = &symtab.symbols[sym_id.value];
@@ -859,11 +860,13 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 		regalloc_info info = regalloc(tokens, token_count, hints, arena);
 
-		stream_print(out, ":\n");
 		if (token_count == 0) {
 			// NOTE: Do not print empty functions
 			goto next;
 		}
+
+		stream_prints(out, sym->name);
+		stream_print(out, ":\n");
 
 		// Print function prologue
 		isize used_volatile_register_count = 0;
@@ -1017,7 +1020,7 @@ next:
 			}
 
 			// NOTE: text section was already printed in the loop above
-			if (sym->size > 0) {
+			if (sym->size > 0 && j != SECTION_TEXT) {
 				if (sym->name.length > 0) {
 					stream_prints(out, sym->name);
 				} else {
