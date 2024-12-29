@@ -106,10 +106,6 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 						ASSERT(inst_index < token_count);
 						union_rows(live_matrix, i, inst_index);
 					} break;
-				case MACH_MREG:
-					{
-						value = live_matrix.width - 1 - token.value;
-					} break;
 				default:
 					break;
 				}
@@ -117,7 +113,7 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 				if (token.flags & MACH_CALL) {
 					for (u32 k = 0; k < hints.tmp_mreg_count; k++) {
 						u32 mreg = hints.tmp_mregs[k];
-						set_bit(live_matrix, i, live_matrix.width - 1 - mreg, 1);
+						set_bit(live_matrix, i, mreg, 1);
 					}
 				}
 
@@ -163,11 +159,11 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < hints.vreg_count; i++) {
+	for (u32 i = hints.mreg_count; i < reg_count; i++) {
 		sorted[i] = i;
 	}
 
-	for (u32 i = 1; i < hints.vreg_count; i++) {
+	for (u32 i = hints.mreg_count; i < reg_count; i++) {
 		u32 j = i;
 		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
@@ -187,8 +183,8 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 	 */
 	u32 active_start = 0;
 	u32 active_count = 0;
-	mach_token *mreg_map = ALLOC(arena, hints.vreg_count, mach_token);
-	for (u32 i = 0; i < hints.vreg_count; i++) {
+	mach_token *mreg_map = ALLOC(arena, reg_count, mach_token);
+	for (u32 i = hints.mreg_count; i < reg_count; i++) {
 		u32 curr_reg = sorted[i];
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
@@ -206,9 +202,9 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg >= hints.vreg_count);
+			b32 is_mreg = (inactive_reg < hints.mreg_count);
 			if (is_mreg) {
-				u32 mreg = reg_count - 1 - inactive_reg;
+				u32 mreg = inactive_reg;
 				pool[active_count] = mreg;
 				ASSERT(pool[active_count] < hints.mreg_count);
 			} else if (mreg_map[inactive_reg].kind == MACH_MREG) {
@@ -222,7 +218,7 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(curr_reg < hints.vreg_count);
+		ASSERT(hints.mreg_count <= curr_reg && curr_reg < reg_count);
 		b32 should_spill = (active_count >= hints.mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
@@ -233,8 +229,8 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 					continue;
 				}
 
-				u32 mreg_start = intervals[reg_count - 1 - mreg].start;
-				u32 mreg_end = intervals[reg_count - 1 - mreg].end;
+				u32 mreg_start = intervals[mreg].start;
+				u32 mreg_end = intervals[mreg].end;
 				b32 mreg_overlaps = (curr_end >= mreg_start && mreg_end >= curr_start);
 				if (!mreg_overlaps) {
 					swap_u32(pool, active_count, i);

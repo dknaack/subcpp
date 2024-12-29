@@ -190,6 +190,13 @@ x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 static void x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst);
 
 static mach_token
+x86_vreg(u32 value, u32 size)
+{
+	mach_token result = make_mach_token(MACH_VREG, X86_REGISTER_COUNT + value, size);
+	return result;
+}
+
+static mach_token
 x86_select_const(x86_context *ctx, isize inst_index)
 {
 	ir_inst *inst = ctx->inst;
@@ -198,7 +205,7 @@ x86_select_const(x86_context *ctx, isize inst_index)
 	if (inst[inst_index].opcode == IR_CONST) {
 		result = make_mach_token(MACH_CONST, inst[inst_index].op0, size);
 	} else {
-		result = make_mach_token(MACH_VREG, inst_index, size);
+		result = x86_vreg(inst_index, size);
 		x86_select_inst(ctx, inst_index, result);
 	}
 
@@ -231,7 +238,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_VAR:
 		{
-			mach_token src = make_mach_token(MACH_VREG, inst_index, size);
+			mach_token src = x86_vreg(inst_index, size);
 			x86_emit2(ctx, X86_MOV, dst, src);
 		} break;
 	case IR_PARAM:
@@ -274,7 +281,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_FCVT:
 		{
 #if 0
-			mach_token src = make_mach_token(MACH_VREG, op0, inst[op0].size);
+			mach_token src = x86_vreg(op0, inst[op0].size);
 
 			x86_select_inst(ctx, op0, src);
 			if (type == IR_F32) {
@@ -320,7 +327,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_LOAD:
 	case IR_FLOAD:
 		{
-			mach_token src = make_mach_token(MACH_VREG, op0, inst[op0].size);
+			mach_token src = x86_vreg(op0, inst[op0].size);
 			x86_opcode x86_opcode = X86_MOV;
 			if (opcode == IR_FLOAD) {
 				x86_opcode = X86_MOVSS;
@@ -356,7 +363,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_STORE:
 	case IR_FSTORE:
 		{
-			mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+			mach_token src = x86_vreg(op1, inst[op1].size);
 			x86_opcode x86_opcode = (opcode == IR_FSTORE ? X86_MOVSS : X86_MOV);
 
 			ASSERT(!equals_token(src, dst));
@@ -413,7 +420,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				mach_token src = make_mach_token(MACH_CONST, op0, size);
 				x86_emit2(ctx, X86_ADD, dst, src);
 			} else {
-				mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+				mach_token src = x86_vreg(op1, inst[op1].size);
 				x86_select_inst(ctx, op0, dst);
 				x86_select_inst(ctx, op1, src);
 				x86_emit2(ctx, X86_ADD, dst, src);
@@ -434,7 +441,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				mach_token src = make_mach_token(MACH_CONST, op1, src_size);
 				x86_emit2(ctx, X86_SUB, dst, src);
 			} else {
-				mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+				mach_token src = x86_vreg(op1, inst[op1].size);
 				x86_select_inst(ctx, op0, dst);
 				x86_select_inst(ctx, op1, src);
 				x86_emit2(ctx, X86_SUB, dst, src);
@@ -449,7 +456,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				x86_emit2(ctx, X86_ADD, dst, dst);
 			} else {
 				mach_token rax = make_mach_token(MACH_MREG, X86_RAX, inst[op0].size);
-				mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+				mach_token src = x86_vreg(op1, inst[op1].size);
 
 				x86_select_inst(ctx, op0, rax);
 				x86_select_inst(ctx, op1, src);
@@ -492,12 +499,12 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			mach_token dst_byte = dst;
 			dst_byte.size = 1;
 
-			mach_token lhs = make_mach_token(MACH_VREG, op0, inst[op0].size);
+			mach_token lhs = x86_vreg(op0, inst[op0].size);
 			if (is_float && lhs.kind == MACH_VREG) {
 				ctx->is_float[lhs.value] = true;
 			}
 
-			mach_token rhs = make_mach_token(MACH_VREG, op1, inst[op1].size);
+			mach_token rhs = x86_vreg(op1, inst[op1].size);
 			if (is_float && rhs.kind == MACH_VREG) {
 				ctx->is_float[rhs.value] = true;
 			}
@@ -521,7 +528,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_OR:
 	case IR_XOR:
 		{
-			mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+			mach_token src = x86_vreg(op1, inst[op1].size);
 			x86_opcode x86_opcode =
 				opcode == IR_AND ? X86_AND :
 				opcode == IR_OR ? X86_OR : X86_XOR;
@@ -554,7 +561,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			b32 is_jiz = opcode == IR_JIZ;
 			x86_opcode jcc = is_jiz ? X86_JZ : X86_JNZ;
 			if (is_comparison_opcode(inst[op0].opcode)) {
-				dst = make_mach_token(MACH_VREG, inst[op0].op0, inst[op0].size);
+				dst = x86_vreg(inst[op0].op0, inst[op0].size);
 				x86_select_inst(ctx, inst[op0].op0, dst);
 				mach_token src = x86_select_const(ctx, inst[op0].op1);
 				src.size = dst.size;
@@ -570,7 +577,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				x86_emit2(ctx, cmp_opcode, dst, src);
 				jcc = x86_get_jcc_opcode(inst[op0].opcode, is_jiz);
 			} else {
-				mach_token src = make_mach_token(MACH_VREG, op0, inst[op0].size);
+				mach_token src = x86_vreg(op0, inst[op0].size);
 				x86_select_inst(ctx, op0, src);
 				ASSERT(src.size > 0 && src.size <= 8);
 				x86_emit2(ctx, X86_TEST, src, src);
@@ -598,7 +605,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_SEXT:
 		{
-			mach_token src = make_mach_token(MACH_VREG, op0, inst[op0].size);
+			mach_token src = x86_vreg(op0, inst[op0].size);
 			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(ctx, op0, src);
@@ -606,7 +613,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_ZEXT:
 		{
-			mach_token src = make_mach_token(MACH_VREG, op0, inst[op0].size);
+			mach_token src = x86_vreg(op0, inst[op0].size);
 			ASSERT(src.size <= dst.size);
 
 			x86_select_inst(ctx, op0, src);
@@ -619,13 +626,13 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_CALL:
 		{
-			mach_token called = make_mach_token(MACH_VREG, op0, 8);
+			mach_token called = x86_vreg(op0, 8);
 			if (inst[op0].opcode == IR_BUILTIN) {
 				mach_token src = {0};
 				ir_builtin builtin = inst[op0].op0;
 				switch (builtin) {
 				case BUILTIN_POPCOUNT:
-					src = make_mach_token(MACH_VREG, inst[inst_index - 1].op0, size);
+					src = x86_vreg(inst[inst_index - 1].op0, size);
 					x86_emit2(ctx, X86_POPCNT, dst, src);
 					break;
 				default:
@@ -693,7 +700,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_FVAR:
 		{
-			mach_token src = make_mach_token(MACH_VREG, inst_index, size);
+			mach_token src = x86_vreg(inst_index, size);
 			ctx->is_float[inst_index] = true;
 			x86_emit2(ctx, X86_MOVSS, dst, src);
 		} break;
@@ -712,7 +719,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				ASSERT(!"WTF");
 			}
 
-			mach_token src = make_mach_token(MACH_VREG, op1, inst[op1].size);
+			mach_token src = x86_vreg(op1, inst[op1].size);
 			ctx->is_float[op1] = true;
 			if (dst.kind == MACH_VREG) {
 				ctx->is_float[dst.value] = true;
@@ -830,12 +837,12 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			}
 
 			isize size = inst[j].size;
-			mach_token dst = make_mach_token(MACH_VREG, j, size);
+			mach_token dst = x86_vreg(j, size);
 			if (opcode == IR_MOV || opcode == IR_STORE
 				|| opcode == IR_FMOV || opcode == IR_FSTORE)
 			{
 				isize op0_size = inst[inst[j].op0].size;
-				dst = make_mach_token(MACH_VREG, inst[j].op0, op0_size);
+				dst = x86_vreg(inst[j].op0, op0_size);
 				if (opcode == IR_FMOV || opcode == IR_FSTORE) {
 					ctx.is_float[dst.value] = true;
 				}
