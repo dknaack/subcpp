@@ -355,10 +355,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				}
 			}
 
-			ASSERT(!equals_token(src, dst));
 			x86_select_inst(ctx, op0, src);
-			src.size = dst.size = size;
-			src.flags |= MACH_INDIRECT;
 			x86_emit2(ctx, x86_opcode, size, X86_REG, dst, X86_BASE, src);
 		} break;
 	case IR_STORE:
@@ -374,10 +371,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				src = make_mach_token(MACH_CONST, inst[op1].op0, size);
 			}
 
-			src.size = inst[op1].size;
 			x86_select_inst(ctx, op0, dst);
-			dst.flags |= MACH_INDIRECT;
-			dst.size = src.size;
 			x86_emit2(ctx, mov, size, X86_BASE, dst, X86_REG, src);
 		} break;
 	case IR_ADD:
