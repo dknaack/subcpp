@@ -319,7 +319,6 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_LOAD:
 	case IR_FLOAD:
 		{
-			mach_token src = x86_vreg(op0, inst[op0].size);
 			x86_opcode mov = X86_MOV;
 			if (opcode == IR_FLOAD) {
 				mov = X86_MOVSS;
@@ -329,9 +328,17 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			}
 
 			if (inst[op0].opcode == IR_GLOBAL) {
-				src = make_global(inst[op0].op0);
+				mach_token src = make_global(inst[op0].op0);
+
 				x86_emit2(ctx, mov, size, X86_REG, dst, X86_DISP_SYM, src);
+			} else if (inst[op0].opcode == IR_ALLOC) {
+				mach_token src = make_mach_token(MACH_CONST, op1, size);
+				mach_token rsp = make_mach_token(MACH_REG, X86_RSP, dst.size);
+
+				x86_emit3(ctx, X86_MOV, size, X86_REG, dst, X86_BASE, rsp, X86_DISP_IMM, src);
 			} else {
+				mach_token src = x86_vreg(op0, inst[op0].size);
+
 				x86_select_inst(ctx, op0, src);
 				x86_emit2(ctx, mov, size, X86_REG, dst, X86_BASE, src);
 			}
