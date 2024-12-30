@@ -257,7 +257,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_GLOBAL:
 		{
 			mach_token src = make_global(op0);
-			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_DISP, src);
+			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_SYM, src);
 		} break;
 	case IR_VAR:
 		{
@@ -614,8 +614,11 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 					ASSERT(!"Builtin is not supported");
 				}
 			} else {
+				x86_operand_kind called_kind = X86_REG;
 				if (inst[op0].opcode == IR_GLOBAL) {
 					called = make_global(inst[op0].op0);
+					called_kind = X86_SYM;
+					ASSERT(called.value < ctx->symtab->symbol_count);
 				} else {
 					x86_select_inst(ctx, op0, called);
 				}
@@ -669,7 +672,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				}
 
 				mach_token rax = make_mach_token(MACH_REG, X86_RAX, size);
-				x86_emit1(ctx, X86_CALL, X86_QWORD, X86_REG, called);
+				x86_emit1(ctx, X86_CALL, X86_QWORD, called_kind, called);
 				x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, rax);
 			}
 		} break;
@@ -800,6 +803,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
 		ctx.is_float = ALLOC(arena, ir_func->inst_count, b32);
+		ctx.symtab = &symtab;
 
 		ir_inst *inst = p.insts + ir_func->inst_index;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
@@ -886,72 +890,114 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			}
 		}
 #endif
-		b32 first_inst = true;
-		b32 first_token = true;
-		isize operand_count = 0;
-
-		// TODO: We need to ensure that instructions do not
-		// contain two address tokens, e.g. mov [rax], [rax]
 		for (isize i = 0; i < token_count; i++) {
 			mach_token token = tokens[i];
-			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
-			switch (token.kind) {
-			case MACH_INST:
-				if (first_inst) {
-					first_inst = false;
-				} else {
-					stream_print(out, "\n");
-				}
-
-				operand_count += (x86_arg0(token.value) != X86_NIL);
-				operand_count += (x86_arg1(token.value) != X86_NIL);
-
-				if (opcode == X86_LABEL) {
-					if (i + 1 < token_count) {
-						stream_print(out, ".L");
-						stream_printu(out, tokens[i + 1].value);
-						stream_print(out, ":");
-						i++;
-					}
-				} else if (opcode == X86_RET) {
-					stream_print(out, "\tjmp .exit\n");
-				} else {
-					if (i + 2 < token_count
-						&& tokens[i + 1].kind == MACH_SPILL
-						&& tokens[i + 2].kind == MACH_SPILL)
-					{
-						isize op1_size = tokens[i + 2].size;
-						mach_token new_token = make_mach_token(MACH_REG, X86_RCX, op1_size);
-
-						stream_print(out, "\tmov ");
-						x86_emit_token(out, new_token, symtab);
-						stream_print(out, ", ");
-						x86_emit_token(out, tokens[i + 2], symtab);
-						stream_print(out, "\n");
-
-						tokens[i + 2] = new_token;
-					}
-
-					stream_print(out, "\t");
-					stream_print(out, x86_get_opcode_name(opcode));
-					stream_print(out, " ");
-				}
-
-				first_token = true;
-				break;
-			default:
-				if (operand_count != 0) {
-					if (first_token) {
-						first_token = false;
-					} else {
-						stream_print(out, ", ");
-					}
-
-					x86_emit_token(out, token, symtab);
-					operand_count--;
-				}
-				break;
+			if (token.kind != MACH_INST) {
+				continue;
 			}
+
+			isize operand_count = 0;
+			x86_operand_kind kind[4] = {0};
+			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
+			if (opcode == X86_LABEL) {
+				stream_print(out, ".L");
+				stream_printu(out, tokens[i + 1].value);
+				stream_print(out, ":");
+				operand_count = 0;
+			} else if (opcode == X86_RET) {
+				stream_print(out, "    jmp .exit");
+			} else {
+				stream_print(out, "    ");
+				stream_print(out, x86_get_opcode_name(opcode));
+
+				// Count the number of operands and read their type
+				for (isize i = 0; i < 4; i++) {
+					kind[i] = (token.value >> (20 + 3 * i)) & 0x7;
+					if (kind[i] == X86_NIL) {
+						break;
+					}
+
+					operand_count++;
+				}
+			}
+
+			b32 first_token = true;
+			b32 inside_memory_operand = false;
+			for (isize j = 0; j < operand_count; j++) {
+				if (first_token) {
+					stream_print(out, " ");
+					first_token = false;
+				} else if (!inside_memory_operand) {
+					stream_print(out, ", ");
+				}
+
+				if (kind[j] == X86_INDEX || kind[j] == X86_DISP || kind[j] == X86_BASE) {
+					if (!inside_memory_operand) {
+						switch (token.size) {
+						case 1:
+							stream_print(out, "byte");
+							break;
+						case 2:
+							stream_print(out, "word");
+							break;
+						case 4:
+							stream_print(out, "dword");
+							break;
+						case 8:
+							stream_print(out, "qword");
+							break;
+						}
+
+
+						stream_print(out, "[");
+						inside_memory_operand = true;
+					} else {
+						stream_print(out, " + ");
+					}
+				} else {
+					if (inside_memory_operand) {
+						stream_print(out, "], ");
+					}
+				}
+
+				u32 value = tokens[i + 1 + j].value;
+				switch (kind[j]) {
+				case X86_REG:
+				case X86_BASE:
+				case X86_INDEX:
+					{
+						// TODO: Handle spilled registers. We need to reserve at least
+						// three registers, since one instruction can contain three
+						// registers, which can all be spilled at the same time.
+						stream_print(out, x86_get_register_name(value, token.size));
+					} break;
+				case X86_IMM:
+				case X86_DISP:
+					{
+						stream_printu(out, value);
+					} break;
+				case X86_SYM:
+					{
+						printf("value=%d\n", value);
+						ASSERT(value < symtab.symbol_count);
+						symbol *sym = &symtab.symbols[value];
+						if (sym->name.length > 0) {
+							stream_prints(out, sym->name);
+						} else {
+							stream_print(out, "L#");
+							stream_printu(out, value);
+						}
+					} break;
+				default:
+					ASSERT(!"Invalid operand");
+				}
+			}
+
+			if (inside_memory_operand) {
+				stream_print(out, "]");
+			}
+
+			stream_print(out, "\n");
 		}
 
 		// Print function epilogue

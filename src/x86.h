@@ -86,16 +86,18 @@ typedef enum {
 	X86_LABEL,
 } x86_opcode;
 
+#define X86_OPCODE_MASK 0xffff
+
 typedef enum {
 	X86_NIL,
 	X86_IMM,
+	X86_SYM,
 	X86_REG,
 	X86_BASE,
 	X86_INDEX, // TODO: Add scale factor to this type
 	X86_DISP,
+	X86_OPERAND_COUNT
 } x86_operand_kind;
-
-#define X86_OPCODE_MASK 0xffff
 
 typedef enum {
 	X86_BYTE = 1,
@@ -111,6 +113,7 @@ typedef struct {
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;
+	symbol_table *symtab;
 } x86_context;
 
 static u32 x86_temp_regs[] = {
