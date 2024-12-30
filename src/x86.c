@@ -304,7 +304,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			mach_token src = make_mach_token(MACH_CONST, op1, size);
 			mach_token rsp = make_mach_token(MACH_REG, X86_RSP, dst.size);
 
-			x86_emit3(ctx, X86_LEA, size, X86_REG, dst, X86_BASE, rsp, X86_DISP, src);
+			x86_emit3(ctx, X86_LEA, size, X86_REG, dst, X86_BASE, rsp, X86_DISP_IMM, src);
 		} break;
 	case IR_COPY:
 	case IR_FCOPY:
@@ -902,7 +902,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					stream_print(out, ", ");
 				}
 
-				if (kind[j] == X86_INDEX || kind[j] == X86_DISP || kind[j] == X86_BASE) {
+				if (kind[j] == X86_INDEX || kind[j] == X86_DISP_IMM
+					|| kind[j] == X86_DISP_SYM || kind[j] == X86_BASE)
+				{
 					if (!inside_memory_operand) {
 						switch (token.size) {
 						case 1:
@@ -943,13 +945,13 @@ x86_generate(stream *out, ir_program p, arena *arena)
 						stream_print(out, x86_get_register_name(value, token.size));
 					} break;
 				case X86_IMM:
-				case X86_DISP:
+				case X86_DISP_IMM:
 					{
 						stream_printu(out, value);
 					} break;
 				case X86_SYM:
+				case X86_DISP_SYM:
 					{
-						printf("value=%d\n", value);
 						ASSERT(value < symtab.symbol_count);
 						symbol *sym = &symtab.symbols[value];
 						if (sym->name.length > 0) {

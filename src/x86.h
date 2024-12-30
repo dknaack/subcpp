@@ -95,7 +95,8 @@ typedef enum {
 	X86_REG,
 	X86_BASE,
 	X86_INDEX, // TODO: Add scale factor to this type
-	X86_DISP,
+	X86_DISP_IMM,
+	X86_DISP_SYM,
 	X86_OPERAND_COUNT
 } x86_operand_kind;
 
