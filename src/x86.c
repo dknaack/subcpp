@@ -330,8 +330,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		{
 			mach_token src = make_mach_token(MACH_CONST, op1, size);
 			mach_token rsp = make_mach_token(MACH_REG, X86_RSP, dst.size);
-			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, rsp);
-			x86_emit2(ctx, X86_ADD, size, X86_REG, dst, X86_IMM, src);
+
+			x86_emit3(ctx, X86_LEA, size, X86_REG, dst, X86_BASE, rsp, X86_DISP, src);
 		} break;
 	case IR_COPY:
 	case IR_FCOPY:
