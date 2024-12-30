@@ -5,35 +5,6 @@ x86_push_token(x86_context *ctx, mach_token token)
 	ctx->tokens[ctx->token_count++] = token;
 }
 
-static mach_token
-x86_encode_opcode(x86_opcode opcode,
-	x86_operand_kind arg0, x86_operand_size size0,
-	x86_operand_kind arg1, x86_operand_size size1)
-{
-	mach_token result = {0};
-	result.kind = MACH_INST;
-	result.value |= opcode;
-	result.value |= arg0  << 16;
-	result.value |= size0 << 20;
-	result.value |= arg1  << 24;
-	result.value |= size1 << 28;
-	return result;
-}
-
-static x86_operand_kind
-x86_arg0(u32 token)
-{
-	x86_operand_kind result = (token >> 16) & 15;
-	return result;
-}
-
-static x86_operand_kind
-x86_arg1(u32 token)
-{
-	x86_operand_kind result = (token >> 24) & 15;
-	return result;
-}
-
 static void
 x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 	isize arg_count, x86_operand_kind *kind, mach_token *args)
