@@ -1245,8 +1245,6 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			ir_emit1(ctx, size, IR_RET, value);
-			// NOTE: For dead code elimination
-			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_SWITCH:
 		{
