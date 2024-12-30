@@ -698,76 +698,6 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 }
 
 static void
-x86_emit_token(stream *out, mach_token token, symbol_table symtab)
-{
-	x86_register reg;
-
-	b32 print_size = (token.kind == MACH_SPILL
-		|| (token.flags & MACH_INDIRECT));
-	if (print_size) {
-		switch (token.size) {
-		case 1:
-			stream_print(out, "byte");
-			break;
-		case 2:
-			stream_print(out, "word");
-			break;
-		case 4:
-			stream_print(out, "dword");
-			break;
-		case 8:
-		case 0:
-			stream_print(out, "qword");
-			break;
-		default:
-			ASSERT(!"Invalid size");
-		}
-	}
-
-	switch (token.kind) {
-	case MACH_GLOBAL:
-		{
-			ASSERT(token.value < symtab.symbol_count);
-			symbol *sym = &symtab.symbols[token.value];
-			if (sym->name.length > 0) {
-				stream_prints(out, sym->name);
-			} else {
-				stream_print(out, "L#");
-				stream_printu(out, token.value);
-			}
-		} break;
-	case MACH_SPILL:
-		stream_print(out, "[rsp+");
-		stream_printu(out, token.value);
-		stream_print(out, "]");
-		break;
-	case MACH_LABEL:
-		stream_print(out, ".L");
-		stream_printu(out, token.value);
-		break;
-	case MACH_REG:
-		if (token.flags & MACH_INDIRECT) {
-			stream_print(out, "[");
-			token.size = 8;
-		}
-
-		reg = (x86_register)token.value;
-		stream_print(out, x86_get_register_name(reg, token.size));
-
-		if (token.flags & MACH_INDIRECT) {
-			stream_print(out, "]");
-		}
-		break;
-	case MACH_CONST:
-		stream_printu(out, token.value);
-		break;
-	default:
-		ASSERT(false);
-		stream_print(out, "(invalid token)");
-	}
-}
-
-static void
 x86_generate(stream *out, ir_program p, arena *arena)
 {
 	symbol_table symtab = p.symtab;
@@ -848,7 +778,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			u32 mreg = x86_saved_regs[j];
 			if (info.used[mreg]) {
 				stream_print(out, "\tpush ");
-				x86_emit_token(out, make_mach_token(MACH_REG, mreg, 8), symtab);
+				stream_print(out, x86_get_register_name(mreg, 8));
 				stream_print(out, "\n");
 				used_volatile_register_count++;
 			}
@@ -1000,7 +930,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			u32 mreg = x86_saved_regs[j];
 			if (info.used[mreg]) {
 				stream_print(out, "\tpop ");
-				x86_emit_token(out, make_mach_token(MACH_REG, mreg, 8), symtab);
+				stream_print(out, x86_get_register_name(mreg, 8));
 				stream_print(out, "\n");
 			}
 		}
