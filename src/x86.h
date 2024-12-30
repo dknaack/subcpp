@@ -90,9 +90,10 @@ typedef enum {
 typedef enum {
 	X86_NIL,
 	X86_IMM,
-	X86_MEM,
-	X86_SYM,
 	X86_REG,
+	X86_BASE,
+	X86_INDEX, // TODO: Add scale factor to this type
+	X86_DISP,
 } x86_operand_kind;
 
 typedef enum {

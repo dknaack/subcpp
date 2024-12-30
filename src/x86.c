@@ -256,7 +256,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_GLOBAL:
 		{
 			mach_token src = make_global(op0);
-			x86_emit2(ctx, X86_MOV, X86_SYM, dst.size, dst, X86_REG, src.size, src);
+			x86_emit2(ctx, X86_MOV, X86_REG, dst.size, dst, X86_DISP, src.size, src);
 		} break;
 	case IR_VAR:
 		{
@@ -329,8 +329,10 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		} break;
 	case IR_ALLOC:
 		{
-			mach_token src = make_spill(op1);
-			x86_emit2(ctx, X86_LEA, X86_REG, dst.size, dst, X86_MEM, src.size, src);
+			mach_token src = make_mach_token(MACH_CONST, op1, size);
+			mach_token rsp = make_mach_token(MACH_REG, X86_RSP, dst.size);
+			x86_emit2(ctx, X86_MOV, X86_REG, dst.size, dst, X86_REG, rsp.size, rsp);
+			x86_emit2(ctx, X86_ADD, X86_REG, dst.size, dst, X86_IMM, src.size, src);
 		} break;
 	case IR_COPY:
 	case IR_FCOPY:
@@ -355,28 +357,10 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			}
 
 			ASSERT(!equals_token(src, dst));
-			if (inst[op0].opcode == IR_ALLOC) {
-				u32 addr = inst[op0].op1;
-				src = make_spill(addr);
-				src.size = size;
-
-				x86_emit2(ctx, x86_opcode, X86_REG, dst.size, dst, X86_MEM, src.size, src);
-			} else if (inst[op0].opcode == IR_ADD
-				&& inst[inst[op0].op0].opcode == IR_ALLOC
-				&& inst[inst[op0].op1].opcode == IR_CONST)
-			{
-				u32 base = inst[inst[op0].op0].op1;
-				u32 offset = inst[inst[op0].op1].op0;
-				src = make_spill(base + offset);
-				src.size = size;
-
-				x86_emit2(ctx, x86_opcode, X86_REG, dst.size, dst, X86_MEM, src.size, src);
-			} else {
-				x86_select_inst(ctx, op0, src);
-				src.size = dst.size = size;
-				src.flags |= MACH_INDIRECT;
-				x86_emit2(ctx, x86_opcode, X86_REG, dst.size, dst, X86_MEM, src.size, src);
-			}
+			x86_select_inst(ctx, op0, src);
+			src.size = dst.size = size;
+			src.flags |= MACH_INDIRECT;
+			x86_emit2(ctx, x86_opcode, X86_REG, dst.size, dst, X86_BASE, src.size, src);
 		} break;
 	case IR_STORE:
 	case IR_FSTORE:
@@ -392,35 +376,10 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			}
 
 			src.size = inst[op1].size;
-			if (inst[op0].opcode == IR_ADD
-				&& inst[inst[op0].op0].opcode == IR_ALLOC
-				&& inst[inst[op0].op1].opcode == IR_CONST)
-			{
-				u32 base = inst[inst[op0].op0].op1;
-				u32 offset = inst[inst[op0].op1].op0;
-				mach_token addr = make_spill(base + offset);
-				addr.size = size;
-				x86_emit2(ctx, mov, X86_MEM, addr.size, addr, X86_REG, src.size, src);
-			} else if (inst[op0].opcode == IR_SUB
-				&& inst[inst[op0].op0].opcode == IR_ALLOC
-				&& inst[inst[op0].op1].opcode == IR_CONST)
-			{
-				u32 base = inst[inst[op0].op0].op1;
-				u32 offset = inst[inst[op0].op1].op0;
-				mach_token addr = make_spill(base - offset);
-				addr.size = size;
-				x86_emit2(ctx, mov, X86_MEM, addr.size, addr, X86_REG, src.size, src);
-			} else if (inst[op0].opcode == IR_ALLOC) {
-				u32 offset = inst[op0].op1;
-				mach_token addr = make_spill(offset);
-				addr.size = size;
-				x86_emit2(ctx, mov, X86_MEM, addr.size, addr, X86_REG, src.size, src);
-			} else {
-				x86_select_inst(ctx, op0, dst);
-				dst.flags |= MACH_INDIRECT;
-				dst.size = src.size;
-				x86_emit2(ctx, mov, X86_MEM, dst.size, dst, X86_REG, src.size, src);
-			}
+			x86_select_inst(ctx, op0, dst);
+			dst.flags |= MACH_INDIRECT;
+			dst.size = src.size;
+			x86_emit2(ctx, mov, X86_BASE, dst.size, dst, X86_REG, src.size, src);
 		} break;
 	case IR_ADD:
 		{
