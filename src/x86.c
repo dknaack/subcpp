@@ -320,16 +320,21 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_FLOAD:
 		{
 			mach_token src = x86_vreg(op0, inst[op0].size);
-			x86_opcode x86_opcode = X86_MOV;
+			x86_opcode mov = X86_MOV;
 			if (opcode == IR_FLOAD) {
-				x86_opcode = X86_MOVSS;
+				mov = X86_MOVSS;
 				if (dst.kind == MACH_REG) {
 					ctx->is_float[dst.value] = true;
 				}
 			}
 
-			x86_select_inst(ctx, op0, src);
-			x86_emit2(ctx, x86_opcode, size, X86_REG, dst, X86_BASE, src);
+			if (inst[op0].opcode == IR_GLOBAL) {
+				src = make_global(inst[op0].op0);
+				x86_emit2(ctx, mov, size, X86_REG, dst, X86_DISP_SYM, src);
+			} else {
+				x86_select_inst(ctx, op0, src);
+				x86_emit2(ctx, mov, size, X86_REG, dst, X86_BASE, src);
+			}
 		} break;
 	case IR_STORE:
 	case IR_FSTORE:
