@@ -56,7 +56,7 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 
 	for (isize i = 0; i < arg_count; i++) {
 		mach_token arg = args[i];
-		if (kind[i] != X86_IMM) {
+		if (kind[i] == X86_REG || kind[i] == X86_BASE || kind[i] == X86_INDEX) {
 			if (i == 0) {
 				switch (opcode) {
 				case X86_CMP:
@@ -69,6 +69,8 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 			} else {
 				arg.flags = MACH_USE;
 			}
+		} else {
+			arg.flags = 0;
 		}
 
 		x86_push_token(ctx, arg);
