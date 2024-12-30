@@ -84,7 +84,6 @@ typedef enum {
 	X86_XOR,
 	/* NOTE: pseudo opcodes; they don't actually exist. */
 	X86_LABEL,
-	X86_OPCODE_MASK = (1 << 16) - 1,
 } x86_opcode;
 
 typedef enum {
@@ -95,6 +94,8 @@ typedef enum {
 	X86_INDEX, // TODO: Add scale factor to this type
 	X86_DISP,
 } x86_operand_kind;
+
+#define X86_OPCODE_MASK 0xffff
 
 typedef enum {
 	X86_BYTE = 1,
