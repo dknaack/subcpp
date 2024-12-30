@@ -18,6 +18,9 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 	inst.kind = MACH_INST;
 	inst.value |= opcode;
 	inst.value |= (size & 0xf) << 16;
+	if (opcode == X86_CALL) {
+		inst.flags |= MACH_CALL;
+	}
 
 	for (isize i = 0; i < arg_count; i++) {
 		inst.value |= (kind[i] & 0x7) << (20 + 3 * i);
