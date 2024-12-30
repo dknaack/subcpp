@@ -1009,6 +1009,11 @@ next:
 
 	// Print the remaining sections
 	for (isize j = 0; j < SECTION_COUNT; j++) {
+		symbol_id sym_id = symtab.section[j];
+		if (sym_id.value == 0) {
+			continue;
+		}
+
 		if (j == SECTION_TEXT) {
 			// We print the text section again to print the symbol
 			// declarations, like `global main`.
@@ -1024,7 +1029,6 @@ next:
 			continue;
 		}
 
-		symbol_id sym_id = symtab.section[j];
 		while (sym_id.value != 0) {
 			symbol *sym = &symtab.symbols[sym_id.value];
 			if (sym->linkage == LINK_STATIC) {
