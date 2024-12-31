@@ -410,7 +410,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				op1 = inst[op1].op0;
 				x86_select_inst(ctx, op0, dst);
 				mach_token src = make_mach_token(MACH_CONST, op1, src_size);
-				x86_emit2(ctx, X86_SUB, size, X86_REG, dst, X86_REG, src);
+				x86_emit2(ctx, X86_SUB, size, X86_REG, dst, X86_IMM, src);
 			} else {
 				mach_token src = x86_vreg(op1, inst[op1].size);
 				x86_select_inst(ctx, op0, dst);
