@@ -789,16 +789,24 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		// 2. Register allocation
 		//
 
-		regalloc_hints hints = {0};
-		hints.is_float = ctx.is_float;
-		hints.tmp_mregs = x86_temp_regs;
-		hints.int_mreg_count = X86_INT_REGISTER_COUNT;
-		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
-		hints.mreg_count = X86_REGISTER_COUNT;
-		hints.vreg_count = ir_func->inst_count;
+		mach_info mach = {0};
+		mach.is_float = ctx.is_float;
+		mach.tmp_mregs = x86_temp_regs;
+		mach.tmp_mreg_count = LENGTH(x86_temp_regs);
+		mach.mreg_count = X86_REGISTER_COUNT;
+		mach.int_mreg_count = X86_INT_REGISTER_COUNT;
+		mach.vreg_count = ir_func->inst_count;
+		mach.pool = ALLOC(arena, X86_REGISTER_COUNT, u32);
+		for (isize i = 0; i < X86_REGISTER_COUNT; i++) {
+			if (i != X86_RSP && i != X86_RBP) {
+				mach.pool_is_float[mach.pool_size] = (X86_XMM0 <= i && i <= X86_XMM7);
+				mach.pool[mach.pool_size] = i;
+				mach.pool_size++;
+			}
+		}
 
 		regalloc_info info = regalloc(tokens, token_count, blocks,
-			p.max_label_count, hints, arena);
+			p.max_label_count, mach, arena);
 
 		//
 		// 3. Generate the code

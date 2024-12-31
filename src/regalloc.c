@@ -33,12 +33,12 @@ swap_u32(u32 *a, isize i, isize j)
 
 static regalloc_info
 regalloc(mach_token *tokens, isize token_count,
-	basic_block *blocks, isize block_count, regalloc_hints hints, arena *arena)
+	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
 {
 	regalloc_info info = {0};
-	info.used = ALLOC(arena, hints.mreg_count, b32);
+	info.used = ALLOC(arena, mach.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
-	isize reg_count = hints.mreg_count + hints.vreg_count;
+	isize reg_count = mach.mreg_count + mach.vreg_count;
 
 	// Allocate the bitsets
 	bitset *gen = ALLOC(arena, block_count, bitset);
@@ -159,19 +159,16 @@ regalloc(mach_token *tokens, isize token_count,
 		sorted[i] = i;
 	}
 
-	for (u32 i = hints.mreg_count; i < reg_count; i++) {
+	for (u32 i = mach.mreg_count; i < reg_count; i++) {
 		u32 j = i;
-		while (j > hints.mreg_count && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
+		while (j > mach.mreg_count && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
 			j--;
 		}
 	}
 
 	// Initialize the register pool
-	u32 *pool = ALLOC(arena, hints.mreg_count, u32);
-	for (u32 i = 0; i < hints.mreg_count; i++) {
-		pool[i] = i;
-	}
+	u32 *pool = mach.pool;
 
 	/*
 	 * NOTE: the register pool is only valid after active_count. In the active
@@ -180,9 +177,9 @@ regalloc(mach_token *tokens, isize token_count,
 	isize active_start = 0;
 	isize active_count = 0;
 	mach_token *mreg_map = ALLOC(arena, reg_count, mach_token);
-	for (u32 i = hints.mreg_count; i < reg_count; i++) {
+	for (u32 i = mach.mreg_count; i < reg_count; i++) {
 		u32 curr_reg = sorted[i];
-		ASSERT(curr_reg >= hints.mreg_count);
+		ASSERT(curr_reg >= mach.mreg_count);
 
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
@@ -200,15 +197,15 @@ regalloc(mach_token *tokens, isize token_count,
 
 			/* Free the register again */
 			active_count--;
-			b32 is_mreg = (inactive_reg < hints.mreg_count);
+			b32 is_mreg = (inactive_reg < mach.mreg_count);
 			if (is_mreg) {
 				u32 mreg = inactive_reg;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < hints.mreg_count);
-			} else if (mreg_map[inactive_reg].value < hints.mreg_count) {
+				ASSERT(pool[active_count] < mach.mreg_count);
+			} else if (mreg_map[inactive_reg].value < mach.mreg_count) {
 				u32 mreg = mreg_map[inactive_reg].value;
 				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < hints.mreg_count);
+				ASSERT(pool[active_count] < mach.mreg_count);
 			}
 
 			sorted[j] = sorted[active_start];
@@ -216,14 +213,14 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(hints.mreg_count <= curr_reg && curr_reg < reg_count);
-		b32 should_spill = (active_count >= hints.mreg_count);
+		ASSERT(mach.mreg_count <= curr_reg && curr_reg < reg_count);
+		b32 should_spill = (active_count >= mach.mreg_count);
 		b32 found_mreg = false;
 		if (!should_spill) {
-			for (u32 i = active_count; i < hints.mreg_count; i++) {
+			for (u32 i = active_count; i < mach.mreg_count; i++) {
 				u32 mreg = pool[i];
-				b32 is_float_mreg = pool[i] >= hints.int_mreg_count;
-				if (is_float_mreg != hints.is_float[curr_reg]) {
+				b32 is_float_mreg = pool[i] >= mach.int_mreg_count;
+				if (is_float_mreg != mach.is_float[curr_reg]) {
 					continue;
 				}
 
@@ -269,10 +266,10 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 		} else {
 			u32 mreg = pool[active_count++];
-			ASSERT(mreg < hints.mreg_count);
+			ASSERT(mreg < mach.mreg_count);
 
-			b32 is_float_mreg = mreg >= hints.int_mreg_count;
-			ASSERT(is_float_mreg == hints.is_float[curr_reg]);
+			b32 is_float_mreg = mreg >= mach.int_mreg_count;
+			ASSERT(is_float_mreg == mach.is_float[curr_reg]);
 
 			info.used[mreg] |= !is_empty;
 			mreg_map[curr_reg] = make_mach_token(MACH_REG, mreg, 0);
@@ -281,13 +278,13 @@ regalloc(mach_token *tokens, isize token_count,
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < token_count; i++) {
-		if (tokens[i].kind == MACH_REG && tokens[i].value >= hints.mreg_count) {
+		if (tokens[i].kind == MACH_REG && tokens[i].value >= mach.mreg_count) {
 			u32 vreg = tokens[i].value;
 
-			b32 is_float_mreg = mreg_map[vreg].value >= hints.int_mreg_count;
+			b32 is_float_mreg = mreg_map[vreg].value >= mach.int_mreg_count;
 			ASSERT(mreg_map[vreg].kind == MACH_REG || mreg_map[vreg].kind == MACH_SPILL);
-			ASSERT(hints.mreg_count <= vreg && vreg < reg_count);
-			ASSERT(mreg_map[vreg].kind != MACH_REG || is_float_mreg == hints.is_float[vreg]);
+			ASSERT(mach.mreg_count <= vreg && vreg < reg_count);
+			ASSERT(mreg_map[vreg].kind != MACH_REG || is_float_mreg == mach.is_float[vreg]);
 
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
