@@ -339,7 +339,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			if (opcode == IR_FLOAD) {
 				mov = X86_MOVSS;
 				if (dst.kind == MACH_REG) {
-					ctx->is_float[dst.value] = true;
+					ctx->vreg_class[dst.value] = X86_XMM_MASK;
 				}
 			}
 
@@ -474,12 +474,12 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 
 			mach_token lhs = x86_vreg(op0, inst[op0].size);
 			if (is_float && lhs.kind == MACH_REG) {
-				ctx->is_float[lhs.value] = true;
+				ctx->vreg_class[lhs.value] = X86_XMM_MASK;
 			}
 
 			mach_token rhs = x86_vreg(op1, inst[op1].size);
 			if (is_float && rhs.kind == MACH_REG) {
-				ctx->is_float[rhs.value] = true;
+				ctx->vreg_class[rhs.value] = X86_XMM_MASK;
 			}
 
 			x86_select_inst(ctx, op0, lhs);
@@ -542,11 +542,11 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 				src.size = dst.size;
 
 				if (is_float && dst.kind == MACH_REG) {
-					ctx->is_float[dst.value] = true;
+					ctx->vreg_class[dst.value] = X86_XMM_MASK;
 				}
 
 				if (is_float && src.kind == MACH_REG) {
-					ctx->is_float[src.value] = true;
+					ctx->vreg_class[src.value] = X86_XMM_MASK;
 				}
 
 				x86_opcode cmp = (is_float ? X86_COMISS : X86_CMP);
@@ -678,7 +678,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_FVAR:
 		{
 			mach_token src = x86_vreg(inst_index, size);
-			ctx->is_float[inst_index] = true;
+			ctx->vreg_class[inst_index] = X86_XMM_MASK;
 			x86_emit2(ctx, X86_MOVSS, size, X86_REG, dst, X86_REG, src);
 		} break;
 	case IR_FADD:
@@ -697,9 +697,9 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 			}
 
 			mach_token src = x86_vreg(op1, inst[op1].size);
-			ctx->is_float[op1] = true;
+			ctx->vreg_class[op1] = X86_XMM_MASK;
 			if (dst.kind == MACH_REG) {
-				ctx->is_float[dst.value] = true;
+				ctx->vreg_class[dst.value] = X86_XMM_MASK;
 			}
 
 			x86_select_inst(ctx, op0, dst);
@@ -731,7 +731,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.inst = p.insts + ir_func->inst_index;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
-		ctx.is_float = ALLOC(arena, ir_func->inst_count, b32);
+		ctx.vreg_class = ALLOC(arena, ir_func->inst_count, u32);
 		ctx.symtab = &symtab;
 
 		u32 curr_block = 0;
@@ -790,16 +790,17 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		//
 
 		mach_info mach = {0};
-		mach.is_float = ctx.is_float;
-		mach.tmp_mregs = x86_temp_regs;
+		mach.vreg_class = ctx.vreg_class;
 		mach.tmp_mreg_count = LENGTH(x86_temp_regs);
 		mach.mreg_count = X86_REGISTER_COUNT;
-		mach.int_mreg_count = X86_INT_REGISTER_COUNT;
 		mach.vreg_count = ir_func->inst_count;
+		mach.mreg_class = ALLOC(arena, mach.mreg_count, u32);
+		mach.vreg_class = ALLOC(arena, mach.vreg_count, u32);
+		mach.tmp_mregs = x86_temp_regs;
 		mach.pool = ALLOC(arena, X86_REGISTER_COUNT, u32);
 		for (isize i = 0; i < X86_REGISTER_COUNT; i++) {
+			mach.mreg_class[i] = (1 << i);
 			if (i != X86_RSP && i != X86_RBP) {
-				mach.pool_is_float[mach.pool_size] = (X86_XMM0 <= i && i <= X86_XMM7);
 				mach.pool[mach.pool_size] = i;
 				mach.pool_size++;
 			}

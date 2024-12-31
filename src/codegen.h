@@ -30,15 +30,13 @@ typedef struct {
 
 typedef struct {
 	u32 *pool;
-	b32 *pool_is_float;
-	i32 pool_size;
+	u32 *tmp_mregs;
+	u32 *mreg_class;
+	u32 *vreg_class;
 
-	b32 *is_float;
+	i32 pool_size;
 	u32 vreg_count;
 	u32 mreg_count;
-	u32 int_mreg_count;
-
-	u32 *tmp_mregs;
 	u32 tmp_mreg_count;
 } mach_info;
 
