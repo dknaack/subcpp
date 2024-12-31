@@ -438,17 +438,16 @@ print_ir_program(ir_program program)
 	printf("\n");
 }
 
-#if 0
 static void
-print_x86_program(mach_program p)
+print_x86_program(mach_token *tokens, isize token_count)
 {
 	isize lineno = 1;
 	b32 first_inst = true;
 	b32 first_operand = true;
 	char *name = "(invalid)";
 
-	for (isize i = 0; i < p.token_count; i++) {
-		mach_token operand = p.tokens[i];
+	for (isize i = 0; i < token_count; i++) {
+		mach_token operand = tokens[i];
 		if (first_operand) {
 			first_operand = false;
 		} else {
@@ -463,6 +462,7 @@ print_x86_program(mach_program p)
 				first_inst = false;
 			}
 
+			operand.value &= X86_OPCODE_MASK;
 			if (operand.value == X86_LABEL) {
 				printf("%2ld|L", lineno++);
 			} else {
@@ -472,12 +472,13 @@ print_x86_program(mach_program p)
 
 			first_operand = true;
 			break;
-		case MACH_VREG:
-			printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
-			break;
-		case MACH_MREG:
-			name = x86_get_register_name(operand.value, operand.size);
-			printf("%s", name);
+		case MACH_REG:
+			if (operand.value < X86_REGISTER_COUNT) {
+				name = x86_get_register_name(operand.value, operand.size);
+				printf("%s", name);
+			} else {
+				printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
+			}
 			break;
 		case MACH_LABEL:
 			printf("L%d", operand.value);
@@ -498,40 +499,6 @@ print_x86_program(mach_program p)
 	}
 
 	putchar('\n');
-}
-
-static void
-print_row(bit_matrix matrix, u32 y)
-{
-	printf("{");
-	b32 first = true;
-	for (u32 x = 0; x < matrix.width; x++) {
-		if (matrix.bits[y * matrix.width + x]) {
-			if (first) {
-				first = false;
-			} else {
-				printf(", ");
-			}
-
-			u32 mreg = matrix.width - 1 - x;
-			if (mreg < X86_REGISTER_COUNT) {
-				printf("%s", x86_get_register_name(mreg, 8));
-			} else {
-				printf("r%d", x);
-			}
-		}
-	}
-
-	printf("}\n");
-}
-
-static void
-print_matrix(bit_matrix matrix)
-{
-	for (u32 y = 0; y < matrix.height; y++) {
-		printf("live[%d] = ", y);
-		print_row(matrix, y);
-	}
 }
 
 static void
@@ -604,4 +571,3 @@ print_tokens(parse_context *ctx)
 		}
 	}
 }
-#endif
