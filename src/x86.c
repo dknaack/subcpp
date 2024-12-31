@@ -731,8 +731,12 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.inst = p.insts + ir_func->inst_index;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
-		ctx.vreg_class = ALLOC(arena, ir_func->inst_count, u32);
+		ctx.vreg_class = ALLOC(arena, X86_REGISTER_COUNT + ir_func->inst_count, u32);
 		ctx.symtab = &symtab;
+
+		for (isize i = 0; i < X86_REGISTER_COUNT + ir_func->inst_count; i++) {
+			ctx.vreg_class[i] = ~X86_XMM_MASK;
+		}
 
 		u32 curr_block = 0;
 		basic_block *blocks = ALLOC(arena, p.max_label_count, basic_block);
@@ -790,12 +794,11 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		//
 
 		mach_info mach = {0};
-		mach.vreg_class = ctx.vreg_class;
 		mach.tmp_mreg_count = LENGTH(x86_temp_regs);
 		mach.mreg_count = X86_REGISTER_COUNT;
 		mach.vreg_count = ir_func->inst_count;
 		mach.mreg_class = ALLOC(arena, mach.mreg_count, u32);
-		mach.vreg_class = ALLOC(arena, mach.vreg_count, u32);
+		mach.vreg_class = ctx.vreg_class;
 		mach.tmp_mregs = x86_temp_regs;
 		mach.pool = ALLOC(arena, X86_REGISTER_COUNT, u32);
 		for (isize i = 0; i < X86_REGISTER_COUNT; i++) {
@@ -806,7 +809,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			}
 		}
 
-		regalloc_info info = regalloc(tokens, token_count, blocks,
+		u32 *reg_table = regalloc(tokens, token_count, blocks,
 			p.max_label_count, mach, arena);
 
 		//
@@ -817,16 +820,18 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		stream_print(out, ":\n");
 
 		// Print function prologue
+#if 0
 		isize used_volatile_register_count = 0;
 		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 			u32 mreg = x86_saved_regs[j];
-			if (info.used[mreg]) {
+			if (reg_table[mreg]) {
 				stream_print(out, "\tpush ");
 				stream_print(out, x86_get_register_name(mreg, 8));
 				stream_print(out, "\n");
 				used_volatile_register_count++;
 			}
 		}
+#endif
 
 		// TODO: Set function stack size
 		isize stack_size = 0;
@@ -931,12 +936,11 @@ x86_generate(stream *out, ir_program p, arena *arena)
 						// TODO: Handle spilled registers. We need to reserve at least
 						// three registers, since one instruction can contain three
 						// registers, which can all be spilled at the same time.
-						if (value < X86_REGISTER_COUNT) {
-							stream_print(out, x86_get_register_name(value, token.size));
-						} else {
-							stream_print(out, "%");
-							stream_printu(out, value);
+						if (value >= X86_REGISTER_COUNT) {
+							value = reg_table[value];
 						}
+
+						stream_print(out, x86_get_register_name(value, token.size));
 					} break;
 				case X86_IMM:
 				case X86_DISP_IMM:
@@ -975,6 +979,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			stream_print(out, "\n");
 		}
 
+#if 0
 		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 			u32 mreg = x86_saved_regs[j];
 			if (info.used[mreg]) {
@@ -983,6 +988,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				stream_print(out, "\n");
 			}
 		}
+#endif
 
 		stream_print(out, "\tret\n\n");
 next:

@@ -31,12 +31,11 @@ swap_u32(u32 *a, isize i, isize j)
 	a[j] = tmp;
 }
 
-static regalloc_info
+static u32 *
 regalloc(mach_token *tokens, isize token_count,
 	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
 {
-	regalloc_info info = {0};
-	info.used = ALLOC(arena, mach.mreg_count, b32);
+	u32 *result = ALLOC(arena, mach.vreg_count, u32);
 	arena_temp temp = arena_temp_begin(arena);
 	isize reg_count = mach.mreg_count + mach.vreg_count;
 
@@ -258,13 +257,13 @@ regalloc(mach_token *tokens, isize token_count,
 				// TODO: check that the machine register of spill doesn't
 				// overlap with the interval of the current register. Otherwise
 				// we cannot use the register here.
-				mreg_map[curr_reg] = mreg_map[spill];
-				mreg_map[spill] = make_spill(8 * info.spill_count++);
+				result[curr_reg] = result[spill];
+				result[spill] = -1;
 				sorted[spill_index] = sorted[active_start];
 				sorted[active_start] = spill;
 				active_start++;
 			} else {
-				mreg_map[curr_reg] = make_spill(8 * info.spill_count++);
+				result[curr_reg] = -1;
 			}
 		} else {
 			u32 mreg = pool[active_count++];
@@ -274,33 +273,10 @@ regalloc(mach_token *tokens, isize token_count,
 			u32 vreg_class = mach.vreg_class[curr_reg];
 			ASSERT((vreg_class & mreg_class) == mreg_class);
 
-			info.used[mreg] |= !is_empty;
-			mreg_map[curr_reg] = make_mach_token(MACH_REG, mreg, 0);
-		}
-	}
-
-	// NOTE: Replace the virtual registers with the allocated machine registers
-	for (u32 i = 0; i < token_count; i++) {
-		if (tokens[i].kind == MACH_REG && tokens[i].value >= mach.mreg_count) {
-			u32 vreg = tokens[i].value;
-			mach_token mreg = mreg_map[vreg];
-
-			// Ensure that the machine register class matches the virtual one
-			if (mreg.kind != MACH_SPILL) {
-				u32 mreg_class = mach.mreg_class[mreg.value];
-				u32 vreg_class = mach.vreg_class[vreg];
-				b32 has_valid_class = (vreg_class & mreg_class) == mreg_class;
-				ASSERT(has_valid_class);
-			}
-
-			// Only spills or machine registers are allowed for virtual registers
-			ASSERT(mreg.kind == MACH_REG || mreg.kind == MACH_SPILL);
-
-			tokens[i].kind = mreg.kind;
-			tokens[i].value = mreg.value;
+			result[curr_reg] = mreg;
 		}
 	}
 
 	arena_temp_end(temp);
-	return info;
+	return result;
 }
