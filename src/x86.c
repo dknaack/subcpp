@@ -28,7 +28,7 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 
 	x86_push_token(ctx, inst);
 
-	for (isize i = 0; i < arg_count; i++) {
+	for (isize i = arg_count - 1; i >= 0; i--) {
 		mach_token arg = args[i];
 		if (kind[i] == X86_REG || kind[i] == X86_BASE || kind[i] == X86_INDEX) {
 			if (i == 0) {
@@ -813,7 +813,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			}
 
 			isize operand_count = 0;
-			x86_operand_kind kind[4] = {0};
+			x86_operand_kind kinds[4] = {0};
 			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
 			if (opcode == X86_LABEL) {
 				stream_print(out, ".L");
@@ -828,8 +828,8 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 				// Count the number of operands and read their type
 				for (isize i = 0; i < 4; i++) {
-					kind[i] = (token.value >> (20 + 3 * i)) & 0x7;
-					if (kind[i] == X86_NIL) {
+					kinds[i] = (token.value >> (20 + 3 * i)) & 0x7;
+					if (kinds[i] == X86_NIL) {
 						break;
 					}
 
@@ -839,7 +839,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 			b32 first_token = true;
 			b32 inside_memory_operand = false;
-			for (isize j = 0; j < operand_count; j++) {
+			for (isize j = operand_count - 1; j >= 0; j--) {
 				if (first_token) {
 					stream_print(out, " ");
 					first_token = false;
@@ -847,8 +847,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					stream_print(out, ", ");
 				}
 
-				if (kind[j] == X86_INDEX || kind[j] == X86_DISP_IMM
-					|| kind[j] == X86_DISP_SYM || kind[j] == X86_BASE)
+				x86_operand_kind kind = kinds[operand_count - 1 - j];
+				if (kind == X86_INDEX || kind == X86_DISP_IMM
+					|| kind == X86_DISP_SYM || kind == X86_BASE)
 				{
 					if (!inside_memory_operand) {
 						switch (token.size) {
@@ -866,7 +867,6 @@ x86_generate(stream *out, ir_program p, arena *arena)
 							break;
 						}
 
-
 						stream_print(out, "[");
 						inside_memory_operand = true;
 					} else {
@@ -879,7 +879,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 				}
 
 				u32 value = tokens[i + 1 + j].value;
-				switch (kind[j]) {
+				switch (kind) {
 				case X86_REG:
 				case X86_BASE:
 				case X86_INDEX:
