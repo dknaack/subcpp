@@ -487,8 +487,10 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 					// Reset the instructions, registers and labels
 					ctx->func_insts = ctx->program->insts + func->inst_index;
-					ctx->func_inst_count = 1;
+					ctx->func_inst_count = 0;
 					ctx->label_count = 1;
+
+					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					// NOTE: Emit parameter registers
 					ast_id return_id = type.children;

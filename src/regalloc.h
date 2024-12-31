@@ -4,9 +4,6 @@ typedef struct {
 } live_interval;
 
 typedef struct {
-	b8 *bits;
-	u32 width;
-	u32 height;
-} bit_matrix;
-
-
+	b32 *bits;
+	i32 size;
+} bitset;

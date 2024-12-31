@@ -1,6 +1,7 @@
 typedef enum {
 	X86_RAX,
 	X86_RBX,
+	X86_RCX,
 	X86_RDX,
 	X86_RSI,
 	X86_RDI,
@@ -22,7 +23,6 @@ typedef enum {
 	X86_XMM6,
 	X86_XMM7,
 	X86_RSP,
-	X86_RCX,
 
 	X86_REGISTER_COUNT = X86_RSP,
 	X86_INT_REGISTER_COUNT = X86_XMM0,

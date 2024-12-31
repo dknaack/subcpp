@@ -1,44 +1,26 @@
 #include <string.h>
 
-// NOTE: width is the number of bits
-static bit_matrix
-bit_matrix_init(u32 width, u32 height, arena *arena)
+static bitset
+new_bitset(i32 size, arena *perm)
 {
-	bit_matrix matrix = {0};
-	matrix.bits = ALLOC_NOZERO(arena, width * height, b8);
-	memset(matrix.bits, 0, width * height * sizeof(b8));
-	matrix.width = width;
-	matrix.height = height;
-	return matrix;
+	bitset result = {0};
+	result.size = size;
+	result.bits = ALLOC(perm, (size + 31) / 32, b32);
+	return result;
 }
 
 static void
-set_bit(bit_matrix matrix, u32 y, u32 x, b32 value)
+set_bit(bitset set, i32 i, b32 value)
 {
-	ASSERT(x < matrix.width);
-	ASSERT(y < matrix.height);
-	u32 i = y * matrix.width + x;
-	matrix.bits[i] = value;
+	set.bits[i / 32] &= ~(1 << (i % 32));
+	set.bits[i / 32] |= (value != 0) << (i % 32);
 }
 
-static void
-clear_row(bit_matrix matrix, u32 y)
+static b32
+get_bit(bitset set, i32 i)
 {
-	ASSERT(y < matrix.height);
-	for (u32 x = 0; x < matrix.width; x++) {
-		matrix.bits[y * matrix.width + x] = 0;
-	}
-}
-
-static void
-union_rows(bit_matrix matrix, u32 dst_y, u32 src_y)
-{
-	ASSERT(dst_y < matrix.height);
-	ASSERT(src_y < matrix.height);
-	for (u32 x = 0; x < matrix.width; x++) {
-		b32 src_bit = matrix.bits[src_y * matrix.width + x];
-		matrix.bits[dst_y * matrix.width + x] |= src_bit;
-	}
+	b32 result = (set.bits[i / 32] >> (i % 32)) & 1;
+	return result;
 }
 
 static void
@@ -50,120 +32,136 @@ swap_u32(u32 *a, isize i, isize j)
 }
 
 static regalloc_info
-regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *arena)
+regalloc(mach_token *tokens, isize token_count,
+	basic_block *blocks, isize block_count, regalloc_hints hints, arena *arena)
 {
 	regalloc_info info = {0};
 	info.used = ALLOC(arena, hints.mreg_count, b32);
 	arena_temp temp = arena_temp_begin(arena);
+	isize reg_count = hints.mreg_count + hints.vreg_count;
 
-	// NOTE: Compute the instruction index of each label
-	isize *label_offset = ALLOC(arena, hints.label_count, isize);
-	for (isize i = 0; i < token_count; i++) {
-		if (tokens[i].kind == MACH_INST
-			&& tokens[i].value == X86_LABEL
-			&& i + 1 < token_count)
-		{
-			// A label should only have one token: The index of the label.
-			ASSERT(tokens[i + 1].kind == MACH_CONST);
-			isize label_index = tokens[i + 1].value;
-			ASSERT(label_index < hints.label_count);
-			label_offset[label_index] = i;
+	// Allocate the bitsets
+	bitset *gen = ALLOC(arena, block_count, bitset);
+	bitset *kill = ALLOC(arena, block_count, bitset);
+	bitset *live_in = ALLOC(arena, block_count, bitset);
+	bitset *live_out = ALLOC(arena, block_count, bitset);
+	for (isize i = 0; i < block_count; i++) {
+		gen[i] = new_bitset(reg_count, arena);
+		kill[i] = new_bitset(reg_count, arena);
+		live_in[i] = new_bitset(reg_count, arena);
+		live_out[i] = new_bitset(reg_count, arena);
+	}
+
+	// Initialize the gen and kill bitsets
+	for (isize i = 1; i < block_count; i++) {
+		for (isize j = 0; j < blocks[i].size; j++) {
+			mach_token token = tokens[blocks[i].offset + j];
+
+			// Gen stores all registers which have been used before any def. We
+			// track use first, since a register with both flags would count as
+			// usage and then definition.
+			if ((token.flags & MACH_USE) && !get_bit(kill[i], token.value)) {
+				set_bit(gen[i], token.value, 1);
+			}
+
+			if (token.flags & MACH_DEF) {
+				set_bit(kill[i], token.value, 1);
+			}
 		}
 	}
 
-	// NOTE; Compute the live matrix. Each row corresponds to one instruction,
-	// each column corresponds to a register. If a register is live at a
-	// certain instruction then the matrix has a one at the corresponding
-	// column and row.
-	isize reg_count = hints.mreg_count + hints.vreg_count;
-	bit_matrix live_matrix = bit_matrix_init(reg_count, token_count, arena);
-	{
-		// TODO: use a bitset as matrix instead of a boolean matrix.
-		arena_temp temp = arena_temp_begin(arena);
-		bit_matrix prev_live_matrix =
-			bit_matrix_init(reg_count, token_count, arena);
+	// Do the live variable analysis
+	b32 has_changed = true;
+	while (has_changed) {
+		has_changed = false;
 
-		b32 has_matrix_changed = false;
-		do {
-			isize i = token_count;
-			while (i-- > 0) {
-				clear_row(live_matrix, i);
-				/* TODO: successor of jump instructions */
-				if (i + 1 != token_count) {
-					union_rows(live_matrix, i, i + 1);
-				}
+		for (isize i = block_count - 1; i >= 0; i--) {
+			// Update the live_out matrix: Union all live_in successors
+			for (isize j = 0; j < live_out[i].size; j++) {
+				b32 bit = 0;
 
-				mach_token token = tokens[i];
-				u32 value = token.value;
-				switch (token.kind) {
-				case MACH_INVALID:
-					{
-						ASSERT(!"Invalid token");
-					} break;
-				case MACH_LABEL:
-					{
-						isize inst_index = label_offset[token.value];
-						ASSERT(inst_index < token_count);
-						union_rows(live_matrix, i, inst_index);
-					} break;
-				default:
-					break;
-				}
-
-				if (token.flags & MACH_CALL) {
-					for (u32 k = 0; k < hints.tmp_mreg_count; k++) {
-						u32 mreg = hints.tmp_mregs[k];
-						set_bit(live_matrix, i, mreg, 1);
+				for (isize k = 0; k < 2; k++) {
+					isize succ = blocks[i].succ[k];
+					if (succ > 0) {
+						bit |= get_bit(live_out[succ], j);
 					}
 				}
 
-				if (token.flags & MACH_DEF) {
-					set_bit(live_matrix, i, value, 1);
-				}
-
-				if (token.flags & MACH_USE) {
-					set_bit(live_matrix, i, value, 1);
-				}
+				set_bit(live_out[i], j, bit);
 			}
 
-			isize matrix_size = live_matrix.width * live_matrix.height * sizeof(b32);
-			has_matrix_changed = memcmp(live_matrix.bits, prev_live_matrix.bits, matrix_size);
-			memcpy(prev_live_matrix.bits, live_matrix.bits, matrix_size);
-		} while (has_matrix_changed);
+			// Update the live_in matrix
+			for (isize j = 0; j < live_in[i].size; j++) {
+				b32 o = get_bit(live_out[i], j);
+				b32 k = get_bit(kill[i], j);
+				b32 g = get_bit(gen[i], j);
 
-		arena_temp_end(temp);
+				b32 old = get_bit(live_in[i], j);
+				b32 new = g || (o && !k);
+
+				set_bit(live_in[i], j, new);
+				if (old != new) {
+					has_changed = true;
+				}
+			}
+		}
+
+		int i = 0;
+		(void)i;
 	}
 
 	// NOTE: Calculate the live intervals of the virtual registers
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
-	for (u32 i = 0; i < reg_count; i++) {
-		intervals[i].start = live_matrix.height;
-		for (u32 j = 0; j < live_matrix.height; j++) {
-			if (live_matrix.bits[j * live_matrix.width + i]) {
-				intervals[i].start = j;
-				break;
+	for (isize i = 0; i < reg_count; i++) {
+		isize start = token_count;
+		isize end = 0;
+
+		// Find first live_in
+		for (isize j = 0; j < block_count; j++) {
+			isize block_start = blocks[j].offset;
+			if (get_bit(live_in[j], i) && block_start < start) {
+				start = block_start;
 			}
 		}
 
-		intervals[i].end = 0;
-		for (u32 j = live_matrix.height; j-- > 0;) {
-			if (live_matrix.bits[j * live_matrix.width + i]) {
-				intervals[i].end = j + 1;
-				break;
+		// Find last live_out
+		for (isize j = 0; j < block_count; j++) {
+			isize block_end = blocks[j].offset + blocks[j].size;
+			if (get_bit(live_out[j], i) && block_end > end) {
+				end = block_end;
 			}
 		}
+
+		if (end < start) {
+			// Find first def
+			for (isize j = 0; j < start; j++) {
+				if ((tokens[j].flags & MACH_DEF) && tokens[j].value == i) {
+					start = j;
+				}
+			}
+
+			// Find last use
+			for (isize j = token_count - 1; j >= end; j--) {
+				if (tokens[j].flags & MACH_USE && tokens[j].value == i) {
+					end = j;
+				}
+			}
+		}
+
+		intervals[i].start = start;
+		intervals[i].end = end;
 	}
 
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = hints.mreg_count; i < reg_count; i++) {
+	for (u32 i = 0; i < reg_count; i++) {
 		sorted[i] = i;
 	}
 
 	for (u32 i = hints.mreg_count; i < reg_count; i++) {
 		u32 j = i;
-		while (j > 0 && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
+		while (j > hints.mreg_count && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
 			swap_u32(sorted, j, j - 1);
 			j--;
 		}
@@ -179,18 +177,20 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 	 * NOTE: the register pool is only valid after active_count. In the active
 	 * part of the array, there can be multiple registers with the same value.
 	 */
-	u32 active_start = 0;
-	u32 active_count = 0;
+	isize active_start = 0;
+	isize active_count = 0;
 	mach_token *mreg_map = ALLOC(arena, reg_count, mach_token);
 	for (u32 i = hints.mreg_count; i < reg_count; i++) {
 		u32 curr_reg = sorted[i];
+		ASSERT(curr_reg >= hints.mreg_count);
+
 		u32 curr_start = intervals[curr_reg].start;
 		u32 curr_end = intervals[curr_reg].end;
 		b32 is_empty = (curr_start > curr_end);
 
 		// Free all registers whose interval has ended
-		u32 active_end = active_start + active_count;
-		for (u32 j = active_start; j < active_end; j++) {
+		isize active_end = active_start + active_count;
+		for (isize j = active_start; j < active_end; j++) {
 			u32 inactive_reg = sorted[j];
 			u32 end = intervals[inactive_reg].end;
 			b32 is_active = (end >= curr_start);
@@ -270,6 +270,10 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 		} else {
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < hints.mreg_count);
+
+			b32 is_float_mreg = mreg >= hints.int_mreg_count;
+			ASSERT(is_float_mreg == hints.is_float[curr_reg]);
+
 			info.used[mreg] |= !is_empty;
 			mreg_map[curr_reg] = make_mach_token(MACH_REG, mreg, 0);
 		}
@@ -277,12 +281,16 @@ regalloc(mach_token *tokens, isize token_count, regalloc_hints hints, arena *are
 
 	// NOTE: Replace the virtual registers with the allocated machine registers
 	for (u32 i = 0; i < token_count; i++) {
-		if (tokens[i].kind == MACH_REG && tokens[i].value > hints.mreg_count) {
+		if (tokens[i].kind == MACH_REG && tokens[i].value >= hints.mreg_count) {
 			u32 vreg = tokens[i].value;
+
+			b32 is_float_mreg = mreg_map[vreg].value >= hints.int_mreg_count;
+			ASSERT(mreg_map[vreg].kind == MACH_REG || mreg_map[vreg].kind == MACH_SPILL);
 			ASSERT(hints.mreg_count <= vreg && vreg < reg_count);
+			ASSERT(is_float_mreg == hints.is_float[vreg]);
+
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
-			ASSERT(tokens[i].kind == MACH_REG || tokens[i].kind == MACH_SPILL);
 		}
 	}
 

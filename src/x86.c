@@ -43,6 +43,10 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 				case X86_TEST:
 					arg.flags = MACH_USE;
 					break;
+				case X86_MOV:
+					arg.flags = MACH_DEF;
+					printf("reg=%d\n", arg.value);
+					break;
 				default:
 					arg.flags = MACH_USE | MACH_DEF;
 				}
@@ -215,6 +219,7 @@ x86_select_const(x86_context *ctx, isize inst_index)
 	return result;
 }
 
+// IMPORTANT: Destination must be a register!
 static void
 x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 {
@@ -323,6 +328,8 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 	case IR_MOV:
 	case IR_FMOV:
 		{
+			ASSERT(inst[op0].opcode == IR_VAR);
+			dst = x86_vreg(op0, inst[op0].size);
 			x86_select_inst(ctx, op1, dst);
 		} break;
 	case IR_LOAD:
@@ -727,6 +734,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.is_float = ALLOC(arena, ir_func->inst_count, b32);
 		ctx.symtab = &symtab;
 
+		u32 curr_block = 0;
+		basic_block *blocks = ALLOC(arena, p.max_label_count, basic_block);
+
 		ir_inst *inst = p.insts + ir_func->inst_index;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
@@ -737,14 +747,43 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 			isize size = inst[j].size;
 			mach_token dst = x86_vreg(j, size);
-			x86_select_inst(&ctx, j, dst);
+			if (opcode == IR_LABEL) {
+				u32 prev_block = curr_block;
+				curr_block = inst[j].op0;
+				// If the previous block was a conditional jump
+				if (prev_block > 0 && blocks[prev_block].succ[0] == 0) {
+					blocks[prev_block].succ[0] = curr_block;
+				}
+
+				blocks[curr_block].offset = j;
+			} else {
+				x86_select_inst(&ctx, j, dst);
+
+				if (opcode == IR_JIZ) {
+					u32 next_block = inst[j].op1;
+					isize start = blocks[curr_block].offset;
+					blocks[curr_block].succ[0] = 0;
+					blocks[curr_block].succ[1] = next_block;
+					blocks[curr_block].size = ctx.token_count - start;
+				} else if (opcode == IR_JMP) {
+					u32 next_block = inst[j].op0;
+					isize start = blocks[curr_block].offset;
+					blocks[curr_block].succ[0] = next_block;
+					blocks[curr_block].succ[1] = next_block;
+					blocks[curr_block].size = ctx.token_count - start;
+				}
+			}
 		}
 
+		isize block_start = blocks[curr_block].offset;
+		blocks[curr_block].size = ctx.token_count - block_start;
 		isize token_count = ctx.token_count;
 		if (token_count == 0) {
 			// NOTE: Do not generate code for empty functions
 			goto next;
 		}
+
+		print_x86_program(tokens, token_count);
 
 		//
 		// 2. Register allocation
@@ -757,9 +796,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		hints.tmp_mreg_count = LENGTH(x86_temp_regs);
 		hints.mreg_count = X86_REGISTER_COUNT;
 		hints.vreg_count = ir_func->inst_count;
-		hints.label_count = p.max_label_count;
 
-		regalloc_info info = regalloc(tokens, token_count, hints, arena);
+		regalloc_info info = regalloc(tokens, token_count, blocks,
+			p.max_label_count, hints, arena);
 
 		//
 		// 3. Generate the code
@@ -883,7 +922,12 @@ x86_generate(stream *out, ir_program p, arena *arena)
 						// TODO: Handle spilled registers. We need to reserve at least
 						// three registers, since one instruction can contain three
 						// registers, which can all be spilled at the same time.
-						stream_print(out, x86_get_register_name(value, token.size));
+						if (value < X86_REGISTER_COUNT) {
+							stream_print(out, x86_get_register_name(value, token.size));
+						} else {
+							stream_print(out, "%");
+							stream_printu(out, value);
+						}
 					} break;
 				case X86_IMM:
 				case X86_DISP_IMM:

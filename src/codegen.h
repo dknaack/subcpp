@@ -16,11 +16,17 @@ typedef enum {
 } mach_token_flags;
 
 typedef struct {
-	u8 kind;
+	mach_token_kind kind;
+	mach_token_flags flags;
 	u8 size;
-	u16 flags;
 	u32 value;
 } mach_token;
+
+typedef struct {
+	i32 succ[2];
+	i32 offset;
+	i32 size;
+} basic_block;
 
 typedef struct {
 	b32 *is_float;
