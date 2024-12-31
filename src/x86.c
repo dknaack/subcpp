@@ -14,6 +14,12 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 		arg_count = 4;
 	}
 
+	if (opcode == X86_MOV && equals_token(args[0], args[1])
+		&& kind[0] == X86_REG && kind[1] == X86_REG)
+	{
+		return;
+	}
+
 	mach_token inst = {0};
 	inst.kind = MACH_INST;
 	inst.value |= opcode;
