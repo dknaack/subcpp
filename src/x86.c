@@ -731,16 +731,6 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 			isize size = inst[j].size;
 			mach_token dst = x86_vreg(j, size);
-			if (opcode == IR_MOV || opcode == IR_STORE
-				|| opcode == IR_FMOV || opcode == IR_FSTORE)
-			{
-				isize op0_size = inst[inst[j].op0].size;
-				dst = x86_vreg(inst[j].op0, op0_size);
-				if (opcode == IR_FMOV || opcode == IR_FSTORE) {
-					ctx.is_float[dst.value] = true;
-				}
-			}
-
 			x86_select_inst(&ctx, j, dst);
 		}
 
