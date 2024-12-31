@@ -287,7 +287,7 @@ regalloc(mach_token *tokens, isize token_count,
 			b32 is_float_mreg = mreg_map[vreg].value >= hints.int_mreg_count;
 			ASSERT(mreg_map[vreg].kind == MACH_REG || mreg_map[vreg].kind == MACH_SPILL);
 			ASSERT(hints.mreg_count <= vreg && vreg < reg_count);
-			ASSERT(is_float_mreg == hints.is_float[vreg]);
+			ASSERT(mreg_map[vreg].kind != MACH_REG || is_float_mreg == hints.is_float[vreg]);
 
 			tokens[i].kind = mreg_map[vreg].kind;
 			tokens[i].value = mreg_map[vreg].value;
