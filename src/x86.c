@@ -226,7 +226,7 @@ x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst)
 		{
 			isize src_size = inst[op0].size;
 			mach_token src = make_mach_token(MACH_CONST, op0, src_size);
-			x86_emit1(ctx, X86_LABEL, X86_DWORD, X86_REG, src);
+			x86_emit1(ctx, X86_LABEL, X86_DWORD, X86_IMM, src);
 		} break;
 	case IR_GLOBAL:
 		{
