@@ -45,7 +45,6 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 					break;
 				case X86_MOV:
 					arg.flags = MACH_DEF;
-					printf("reg=%d\n", arg.value);
 					break;
 				default:
 					arg.flags = MACH_USE | MACH_DEF;
