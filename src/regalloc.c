@@ -1,5 +1,3 @@
-#include <string.h>
-
 static bitset
 new_bitset(i32 size, arena *perm)
 {
