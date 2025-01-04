@@ -136,6 +136,21 @@ regalloc(mach_token *tokens, isize token_count,
 	// Initialize the register pool
 	u32 *pool = mach.pool;
 
+	// Preallocate registers with only one valid machine register
+	for (u32 vreg = mach.mreg_count; vreg < reg_count; vreg++) {
+		result[vreg] = -1;
+		for (isize i = 0; i < mach.pool_size; i++) {
+			ASSERT(mach.vreg_class[vreg] > 0);
+
+			u32 mreg = pool[i];
+			if ((mach.vreg_class[vreg] & ~mach.mreg_class[mreg]) == 0) {
+				printf("prealloc(%%%d, %s)\n", vreg, x86_get_register_name(mreg, 8));
+				result[vreg] = mreg;
+				break;
+			}
+		}
+	}
+
 	/*
 	 * NOTE: the register pool is only valid after active_count. In the active
 	 * part of the array, there can be multiple registers with the same value.
@@ -176,6 +191,10 @@ regalloc(mach_token *tokens, isize token_count,
 
 			sorted[j] = sorted[active_start];
 			sorted[active_start++] = inactive_reg;
+		}
+
+		if (is_empty || (i32)result[curr_reg] >= 0) {
+			continue;
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
