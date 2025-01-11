@@ -303,7 +303,8 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RBP:
 			return "bpl";
 		default:
-			return "(invalid register with size 1)";
+			ASSERT(!"Invalid register");
+			return "(invalid)";
 		}
 	case 2:
 		switch (reg) {
@@ -340,7 +341,8 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_RBP:
 			return "bp";
 		default:
-			return "(invalid register with size 2)";
+			ASSERT(!"Invalid register");
+			return "(invalid)";
 		}
 	case 4:
 		switch (reg) {
@@ -393,7 +395,8 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_XMM7:
 			return "xmm7";
 		default:
-			return "(invalid register with size 4)";
+			ASSERT(!"Invalid register");
+			return "(invalid)";
 		}
 	case 8:
 	case 0:
@@ -447,10 +450,11 @@ x86_get_register_name(x86_register reg, u32 size)
 		case X86_XMM7:
 			return "xmm7";
 		default:
-			return "(invalid register with size 8)";
+			ASSERT(!"Invalid register");
+			return "(invalid)";
 		}
 	}
 
 	ASSERT(false);
-	return "(invalid size)";
+	return "(invalid)";
 }
