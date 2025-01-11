@@ -3,16 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifndef TRAP
-#ifdef DEBUG
-#define TRAP() __builtin_trap()
-#else
-#define TRAP() (void)0
-#endif
-#endif
 #define BREAK() asm("int3; nop")
-#define BREAK_IF(x) do { if ((x)) BREAK(); } while (0)
-#define ASSERT(x) do { if (!(x)) TRAP(); } while (0)
+#define BREAK_IF(x) do { if (x) BREAK(); } while (0)
+#define ASSERT(x) while (!(x)) __builtin_unreachable()
 #define LENGTH(x) ((isize)(sizeof(x)/sizeof((x)[0])))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
