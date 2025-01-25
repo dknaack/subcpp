@@ -788,8 +788,6 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			goto next;
 		}
 
-		print_x86_program(tokens, token_count);
-
 		//
 		// 2. Register allocation
 		//

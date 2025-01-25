@@ -580,52 +580,6 @@ print_ir_program(ir_program program)
 }
 
 static void
-print_x86_program(mach_token *tokens, isize token_count)
-{
-	isize lineno = 1;
-	b32 first_inst = true;
-	b32 first_operand = true;
-	char *name = "(invalid)";
-
-	for (isize i = 0; i < token_count; i++) {
-		mach_token operand = tokens[i];
-		if (first_operand) {
-			first_operand = false;
-		} else {
-			printf(", ");
-		}
-
-		if ((operand.flags & (MACH_USE | MACH_DEF)) == 0) {
-			if (!first_inst) {
-				putchar('\n');
-			} else {
-				first_inst = false;
-			}
-
-			operand.value &= X86_OPCODE_MASK;
-			if (operand.value == X86_LABEL) {
-				printf("%2ld|L", lineno++);
-			} else {
-				name = x86_get_opcode_name(operand.value);
-				printf("%2ld|\t%s ", lineno++, name);
-			}
-
-			first_operand = true;
-		} else {
-			if (operand.value < X86_REGISTER_COUNT) {
-				name = x86_get_register_name(operand.value, operand.size);
-				printf("%s", name);
-			} else {
-				printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
-			}
-			break;
-		}
-	}
-
-	putchar('\n');
-}
-
-static void
 print_tokens(parse_context *ctx)
 {
 	i32 indent = 0;
