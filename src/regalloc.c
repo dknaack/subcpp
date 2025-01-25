@@ -136,21 +136,6 @@ regalloc(mach_token *tokens, isize token_count,
 	// Initialize the register pool
 	u32 *pool = mach.pool;
 
-	// Preallocate registers with only one valid machine register
-	for (u32 vreg = mach.mreg_count; vreg < reg_count; vreg++) {
-		result[vreg] = -1;
-		for (isize i = 0; i < mach.pool_size; i++) {
-			ASSERT(mach.vreg_class[vreg] > 0);
-
-			u32 mreg = pool[i];
-			if ((mach.vreg_class[vreg] & ~mach.mreg_class[mreg]) == 0) {
-				printf("prealloc(%%%d, %s)\n", vreg, x86_get_register_name(mreg, 8));
-				result[vreg] = mreg;
-				break;
-			}
-		}
-	}
-
 	/*
 	 * NOTE: the register pool is only valid after active_count. In the active
 	 * part of the array, there can be multiple registers with the same value.
@@ -204,8 +189,8 @@ regalloc(mach_token *tokens, isize token_count,
 		if (!should_spill) {
 			for (u32 i = active_count; i < mach.mreg_count; i++) {
 				u32 mreg = pool[i];
-				u32 mreg_class = mach.mreg_class[mreg];
-				u32 vreg_class = mach.vreg_class[curr_reg];
+				u32 mreg_class = 0;
+				u32 vreg_class = 0;
 				b32 has_valid_class = (vreg_class & mreg_class) == mreg_class;
 				if (!has_valid_class) {
 					continue;
@@ -254,11 +239,6 @@ regalloc(mach_token *tokens, isize token_count,
 		} else {
 			u32 mreg = pool[active_count++];
 			ASSERT(mreg < mach.mreg_count);
-
-			u32 mreg_class = mach.mreg_class[mreg];
-			u32 vreg_class = mach.vreg_class[curr_reg];
-			ASSERT((vreg_class & mreg_class) == mreg_class);
-
 			result[curr_reg] = mreg;
 		}
 	}

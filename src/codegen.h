@@ -38,8 +38,6 @@ typedef struct {
 typedef struct {
 	u32 *pool;
 	u32 *tmp_mregs;
-	u32 *mreg_class;
-	u32 *vreg_class;
 
 	i32 pool_size;
 	u32 vreg_count;

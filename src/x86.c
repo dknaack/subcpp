@@ -788,17 +788,8 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		mach.tmp_mreg_count = LENGTH(x86_temp_regs);
 		mach.mreg_count = X86_REGISTER_COUNT;
 		mach.vreg_count = ir_func->inst_count;
-		mach.mreg_class = ALLOC(arena, mach.mreg_count, u32);
-		mach.vreg_class = ctx.vreg_class;
 		mach.tmp_mregs = x86_temp_regs;
 		mach.pool = ALLOC(arena, X86_REGISTER_COUNT, u32);
-		for (isize i = 0; i < X86_REGISTER_COUNT; i++) {
-			mach.mreg_class[i] = (1 << i);
-			if (i != X86_RSP && i != X86_RBP) {
-				mach.pool[mach.pool_size] = i;
-				mach.pool_size++;
-			}
-		}
 
 		u32 *reg_table = regalloc(tokens, token_count, blocks,
 			p.max_label_count, mach, arena);
