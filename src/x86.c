@@ -21,7 +21,7 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 	}
 
 	mach_token inst = {0};
-	inst.flags |= MACH_OPCODE;
+	inst.flags |= MACH_INST;
 	inst.value |= opcode;
 	inst.value |= (size & 0xf) << 16;
 	if (opcode == X86_CALL) {
@@ -848,7 +848,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 #endif
 		for (isize i = 0; i < token_count; i++) {
 			mach_token token = tokens[i];
-			if (!(token.flags & MACH_OPCODE)) {
+			if (!(token.flags & MACH_INST)) {
 				continue;
 			}
 
@@ -892,7 +892,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					|| kind == X86_DISP_SYM || kind == X86_BASE)
 				{
 					if (!inside_memory_operand) {
-						switch (token.size) {
+						switch (token.hint) {
 						case 1:
 							stream_print(out, "byte");
 							break;
@@ -934,7 +934,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 							reg = value;
 						}
 
-						stream_print(out, x86_get_register_name(reg, token.size));
+						stream_print(out, x86_get_register_name(reg, token.hint));
 					} break;
 				case X86_IMM:
 				case X86_DISP_IMM:

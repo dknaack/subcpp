@@ -1,13 +1,31 @@
 typedef enum {
-	MACH_USE      = (1 << 0),
-	MACH_DEF      = (1 << 1),
-	MACH_CALL     = (1 << 2),
-	MACH_OPCODE   = (1 << 3),
+	MACH_USE   = (1 << 0),
+	MACH_DEF   = (1 << 1),
+	// Indicates that this token is a call instruction, which clears any
+	// registers which are not preserved across calls
+	MACH_CALL  = (1 << 2),
+	// The register allocator only allows to different register classes,
+	// integers or floats. This flag indicates that the register is contained
+	// in the latter class.
+	MACH_FLOAT = (1 << 3),
+	// We reuse the float flag to indicate when an instruction occurs,
+	// since tokens with the float flag and no use or def flag don't really
+	// make any sense, hence this flag.
+	MACH_INST  = MACH_FLOAT,
 } mach_token_flags;
 
 typedef struct {
-	mach_token_flags flags;
-	u8 size;
+	// A token is considered a virtual register if it has a USE or DEF flag.
+	// Otherwise, it is completely ingored by the register allocator.
+	u8 flags;
+	// Specifies the machine register to allocate to for virtual registers.
+	// A virtual register is allowed to have multiple hints to different
+	// machine registers. In this case, the allocator inserts move instructions.
+	//
+	// Other tokens can use this field however they want. For instruction
+	// opcodes, the hint can store the opcode, while the value stores the
+	// format, i.e. what the next tokens mean.
+	u8 hint;
 	u32 value;
 } mach_token;
 
