@@ -1,11 +1,6 @@
 typedef enum {
 	MACH_INVALID,
 	MACH_INST,
-	MACH_REG,
-	MACH_SPILL,
-	MACH_LABEL,
-	MACH_GLOBAL,
-	MACH_CONST,
 } mach_token_kind;
 
 typedef enum {
@@ -66,20 +61,27 @@ make_mach_token(u32 kind, u32 value, u32 size)
 static mach_token
 make_spill(u32 index)
 {
-	mach_token token = make_mach_token(MACH_SPILL, index, 8);
+	mach_token token = make_mach_token(MACH_INST, index, 8);
 	return token;
 }
 
 static mach_token
 make_label(u32 value)
 {
-	mach_token token = make_mach_token(MACH_LABEL, value, 0);
+	mach_token token = make_mach_token(MACH_INST, value, 0);
 	return token;
 }
 
 static mach_token
 make_global(u32 index)
 {
-	mach_token token = make_mach_token(MACH_GLOBAL, index, 8);
+	mach_token token = make_mach_token(MACH_INST, index, 8);
+	return token;
+}
+
+static mach_token
+make_const(u32 value, u32 size)
+{
+	mach_token token = make_mach_token(MACH_INST, value, size);
 	return token;
 }

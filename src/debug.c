@@ -595,8 +595,7 @@ print_x86_program(mach_token *tokens, isize token_count)
 			printf(", ");
 		}
 
-		switch (operand.kind) {
-		case MACH_INST:
+		if ((operand.flags & (MACH_USE | MACH_DEF)) == 0) {
 			if (!first_inst) {
 				putchar('\n');
 			} else {
@@ -612,29 +611,13 @@ print_x86_program(mach_token *tokens, isize token_count)
 			}
 
 			first_operand = true;
-			break;
-		case MACH_REG:
+		} else {
 			if (operand.value < X86_REGISTER_COUNT) {
 				name = x86_get_register_name(operand.value, operand.size);
 				printf("%s", name);
 			} else {
 				printf("%%%d%s", operand.value, operand.size == 4 ? "d" : "");
 			}
-			break;
-		case MACH_LABEL:
-			printf("L%d", operand.value);
-			break;
-		case MACH_CONST:
-			printf("%d", operand.value);
-			break;
-		case MACH_GLOBAL:
-			printf("global_%d", operand.value);
-			break;
-		case MACH_SPILL:
-			printf("spill");
-			break;
-		default:
-			printf("?");
 			break;
 		}
 	}
