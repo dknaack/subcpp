@@ -48,6 +48,5 @@ typedef struct {
 #include "parse.h"
 #include "sema.h"
 #include "ir.h"
-#include "codegen.h"
 #include "regalloc.h"
 #include "x86.h"
