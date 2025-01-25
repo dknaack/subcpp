@@ -81,6 +81,16 @@ make_mach_token(u32 value, u32 size)
 	ASSERT(size <= 16);
 	return token;
 }
+
+static mach_token
+register_token(u32 value, b32 is_float)
+{
+	mach_token token = {0};
+	token.flags = is_float ? MACH_FLOAT : 0;
+	token.value = value;
+	return token;
+}
+
 static bitset
 new_bitset(i32 size, arena *perm)
 {
