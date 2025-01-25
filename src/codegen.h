@@ -1,17 +1,11 @@
 typedef enum {
-	MACH_INVALID,
-	MACH_INST,
-} mach_token_kind;
-
-typedef enum {
 	MACH_USE      = (1 << 0),
 	MACH_DEF      = (1 << 1),
-	MACH_INDIRECT = (1 << 3),
-	MACH_CALL     = (1 << 4),
+	MACH_CALL     = (1 << 2),
+	MACH_OPCODE   = (1 << 3),
 } mach_token_flags;
 
 typedef struct {
-	mach_token_kind kind;
 	mach_token_flags flags;
 	u8 size;
 	u32 value;
@@ -43,15 +37,14 @@ typedef struct {
 static b32
 equals_token(mach_token a, mach_token b)
 {
-	b32 result = (a.kind == b.kind && a.value == b.value);
+	b32 result = (a.flags == b.flags && a.value == b.value);
 	return result;
 }
 
 static mach_token
-make_mach_token(u32 kind, u32 value, u32 size)
+make_mach_token(u32 value, u32 size)
 {
 	mach_token token = {0};
-	token.kind = kind;
 	token.value = value;
 	token.size = size;
 	ASSERT(size <= 16);
@@ -61,27 +54,27 @@ make_mach_token(u32 kind, u32 value, u32 size)
 static mach_token
 make_spill(u32 index)
 {
-	mach_token token = make_mach_token(MACH_INST, index, 8);
+	mach_token token = make_mach_token(index, 8);
 	return token;
 }
 
 static mach_token
 make_label(u32 value)
 {
-	mach_token token = make_mach_token(MACH_INST, value, 0);
+	mach_token token = make_mach_token(value, 0);
 	return token;
 }
 
 static mach_token
 make_global(u32 index)
 {
-	mach_token token = make_mach_token(MACH_INST, index, 8);
+	mach_token token = make_mach_token(index, 8);
 	return token;
 }
 
 static mach_token
 make_const(u32 value, u32 size)
 {
-	mach_token token = make_mach_token(MACH_INST, value, size);
+	mach_token token = make_mach_token(value, size);
 	return token;
 }

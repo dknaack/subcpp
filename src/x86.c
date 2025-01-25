@@ -21,7 +21,7 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 	}
 
 	mach_token inst = {0};
-	inst.kind = MACH_INST;
+	inst.flags |= MACH_OPCODE;
 	inst.value |= opcode;
 	inst.value |= (size & 0xf) << 16;
 	if (opcode == X86_CALL) {
@@ -198,14 +198,14 @@ static void x86_select_inst(x86_context *ctx, isize inst_index, mach_token dst);
 static mach_token
 x86_vreg(u32 value, u32 size)
 {
-	mach_token result = make_mach_token(MACH_INST, X86_REGISTER_COUNT + value, size);
+	mach_token result = make_mach_token(X86_REGISTER_COUNT + value, size);
 	return result;
 }
 
 static mach_token
 x86_mreg(x86_register value, u32 size)
 {
-	mach_token result = make_mach_token(MACH_INST, value, size);
+	mach_token result = make_mach_token(value, size);
 	return result;
 }
 
@@ -858,7 +858,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 #endif
 		for (isize i = 0; i < token_count; i++) {
 			mach_token token = tokens[i];
-			if (token.kind != MACH_INST) {
+			if (!(token.flags & MACH_OPCODE)) {
 				continue;
 			}
 
