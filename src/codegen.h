@@ -34,6 +34,11 @@ typedef struct {
 	u32 spill_count;
 } regalloc_info;
 
+#define make_spill(value) make_mach_token(value, 8)
+#define make_label(value) make_mach_token(value, 0)
+#define make_global(value) make_mach_token(value, 8)
+#define make_const(value, size) make_mach_token(value, size)
+
 static b32
 equals_token(mach_token a, mach_token b)
 {
@@ -46,35 +51,7 @@ make_mach_token(u32 value, u32 size)
 {
 	mach_token token = {0};
 	token.value = value;
-	token.size = size;
+	token.hint = size;
 	ASSERT(size <= 16);
-	return token;
-}
-
-static mach_token
-make_spill(u32 index)
-{
-	mach_token token = make_mach_token(index, 8);
-	return token;
-}
-
-static mach_token
-make_label(u32 value)
-{
-	mach_token token = make_mach_token(value, 0);
-	return token;
-}
-
-static mach_token
-make_global(u32 index)
-{
-	mach_token token = make_mach_token(index, 8);
-	return token;
-}
-
-static mach_token
-make_const(u32 value, u32 size)
-{
-	mach_token token = make_mach_token(value, size);
 	return token;
 }
