@@ -293,6 +293,32 @@ is_comparison_opcode(ir_opcode ir_opcode)
 	}
 }
 
+static b32
+is_float_opcode(ir_opcode opcode)
+{
+	switch (opcode) {
+	case IR_FADD:
+	case IR_FCOPY:
+	case IR_FCVT:
+	case IR_FDIV:
+	case IR_FEQ:
+	case IR_FGE:
+	case IR_FGT:
+	case IR_FLE:
+	case IR_FLOAD:
+	case IR_FLT:
+	case IR_FMOV:
+	case IR_FMUL:
+	case IR_FRET:
+	case IR_FSTORE:
+	case IR_FSUB:
+	case IR_FVAR:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static ir_opcode_info
 get_opcode_info(ir_opcode opcode)
 {
