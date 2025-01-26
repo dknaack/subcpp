@@ -91,6 +91,23 @@ register_token(u32 value, b32 is_float)
 	return token;
 }
 
+static mach_token
+inst_token(u8 opcode, u32 format)
+{
+	mach_token token = {0};
+	token.flags = MACH_INST;
+	token.hint  = opcode;
+	token.value = format;
+	return token;
+}
+
+static b32
+is_inst_token(mach_token token)
+{
+	b32 result = ((token.flags & (MACH_USE | MACH_DEF | MACH_INST)) == MACH_INST);
+	return result;
+}
+
 static bitset
 new_bitset(i32 size, arena *perm)
 {

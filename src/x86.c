@@ -20,16 +20,15 @@ x86_emit(x86_context *ctx, x86_opcode opcode, x86_operand_size size,
 		return;
 	}
 
-	mach_token inst = {0};
-	inst.flags |= MACH_INST;
-	inst.value |= opcode;
-	inst.value |= (size & 0xf) << 16;
-	if (opcode == X86_CALL) {
-		inst.flags |= MACH_CALL;
+	u32 inst_format = opcode;
+	inst_format |= (size & 0xf) << 16;
+	for (isize i = 0; i < arg_count; i++) {
+		inst_format |= (kind[i] & 0x7) << (20 + 3 * i);
 	}
 
-	for (isize i = 0; i < arg_count; i++) {
-		inst.value |= (kind[i] & 0x7) << (20 + 3 * i);
+	mach_token inst = inst_token(opcode, inst_format);
+	if (opcode == X86_CALL) {
+		inst.flags |= MACH_CALL;
 	}
 
 	x86_push_token(ctx, inst);
@@ -812,7 +811,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 #endif
 		for (isize i = 0; i < token_count; i++) {
 			mach_token token = tokens[i];
-			if (!(token.flags & MACH_INST)) {
+			if (!is_inst_token(token)) {
 				continue;
 			}
 
