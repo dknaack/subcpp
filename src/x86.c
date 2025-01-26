@@ -467,14 +467,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			mach_token dst_byte = dst;
 
 			mach_token lhs = register_token(op0, is_float);
-			if (is_float) {
-				ctx->vreg_class[lhs.value] = X86_XMM_MASK;
-			}
-
 			mach_token rhs = register_token(op1, is_float);
-			if (is_float) {
-				ctx->vreg_class[rhs.value] = X86_XMM_MASK;
-			}
 
 			x86_select_inst(ctx, op0, lhs, size);
 			x86_select_inst(ctx, op1, rhs, size);
@@ -532,15 +525,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				jcc = x86_get_jcc_opcode(inst[op0].opcode, is_jiz);
 
 				dst = register_token(inst[op0].op0, is_float);
-				if (is_float) {
-					ctx->vreg_class[dst.value] = X86_XMM_MASK;
-				}
-
 				mach_token src = x86_select_const(ctx, inst[op0].op1);
-				if (is_float) {
-					ctx->vreg_class[src.value] = X86_XMM_MASK;
-				}
-
 
 				x86_select_inst(ctx, inst[op0].op0, dst, size);
 				x86_emit2(ctx, cmp, size, X86_REG, dst, X86_REG, src);
@@ -667,7 +652,6 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 	case IR_FVAR:
 		{
 			mach_token src = register_token(i, is_float);
-			ctx->vreg_class[i] = X86_XMM_MASK;
 			x86_emit2(ctx, X86_MOVSS, size, X86_REG, dst, X86_REG, src);
 		} break;
 	case IR_FADD:
@@ -686,8 +670,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			}
 
 			mach_token src = register_token(op1, is_float);
-			ctx->vreg_class[op1] = X86_XMM_MASK;
-			ctx->vreg_class[dst.value] = X86_XMM_MASK;
+			dst.flags |= MACH_FLOAT;
 
 			x86_select_inst(ctx, op0, dst, size);
 			x86_select_inst(ctx, op1, src, size);
@@ -718,12 +701,7 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		ctx.inst = p.insts + ir_func->inst_index;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
-		ctx.vreg_class = ALLOC(arena, X86_REGISTER_COUNT + ir_func->inst_count, u32);
 		ctx.symtab = &symtab;
-
-		for (isize i = 0; i < X86_REGISTER_COUNT + ir_func->inst_count; i++) {
-			ctx.vreg_class[i] = ~X86_XMM_MASK;
-		}
 
 		u32 curr_block = 0;
 		basic_block *blocks = ALLOC(arena, p.max_label_count, basic_block);

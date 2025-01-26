@@ -23,17 +23,7 @@ typedef enum {
 	X86_XMM5,
 	X86_XMM6,
 	X86_XMM7,
-
-	X86_REGISTER_COUNT,
-	X86_XMM_MASK =
-		  (1 << X86_XMM0)
-		| (1 << X86_XMM1)
-		| (1 << X86_XMM2)
-		| (1 << X86_XMM3)
-		| (1 << X86_XMM4)
-		| (1 << X86_XMM5)
-		| (1 << X86_XMM6)
-		| (1 << X86_XMM7)
+	X86_REGISTER_COUNT
 } x86_register;
 
 typedef enum {
@@ -118,7 +108,6 @@ typedef enum {
 typedef struct {
 	ir_inst *inst;
 	mach_token *tokens;
-	u32 *vreg_class;
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;
