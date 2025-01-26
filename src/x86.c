@@ -224,6 +224,7 @@ x86_select_const(x86_context *ctx, isize inst_index)
 static void
 x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 {
+	isize addr_size = 8;
 	ir_inst *inst = ctx->inst;
 	ir_opcode opcode = inst[i].opcode;
 	u32 op0 = inst[i].op0;
@@ -351,7 +352,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			} else {
 				mach_token src = register_token(op0, is_float);
 
-				x86_select_inst(ctx, op0, src, size);
+				x86_select_inst(ctx, op0, src, addr_size);
 				x86_emit2(ctx, mov, size, X86_REG, dst, X86_BASE, src);
 			}
 		} break;
@@ -368,7 +369,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				src = make_const(inst[op1].op0, size);
 			}
 
-			x86_select_inst(ctx, op0, dst, size);
+			x86_select_inst(ctx, op0, dst, addr_size);
 			x86_emit2(ctx, mov, size, X86_BASE, dst, X86_REG, src);
 		} break;
 	case IR_ADD:
@@ -612,32 +613,32 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 					case 0:
 						{
 							mach_token rdi = x86_register_token(ctx, X86_RDI, param_size);
-							x86_select_inst(ctx, param_inst.op0, rdi, size);
+							x86_select_inst(ctx, param_inst.op0, rdi, param_size);
 						} break;
 					case 1:
 						{
 							mach_token rsi = x86_register_token(ctx, X86_RSI, param_size);
-							x86_select_inst(ctx, param_inst.op0, rsi, size);
+							x86_select_inst(ctx, param_inst.op0, rsi, param_size);
 						} break;
 					case 2:
 						{
 							mach_token rdx = x86_register_token(ctx, X86_RDX, param_size);
-							x86_select_inst(ctx, param_inst.op0, rdx, size);
+							x86_select_inst(ctx, param_inst.op0, rdx, param_size);
 						} break;
 					case 3:
 						{
 							mach_token rcx = x86_register_token(ctx, X86_RCX, param_size);
-							x86_select_inst(ctx, param_inst.op0, rcx, size);
+							x86_select_inst(ctx, param_inst.op0, rcx, param_size);
 						} break;
 					case 4:
 						{
 							mach_token r8 = x86_register_token(ctx, X86_R8, param_size);
-							x86_select_inst(ctx, param_inst.op0, r8, size);
+							x86_select_inst(ctx, param_inst.op0, r8, param_size);
 						} break;
 					case 5:
 						{
 							mach_token r9 = x86_register_token(ctx, X86_R9, param_size);
-							x86_select_inst(ctx, param_inst.op0, r9, size);
+							x86_select_inst(ctx, param_inst.op0, r9, param_size);
 						} break;
 					default:
 						ASSERT(!"Too many arguments");
@@ -899,7 +900,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 							reg = value;
 						}
 
-						stream_print(out, x86_get_register_name(reg, token.hint));
+						// TODO: Set the correct size during register allocation
+						u32 reg_size = 0;
+						stream_print(out, x86_get_register_name(reg, reg_size));
 					} break;
 				case X86_IMM:
 				case X86_DISP_IMM:
