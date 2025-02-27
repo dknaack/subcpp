@@ -13,7 +13,7 @@
 #include "ir.c"
 #include "optimize.c"
 #include "regalloc.c"
-#include "stream.c"
+#include "writer.c"
 #include "x86.c"
 
 static void
@@ -118,9 +118,9 @@ main(int argc, char *argv[])
 	print_ir_program(ir_program);
 
 	// NOTE: back-end
-	stream out = stream_open("/tmp/out.s", 1024 * 1024, arena);
+	writer out = new_writer("/tmp/out.s", 1024 * 1024, arena);
 	x86_generate(&out, ir_program, arena);
-	stream_close(&out);
+	wclose(&out);
 
 	run_assembler("/tmp/out.s", "/tmp/out.o");
 	run_linker("/tmp/out.o", output);

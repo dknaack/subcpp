@@ -683,13 +683,13 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 }
 
 static void
-x86_generate(stream *out, ir_program p, arena *arena)
+x86_generate(writer *out, ir_program p, arena *arena)
 {
 	symbol_table symtab = p.symtab;
 	isize max_token_count = 1024 * 1024;
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
-	stream_print(out, "section .text\n");
+	print_cstr(out, "section .text\n");
 	symbol_id sym_id = symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
 		symbol *sym = &symtab.symbols[sym_id.value];
@@ -773,8 +773,8 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		// 3. Generate the code
 		//
 
-		stream_prints(out, sym->name);
-		stream_print(out, ":\n");
+		print_str(out, sym->name);
+		print_cstr(out, ":\n");
 
 		// Print function prologue
 #if 0
@@ -782,9 +782,9 @@ x86_generate(stream *out, ir_program p, arena *arena)
 		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 			u32 mreg = x86_saved_regs[j];
 			if (reg_table[mreg]) {
-				stream_print(out, "\tpush ");
-				stream_print(out, x86_get_register_name(mreg, 8));
-				stream_print(out, "\n");
+				print_cstr(out, "\tpush ");
+				print_cstr(out, x86_get_register_name(mreg, 8));
+				print_cstr(out, "\n");
 				used_volatile_register_count++;
 			}
 		}
@@ -822,15 +822,15 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			x86_operand_kind kinds[4] = {0};
 			x86_opcode opcode = (token.value & X86_OPCODE_MASK);
 			if (opcode == X86_LABEL) {
-				stream_print(out, ".L");
-				stream_printu(out, tokens[i + 1].value);
-				stream_print(out, ":");
+				print_cstr(out, ".L");
+				print_u32(out, tokens[i + 1].value);
+				print_cstr(out, ":");
 				operand_count = 0;
 			} else if (opcode == X86_RET) {
-				stream_print(out, "    jmp .exit");
+				print_cstr(out, "    jmp .exit");
 			} else {
-				stream_print(out, "    ");
-				stream_print(out, x86_get_opcode_name(opcode));
+				print_cstr(out, "    ");
+				print_cstr(out, x86_get_opcode_name(opcode));
 
 				// Count the number of operands and read their type
 				for (isize i = 0; i < 4; i++) {
@@ -847,10 +847,10 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			b32 inside_memory_operand = false;
 			for (isize j = operand_count - 1; j >= 0; j--) {
 				if (first_token) {
-					stream_print(out, " ");
+					print_cstr(out, " ");
 					first_token = false;
 				} else if (!inside_memory_operand) {
-					stream_print(out, ", ");
+					print_cstr(out, ", ");
 				}
 
 				x86_operand_kind kind = kinds[operand_count - 1 - j];
@@ -860,27 +860,27 @@ x86_generate(stream *out, ir_program p, arena *arena)
 					if (!inside_memory_operand) {
 						switch (token.hint) {
 						case 1:
-							stream_print(out, "byte");
+							print_cstr(out, "byte");
 							break;
 						case 2:
-							stream_print(out, "word");
+							print_cstr(out, "word");
 							break;
 						case 4:
-							stream_print(out, "dword");
+							print_cstr(out, "dword");
 							break;
 						case 8:
-							stream_print(out, "qword");
+							print_cstr(out, "qword");
 							break;
 						}
 
-						stream_print(out, "[");
+						print_cstr(out, "[");
 						inside_memory_operand = true;
 					} else {
-						stream_print(out, " + ");
+						print_cstr(out, " + ");
 					}
 				} else {
 					if (inside_memory_operand) {
-						stream_print(out, "], ");
+						print_cstr(out, "], ");
 					}
 				}
 
@@ -902,12 +902,12 @@ x86_generate(stream *out, ir_program p, arena *arena)
 
 						// TODO: Set the correct size during register allocation
 						u32 reg_size = 0;
-						stream_print(out, x86_get_register_name(reg, reg_size));
+						print_cstr(out, x86_get_register_name(reg, reg_size));
 					} break;
 				case X86_IMM:
 				case X86_DISP_IMM:
 					{
-						stream_printu(out, value);
+						print_u32(out, value);
 					} break;
 				case X86_SYM:
 				case X86_DISP_SYM:
@@ -915,10 +915,10 @@ x86_generate(stream *out, ir_program p, arena *arena)
 						ASSERT(value < symtab.symbol_count);
 						symbol *sym = &symtab.symbols[value];
 						if (sym->name.length > 0) {
-							stream_prints(out, sym->name);
+							print_str(out, sym->name);
 						} else {
-							stream_print(out, "L#");
-							stream_printu(out, value);
+							print_cstr(out, "L#");
+							print_u32(out, value);
 						}
 					} break;
 				default:
@@ -927,32 +927,32 @@ x86_generate(stream *out, ir_program p, arena *arena)
 			}
 
 			if (inside_memory_operand) {
-				stream_print(out, "]");
+				print_cstr(out, "]");
 			}
 
-			stream_print(out, "\n");
+			print_cstr(out, "\n");
 		}
 
 		// Print function epilogue
-		stream_print(out, "\n.exit:\n");
+		print_cstr(out, "\n.exit:\n");
 		if (stack_size > 0) {
-			stream_print(out, "\tadd rsp, ");
-			stream_printu(out, stack_size);
-			stream_print(out, "\n");
+			print_cstr(out, "\tadd rsp, ");
+			print_u32(out, stack_size);
+			print_cstr(out, "\n");
 		}
 
 #if 0
 		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 			u32 mreg = x86_saved_regs[j];
 			if (info.used[mreg]) {
-				stream_print(out, "\tpop ");
-				stream_print(out, x86_get_register_name(mreg, 8));
-				stream_print(out, "\n");
+				print_cstr(out, "\tpop ");
+				print_cstr(out, x86_get_register_name(mreg, 8));
+				print_cstr(out, "\n");
 			}
 		}
 #endif
 
-		stream_print(out, "\tret\n\n");
+		print_cstr(out, "\tret\n\n");
 next:
 		sym_id = sym->next;
 	}
@@ -967,13 +967,13 @@ next:
 		if (j == SECTION_TEXT) {
 			// We print the text section again to print the symbol
 			// declarations, like `global main`.
-			stream_print(out, "section .text\n");
+			print_cstr(out, "section .text\n");
 		} else if (j == SECTION_DATA) {
-			stream_print(out, "section .data\n");
+			print_cstr(out, "section .data\n");
 		} else if (j == SECTION_RODATA) {
-			stream_print(out, "section .rodata\n");
+			print_cstr(out, "section .rodata\n");
 		} else if (j == SECTION_BSS) {
-			stream_print(out, "section .bss\n");
+			print_cstr(out, "section .bss\n");
 		} else {
 			// Unsupported section
 			continue;
@@ -982,52 +982,52 @@ next:
 		while (sym_id.value != 0) {
 			symbol *sym = &symtab.symbols[sym_id.value];
 			if (sym->linkage == LINK_STATIC) {
-				stream_print(out, "static ");
-				stream_prints(out, sym->name);
-				stream_print(out, "\n");
+				print_cstr(out, "static ");
+				print_str(out, sym->name);
+				print_cstr(out, "\n");
 			} else if (sym->linkage == LINK_EXTERN) {
-				stream_print(out, "extern ");
-				stream_prints(out, sym->name);
-				stream_print(out, "\n");
+				print_cstr(out, "extern ");
+				print_str(out, sym->name);
+				print_cstr(out, "\n");
 			} else if (sym->name.length > 0) {
-				stream_print(out, "global ");
-				stream_prints(out, sym->name);
-				stream_print(out, "\n");
+				print_cstr(out, "global ");
+				print_str(out, sym->name);
+				print_cstr(out, "\n");
 			}
 
 			// NOTE: text section was already printed in the loop above
 			if (sym->size > 0 && j != SECTION_TEXT) {
 				if (sym->name.length > 0) {
-					stream_prints(out, sym->name);
+					print_str(out, sym->name);
 				} else {
-					stream_print(out, "L#");
-					stream_printu(out, sym_id.value);
+					print_cstr(out, "L#");
+					print_u32(out, sym_id.value);
 				}
 
 				if (j == SECTION_DATA || j == SECTION_RODATA) {
 					// NOTE: Inside data or rodata section, symbols contain byte data
 					if (sym->data) {
-						stream_print(out, ": db ");
+						print_cstr(out, ": db ");
 						u8 *byte = sym->data;
 						for (isize i = 0; i < sym->size; i++) {
 							if (i != 0) {
-								stream_print(out, ", ");
+								print_cstr(out, ", ");
 							}
 
-							stream_print_hex(out, byte[i]);
+							print_hex(out, byte[i]);
 						}
 
-						stream_print(out, "\n");
+						print_cstr(out, "\n");
 					} else {
-						stream_print(out, ": times ");
-						stream_printu(out, sym->size);
-						stream_print(out, " db 0\n");
+						print_cstr(out, ": times ");
+						print_u32(out, sym->size);
+						print_cstr(out, " db 0\n");
 					}
 				} else if (j == SECTION_BSS) {
 					// NOTE; Inside bss section, symbols have no data
-					stream_print(out, " resb ");
-					stream_print_hex(out, sym->size);
-					stream_print(out, "\n");
+					print_cstr(out, " resb ");
+					print_hex(out, sym->size);
+					print_cstr(out, "\n");
 				}
 			}
 
