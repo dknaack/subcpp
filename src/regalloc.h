@@ -45,10 +45,20 @@ typedef struct {
 	u32 tmp_mreg_count;
 } mach_info;
 
+typedef struct mach_mov mach_mov;
+struct mach_mov {
+	mach_mov *next;
+	i32 inserted_before;
+	u32 dst, src;
+};
+
 typedef struct {
-	b32 *used;
+	mach_mov *movs;    // dst is reg, src is reg
+	mach_mov *spills;  // dst is mem, src is reg
+	mach_mov *reloads; // dst is reg, src is mem
 	u32 spill_count;
-} regalloc_info;
+	b32 error;
+} regalloc_result;
 
 typedef struct {
 	u32 start;
@@ -100,7 +110,6 @@ inst_token(u8 opcode, u32 format)
 	token.value = format;
 	return token;
 }
-
 static b32
 is_inst_token(mach_token token)
 {
