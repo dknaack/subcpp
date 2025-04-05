@@ -224,7 +224,7 @@ typedef struct {
 typedef struct ast_pool {
 	ast_node *nodes;
 	ast_id root;
-	isize cap;
+	isize max_size;
 	isize size;
 	b32 error;
 } ast_pool;

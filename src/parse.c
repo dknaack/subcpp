@@ -34,15 +34,15 @@ is_typename(parse_scope *s, str name)
 static ast_id
 new_node_with_flags(ast_pool *p, ast_node_kind kind, ast_node_flags flags, token token, ast_id children)
 {
-	if (p->size + 1 >= p->cap) {
-		if (!p->cap) {
-			p->cap = 1024;
+	if (p->size + 1 >= p->max_size) {
+		if (!p->max_size) {
+			p->max_size = 1024;
 			p->size = 1;
 		}
 
-		p->nodes = realloc(p->nodes, 2 * p->cap * sizeof(*p->nodes));
-		memset(p->nodes + p->cap, 0, p->cap * sizeof(*p->nodes));
-		p->cap *= 2;
+		p->nodes = realloc(p->nodes, 2 * p->max_size * sizeof(*p->nodes));
+		memset(p->nodes + p->max_size, 0, p->max_size * sizeof(*p->nodes));
+		p->max_size *= 2;
 	}
 
 	ast_id id = {0};
@@ -1099,7 +1099,7 @@ parse(char *filename, arena *perm)
 	ast_node *nodes = realloc(pool.nodes, pool.size * sizeof(*nodes));
 	if (nodes) {
 		pool.nodes = nodes;
-		pool.cap = pool.size;
+		pool.max_size = pool.size;
 	}
 
 	if (pool.root.value == 0) {
