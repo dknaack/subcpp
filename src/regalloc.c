@@ -137,7 +137,6 @@ regalloc(mach_token *tokens, isize token_count,
 	 * part of the array, there can be multiple registers with the same value.
 	 */
 	isize active_start = 0;
-	mach_token *mreg_map = ALLOC(arena, reg_count, mach_token);
 	for (isize i = mach.mreg_count; i < reg_count; i++) {
 		u32 curr_reg = intervals[i].vreg;
 		u32 curr_start = intervals[i].start;
@@ -153,10 +152,13 @@ regalloc(mach_token *tokens, isize token_count,
 
 			u32 reg = intervals[j].vreg;
 			if (reg >= mach.mreg_count) {
-				reg = mreg_map[reg].value;
+				reg = result[reg];
 			}
 
-			is_active[reg] = false;
+			if (reg > 0) {
+				is_active[reg] = false;
+			}
+
 			intervals[j] = intervals[active_start++];
 		}
 
