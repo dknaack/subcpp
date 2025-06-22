@@ -71,9 +71,6 @@ regalloc(mach_token *tokens, isize token_count,
 				}
 			}
 		}
-
-		int i = 0;
-		(void)i;
 	}
 
 	// NOTE: Calculate the live intervals of the virtual registers
