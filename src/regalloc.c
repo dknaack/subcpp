@@ -126,13 +126,7 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 	}
 
-	// Initialize the register pool
 	b32 *is_active = ALLOC(arena, mach.mreg_count, b32);
-
-	/*
-	 * NOTE: the register pool is only valid after active_count. In the active
-	 * part of the array, there can be multiple registers with the same value.
-	 */
 	isize active_start = 0;
 	for (isize i = mach.mreg_count; i < reg_count; i++) {
 		u32 curr_reg = intervals[i].vreg;
