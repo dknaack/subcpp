@@ -61,6 +61,7 @@ typedef struct {
 } regalloc_result;
 
 typedef struct {
+	u32 vreg;
 	u32 start;
 	u32 end;
 } live_interval;

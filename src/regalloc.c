@@ -114,130 +114,97 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 		}
 
+		intervals[i].vreg = i;
 		intervals[i].start = start;
 		intervals[i].end = end;
 	}
 
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
-	u32 *sorted = ALLOC(arena, reg_count, u32);
-	for (u32 i = 0; i < reg_count; i++) {
-		sorted[i] = i;
-	}
-
-	for (u32 i = mach.mreg_count; i < reg_count; i++) {
-		u32 j = i;
-		while (j > mach.mreg_count && intervals[sorted[j - 1]].start > intervals[sorted[j]].start) {
-			swap_u32(sorted, j, j - 1);
-			j--;
+	for (isize i = mach.mreg_count; i < reg_count; i++) {
+		for (isize j = mach.mreg_count; j < reg_count - i - 1; j++) {
+			live_interval tmp = intervals[j];
+			intervals[j] = intervals[j + 1];
+			intervals[j + 1] = tmp;
 		}
 	}
 
 	// Initialize the register pool
-	u32 *pool = mach.pool;
+	b32 *is_active = ALLOC(arena, mach.mreg_count, b32);
 
 	/*
 	 * NOTE: the register pool is only valid after active_count. In the active
 	 * part of the array, there can be multiple registers with the same value.
 	 */
 	isize active_start = 0;
-	isize active_count = 0;
 	mach_token *mreg_map = ALLOC(arena, reg_count, mach_token);
-	for (u32 i = mach.mreg_count; i < reg_count; i++) {
-		u32 curr_reg = sorted[i];
+	for (isize i = mach.mreg_count; i < reg_count; i++) {
+		u32 curr_reg = intervals[i].vreg;
+		u32 curr_start = intervals[i].start;
+		u32 curr_end = intervals[i].end;
 		ASSERT(curr_reg >= mach.mreg_count);
 
-		u32 curr_start = intervals[curr_reg].start;
-		u32 curr_end = intervals[curr_reg].end;
-		b32 is_empty = (curr_start > curr_end);
-
-		// Free all registers whose interval has ended
-		isize active_end = active_start + active_count;
-		for (isize j = active_start; j < active_end; j++) {
-			u32 inactive_reg = sorted[j];
-			u32 end = intervals[inactive_reg].end;
-			b32 is_active = (end >= curr_start);
-			if (is_active) {
+		// Expire old intervals
+		for (isize j = active_start; j < i; j++) {
+			b32 has_expired = intervals[j].end < curr_start;
+			if (!has_expired) {
 				continue;
 			}
 
-			/* Free the register again */
-			active_count--;
-			b32 is_mreg = (inactive_reg < mach.mreg_count);
-			if (is_mreg) {
-				u32 mreg = inactive_reg;
-				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < mach.mreg_count);
-			} else if (mreg_map[inactive_reg].value < mach.mreg_count) {
-				u32 mreg = mreg_map[inactive_reg].value;
-				pool[active_count] = mreg;
-				ASSERT(pool[active_count] < mach.mreg_count);
+			u32 reg = intervals[j].vreg;
+			if (reg >= mach.mreg_count) {
+				reg = mreg_map[reg].value;
 			}
 
-			sorted[j] = sorted[active_start];
-			sorted[active_start++] = inactive_reg;
+			is_active[reg] = false;
+			intervals[j] = intervals[active_start++];
 		}
 
-		if (is_empty || (i32)result[curr_reg] >= 0) {
+		b32 is_empty = (curr_start > curr_end);
+		b32 is_preallocated = (result[curr_reg] > 0);
+		if (is_empty || is_preallocated) {
 			continue;
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
 		ASSERT(mach.mreg_count <= curr_reg && curr_reg < reg_count);
-		b32 should_spill = (active_count >= mach.mreg_count);
-		b32 found_mreg = false;
+		b32 should_spill = (active_start == i);
+		u32 mreg = 0;
 		if (!should_spill) {
-			for (u32 i = active_count; i < mach.mreg_count; i++) {
-				u32 mreg = pool[i];
-				u32 mreg_class = 0;
-				u32 vreg_class = 0;
-				b32 has_valid_class = (vreg_class & mreg_class) == mreg_class;
-				if (!has_valid_class) {
-					continue;
-				}
-
-				u32 mreg_start = intervals[mreg].start;
-				u32 mreg_end = intervals[mreg].end;
-				b32 mreg_overlaps = (curr_end >= mreg_start && mreg_end >= curr_start);
-				if (!mreg_overlaps) {
-					swap_u32(pool, active_count, i);
-					found_mreg = true;
+			for (isize j = 1; j < mach.mreg_count; j++) {
+				if (!is_active[j]) {
+					mreg = j;
 					break;
 				}
 			}
 
-			should_spill = !found_mreg;
+			should_spill = (mreg == 0);
 		}
 
 		if (should_spill) {
-			u32 spill = sorted[active_start];
-			u32 spill_index = active_start;
+			isize spill_index = -1;
 			u32 end = 0;
-			for (u32 j = active_start + 1; j < active_end; j++) {
-				u32 reg = sorted[j];
-				if (intervals[reg].end > end) {
-					end = intervals[reg].end;
+			for (isize j = active_start; j < i; j++) {
+				if (intervals[j].end > end) {
+					end = intervals[j].end;
 					spill_index = j;
-					spill = reg;
 				}
 			}
 
-			b32 swap_with_spill = (intervals[spill].end > intervals[curr_reg].end);
+			b32 swap_with_spill = (end > intervals[curr_reg].end);
 			// TODO: currently we always spill the current register, see below.
 			if (false && swap_with_spill) {
 				// TODO: check that the machine register of spill doesn't
 				// overlap with the interval of the current register. Otherwise
 				// we cannot use the register here.
-				result[curr_reg] = result[spill];
-				result[spill] = -1;
-				sorted[spill_index] = sorted[active_start];
-				sorted[active_start] = spill;
-				active_start++;
+				u32 spilled_vreg = intervals[spill_index].vreg;
+				result[curr_reg] = result[spilled_vreg];
+				result[spilled_vreg] = -1;
+				intervals[spill_index] = intervals[active_start++];
 			} else {
 				result[curr_reg] = -1;
 			}
 		} else {
-			u32 mreg = pool[active_count++];
 			ASSERT(mreg < mach.mreg_count);
 			result[curr_reg] = mreg;
 		}
