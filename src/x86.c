@@ -426,15 +426,21 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 	case IR_DIV:
 	case IR_MOD:
 		{
-			mach_token rax = x86_register_token(ctx, X86_RAX, inst[op0].size);
-			mach_token rcx = x86_register_token(ctx, X86_RCX, inst[op1].size);
-			mach_token rdx = x86_register_token(ctx, X86_RDX, size);
+			mach_token reg0 = x86_register_token(ctx, X86_RAX, inst[op0].size);
+			mach_token reg1 = x86_register_token(ctx, X86_RAX, inst[op1].size);
+
+			x86_select_inst(ctx, op0, reg0, size);
+			x86_select_inst(ctx, op1, reg1, size);
+
+			mach_token rax = make_mach_token(X86_RAX, inst[op0].size);
+			mach_token rcx = make_mach_token(X86_RCX, inst[op1].size);
+			mach_token rdx = make_mach_token(X86_RDX, size);
 			mach_token zero = make_const(0, size);
 			mach_token src = opcode == IR_DIV ? rax : rdx;
 
-			x86_select_inst(ctx, op0, rax, size);
-			x86_select_inst(ctx, op1, rcx, size);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, rdx, X86_IMM, zero);
+			x86_emit2(ctx, X86_MOV, size, X86_REG, rax, X86_REG, reg0);
+			x86_emit2(ctx, X86_MOV, size, X86_REG, rcx, X86_REG, reg1);
 			x86_emit1(ctx, X86_IDIV, size, X86_REG, rcx);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, src);
 		} break;
