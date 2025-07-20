@@ -141,6 +141,19 @@ get_bit(bitset set, i32 i)
 	return result;
 }
 
+static bitset
+clone_bitset(bitset src, arena *perm)
+{
+	bitset dst = new_bitset(src.size, perm);
+
+	isize word_count = (src.size + 31) / 32;
+	for (isize i = 0; i < word_count; i++) {
+		dst.bits[i] = src.bits[i];
+	}
+
+	return dst;
+}
+
 static void
 swap_u32(u32 *a, isize i, isize j)
 {
