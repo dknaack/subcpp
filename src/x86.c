@@ -412,12 +412,14 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				x86_select_inst(ctx, op0, dst, size);
 				x86_emit2(ctx, X86_ADD, size, X86_REG, dst, X86_REG, dst);
 			} else {
-				mach_token rax = x86_register_token(ctx, X86_RAX, inst[op0].size);
-				mach_token src = register_token(op1, is_float);
+				mach_token rax = make_mach_token(X86_RAX, inst[op0].size);
+				mach_token reg0 = register_token(op0, is_float);
+				mach_token reg1 = register_token(op1, is_float);
 
-				x86_select_inst(ctx, op0, rax, size);
-				x86_select_inst(ctx, op1, src, size);
-				x86_emit1(ctx, X86_IMUL, size, X86_REG, src);
+				x86_select_inst(ctx, op0, reg0, size);
+				x86_select_inst(ctx, op1, reg1, size);
+				x86_emit2(ctx, X86_MOV, size, X86_REG, rax, X86_REG, reg0);
+				x86_emit1(ctx, X86_IMUL, size, X86_REG, reg1);
 				x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, rax);
 			}
 		} break;
