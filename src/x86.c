@@ -254,26 +254,14 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 	case IR_PARAM:
 		{
 			// TODO: Set the correct size of the parameters
-			mach_token src = {0};
+			x86_register mreg = 0;
 			switch (op0) {
-			case 0:
-				src = x86_register_token(ctx, X86_RDI, size);
-				break;
-			case 1:
-				src = x86_register_token(ctx, X86_RSI, size);
-				break;
-			case 2:
-				src = x86_register_token(ctx, X86_RDX, size);
-				break;
-			case 3:
-				src = x86_register_token(ctx, X86_RCX, size);
-				break;
-			case 4:
-				src = x86_register_token(ctx, X86_R8, size);
-				break;
-			case 5:
-				src = x86_register_token(ctx, X86_R9, size);
-				break;
+			case 0: mreg = X86_RDI; break;
+			case 1: mreg = X86_RSI; break;
+			case 2: mreg = X86_RDX; break;
+			case 3: mreg = X86_RCX; break;
+			case 4: mreg = X86_R8;  break;
+			case 5: mreg = X86_R9;  break;
 			default:
 				// TODO: The function should store the parameter offsets of
 				// each argument. Then, we can calculate the offset for this
@@ -281,6 +269,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				ASSERT(!"Too many parameters");
 			}
 
+			mach_token src = make_mach_token(mreg, size);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, src);
 		} break;
 	case IR_CVT:
@@ -605,45 +594,28 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 
 				isize param_index = param_count;
 				for (isize param = op1; param; param = inst[param].op1) {
-					param_index--;
-					ir_inst param_inst = inst[param];
-					ASSERT(param_inst.opcode == IR_CALL);
-					isize param_size = param_inst.size;
-					switch (param_index) {
-					case 0:
-						{
-							mach_token rdi = x86_register_token(ctx, X86_RDI, param_size);
-							x86_select_inst(ctx, param_inst.op0, rdi, param_size);
-						} break;
-					case 1:
-						{
-							mach_token rsi = x86_register_token(ctx, X86_RSI, param_size);
-							x86_select_inst(ctx, param_inst.op0, rsi, param_size);
-						} break;
-					case 2:
-						{
-							mach_token rdx = x86_register_token(ctx, X86_RDX, param_size);
-							x86_select_inst(ctx, param_inst.op0, rdx, param_size);
-						} break;
-					case 3:
-						{
-							mach_token rcx = x86_register_token(ctx, X86_RCX, param_size);
-							x86_select_inst(ctx, param_inst.op0, rcx, param_size);
-						} break;
-					case 4:
-						{
-							mach_token r8 = x86_register_token(ctx, X86_R8, param_size);
-							x86_select_inst(ctx, param_inst.op0, r8, param_size);
-						} break;
-					case 5:
-						{
-							mach_token r9 = x86_register_token(ctx, X86_R9, param_size);
-							x86_select_inst(ctx, param_inst.op0, r9, param_size);
-						} break;
+					x86_register mreg = 0;
+					switch (--param_index) {
+					case 0: mreg = X86_RDI; break;
+					case 1: mreg = X86_RSI; break;
+					case 2: mreg = X86_RDX; break;
+					case 3: mreg = X86_RCX; break;
+					case 4: mreg = X86_R8; break;
+					case 5: mreg = X86_R9; break;
 					default:
 						ASSERT(!"Too many arguments");
 						break;
 					}
+
+					ir_inst param_inst = inst[param];
+					ASSERT(param_inst.opcode == IR_CALL);
+					isize param_size = param_inst.size;
+
+					mach_token src = x86_register_token(ctx, mreg, param_size);
+					x86_select_inst(ctx, param_inst.op0, src, param_size);
+
+					mach_token dst = make_mach_token(mreg, param_size);
+					x86_emit2(ctx, X86_MOV, param_size, X86_REG, dst, X86_REG, src);
 				}
 
 				mach_token rax = x86_register_token(ctx, X86_RAX, size);
@@ -704,6 +676,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
 		ctx.symtab = &symtab;
+		ctx.vreg_count = X86_REGISTER_COUNT;
 
 		u32 curr_block = 0;
 		basic_block *blocks = ALLOC(arena, p.max_label_count, basic_block);
