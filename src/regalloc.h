@@ -130,8 +130,8 @@ new_bitset(i32 size, arena *perm)
 static void
 set_bit(bitset set, i32 i, b32 value)
 {
-	set.bits[i / 32] &= ~(1 << (i % 32));
-	set.bits[i / 32] |= (value != 0) << (i % 32);
+	set.bits[i / 32] &= ~(1u << (u32)(i % 32));
+	set.bits[i / 32] |= (u32)(value != 0) << (i % 32);
 }
 
 static b32
