@@ -73,6 +73,41 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 	}
 
+	// Compute the interfering machine registers for each virtual register by
+	// checking which preallocated registers are live at the same time.
+	bitset *blocked_regs = ALLOC(arena, reg_count, bitset);
+	for (isize i = 0; i < reg_count; i++) {
+		blocked_regs[i] = new_bitset(mach.mreg_count, arena);
+	}
+
+	for (isize i = 1; i < block_count; i++) {
+		arena_temp loop_temp = arena_temp_begin(arena);
+		bitset live = clone_bitset(live_out[i], arena);
+
+		isize offset = blocks[i].offset;
+		isize j = blocks[i].size;
+		while (j-- > 0) {
+			mach_token token = tokens[offset + j];
+			u32 reg = token.value;
+
+			if (token.flags & MACH_DEF && get_bit(live, reg) != 0) {
+				for (isize j = 0; j < mach.mreg_count; j++) {
+					if (reg != j && get_bit(live, j)) {
+						set_bit(blocked_regs[reg], j, 1);
+					}
+				}
+
+				set_bit(live, reg, 0);
+			}
+
+			if (token.flags & MACH_USE) {
+				set_bit(live, reg, 1);
+			}
+		}
+
+		arena_temp_end(loop_temp);
+	}
+
 	// NOTE: Calculate the live intervals of the virtual registers
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
 	for (isize i = 0; i < reg_count; i++) {
