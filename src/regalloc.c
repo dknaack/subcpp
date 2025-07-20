@@ -2,9 +2,13 @@ static u32 *
 regalloc(mach_token *tokens, isize token_count,
 	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
 {
-	u32 *result = ALLOC(arena, mach.vreg_count, u32);
-	arena_temp temp = arena_temp_begin(arena);
 	isize reg_count = mach.mreg_count + mach.vreg_count;
+	u32 *result = ALLOC(arena, reg_count, u32);
+	for (isize i = 0; i < mach.mreg_count; i++) {
+		result[i] = i;
+	}
+
+	arena_temp temp = arena_temp_begin(arena);
 
 	// Allocate the bitsets
 	bitset *gen = ALLOC(arena, block_count, bitset);
@@ -182,12 +186,15 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 
 			if (reg > 0) {
+				ASSERT(reg < mach.mreg_count);
 				is_active[reg] = false;
 			}
 
+			// Swap the expired interval with the one at the start.
 			intervals[j] = intervals[active_start++];
 		}
 
+		// Ignore empty or preallocated registers
 		b32 is_empty = (curr_start > curr_end);
 		b32 is_preallocated = (result[curr_reg] > 0);
 		if (is_empty || is_preallocated) {
@@ -195,46 +202,20 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		ASSERT(mach.mreg_count <= curr_reg && curr_reg < reg_count);
-		b32 should_spill = (active_start == i);
 		u32 mreg = 0;
-		if (!should_spill) {
-			for (isize j = 1; j < mach.mreg_count; j++) {
-				if (!is_active[j]) {
-					mreg = j;
-					break;
-				}
+		for (isize j = 1; j < mach.mreg_count; j++) {
+			b32 is_blocked = get_bit(blocked_regs[i], j);
+			if (!is_blocked && !is_active[j]) {
+				mreg = j;
+				break;
 			}
-
-			should_spill = (mreg == 0);
 		}
 
-		if (should_spill) {
-			isize spill_index = -1;
-			u32 end = 0;
-			for (isize j = active_start; j < i; j++) {
-				if (intervals[j].end > end) {
-					end = intervals[j].end;
-					spill_index = j;
-				}
-			}
-
-			b32 swap_with_spill = (end > intervals[curr_reg].end);
-			// TODO: currently we always spill the current register, see below.
-			if (false && swap_with_spill) {
-				// TODO: check that the machine register of spill doesn't
-				// overlap with the interval of the current register. Otherwise
-				// we cannot use the register here.
-				u32 spilled_vreg = intervals[spill_index].vreg;
-				result[curr_reg] = result[spilled_vreg];
-				result[spilled_vreg] = -1;
-				intervals[spill_index] = intervals[active_start++];
-			} else {
-				result[curr_reg] = -1;
-			}
+		if (mreg == 0) {
+			result[curr_reg] = 0;
 		} else {
-			ASSERT(mreg < mach.mreg_count);
 			result[curr_reg] = mreg;
+			is_active[mreg] = true;
 		}
 	}
 
