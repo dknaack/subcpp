@@ -180,14 +180,10 @@ regalloc(mach_token *tokens, isize token_count,
 				continue;
 			}
 
-			u32 reg = intervals[j].vreg;
-			if (reg >= mach.mreg_count) {
-				reg = result[reg];
-			}
-
-			if (reg > 0) {
-				ASSERT(reg < mach.mreg_count);
-				is_active[reg] = false;
+			u32 vreg = intervals[j].vreg;
+			if (vreg >= mach.mreg_count) {
+				u32 mreg = result[vreg];
+				is_active[mreg] = false;
 			}
 
 			// Swap the expired interval with the one at the start.
