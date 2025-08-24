@@ -1,10 +1,19 @@
+/*
+ * For each instruction, the register allocator ensures that all virtual
+ * register operands are stored in machine registers and not on the stack. It
+ * does so by inserting mov/spill/reload before the current instruction when
+ * the specific register is not available. The code generator can then use a
+ * peephole optimizer to combine loads/stores into one instruction, if
+ * possible.
+ */
 static u32 *
 regalloc(mach_token *tokens, isize token_count,
 	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
 {
-	isize reg_count = mach.mreg_count + mach.vreg_count;
+	isize mreg_count = mach.mreg_count;
+	isize reg_count = mreg_count + mach.vreg_count;
 	u32 *result = ALLOC(arena, reg_count, u32);
-	for (isize i = 0; i < mach.mreg_count; i++) {
+	for (isize i = 0; i < mreg_count; i++) {
 		result[i] = i;
 	}
 
@@ -81,7 +90,7 @@ regalloc(mach_token *tokens, isize token_count,
 	// checking which preallocated registers are live at the same time.
 	bitset *blocked_regs = ALLOC(arena, reg_count, bitset);
 	for (isize i = 0; i < reg_count; i++) {
-		blocked_regs[i] = new_bitset(mach.mreg_count, arena);
+		blocked_regs[i] = new_bitset(mreg_count, arena);
 	}
 
 	for (isize i = 1; i < block_count; i++) {
@@ -95,7 +104,7 @@ regalloc(mach_token *tokens, isize token_count,
 			u32 reg = token.value;
 
 			if (token.flags & MACH_DEF && get_bit(live, reg) != 0) {
-				for (isize j = 0; j < mach.mreg_count; j++) {
+				for (isize j = 0; j < mreg_count; j++) {
 					if (reg != j && get_bit(live, j)) {
 						set_bit(blocked_regs[reg], j, 1);
 					}
@@ -111,6 +120,24 @@ regalloc(mach_token *tokens, isize token_count,
 
 		arena_temp_end(loop_temp);
 	}
+
+	// Find all floating-point registers
+	bitset float_regs = new_bitset(reg_count, arena);
+	for (isize i = 1; i < block_count; i++) {
+		isize offset = blocks[i].offset;
+		isize j = blocks[i].size;
+		while (j-- > 0) {
+			mach_token token = tokens[offset + j];
+			u32 reg = token.value;
+
+			b32 is_vreg = (token.flags & (MACH_USE | MACH_DEF));
+			b32 is_float = (token.flags & MACH_FLOAT);
+			if (is_vreg && is_float) {
+				set_bit(float_regs, reg, 1);
+			}
+		}
+	}
+
 
 	// NOTE: Calculate the live intervals of the virtual registers
 	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
@@ -157,21 +184,21 @@ regalloc(mach_token *tokens, isize token_count,
 
 	// NOTE: Sort the intervals by their start
 	// TODO: Replace with a more efficient sorting algorithm
-	for (isize i = mach.mreg_count; i < reg_count; i++) {
-		for (isize j = mach.mreg_count; j < reg_count - i - 1; j++) {
+	for (isize i = mreg_count; i < reg_count; i++) {
+		for (isize j = mreg_count; j < reg_count - i - 1; j++) {
 			live_interval tmp = intervals[j];
 			intervals[j] = intervals[j + 1];
 			intervals[j + 1] = tmp;
 		}
 	}
 
-	b32 *is_active = ALLOC(arena, mach.mreg_count, b32);
+	b32 *is_active = ALLOC(arena, mreg_count, b32);
 	isize active_start = 0;
-	for (isize i = mach.mreg_count; i < reg_count; i++) {
+	for (isize i = mreg_count; i < reg_count; i++) {
 		u32 curr_reg = intervals[i].vreg;
 		u32 curr_start = intervals[i].start;
 		u32 curr_end = intervals[i].end;
-		ASSERT(curr_reg >= mach.mreg_count);
+		ASSERT(curr_reg >= mreg_count);
 
 		// Expire old intervals
 		for (isize j = active_start; j < i; j++) {
@@ -181,7 +208,7 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 
 			u32 vreg = intervals[j].vreg;
-			if (vreg >= mach.mreg_count) {
+			if (vreg >= mreg_count) {
 				u32 mreg = result[vreg];
 				is_active[mreg] = false;
 			}
@@ -198,20 +225,34 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		u32 mreg = 0;
-		for (isize j = 1; j < mach.mreg_count; j++) {
-			b32 is_blocked = get_bit(blocked_regs[i], j);
-			if (!is_blocked && !is_active[j]) {
-				mreg = j;
-				break;
+		u32 assigned_mreg = 0;
+		b32 is_float = get_bit(float_regs, i);
+		if (is_float) {
+			for (isize j = 0; j < mach.float_mreg_count; j++) {
+				u32 mreg = mach.float_mregs[j];
+				b32 is_blocked = get_bit(blocked_regs[i], mreg);
+				if (!is_blocked && !is_active[mreg]) {
+					assigned_mreg = mreg;
+					break;
+				}
+			}
+		} else {
+			for (isize j = 0; j < mach.int_mreg_count; j++) {
+				u32 mreg = mach.int_mregs[j];
+				b32 is_blocked = get_bit(blocked_regs[i], mreg);
+				if (!is_blocked && !is_active[mreg]) {
+					assigned_mreg = mreg;
+					break;
+				}
 			}
 		}
 
-		if (mreg == 0) {
+		if (assigned_mreg == 0) {
 			result[curr_reg] = 0;
 		} else {
-			result[curr_reg] = mreg;
-			is_active[mreg] = true;
+			result[curr_reg] = assigned_mreg;
+			is_active[assigned_mreg] = true;
+			BREAK_IF(assigned_mreg == X86_XMM5);
 		}
 	}
 

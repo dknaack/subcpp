@@ -742,10 +742,13 @@ x86_generate(writer *out, ir_program p, arena *arena)
 
 		mach_info mach = {0};
 		mach.tmp_mreg_count = LENGTH(x86_temp_regs);
-		mach.mreg_count = X86_REGISTER_COUNT;
+		mach.int_mreg_count = LENGTH(x86_int_regs);
+		mach.float_mreg_count = LENGTH(x86_float_regs);
 		mach.vreg_count = ctx.vreg_count;
 		mach.tmp_mregs = x86_temp_regs;
-		mach.pool = ALLOC(arena, X86_REGISTER_COUNT, u32);
+		mach.int_mregs = x86_int_regs;
+		mach.float_mregs = x86_float_regs;
+		mach.mreg_count = X86_REGISTER_COUNT;
 
 		u32 *reg_table = regalloc(tokens, token_count, blocks,
 			p.max_label_count, mach, arena);

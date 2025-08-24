@@ -36,12 +36,14 @@ typedef struct {
 } basic_block;
 
 typedef struct {
-	u32 *pool;
+	u32 *int_mregs;
+	u32 *float_mregs;
 	u32 *tmp_mregs;
 
-	i32 pool_size;
 	u32 vreg_count;
 	u32 mreg_count;
+	u32 int_mreg_count;
+	u32 float_mreg_count;
 	u32 tmp_mreg_count;
 } mach_info;
 
