@@ -139,8 +139,8 @@ regalloc(mach_token *tokens, isize token_count,
 	}
 
 
-	// NOTE: Calculate the live intervals of the virtual registers
-	live_interval *intervals = ALLOC(arena, reg_count, live_interval);
+	// NOTE: Calculate the live ranges of the virtual registers
+	live_range *ranges = ALLOC(arena, reg_count, live_range);
 	for (isize i = 0; i < reg_count; i++) {
 		isize start = token_count;
 		isize end = 0;
@@ -177,44 +177,44 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 		}
 
-		intervals[i].vreg = i;
-		intervals[i].start = start;
-		intervals[i].end = end;
+		ranges[i].vreg = i;
+		ranges[i].start = start;
+		ranges[i].end = end;
 	}
 
-	// NOTE: Sort the intervals by their start
+	// NOTE: Sort the ranges by their start
 	// TODO: Replace with a more efficient sorting algorithm
 	for (isize i = mreg_count; i < reg_count; i++) {
 		for (isize j = mreg_count; j < reg_count - i - 1; j++) {
-			live_interval tmp = intervals[j];
-			intervals[j] = intervals[j + 1];
-			intervals[j + 1] = tmp;
+			live_range tmp = ranges[j];
+			ranges[j] = ranges[j + 1];
+			ranges[j + 1] = tmp;
 		}
 	}
 
 	b32 *is_active = ALLOC(arena, mreg_count, b32);
 	isize active_start = 0;
 	for (isize i = mreg_count; i < reg_count; i++) {
-		u32 curr_reg = intervals[i].vreg;
-		u32 curr_start = intervals[i].start;
-		u32 curr_end = intervals[i].end;
+		u32 curr_reg = ranges[i].vreg;
+		u32 curr_start = ranges[i].start;
+		u32 curr_end = ranges[i].end;
 		ASSERT(curr_reg >= mreg_count);
 
-		// Expire old intervals
+		// Expire old ranges
 		for (isize j = active_start; j < i; j++) {
-			b32 has_expired = intervals[j].end < curr_start;
+			b32 has_expired = ranges[j].end < curr_start;
 			if (!has_expired) {
 				continue;
 			}
 
-			u32 vreg = intervals[j].vreg;
+			u32 vreg = ranges[j].vreg;
 			if (vreg >= mreg_count) {
 				u32 mreg = result[vreg];
 				is_active[mreg] = false;
 			}
 
 			// Swap the expired interval with the one at the start.
-			intervals[j] = intervals[active_start++];
+			ranges[j] = ranges[active_start++];
 		}
 
 		// Ignore empty or preallocated registers

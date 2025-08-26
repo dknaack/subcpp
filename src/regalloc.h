@@ -66,7 +66,7 @@ typedef struct {
 	u32 vreg;
 	u32 start;
 	u32 end;
-} live_interval;
+} live_range;
 
 typedef struct {
 	b32 *bits;
