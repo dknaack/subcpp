@@ -6,15 +6,15 @@
  * peephole optimizer to combine loads/stores into one instruction, if
  * possible.
  */
-static u32 *
+static mach_location *
 regalloc(mach_token *tokens, isize token_count,
 	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
 {
 	isize mreg_count = mach.mreg_count;
 	isize reg_count = mreg_count + mach.vreg_count;
-	u32 *result = ALLOC(arena, reg_count, u32);
+	mach_location *result = ALLOC(arena, reg_count, mach_location);
 	for (isize i = 0; i < mreg_count; i++) {
-		result[i] = i;
+		result[i].value = i;
 	}
 
 	arena_temp temp = arena_temp_begin(arena);
@@ -209,7 +209,8 @@ regalloc(mach_token *tokens, isize token_count,
 
 			u32 vreg = ranges[j].vreg;
 			if (vreg >= mreg_count) {
-				u32 mreg = result[vreg];
+				ASSERT(!result[vreg].is_stack);
+				u32 mreg = result[vreg].value;
 				is_active[mreg] = false;
 			}
 
@@ -219,8 +220,8 @@ regalloc(mach_token *tokens, isize token_count,
 
 		// Ignore empty or preallocated registers
 		b32 is_empty = (curr_start > curr_end);
-		b32 is_preallocated = (result[curr_reg] > 0);
-		if (is_empty || is_preallocated) {
+		b32 is_preallocated = (result[curr_reg].value > 0);
+		if (is_empty || is_preallocated || result[curr_reg].is_stack) {
 			continue;
 		}
 
@@ -248,9 +249,10 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 
 		if (assigned_mreg == 0) {
-			result[curr_reg] = 0;
+			result[curr_reg].is_stack = true;
+			result[curr_reg].value = 0;
 		} else {
-			result[curr_reg] = assigned_mreg;
+			result[curr_reg].value = assigned_mreg;
 			is_active[assigned_mreg] = true;
 			BREAK_IF(assigned_mreg == X86_XMM5);
 		}

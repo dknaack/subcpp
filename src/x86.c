@@ -733,7 +733,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		mach.float_mregs = x86_float_regs;
 		mach.mreg_count = X86_REGISTER_COUNT;
 
-		u32 *reg_table = regalloc(tokens, token_count, blocks,
+		mach_location *reg_table = regalloc(tokens, token_count, blocks,
 			p.max_label_count, mach, arena);
 
 		//
@@ -862,7 +862,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 						// registers, which can all be spilled at the same time.
 						u64 reg = 0;
 						if (value >= X86_REGISTER_COUNT) {
-							reg = reg_table[value];
+							reg = reg_table[value].value;
 						} else {
 							reg = value;
 						}

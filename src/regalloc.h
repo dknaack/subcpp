@@ -30,10 +30,17 @@ typedef struct {
 } mach_token;
 
 typedef struct {
+	i32 *pred;
+	i32 pred_count;
 	i32 succ[2];
 	i32 offset;
 	i32 size;
 } basic_block;
+
+typedef struct {
+	b32 is_stack;
+	u32 value;
+} mach_location;
 
 typedef struct {
 	u32 *int_mregs;
@@ -47,17 +54,7 @@ typedef struct {
 	u32 tmp_mreg_count;
 } mach_info;
 
-typedef struct mach_mov mach_mov;
-struct mach_mov {
-	mach_mov *next;
-	i32 inserted_before;
-	u32 dst, src;
-};
-
 typedef struct {
-	mach_mov *movs;    // dst is reg, src is reg
-	mach_mov *spills;  // dst is mem, src is reg
-	mach_mov *reloads; // dst is reg, src is mem
 	u32 spill_count;
 	b32 error;
 } regalloc_result;
