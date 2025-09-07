@@ -66,34 +66,26 @@ ir_emit_alloca(ir_context *ctx, u32 size)
 	return result;
 }
 
-static void
-ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
+static u32
+ir_call(ir_context *ctx, u32 size, u32 proc, u32 *params, isize param_count)
 {
-	ASSERT(!"TODO: Implement memcpy using stack variables");
-#if 0
-	u32 continue_label = new_label(ctx);
-	u32 break_label = new_label(ctx);
+	u32 prev_call = 0;
+	while (param_count-- > 0) {
+		u32 curr_param = params[param_count];
+		u32 curr_call = ir_emit2(ctx, size, IR_CALL, curr_param, prev_call);
+		prev_call = curr_call;
+	}
 
-	u32 counter_reg = ir_emit0(ctx, 8, IR_VAR);
-	u32 zero = ir_emit1(ctx, 8, IR_CONST, 0);
-	u32 one = ir_emit1(ctx, 8, IR_CONST, 1);
-	ir_emit2(ctx, 0, IR_MOV, counter_reg, zero);
+	u32 result = ir_emit2(ctx, size, IR_CALL, proc, prev_call);
+	return result;
+}
 
-	ir_emit1(ctx, 0, IR_LABEL, continue_label);
-	u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
-	u32 comparison = ir_emit2(ctx, 4, IR_LT, counter_reg, size_reg);
-	ir_emit2(ctx, 0, IR_JIZ, comparison, break_label);
-
-	u32 dst_ptr = ir_emit2(ctx, 8, IR_ADD, dst, counter_reg);
-	u32 src_ptr = ir_emit2(ctx, 8, IR_ADD, src, counter_reg);
-	u32 src_byte = ir_emit1(ctx, 1, IR_LOAD, src_ptr);
-	ir_emit2(ctx, 1, IR_STORE, dst_ptr, src_byte);
-
-	u32 next = ir_emit2(ctx, 8, IR_ADD, counter_reg, one);
-	ir_emit2(ctx, 0, IR_MOV, counter_reg, next);
-	ir_emit1(ctx, 0, IR_JMP, continue_label);
-	ir_emit1(ctx, 0, IR_LABEL, break_label);
-#endif
+static u32
+ir_memcpy(ir_context *ctx, u32 dst, u32 src, u32 size)
+{
+	u32 args[] = { dst, src, size };
+	u32 memcpy = ir_emit1(ctx, 8, IR_BUILTIN, BUILTIN_MEMCPY);
+	return ir_call(ctx, 0, memcpy, args, LENGTH(args));
 }
 
 static u32
