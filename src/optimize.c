@@ -53,6 +53,7 @@ optimize(ir_program program, arena *arena)
 		}
 
 		// Promote stack variables to registers
+#if 0
 		for (isize i = 0; i < func->inst_count; i++) {
 			if (insts[i].opcode == IR_LOAD) {
 				u32 op0 = insts[i].op0;
@@ -81,6 +82,7 @@ optimize(ir_program program, arena *arena)
 				}
 			}
 		}
+#endif
 
 #if 0
 		// Reallocate all stack allocations and fix the stack size for each function
@@ -117,12 +119,14 @@ optimize(ir_program program, arena *arena)
 					insts[op1].opcode = IR_NOP;
 					insts[op0].opcode = IR_NOP;
 					insts[i].op0 = add(insts[op0].op0, insts[op1].op0);
+#if 0
 				} else if (insts[op0].opcode == IR_CONST
 					&& insts[op0].op0 == 0)
 				{
 					insts[op0].opcode = IR_NOP;
 					insts[i].opcode = IR_MOV;
 					insts[i].op0 = i;
+#endif
 				} else if (insts[op1].opcode == IR_CONST
 					&& insts[op1].op0 == 0)
 				{
@@ -153,6 +157,7 @@ optimize(ir_program program, arena *arena)
 					insts[op0].opcode = IR_NOP;
 					/* TODO: evaluate depending on the target architecture */
 					insts[i].op0 = multiply(insts[op0].op0, insts[op1].op0);
+#if 0
 				} else if (insts[op0].opcode == IR_CONST
 					&& insts[op0].op0 == 1)
 				{
@@ -164,6 +169,7 @@ optimize(ir_program program, arena *arena)
 					insts[i].opcode = IR_MOV;
 					insts[i].op1 = op0;
 					insts[i].op0 = i;
+#endif
 				}
 				break;
 			case IR_JIZ:
@@ -293,7 +299,6 @@ next_block:
 			case IR_LABEL:
 			case IR_PARAM:
 			case IR_LOAD:
-			case IR_MOV:
 			case IR_STORE:
 			case IR_CALL:
 			case IR_JIZ:

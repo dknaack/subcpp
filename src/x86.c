@@ -246,11 +246,6 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			mach_token src = make_global(op0);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_SYM, src);
 		} break;
-	case IR_VAR:
-		{
-			mach_token src = register_token(i, is_float);
-			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, src);
-		} break;
 	case IR_PARAM:
 		{
 			// TODO: Set the correct size of the parameters
@@ -313,13 +308,6 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 	case IR_FCOPY:
 		{
 			x86_select_inst(ctx, op0, dst, size);
-		} break;
-	case IR_MOV:
-	case IR_FMOV:
-		{
-			ASSERT(inst[op0].opcode == IR_VAR);
-			dst = register_token(op0, inst[op0].size);
-			x86_select_inst(ctx, op1, dst, size);
 		} break;
 	case IR_LOAD:
 	case IR_FLOAD:
@@ -631,11 +619,6 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, rax);
 			}
 		} break;
-	case IR_FVAR:
-		{
-			mach_token src = register_token(i, is_float);
-			x86_emit2(ctx, X86_MOVSS, size, X86_REG, dst, X86_REG, src);
-		} break;
 	case IR_FADD:
 	case IR_FSUB:
 	case IR_FMUL:
@@ -693,7 +676,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
 			ir_opcode opcode = inst[j].opcode;
-			if (ref_count[j] == 1 || opcode == IR_VAR) {
+			if (ref_count[j] == 1) {
 				continue;
 			}
 

@@ -28,11 +28,6 @@ typedef enum {
 	// - op1: parameter size
 	IR_PARAM,
 
-	// Declares a variable register. Takes no operands. The size field is used
-	// to store the size of the variable.
-	IR_VAR,
-	IR_FVAR,
-
 	// Copies a register, mainly used during optimization and later removed
 	// - op0: source register
 	IR_COPY,
@@ -42,12 +37,6 @@ typedef enum {
 	// - op0: source address
 	IR_LOAD,
 	IR_FLOAD,
-
-	// Moves a value between registers
-	// - op0: destination register
-	// - op1: source register
-	IR_MOV,
-	IR_FMOV,
 
 	// Stores a value to memory
 	// - op0: destination address
@@ -307,12 +296,10 @@ is_float_opcode(ir_opcode opcode)
 	case IR_FLE:
 	case IR_FLOAD:
 	case IR_FLT:
-	case IR_FMOV:
 	case IR_FMUL:
 	case IR_FRET:
 	case IR_FSTORE:
 	case IR_FSUB:
-	case IR_FVAR:
 		return true;
 	default:
 		return false;
@@ -341,8 +328,6 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FRET:
 		info.op0 = IR_OPERAND_REG_SRC;
 		break;
-	case IR_MOV:
-	case IR_FMOV:
 	case IR_STORE:
 	case IR_FSTORE:
 		info.op0 = IR_OPERAND_REG_DST;
@@ -407,8 +392,6 @@ get_opcode_info(ir_opcode opcode)
 		info.op0 = IR_OPERAND_LABEL;
 		break;
 	case IR_NOP:
-	case IR_VAR:
-	case IR_FVAR:
 		break;
 	}
 

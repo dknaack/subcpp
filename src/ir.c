@@ -54,7 +54,6 @@ static u32
 ir_emit0(ir_context *ctx, i32 size, ir_opcode opcode)
 {
 	u32 result = ir_emit(ctx, size, opcode, 0, 0);
-	if (opcode == IR_VAR) ASSERT(size != 0);
 	return result;
 }
 
@@ -70,6 +69,8 @@ ir_emit_alloca(ir_context *ctx, u32 size)
 static void
 ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 {
+	ASSERT(!"TODO: Implement memcpy using stack variables");
+#if 0
 	u32 continue_label = new_label(ctx);
 	u32 break_label = new_label(ctx);
 
@@ -92,6 +93,7 @@ ir_memcpy(ir_context *ctx, u32 dst, u32 src, isize size)
 	ir_emit2(ctx, 0, IR_MOV, counter_reg, next);
 	ir_emit1(ctx, 0, IR_JMP, continue_label);
 	ir_emit1(ctx, 0, IR_LABEL, break_label);
+#endif
 }
 
 static u32
@@ -129,6 +131,8 @@ ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 static void
 ir_mov(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 {
+	ASSERT(!"TODO: Implement this function using stack variables");
+#if 0
 	isize size = get_node_size(ctx->ast, type_id);
 	ast_node type = get_type(ctx->ast, type_id);
 	if (is_compound_type(type.kind)) {
@@ -136,6 +140,7 @@ ir_mov(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 	} else {
 		ir_emit2(ctx, size, IR_MOV, dst, src);
 	}
+#endif
 }
 
 static f64
@@ -247,8 +252,6 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 		case IR_CONST:
 			result.i = inst[i].op0;
 			break;
-		case IR_VAR:
-			break;
 		case IR_COPY:
 			result = op0;
 			break;
@@ -265,10 +268,6 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 				memcpy(stack.data + op0.i, &op1.i, op1_size);
 			}
 
-			break;
-		case IR_MOV:
-		case IR_FMOV:
-			values[inst[i].op0] = op1;
 			break;
 		case IR_RET:
 		case IR_FRET:
@@ -680,7 +679,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					u32 end_label = new_label(ctx);
 					u32 zero_label = new_label(ctx);
 
-					result = ir_emit0(ctx, 4, IR_VAR);
+					u32 addr = ir_emit_alloca(ctx, 4);
 					u32 lhs_reg = translate_node(ctx, children[0], false);
 					ir_emit2(ctx, 0, IR_JIZ, lhs_reg, zero_label);
 
@@ -688,13 +687,14 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					ir_emit2(ctx, 0, IR_JIZ, rhs_reg, zero_label);
 
 					u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
-					ir_emit2(ctx, 0, IR_MOV, result, one);
+					ir_emit2(ctx, 0, IR_STORE, addr, one);
 					ir_emit1(ctx, 0, IR_JMP, end_label);
 
 					ir_emit1(ctx, 0, IR_LABEL, zero_label);
 					u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
-					ir_emit2(ctx, 0, IR_MOV, result, zero);
+					ir_emit2(ctx, 0, IR_STORE, addr, zero);
 					ir_emit1(ctx, 0, IR_LABEL, end_label);
+					result = ir_emit1(ctx, 4, IR_LOAD, addr);
 				} break;
 			case TOKEN_BAR_BAR:
 				{
@@ -702,7 +702,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					u32 end_label = new_label(ctx);
 					u32 one_label = new_label(ctx);
 
-					result = ir_emit0(ctx, 4, IR_VAR);
+					u32 addr = ir_emit_alloca(ctx, 4);
 					u32 lhs_reg = translate_node(ctx, children[0], false);
 					ir_emit2(ctx, 0, IR_JNZ, lhs_reg, one_label);
 
@@ -710,13 +710,14 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					ir_emit2(ctx, 0, IR_JNZ, rhs_reg, one_label);
 
 					u32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
-					ir_emit2(ctx, 0, IR_MOV, result, zero);
+					ir_emit2(ctx, 0, IR_STORE, addr, zero);
 					ir_emit1(ctx, 0, IR_JMP, end_label);
 
 					ir_emit1(ctx, 0, IR_LABEL, one_label);
 					u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
-					ir_emit2(ctx, 0, IR_MOV, result, one);
+					ir_emit2(ctx, 0, IR_STORE, addr, one);
 					ir_emit1(ctx, 0, IR_LABEL, end_label);
+					result = ir_emit1(ctx, 4, IR_LOAD, addr);
 				} break;
 			default:
 				ASSERT(!"Invalid operator");
@@ -1017,6 +1018,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_EXPR_TERNARY:
 		{
+			ASSERT(!"TODO: Implement ternary expressions");
+#if 0
 			u32 endif_label = new_label(ctx);
 			u32 else_label = new_label(ctx);
 
@@ -1045,6 +1048,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_mov(ctx, result, else_reg, type_id);
 
 			ir_emit1(ctx, 0, IR_LABEL, endif_label);
+#endif
 		} break;
 	case AST_EXPR_UNARY:
 		{

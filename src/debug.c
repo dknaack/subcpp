@@ -37,16 +37,12 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "label";
 	case IR_PARAM:
 		return "param";
-	case IR_VAR:
-		return "var";
 
 	// data movement operators
 	case IR_COPY:
 		return "copy";
 	case IR_LOAD:
 		return "load";
-	case IR_MOV:
-		return "mov";
 	case IR_STORE:
 		return "store";
 
@@ -119,10 +115,6 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "zext";
 
 	// float operations
-	case IR_FVAR:
-		return "fvar";
-	case IR_FMOV:
-		return "fmov";
 	case IR_FSTORE:
 		return "fstore";
 	case IR_FLOAD:
@@ -443,12 +435,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_GLOBAL:
 		printf("(global.%d %d)", size, op0);
 		break;
-	case IR_VAR:
-		printf("(var.%d %%%d)", size, dst);
-		break;
-	case IR_FVAR:
-		printf("(fvar.%d %%%d)", size, dst);
-		break;
 	case IR_CONST:
 		printf("(const.%d %d)", size, op0);
 		break;
@@ -461,7 +447,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_ALLOC:
 		printf("(%%%d = alloc.%d %d %d)", dst, size, op0, op1);
 		break;
-	case IR_MOV:
 	case IR_ADD:
 	case IR_AND:
 	case IR_DIV:
@@ -482,7 +467,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_STORE:
 	case IR_SUB:
 	case IR_XOR:
-	case IR_FMOV:
 	case IR_FSTORE:
 	case IR_FADD:
 	case IR_FSUB:
