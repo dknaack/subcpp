@@ -142,6 +142,7 @@ typedef struct {
 } ir_inst;
 
 typedef enum {
+	BUILTIN_MEMCPY,
 	BUILTIN_POPCOUNT,
 	BUILTIN_VA_ARG,
 	BUILTIN_VA_END,

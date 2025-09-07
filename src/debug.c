@@ -2,6 +2,8 @@ static char *
 get_builtin_str(ir_builtin builtin)
 {
 	switch (builtin) {
+	case BUILTIN_MEMCPY:
+		return "memcpy";
 	case BUILTIN_POPCOUNT:
 		return "popcount";
 	case BUILTIN_VA_LIST:
