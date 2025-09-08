@@ -1,3 +1,10 @@
+typedef struct {
+	i8 *rank;
+	i32 *parent;
+	i32 *points_to;
+	isize register_count;
+} pointer_info;
+
 static u32
 add(u32 a, u32 b)
 {
@@ -19,6 +26,52 @@ multiply(u32 a, u32 b)
 	return result;
 }
 
+static isize
+find_pointer_set(pointer_info *info, isize value)
+{
+	i32 *parent = info->parent;
+	if (parent[value] != value) {
+		parent[value] = find_pointer_set(info, parent[value]);
+	}
+
+	isize result = parent[value];
+	return result;
+}
+
+static void
+join_pointer_sets(pointer_info *info, isize dst, isize src)
+{
+	if (!dst || !src || dst == src) {
+		return;
+	}
+
+	i8 *rank = info->rank;
+	i32 *parent = info->parent;
+	i32 *points_to = info->points_to;
+
+	dst = find_pointer_set(info, dst);
+	src = find_pointer_set(info, src);
+	if (dst != src) {
+		if (rank[dst] < rank[src]) {
+			parent[dst] = src;
+			rank[src] += 1;
+		} else {
+			parent[src] = dst;
+			rank[dst] += 1;
+		}
+	}
+
+	i32 pa = points_to[dst];
+	i32 pb = points_to[src];
+	if (pb != 0) {
+		points_to[src] = points_to[dst];
+	} else if (pa != 0) {
+		points_to[dst] = points_to[src];
+	} else {
+		join_pointer_sets(info, pa, pb);
+	}
+}
+
 static void
 optimize(ir_program program, arena *arena)
 {
@@ -28,76 +81,77 @@ optimize(ir_program program, arena *arena)
 		// Mark all stack variables which address is used by a different
 		// instruction than load/store.
 		ir_inst *insts = program.insts + func->inst_index;
+
+		// Determine what each variable can point to
 		arena_temp temp = arena_temp_begin(arena);
-		b32 *addr_used = ALLOC(arena, func->inst_count, b32);
+		pointer_info pointer_info = {0};
+		pointer_info.register_count = func->inst_count;
+		pointer_info.rank = ALLOC(arena, pointer_info.register_count, i8);
+		pointer_info.parent = ALLOC(arena, pointer_info.register_count, i32);
+		pointer_info.points_to = ALLOC(arena, pointer_info.register_count, i32);
+
+		// initialize the sets
 		for (isize i = 0; i < func->inst_count; i++) {
-			u32 opcode = insts[i].opcode;
-			u32 op0 = insts[i].op0;
-			u32 op1 = insts[i].op1;
+			pointer_info.parent[i] = i;
+		}
 
-			// Can only turn scalars into registers, not arrays or structs
-			if (insts[i].opcode == IR_ALLOC && insts[i].op0 > 8) {
-				addr_used[i] = true;
-			}
-
+		for (isize i = 0; i < func->inst_count; i++) {
+			ir_opcode opcode = insts[i].opcode;
 			ir_opcode_info info = get_opcode_info(opcode);
-			if (opcode != IR_LOAD && info.op0 == IR_OPERAND_REG_SRC
-				&& insts[op0].opcode == IR_ALLOC)
-			{
-				addr_used[op0] = true;
-			}
+			i32 op0 = insts[i].op0;
+			i32 op1 = insts[i].op1;
+			i32 dst = i;
 
-			if (info.op1 == IR_OPERAND_REG_SRC && insts[op1].opcode == IR_ALLOC) {
-				addr_used[op1] = true;
+			if (opcode == IR_STORE) {
+				join_pointer_sets(&pointer_info, pointer_info.points_to[op0], op1);
+			} else if (insts[i].opcode == IR_LOAD) {
+				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[op0]);
+			} else {
+				if (info.op0 == IR_OPERAND_REG_SRC) {
+					join_pointer_sets(&pointer_info, dst, op0);
+				}
+
+				if (info.op1 == IR_OPERAND_REG_SRC) {
+					join_pointer_sets(&pointer_info, dst, op1);
+				}
 			}
 		}
 
-		// Promote stack variables to registers
-#if 0
+		// Mark all sets based on the points-to analysis
+		b8 *has_escaped = ALLOC(arena, func->inst_count, b8);
 		for (isize i = 0; i < func->inst_count; i++) {
-			if (insts[i].opcode == IR_LOAD) {
-				u32 op0 = insts[i].op0;
-				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					insts[i].opcode = IR_COPY;
-				}
-			} else if (insts[i].opcode == IR_STORE) {
-				u32 op0 = insts[i].op0;
-				if (insts[op0].opcode == IR_ALLOC && !addr_used[op0]) {
-					insts[i].opcode = IR_MOV;
-				}
+			i32 set = 0;
+			i32 op0 = insts[i].op0;
+			i32 dst = i;
+			if (insts[i].opcode == IR_CALL || insts[i].opcode == IR_RET) {
+				set = find_pointer_set(&pointer_info, op0);
+			} else if (insts[i].opcode == IR_PARAM) {
+				set = find_pointer_set(&pointer_info, dst);
+			}
+
+			if (set != 0) {
+				has_escaped[set] = true;
+			}
+		}
+
+		// Mark all registers that escaped
+		for (isize i = 0; i < func->inst_count; i++) {
+			isize set = find_pointer_set(&pointer_info, i);
+			has_escaped[i] = has_escaped[set];
+		}
+
+		// Assign each allocation instruction a stack slot
+		for (isize i = 0; i < func->inst_count; i++) {
+			if (has_escaped[i] && insts[i].opcode == IR_ALLOC) {
+				printf("%zd has escaped\n", i);
 			}
 		}
 
 		for (isize i = 0; i < func->inst_count; i++) {
-			if (insts[i].opcode == IR_ALLOC) {
-				if (!addr_used[i]) {
-					insts[i].opcode = IR_VAR;
-					insts[i].size = insts[i].op0;
-					// NOTE: If the type is void, then this likely means that
-					// the instruction was never used in the first place.
-					//ASSERT(insts[i].type != IR_VOID);
-
-					// Can only turn scalars into registers, not arrays or structs
-					ASSERT(insts[i].op0 <= 8);
-				}
+			if (insts[i].opcode != IR_ALLOC || has_escaped[i]) {
+				continue;
 			}
 		}
-#endif
-
-#if 0
-		// Reallocate all stack allocations and fix the stack size for each function
-		u32 stack_size = 0;
-		for (isize j = 0; j < func->inst_count; j++) {
-			ir_inst *inst = &insts[j];
-			if (inst->opcode == IR_ALLOC) {
-				// TODO: Alignment
-				inst->op1 = stack_size;
-				stack_size += inst->op0;
-			}
-		}
-
-		func->stack_size = stack_size;
-#endif
 
 		arena_temp_end(temp);
 	}
