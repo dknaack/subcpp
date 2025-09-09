@@ -5,6 +5,14 @@ typedef struct {
 	isize register_count;
 } pointer_info;
 
+typedef struct {
+	i32 start;
+	i32 size;
+	i32 succ[2];
+	i32 *pred;
+	i32 pred_count;
+} ir_block;
+
 static u32
 add(u32 a, u32 b)
 {
@@ -75,6 +83,62 @@ join_pointer_sets(pointer_info *info, isize dst, isize src)
 static void
 optimize(ir_program program, arena *arena)
 {
+	// Build a CFG
+	isize block_count = 0;
+	for (isize i = 0; i < program.inst_count; i++) {
+		ir_opcode opcode = program.insts[i].opcode;
+		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_JNZ) {
+			block_count++;
+		}
+	}
+
+	ir_block *blocks = ALLOC(arena, block_count, ir_block);
+	isize block_index = 0;
+	for (isize i = 0; i < program.inst_count; i++) {
+		ir_opcode opcode = program.insts[i].opcode;
+		if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_JNZ) {
+			blocks[block_index].size = i + 1 - blocks[block_index].start;
+			block_index++;
+			blocks[block_index].start = i + 1;
+		}
+
+		if (opcode == IR_JMP) {
+			i32 op0 = program.insts[i].op0;
+			blocks[op0].pred_count++;
+			blocks[block_index - 1].succ[0] = op0;
+			blocks[block_index - 1].succ[1] = op0;
+		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
+			i32 op1 = program.insts[i].op1;
+			blocks[op1].pred_count++;
+			blocks[block_index].pred_count++;
+			blocks[block_index - 1].succ[0] = block_index;
+			blocks[block_index - 1].succ[1] = op1;
+		}
+	}
+
+	i32 pred_offset = 0;
+	i32 *block_preds = ALLOC(arena, block_count, i32);
+	for (isize i = 0; i < block_count; i++) {
+		pred_offset += blocks[i].pred_count;
+		blocks[i].preds = block_preds + pred_offset;
+	}
+
+	block_index = 0;
+	for (isize i = 0; i < program.inst_count; i++) {
+		ir_opcode opcode = program.insts[i].opcode;
+		if (opcode == IR_JMP) {
+			i32 op0 = program.insts[i].op0;
+			*--blocks[op0].preds = block_index;
+			block_index++;
+		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
+			i32 op1 = program.insts[i].op1;
+			*--blocks[op1].preds = block_index;
+			*--blocks[block_index + 1].preds = block_index;
+			block_index++;
+		}
+	}
+
+
 	// Promote stack variables
 	for (isize f = 0; f < program.func_count; f++) {
 		ir_function *func = &program.funcs[f];
