@@ -267,8 +267,8 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			mach_token src = make_mach_token(mreg, size);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_REG, src);
 		} break;
-	case IR_CVT:
-	case IR_FCVT:
+	case IR_I2F:
+	case IR_F2I:
 		{
 #if 0
 			mach_token src = register_token(arg0, is_float);

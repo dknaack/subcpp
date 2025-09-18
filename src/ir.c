@@ -327,7 +327,7 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 		case IR_XOR:
 			result.i = arg0.i ^ arg1.i;
 			break;
-		case IR_CVT:
+		case IR_F2I:
 			result.i = arg0.f;
 			break;
 		case IR_FADD:
@@ -357,7 +357,7 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 		case IR_FLE:
 			result.i = arg0.f <= arg1.f;
 			break;
-		case IR_FCVT:
+		case IR_I2F:
 			result.f = arg0.i;
 			break;
 		default:

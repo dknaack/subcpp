@@ -107,8 +107,8 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "xor";
 
 	// conversion operators
-	case IR_CVT:
-		return "cvt";
+	case IR_I2F:
+		return "i2f";
 	case IR_SEXT:
 		return "sext";
 	case IR_TRUNC:
@@ -145,8 +145,8 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "fle";
 	case IR_FRET:
 		return "fret";
-	case IR_FCVT:
-		return "fcvt";
+	case IR_F2I:
+		return "f2i";
 	}
 
 	return "(invalid)";
@@ -499,8 +499,8 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_TRUNC:
 	case IR_SEXT:
 	case IR_ZEXT:
-	case IR_CVT:
-	case IR_FCVT:
+	case IR_I2F:
+	case IR_F2I:
 	case IR_FLOAD:
 	case IR_FRET:
 	case IR_FCOPY:

@@ -73,8 +73,8 @@ typedef enum {
 
 	// Converts to an integer or a float, respectively.
 	// - args[0]: source register
-	IR_CVT,
-	IR_FCVT,
+	IR_F2I,
+	IR_I2F,
 
 	// Sign extends or zero extends an integer using the size field.
 	// - args[0]: source register
@@ -283,7 +283,6 @@ is_float_opcode(ir_opcode opcode)
 	switch (opcode) {
 	case IR_FADD:
 	case IR_FCOPY:
-	case IR_FCVT:
 	case IR_FDIV:
 	case IR_FEQ:
 	case IR_FGE:
@@ -295,6 +294,7 @@ is_float_opcode(ir_opcode opcode)
 	case IR_FRET:
 	case IR_FSTORE:
 	case IR_FSUB:
+	case IR_I2F:
 		return true;
 	default:
 		return false;
@@ -313,13 +313,13 @@ get_opcode_info(ir_opcode opcode)
 	case IR_SEXT:
 	case IR_ZEXT:
 	case IR_NOT:
-	case IR_CVT:
-	case IR_FCVT:
 	case IR_FCOPY:
 	case IR_FLOAD:
 	case IR_FRET:
 	case IR_JIZ:
 	case IR_JNZ:
+	case IR_I2F:
+	case IR_F2I:
 		info.usage[0] = IR_USE;
 		break;
 	case IR_STORE:
