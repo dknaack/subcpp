@@ -372,10 +372,3 @@ get_opcode_info(ir_opcode opcode)
 
 	return info;
 }
-
-static b32
-is_register_operand(ir_usage usage)
-{
-	b32 result = usage != 0;
-	return result;
-}

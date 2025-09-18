@@ -391,12 +391,12 @@ next_block:
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);
 
 			u32 arg0 = insts[i].args[0];
-			if (is_register_operand(info.usage[0]) && insts[arg0].opcode == IR_COPY) {
+			if (info.usage[0] != 0 && insts[arg0].opcode == IR_COPY) {
 				insts[i].args[0] = insts[arg0].args[0];
 			}
 
 			u32 arg1 = insts[i].args[1];
-			if (is_register_operand(info.usage[1]) && insts[arg1].opcode == IR_COPY) {
+			if (info.usage[1] != 0 && insts[arg1].opcode == IR_COPY) {
 				insts[i].args[1] = insts[arg1].args[0];
 			}
 		}
