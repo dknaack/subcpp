@@ -3,44 +3,44 @@ typedef enum {
 	IR_NOP,
 
 	// Allocates on the stack
-	// - op0: size
-	// - op1: offset
+	// - args[0]: size
+	// - args[1]: offset
 	IR_ALLOC,
 
 	// Declares a builtin function
-	// - op0: builtin function
+	// - args[0]: builtin function
 	IR_BUILTIN,
 
 	// Declares a constant
-	// - op0: value
+	// - args[0]: value
 	IR_CONST,
 
 	// Declares a global variable
-	// - op0: symbol id
+	// - args[0]: symbol id
 	IR_GLOBAL,
 
 	// Declares a label
-	// - op0: label id
+	// - args[0]: label id
 	IR_LABEL,
 
 	// Declares a parameter
-	// - op0: parameter index
-	// - op1: parameter size
+	// - args[0]: parameter index
+	// - args[1]: parameter size
 	IR_PARAM,
 
 	// Copies a register, mainly used during optimization and later removed
-	// - op0: source register
+	// - args[0]: source register
 	IR_COPY,
 	IR_FCOPY,
 
 	// Loads a value from memory
-	// - op0: source address
+	// - args[0]: source address
 	IR_LOAD,
 	IR_FLOAD,
 
 	// Stores a value to memory
-	// - op0: destination address
-	// - op1: source register
+	// - args[0]: destination address
+	// - args[1]: source register
 	IR_STORE,
 	IR_FSTORE,
 
@@ -48,44 +48,44 @@ typedef enum {
 	// call instructions. The first call instruction has the called function as
 	// its first operand and the following call instructions have the
 	// parameters as their first operand.
-	// - op0: called function or parameter
-	// - op1: next call instruction
+	// - args[0]: called function or parameter
+	// - args[1]: next call instruction
 	IR_CALL,
 
 	// Jumps to a label if the register is zero, otherwise continues.
-	// - op0: register to test
-	// - op1: label to jump to
+	// - args[0]: register to test
+	// - args[1]: label to jump to
 	IR_JIZ,
 
 	// Jumps to a label if the register is not zero, otherwise continues.
-	// - op0: register to test
-	// - op1: label to jump to
+	// - args[0]: register to test
+	// - args[1]: label to jump to
 	IR_JNZ,
 
 	// Jumps to a label
-	// - op0: label to jump to
+	// - args[0]: label to jump to
 	IR_JMP,
 
 	// Returns from a function, either an integer or a float (or void).
-	// - op0: optional return value
+	// - args[0]: optional return value
 	IR_RET,
 	IR_FRET,
 
 	// Converts to an integer or a float, respectively.
-	// - op0: source register
+	// - args[0]: source register
 	IR_CVT,
 	IR_FCVT,
 
 	// Sign extends or zero extends an integer using the size field.
-	// - op0: source register
+	// - args[0]: source register
 	IR_SEXT,
 
 	// Truncates an integer to the size specified in the respective field.
-	// - op0: source register
+	// - args[0]: source register
 	IR_TRUNC,
 
 	// Zero extends an integer to the size specified in the respective field.
-	// - op0: source register
+	// - args[0]: source register
 	IR_ZEXT,
 
 	// The following instructions all have two operands and return a value.
@@ -137,8 +137,7 @@ typedef enum {
 typedef struct {
 	ir_opcode opcode;
 	u8 size;
-	u32 op0;
-	u32 op1;
+	i32 args[2];
 } ir_inst;
 
 typedef enum {
@@ -190,18 +189,18 @@ typedef struct {
 
 // Additional information about the types of operands for each opcode.
 typedef enum {
-	IR_OPERAND_NONE,
-	IR_OPERAND_REG_SRC,
-	IR_OPERAND_REG_DST,
-	IR_OPERAND_GLOBAL,
-	IR_OPERAND_CONST,
-	IR_OPERAND_LABEL,
-	IR_OPERAND_FUNC,
-	IR_OPERAND_COUNT
-} ir_operand_type;
+	IR_ARG_NONE,
+	IR_ARG_REG_SRC,
+	IR_ARG_REG_DST,
+	IR_ARG_GLOBAL,
+	IR_ARG_CONST,
+	IR_ARG_LABEL,
+	IR_ARG_FUNC,
+	IR_ARG_COUNT
+} ir_arg_kind;
 
 typedef struct {
-	ir_operand_type op0, op1;
+	ir_arg_kind args[2];
 } ir_opcode_info;
 
 typedef struct ir_function ir_function;
@@ -226,7 +225,7 @@ typedef struct {
 typedef struct {
 	arena *arena;
 	ast_pool *ast;
-	u32 *node_addr;
+	i32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
 	symbol_id *section_tail[SECTION_COUNT];
@@ -236,10 +235,10 @@ typedef struct {
 	isize label_count;
 	isize reg_count;
 
-	u32 stack_size;
-	u32 continue_label;
-	u32 break_label;
-	u32 case_label;
+	i32 stack_size;
+	i32 continue_label;
+	i32 break_label;
+	i32 case_label;
 } ir_context;
 
 static symbol *
@@ -313,7 +312,7 @@ get_opcode_info(ir_opcode opcode)
 	ir_opcode_info info = {0};
 	switch (opcode) {
 	case IR_JMP:
-		info.op0 = IR_OPERAND_LABEL;
+		info.args[0] = IR_ARG_LABEL;
 		break;
 	case IR_RET:
 	case IR_LOAD:
@@ -327,12 +326,12 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FCOPY:
 	case IR_FLOAD:
 	case IR_FRET:
-		info.op0 = IR_OPERAND_REG_SRC;
+		info.args[0] = IR_ARG_REG_SRC;
 		break;
 	case IR_STORE:
 	case IR_FSTORE:
-		info.op0 = IR_OPERAND_REG_DST;
-		info.op1 = IR_OPERAND_REG_SRC;
+		info.args[0] = IR_ARG_REG_DST;
+		info.args[1] = IR_ARG_REG_SRC;
 		break;
 	case IR_ADD:
 	case IR_AND:
@@ -362,35 +361,35 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FGT:
 	case IR_FLE:
 	case IR_FGE:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_REG_SRC;
+		info.args[0] = IR_ARG_REG_SRC;
+		info.args[1] = IR_ARG_REG_SRC;
 		break;
 	case IR_JIZ:
 	case IR_JNZ:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_LABEL;
+		info.args[0] = IR_ARG_REG_SRC;
+		info.args[1] = IR_ARG_LABEL;
 		break;
 	case IR_ALLOC:
-		info.op0 = IR_OPERAND_CONST;
-		info.op1 = IR_OPERAND_CONST;
+		info.args[0] = IR_ARG_CONST;
+		info.args[1] = IR_ARG_CONST;
 		break;
 	case IR_CONST:
 	case IR_BUILTIN:
-		info.op0 = IR_OPERAND_CONST;
+		info.args[0] = IR_ARG_CONST;
 		break;
 	case IR_CALL:
-		info.op0 = IR_OPERAND_REG_SRC;
-		info.op1 = IR_OPERAND_REG_SRC;
+		info.args[0] = IR_ARG_REG_SRC;
+		info.args[1] = IR_ARG_REG_SRC;
 		break;
 	case IR_PARAM:
-		info.op0 = IR_OPERAND_CONST;
-		info.op1 = IR_OPERAND_CONST;
+		info.args[0] = IR_ARG_CONST;
+		info.args[1] = IR_ARG_CONST;
 		break;
 	case IR_GLOBAL:
-		info.op0 = IR_OPERAND_GLOBAL;
+		info.args[0] = IR_ARG_GLOBAL;
 		break;
 	case IR_LABEL:
-		info.op0 = IR_OPERAND_LABEL;
+		info.args[0] = IR_ARG_LABEL;
 		break;
 	case IR_NOP:
 		break;
@@ -400,8 +399,8 @@ get_opcode_info(ir_opcode opcode)
 }
 
 static b32
-is_register_operand(ir_operand_type operand)
+is_register_operand(ir_arg_kind operand)
 {
-	b32 result = operand == IR_OPERAND_REG_SRC || operand == IR_OPERAND_REG_DST;
+	b32 result = operand == IR_ARG_REG_SRC || operand == IR_ARG_REG_DST;
 	return result;
 }

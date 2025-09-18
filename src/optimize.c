@@ -103,16 +103,16 @@ optimize(ir_program program, arena *arena)
 		}
 
 		if (opcode == IR_JMP) {
-			i32 op0 = program.insts[i].op0;
-			blocks[op0].pred_count++;
-			blocks[block_index - 1].succ[0] = op0;
-			blocks[block_index - 1].succ[1] = op0;
+			i32 arg0 = program.insts[i].args[0];
+			blocks[arg0].pred_count++;
+			blocks[block_index - 1].succ[0] = arg0;
+			blocks[block_index - 1].succ[1] = arg0;
 		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-			i32 op1 = program.insts[i].op1;
-			blocks[op1].pred_count++;
+			i32 arg1 = program.insts[i].args[1];
+			blocks[arg1].pred_count++;
 			blocks[block_index].pred_count++;
 			blocks[block_index - 1].succ[0] = block_index;
-			blocks[block_index - 1].succ[1] = op1;
+			blocks[block_index - 1].succ[1] = arg1;
 		}
 	}
 
@@ -120,20 +120,20 @@ optimize(ir_program program, arena *arena)
 	i32 *block_preds = ALLOC(arena, block_count, i32);
 	for (isize i = 0; i < block_count; i++) {
 		pred_offset += blocks[i].pred_count;
-		blocks[i].preds = block_preds + pred_offset;
+		blocks[i].pred = block_preds + pred_offset;
 	}
 
 	block_index = 0;
 	for (isize i = 0; i < program.inst_count; i++) {
 		ir_opcode opcode = program.insts[i].opcode;
 		if (opcode == IR_JMP) {
-			i32 op0 = program.insts[i].op0;
-			*--blocks[op0].preds = block_index;
+			i32 arg0 = program.insts[i].args[0];
+			*--blocks[arg0].pred = block_index;
 			block_index++;
 		} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-			i32 op1 = program.insts[i].op1;
-			*--blocks[op1].preds = block_index;
-			*--blocks[block_index + 1].preds = block_index;
+			i32 arg1 = program.insts[i].args[1];
+			*--blocks[arg1].pred = block_index;
+			*--blocks[block_index + 1].pred = block_index;
 			block_index++;
 		}
 	}
@@ -162,21 +162,21 @@ optimize(ir_program program, arena *arena)
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
 			ir_opcode_info info = get_opcode_info(opcode);
-			i32 op0 = insts[i].op0;
-			i32 op1 = insts[i].op1;
+			i32 arg0 = insts[i].args[0];
+			i32 arg1 = insts[i].args[1];
 			i32 dst = i;
 
 			if (opcode == IR_STORE) {
-				join_pointer_sets(&pointer_info, pointer_info.points_to[op0], op1);
+				join_pointer_sets(&pointer_info, pointer_info.points_to[arg0], arg1);
 			} else if (insts[i].opcode == IR_LOAD) {
-				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[op0]);
+				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[arg0]);
 			} else {
-				if (info.op0 == IR_OPERAND_REG_SRC) {
-					join_pointer_sets(&pointer_info, dst, op0);
+				if (info.args[0] == IR_ARG_REG_SRC) {
+					join_pointer_sets(&pointer_info, dst, arg0);
 				}
 
-				if (info.op1 == IR_OPERAND_REG_SRC) {
-					join_pointer_sets(&pointer_info, dst, op1);
+				if (info.args[1] == IR_ARG_REG_SRC) {
+					join_pointer_sets(&pointer_info, dst, arg1);
 				}
 			}
 		}
@@ -185,10 +185,10 @@ optimize(ir_program program, arena *arena)
 		b8 *has_escaped = ALLOC(arena, func->inst_count, b8);
 		for (isize i = 0; i < func->inst_count; i++) {
 			i32 set = 0;
-			i32 op0 = insts[i].op0;
+			i32 arg0 = insts[i].args[0];
 			i32 dst = i;
 			if (insts[i].opcode == IR_CALL || insts[i].opcode == IR_RET) {
-				set = find_pointer_set(&pointer_info, op0);
+				set = find_pointer_set(&pointer_info, arg0);
 			} else if (insts[i].opcode == IR_PARAM) {
 				set = find_pointer_set(&pointer_info, dst);
 			}
@@ -225,78 +225,78 @@ optimize(ir_program program, arena *arena)
 		ir_function *func = &program.funcs[i];
 		ir_inst *insts = program.insts + func->inst_index;
 		for (isize i = 0; i < func->inst_count; i++) {
-			u32 op0 = insts[i].op0;
-			u32 op1 = insts[i].op1;
+			u32 arg0 = insts[i].args[0];
+			u32 arg1 = insts[i].args[1];
 
 			switch (insts[i].opcode) {
 			case IR_ADD:
-				if (insts[op0].opcode == IR_CONST
-					&& insts[op1].opcode == IR_CONST)
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST)
 				{
 					insts[i].opcode = IR_CONST;
-					insts[op1].opcode = IR_NOP;
-					insts[op0].opcode = IR_NOP;
-					insts[i].op0 = add(insts[op0].op0, insts[op1].op0);
+					insts[arg1].opcode = IR_NOP;
+					insts[arg0].opcode = IR_NOP;
+					insts[i].args[0] = add(insts[arg0].args[0], insts[arg1].args[0]);
 #if 0
-				} else if (insts[op0].opcode == IR_CONST
-					&& insts[op0].op0 == 0)
+				} else if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] == 0)
 				{
-					insts[op0].opcode = IR_NOP;
+					insts[arg0].opcode = IR_NOP;
 					insts[i].opcode = IR_MOV;
-					insts[i].op0 = i;
+					insts[i].args[0] = i;
 #endif
-				} else if (insts[op1].opcode == IR_CONST
-					&& insts[op1].op0 == 0)
+				} else if (insts[arg1].opcode == IR_CONST
+					&& insts[arg1].args[0] == 0)
 				{
-					insts[op1].opcode = IR_NOP;
+					insts[arg1].opcode = IR_NOP;
 					insts[i].opcode = IR_COPY;
 				}
 				break;
 			case IR_SUB:
-				if (insts[op0].opcode == IR_CONST
-					&& insts[op1].opcode == IR_CONST)
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST)
 				{
 					insts[i].opcode = IR_CONST;
-					insts[op1].opcode = IR_NOP;
-					insts[op0].opcode = IR_NOP;
-					insts[i].op0 = sub(insts[op0].op0, insts[op1].op0);
-				} else if (insts[op1].opcode == IR_CONST
-					&& insts[op1].op0 == 0)
+					insts[arg1].opcode = IR_NOP;
+					insts[arg0].opcode = IR_NOP;
+					insts[i].args[0] = sub(insts[arg0].args[0], insts[arg1].args[0]);
+				} else if (insts[arg1].opcode == IR_CONST
+					&& insts[arg1].args[0] == 0)
 				{
-					insts[op1].opcode = IR_NOP;
+					insts[arg1].opcode = IR_NOP;
 					insts[i].opcode = IR_COPY;
 				}
 				break;
 			case IR_MUL:
-				if (insts[op0].opcode == IR_CONST
-					&& insts[op1].opcode == IR_CONST) {
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST) {
 					insts[i].opcode = IR_CONST;
-					insts[op1].opcode = IR_NOP;
-					insts[op0].opcode = IR_NOP;
+					insts[arg1].opcode = IR_NOP;
+					insts[arg0].opcode = IR_NOP;
 					/* TODO: evaluate depending on the target architecture */
-					insts[i].op0 = multiply(insts[op0].op0, insts[op1].op0);
+					insts[i].args[0] = multiply(insts[arg0].args[0], insts[arg1].args[0]);
 #if 0
-				} else if (insts[op0].opcode == IR_CONST
-					&& insts[op0].op0 == 1)
+				} else if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] == 1)
 				{
 					insts[i].opcode = IR_MOV;
-					insts[i].op0 = i;
-				} else if (insts[op1].opcode == IR_CONST
-					&& insts[op1].op0 == 1)
+					insts[i].args[0] = i;
+				} else if (insts[arg1].opcode == IR_CONST
+					&& insts[arg1].args[0] == 1)
 				{
 					insts[i].opcode = IR_MOV;
-					insts[i].op1 = op0;
-					insts[i].op0 = i;
+					insts[i].args[1] = arg0;
+					insts[i].args[0] = i;
 #endif
 				}
 				break;
 			case IR_JIZ:
-				if (insts[op0].opcode == IR_CONST
-					&& insts[op0].op0 == 0)
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] == 0)
 				{
-					insts[op0].opcode = IR_NOP;
+					insts[arg0].opcode = IR_NOP;
 					insts[i].opcode = IR_JMP;
-					insts[i].op0 = insts[i].op1;
+					insts[i].args[0] = insts[i].args[1];
 				}
 				break;
 			default:
@@ -317,9 +317,9 @@ optimize(ir_program program, arena *arena)
 
 			// Get the address of each label
 			for (isize j = 0; j < func->inst_count; j++) {
-				u32 j = inst[i].op0;
+				u32 j = inst[i].args[0];
 				if (inst[j].opcode == IR_LABEL) {
-					label_addresses[inst[j].op0] = i;
+					label_addresses[inst[j].args[0]] = i;
 				}
 			}
 
@@ -335,12 +335,12 @@ next_block:
 				// NOTE: The first instruction is the label itself
 				u32 start = label_addresses[label];
 				for (isize j = start; j < func->inst_count; j++) {
-					u32 i = inst[j].op0;
+					u32 i = inst[j].args[0];
 					u32 new_label = 0;
 					switch (inst[i].opcode) {
 					case IR_JMP:
 					case IR_LABEL:
-						new_label = inst[i].op0;
+						new_label = inst[i].args[0];
 						if (!reachable[new_label]) {
 							stack[stack_pos++] = new_label;
 							reachable[new_label] = true;
@@ -351,7 +351,7 @@ next_block:
 					case IR_JIZ:
 					case IR_JNZ:
 						// TODO: Check if the condition is zero or not.
-						new_label = inst[i].op1;
+						new_label = inst[i].args[1];
 						if (!reachable[new_label]) {
 							stack[stack_pos++] = new_label;
 							reachable[new_label] = true;
@@ -370,9 +370,9 @@ next_block:
 
 				u32 start = label_addresses[label];
 				// Remove the label
-				inst[inst[start].op0].opcode = IR_NOP;
-				for (isize j = start; j; j = inst[j].op1) {
-					u32 i = inst[j].op0;
+				inst[inst[start].args[0]].opcode = IR_NOP;
+				for (isize j = start; j; j = inst[j].args[1]) {
+					u32 i = inst[j].args[0];
 					if (inst[i].opcode == IR_LABEL) {
 						break;
 					}
@@ -390,14 +390,14 @@ next_block:
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);
 
-			u32 op0 = insts[i].op0;
-			if (is_register_operand(info.op0) && insts[op0].opcode == IR_COPY) {
-				insts[i].op0 = insts[op0].op0;
+			u32 arg0 = insts[i].args[0];
+			if (is_register_operand(info.args[0]) && insts[arg0].opcode == IR_COPY) {
+				insts[i].args[0] = insts[arg0].args[0];
 			}
 
-			u32 op1 = insts[i].op1;
-			if (is_register_operand(info.op1) && insts[op1].opcode == IR_COPY) {
-				insts[i].op1 = insts[op1].op0;
+			u32 arg1 = insts[i].args[1];
+			if (is_register_operand(info.args[1]) && insts[arg1].opcode == IR_COPY) {
+				insts[i].args[1] = insts[arg1].args[0];
 			}
 		}
 	}
