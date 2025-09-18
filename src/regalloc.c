@@ -101,7 +101,7 @@ regalloc(mach_token *tokens, isize token_count,
 		isize j = blocks[i].size;
 		while (j-- > 0) {
 			mach_token token = tokens[offset + j];
-			u32 reg = token.value;
+			i32 reg = token.value;
 
 			if (token.flags & MACH_DEF && get_bit(live, reg) != 0) {
 				for (isize j = 0; j < mreg_count; j++) {
@@ -128,7 +128,7 @@ regalloc(mach_token *tokens, isize token_count,
 		isize j = blocks[i].size;
 		while (j-- > 0) {
 			mach_token token = tokens[offset + j];
-			u32 reg = token.value;
+			i32 reg = token.value;
 
 			b32 is_vreg = (token.flags & (MACH_USE | MACH_DEF));
 			b32 is_float = (token.flags & MACH_FLOAT);
@@ -195,9 +195,9 @@ regalloc(mach_token *tokens, isize token_count,
 	b32 *is_active = ALLOC(arena, mreg_count, b32);
 	isize active_start = 0;
 	for (isize i = mreg_count; i < reg_count; i++) {
-		u32 curr_reg = ranges[i].vreg;
-		u32 curr_start = ranges[i].start;
-		u32 curr_end = ranges[i].end;
+		i32 curr_reg = ranges[i].vreg;
+		i32 curr_start = ranges[i].start;
+		i32 curr_end = ranges[i].end;
 		ASSERT(curr_reg >= mreg_count);
 
 		// Expire old ranges
@@ -207,10 +207,10 @@ regalloc(mach_token *tokens, isize token_count,
 				continue;
 			}
 
-			u32 vreg = ranges[j].vreg;
+			i32 vreg = ranges[j].vreg;
 			if (vreg >= mreg_count) {
 				ASSERT(!result[vreg].is_stack);
-				u32 mreg = result[vreg].value;
+				i32 mreg = result[vreg].value;
 				is_active[mreg] = false;
 			}
 
@@ -226,11 +226,11 @@ regalloc(mach_token *tokens, isize token_count,
 		}
 
 		// Find a valid machine register that doesn't overlap with curr_reg
-		u32 assigned_mreg = 0;
+		i32 assigned_mreg = 0;
 		b32 is_float = get_bit(float_regs, i);
 		if (is_float) {
 			for (isize j = 0; j < mach.float_mreg_count; j++) {
-				u32 mreg = mach.float_mregs[j];
+				i32 mreg = mach.float_mregs[j];
 				b32 is_blocked = get_bit(blocked_regs[i], mreg);
 				if (!is_blocked && !is_active[mreg]) {
 					assigned_mreg = mreg;
@@ -239,7 +239,7 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 		} else {
 			for (isize j = 0; j < mach.int_mreg_count; j++) {
-				u32 mreg = mach.int_mregs[j];
+				i32 mreg = mach.int_mregs[j];
 				b32 is_blocked = get_bit(blocked_regs[i], mreg);
 				if (!is_blocked && !is_active[mreg]) {
 					assigned_mreg = mreg;

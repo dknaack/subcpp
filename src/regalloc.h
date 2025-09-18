@@ -26,7 +26,7 @@ typedef struct {
 	// opcodes, the hint can store the opcode, while the value stores the
 	// format, i.e. what the next tokens mean.
 	u8 hint;
-	u32 value;
+	i32 value;
 } mach_token;
 
 typedef struct {
@@ -39,30 +39,30 @@ typedef struct {
 
 typedef struct {
 	b32 is_stack;
-	u32 value;
+	i32 value;
 } mach_location;
 
 typedef struct {
-	u32 *int_mregs;
-	u32 *float_mregs;
-	u32 *tmp_mregs;
+	i32 *int_mregs;
+	i32 *float_mregs;
+	i32 *tmp_mregs;
 
-	u32 vreg_count;
-	u32 mreg_count;
-	u32 int_mreg_count;
-	u32 float_mreg_count;
-	u32 tmp_mreg_count;
+	isize vreg_count;
+	isize mreg_count;
+	isize int_mreg_count;
+	isize float_mreg_count;
+	isize tmp_mreg_count;
 } mach_info;
 
 typedef struct {
-	u32 spill_count;
+	i32 spill_count;
 	b32 error;
 } regalloc_result;
 
 typedef struct {
-	u32 vreg;
-	u32 start;
-	u32 end;
+	i32 vreg;
+	i32 start;
+	i32 end;
 } live_range;
 
 typedef struct {

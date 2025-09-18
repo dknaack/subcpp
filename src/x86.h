@@ -122,7 +122,7 @@ typedef struct {
 	symbol_table *symtab;
 } x86_context;
 
-static u32 x86_int_regs[] = {
+static i32 x86_int_regs[] = {
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -139,7 +139,7 @@ static u32 x86_int_regs[] = {
 	X86_R15,
 };
 
-static u32 x86_float_regs[] = {
+static i32 x86_float_regs[] = {
 	X86_XMM0,
 	X86_XMM1,
 	X86_XMM2,
@@ -158,7 +158,7 @@ static u32 x86_float_regs[] = {
 	X86_XMM15,
 };
 
-static u32 x86_temp_regs[] = {
+static i32 x86_temp_regs[] = {
 	X86_RAX,
 	X86_RCX,
 	X86_RDX,
@@ -170,7 +170,7 @@ static u32 x86_temp_regs[] = {
 	X86_R11,
 };
 
-static u32 x86_saved_regs[] = {
+static i32 x86_saved_regs[] = {
 	X86_RBX,
 	X86_RBP,
 	X86_R12,
