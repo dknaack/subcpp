@@ -1,4 +1,5 @@
 typedef enum {
+	X86_RSP,
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -14,7 +15,6 @@ typedef enum {
 	X86_R14,
 	X86_R15,
 	X86_RBP,
-	X86_RSP,
 	X86_XMM0,
 	X86_XMM1,
 	X86_XMM2,
@@ -23,6 +23,14 @@ typedef enum {
 	X86_XMM5,
 	X86_XMM6,
 	X86_XMM7,
+	X86_XMM8,
+	X86_XMM9,
+	X86_XMM10,
+	X86_XMM11,
+	X86_XMM12,
+	X86_XMM13,
+	X86_XMM14,
+	X86_XMM15,
 	X86_REGISTER_COUNT
 } x86_register;
 
@@ -140,6 +148,14 @@ static u32 x86_float_regs[] = {
 	X86_XMM5,
 	X86_XMM6,
 	X86_XMM7,
+	X86_XMM8,
+	X86_XMM9,
+	X86_XMM10,
+	X86_XMM11,
+	X86_XMM12,
+	X86_XMM13,
+	X86_XMM14,
+	X86_XMM15,
 };
 
 static u32 x86_temp_regs[] = {
