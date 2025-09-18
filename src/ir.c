@@ -20,8 +20,8 @@ ir_emit(ir_context *ctx, i32 size, ir_opcode opcode, u32 arg0, u32 arg1)
 
 	// Ensure that operands are valid
 	ir_opcode_info info = get_opcode_info(opcode);
-	ASSERT(!is_register_operand(info.args[0]) || arg0 < result);
-	ASSERT(!is_register_operand(info.args[1]) || arg1 < result);
+	ASSERT(!is_register_operand(info.usage[0]) || arg0 < result);
+	ASSERT(!is_register_operand(info.usage[1]) || arg1 < result);
 
 	ir_inst *inst = &ctx->func_insts[result];
 	inst->opcode = opcode;
@@ -215,7 +215,7 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 
 		ir_value arg0 = {0};
 		isize arg0_size = 0;
-		if (is_register_operand(info.args[0]) && inst[i].args[0] != 0) {
+		if (is_register_operand(info.usage[0]) && inst[i].args[0] != 0) {
 			arg0 = values[inst[i].args[0]];
 			arg0_size = inst[inst[i].args[0]].size;
 		} else {
@@ -224,7 +224,7 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 
 		ir_value arg1 = {0};
 		isize arg1_size = 0;
-		if (is_register_operand(info.args[1]) && inst[i].args[1] != 0) {
+		if (is_register_operand(info.usage[1]) && inst[i].args[1] != 0) {
 			arg1 = values[inst[i].args[1]];
 			arg1_size = inst[inst[i].args[1]].size;
 		} else {
@@ -1329,11 +1329,11 @@ get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
 
 	for (isize i = 0; i < inst_count; i++) {
 		ir_opcode_info info = get_opcode_info(inst[i].opcode);
-		if (is_register_operand(info.args[0])) {
+		if (is_register_operand(info.usage[0])) {
 			ref_count[inst[i].args[0]]++;
 		}
 
-		if (is_register_operand(info.args[1])) {
+		if (is_register_operand(info.usage[1])) {
 			ref_count[inst[i].args[1]]++;
 		}
 	}

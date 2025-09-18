@@ -171,11 +171,11 @@ optimize(ir_program program, arena *arena)
 			} else if (insts[i].opcode == IR_LOAD) {
 				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[arg0]);
 			} else {
-				if (info.args[0] == IR_ARG_REG_SRC) {
+				if (info.usage[0] == IR_USE) {
 					join_pointer_sets(&pointer_info, dst, arg0);
 				}
 
-				if (info.args[1] == IR_ARG_REG_SRC) {
+				if (info.usage[1] == IR_USE) {
 					join_pointer_sets(&pointer_info, dst, arg1);
 				}
 			}
@@ -391,12 +391,12 @@ next_block:
 			ir_opcode_info info = get_opcode_info(insts[i].opcode);
 
 			u32 arg0 = insts[i].args[0];
-			if (is_register_operand(info.args[0]) && insts[arg0].opcode == IR_COPY) {
+			if (is_register_operand(info.usage[0]) && insts[arg0].opcode == IR_COPY) {
 				insts[i].args[0] = insts[arg0].args[0];
 			}
 
 			u32 arg1 = insts[i].args[1];
-			if (is_register_operand(info.args[1]) && insts[arg1].opcode == IR_COPY) {
+			if (is_register_operand(info.usage[1]) && insts[arg1].opcode == IR_COPY) {
 				insts[i].args[1] = insts[arg1].args[0];
 			}
 		}

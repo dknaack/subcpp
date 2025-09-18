@@ -189,18 +189,13 @@ typedef struct {
 
 // Additional information about the types of operands for each opcode.
 typedef enum {
-	IR_ARG_NONE,
-	IR_ARG_REG_SRC,
-	IR_ARG_REG_DST,
-	IR_ARG_GLOBAL,
-	IR_ARG_CONST,
-	IR_ARG_LABEL,
-	IR_ARG_FUNC,
-	IR_ARG_COUNT
-} ir_arg_kind;
+	IR_NONE,
+	IR_USE,
+	IR_DEF,
+} ir_usage;
 
 typedef struct {
-	ir_arg_kind args[2];
+	ir_usage usage[2];
 } ir_opcode_info;
 
 typedef struct ir_function ir_function;
@@ -311,9 +306,6 @@ get_opcode_info(ir_opcode opcode)
 {
 	ir_opcode_info info = {0};
 	switch (opcode) {
-	case IR_JMP:
-		info.args[0] = IR_ARG_LABEL;
-		break;
 	case IR_RET:
 	case IR_LOAD:
 	case IR_COPY:
@@ -326,12 +318,14 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FCOPY:
 	case IR_FLOAD:
 	case IR_FRET:
-		info.args[0] = IR_ARG_REG_SRC;
+	case IR_JIZ:
+	case IR_JNZ:
+		info.usage[0] = IR_USE;
 		break;
 	case IR_STORE:
 	case IR_FSTORE:
-		info.args[0] = IR_ARG_REG_DST;
-		info.args[1] = IR_ARG_REG_SRC;
+		info.usage[0] = IR_DEF;
+		info.usage[1] = IR_USE;
 		break;
 	case IR_ADD:
 	case IR_AND:
@@ -361,37 +355,18 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FGT:
 	case IR_FLE:
 	case IR_FGE:
-		info.args[0] = IR_ARG_REG_SRC;
-		info.args[1] = IR_ARG_REG_SRC;
-		break;
-	case IR_JIZ:
-	case IR_JNZ:
-		info.args[0] = IR_ARG_REG_SRC;
-		info.args[1] = IR_ARG_LABEL;
+	case IR_CALL:
+		info.usage[0] = IR_USE;
+		info.usage[1] = IR_USE;
 		break;
 	case IR_ALLOC:
-		info.args[0] = IR_ARG_CONST;
-		info.args[1] = IR_ARG_CONST;
-		break;
-	case IR_CONST:
 	case IR_BUILTIN:
-		info.args[0] = IR_ARG_CONST;
-		break;
-	case IR_CALL:
-		info.args[0] = IR_ARG_REG_SRC;
-		info.args[1] = IR_ARG_REG_SRC;
-		break;
-	case IR_PARAM:
-		info.args[0] = IR_ARG_CONST;
-		info.args[1] = IR_ARG_CONST;
-		break;
+	case IR_CONST:
 	case IR_GLOBAL:
-		info.args[0] = IR_ARG_GLOBAL;
-		break;
+	case IR_JMP:
 	case IR_LABEL:
-		info.args[0] = IR_ARG_LABEL;
-		break;
 	case IR_NOP:
+	case IR_PARAM:
 		break;
 	}
 
@@ -399,8 +374,8 @@ get_opcode_info(ir_opcode opcode)
 }
 
 static b32
-is_register_operand(ir_arg_kind operand)
+is_register_operand(ir_usage usage)
 {
-	b32 result = operand == IR_ARG_REG_SRC || operand == IR_ARG_REG_DST;
+	b32 result = usage != 0;
 	return result;
 }
