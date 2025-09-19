@@ -1370,5 +1370,38 @@ translate(ast_pool *pool, arena *arena)
 		node_id = get_node(pool, node_id).next;
 	}
 
+	// Sort the globals by section and linkage
+	isize bucket_end[LINK_COUNT * SECTION_COUNT] = {0};
+	global *globals = program.symtab.globals;
+	for (isize i = 0; i < global_count; i++) {
+		linkage linkage = globals[i].linkage;
+		section section = globals[i].section;
+		isize bucket = section * LINK_COUNT + linkage;
+		bucket_end[bucket]++;
+	}
+
+	isize bucket_start[LINK_COUNT * SECTION_COUNT] = {0};
+	for (isize i = 1; i < LENGTH(bucket_start); i++) {
+		bucket_end[i] += bucket_end[i-1];
+		bucket_start[i] = bucket_end[i-1];
+	}
+
+	for (isize i = 0; i < LENGTH(bucket_start); i++) {
+		isize j = bucket_start[i];
+		while (j < bucket_end[i]) {
+			linkage linkage = globals[j].linkage;
+			section section = globals[j].section;
+			isize bucket = section * LINK_COUNT + linkage;
+			if (i != bucket) {
+				isize dest = bucket_start[bucket]++;
+				global tmp = globals[dest];
+				globals[dest] = globals[j];
+				globals[j] = tmp;
+			} else {
+				j++;
+			}
+		}
+	}
+
 	return program;
 }
