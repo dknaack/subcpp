@@ -19,6 +19,10 @@ typedef enum {
 	// - args[0]: global id
 	IR_GLOBAL,
 
+	// Declares a function
+	// - args[0]: function id
+	IR_FUNC,
+
 	// Declares a label
 	// - args[0]: label id
 	IR_LABEL,
