@@ -197,7 +197,11 @@ typedef struct {
 } ast_list;
 
 typedef union {
-	// Reference to another node, for switch statements and identifiers
+	// Switch statements reference the first case statement.
+	// Case statements reference the next case or default statement.
+	// Identifiers reference their declaration or their definition.
+	// Declarations reference themselves or their definition if it exists.
+	// Definitions reference themselves.
 	ast_id ref;
 	// Reference to another node, which represents the type of this node.
 	// Usually for expressions.
