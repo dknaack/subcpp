@@ -653,10 +653,8 @@ x86_generate(writer *out, ir_program p, arena *arena)
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
 	print_cstr(out, "section .text\n");
-	global_id sym_id = symtab.section[SECTION_TEXT];
-	while (sym_id.value != 0) {
-		global *sym = &symtab.globals[sym_id.value];
-		ir_function *ir_func = &p.funcs[sym_id.value];
+	for (isize func_id = 0; func_id < p.func_count; func_id++) {
+		ir_function *ir_func = &p.funcs[func_id];
 
 		//
 		// 1. Instruction selection
@@ -716,7 +714,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		isize token_count = ctx.token_count;
 		if (token_count == 0) {
 			// NOTE: Do not generate code for empty functions
-			goto next;
+			continue;
 		}
 
 		//
@@ -740,7 +738,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		// 3. Generate the code
 		//
 
-		print_str(out, sym->name);
+		print_str(out, ir_func->name);
 		print_cstr(out, ":\n");
 
 		// Print function prologue
@@ -880,9 +878,9 @@ x86_generate(writer *out, ir_program p, arena *arena)
 				case X86_DISP_SYM:
 					{
 						ASSERT(value < symtab.global_count);
-						global *sym = &symtab.globals[value];
-						if (sym->name.length > 0) {
-							print_str(out, sym->name);
+						global *global = &symtab.globals[value];
+						if (global->name.length > 0) {
+							print_str(out, global->name);
 						} else {
 							print_cstr(out, "L#");
 							print_u32(out, value);
@@ -920,85 +918,87 @@ x86_generate(writer *out, ir_program p, arena *arena)
 #endif
 
 		print_cstr(out, "\tret\n\n");
-next:
-		sym_id = sym->next;
 	}
 
 	// Print the remaining sections
-	for (isize j = 0; j < SECTION_COUNT; j++) {
-		global_id sym_id = symtab.section[j];
-		if (sym_id.value == 0) {
-			continue;
+	section prev_section = SECTION_TEXT;
+	for (global_id global_id = {0}; global_id.value < symtab.global_count; global_id.value++) {
+		global *global = &symtab.globals[global_id.value];
+
+		section section = global->section;
+		if (section != prev_section) {
+			prev_section = section;
+			switch (section) {
+			case SECTION_TEXT:
+				print_cstr(out, "section .text\n");
+				break;
+			case SECTION_DATA:
+				print_cstr(out, "section .data\n");
+				break;
+			case SECTION_RODATA:
+				print_cstr(out, "section .rodata\n");
+				break;
+			case SECTION_BSS:
+				print_cstr(out, "section .bss\n");
+				break;
+			default:
+				continue;
+			}
 		}
 
-		if (j == SECTION_TEXT) {
-			// We print the text section again to print the global
-			// declarations, like `global main`.
-			print_cstr(out, "section .text\n");
-		} else if (j == SECTION_DATA) {
-			print_cstr(out, "section .data\n");
-		} else if (j == SECTION_RODATA) {
-			print_cstr(out, "section .rodata\n");
-		} else if (j == SECTION_BSS) {
-			print_cstr(out, "section .bss\n");
-		} else {
-			// Unsupported section
-			continue;
-		}
-
-		while (sym_id.value != 0) {
-			global *sym = &symtab.globals[sym_id.value];
-			if (sym->linkage == LINK_STATIC) {
-				print_cstr(out, "static ");
-				print_str(out, sym->name);
-				print_cstr(out, "\n");
-			} else if (sym->linkage == LINK_EXTERN) {
-				print_cstr(out, "extern ");
-				print_str(out, sym->name);
-				print_cstr(out, "\n");
-			} else if (sym->name.length > 0) {
+		linkage linkage = global->linkage;
+		switch (linkage) {
+		case LINK_STATIC:
+			print_cstr(out, "static ");
+			print_str(out, global->name);
+			print_cstr(out, "\n");
+			break;
+		case LINK_EXTERN:
+			print_cstr(out, "extern ");
+			print_str(out, global->name);
+			print_cstr(out, "\n");
+			break;
+		default:
+			if (global->name.length > 0) {
 				print_cstr(out, "global ");
-				print_str(out, sym->name);
+				print_str(out, global->name);
 				print_cstr(out, "\n");
 			}
+		}
 
-			// NOTE: text section was already printed in the loop above
-			if (sym->size > 0 && j != SECTION_TEXT) {
-				if (sym->name.length > 0) {
-					print_str(out, sym->name);
-				} else {
-					print_cstr(out, "L#");
-					print_u32(out, sym_id.value);
-				}
+		if (global->size > 0) {
+			if (global->name.length > 0) {
+				print_str(out, global->name);
+			} else {
+				print_cstr(out, "L#");
+				print_u32(out, global_id.value);
+			}
 
-				if (j == SECTION_DATA || j == SECTION_RODATA) {
-					// NOTE: Inside data or rodata section, globals contain byte data
-					if (sym->data) {
-						print_cstr(out, ": db ");
-						u8 *byte = sym->data;
-						for (isize i = 0; i < sym->size; i++) {
-							if (i != 0) {
-								print_cstr(out, ", ");
-							}
-
-							print_hex(out, byte[i]);
+			if (section == SECTION_DATA || section == SECTION_RODATA) {
+				// NOTE: Inside data or rodata section, globals contain byte data
+				if (global->data) {
+					print_cstr(out, ": db ");
+					u8 *byte = global->data;
+					for (isize i = 0; i < global->size; i++) {
+						if (i != 0) {
+							print_cstr(out, ", ");
 						}
 
-						print_cstr(out, "\n");
-					} else {
-						print_cstr(out, ": times ");
-						print_u32(out, sym->size);
-						print_cstr(out, " db 0\n");
+						print_hex(out, byte[i]);
 					}
-				} else if (j == SECTION_BSS) {
-					// NOTE; Inside bss section, globals have no data
-					print_cstr(out, " resb ");
-					print_hex(out, sym->size);
-					print_cstr(out, "\n");
-				}
-			}
 
-			sym_id = sym->next;
+					print_cstr(out, "\n");
+				} else {
+					print_cstr(out, ": times ");
+					print_u32(out, global->size);
+					print_cstr(out, " db 0\n");
+				}
+			} else if (section == SECTION_BSS) {
+				// NOTE; Inside bss section, globals have no data
+				print_cstr(out, " resb ");
+				print_hex(out, global->size);
+				print_cstr(out, "\n");
+			}
 		}
 	}
 }

@@ -170,21 +170,21 @@ typedef enum {
 	LINK_DEFAULT,
 	LINK_EXTERN,
 	LINK_STATIC,
+	LINK_COUNT
 } linkage;
 
 typedef struct {
-	global_id next;
-	linkage linkage;
 	str name;
 	void *data;
 	isize size;
+	linkage linkage;
+	section section;
 } global;
 
 typedef struct {
 	global *globals;
 	isize global_count;
 	isize max_global_count;
-	global_id section[SECTION_COUNT];
 } global_table;
 
 // Additional information about the types of operands for each opcode.
@@ -200,10 +200,11 @@ typedef struct {
 
 typedef struct ir_function ir_function;
 struct ir_function {
-	global_id sym_id;
+	str name;
 	i32 param_count;
 	i32 inst_index;
 	i32 inst_count;
+	linkage linkage;
 };
 
 typedef struct {
@@ -223,7 +224,6 @@ typedef struct {
 	i32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
-	global_id *section_tail[SECTION_COUNT];
 
 	isize func_inst_count;
 	isize max_inst_count;
@@ -242,19 +242,17 @@ new_global(ir_context *ctx, section section)
 	global_table *symtab = &ctx->program->symtab;
 	ASSERT(symtab->global_count < symtab->max_global_count);
 
-	global_id sym_id = {symtab->global_count++};
-	*ctx->section_tail[section] = sym_id;
-
-	global *sym = &symtab->globals[sym_id.value];
-	ctx->section_tail[section] = &sym->next;
-	return sym;
+	global_id global_id = {symtab->global_count++};
+	global *global = &symtab->globals[global_id.value];
+	global->section = section;
+	return global;
 }
 
 static global_id
-get_global_id(global_table *symtab, global *sym)
+get_global_id(global_table *symtab, global *global)
 {
 	global_id result;
-	result.value = sym - symtab->globals;
+	result.value = global - symtab->globals;
 	return result;
 }
 
