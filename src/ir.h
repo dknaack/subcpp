@@ -185,12 +185,6 @@ typedef struct {
 	section section;
 } global;
 
-typedef struct {
-	global *globals;
-	isize global_count;
-	isize max_global_count;
-} global_table;
-
 // Additional information about the types of operands for each opcode.
 typedef enum {
 	IR_NONE,
@@ -202,37 +196,40 @@ typedef struct {
 	ir_usage usage[2];
 } ir_opcode_info;
 
-typedef struct ir_function ir_function;
-struct ir_function {
-	str name;
-	i32 param_count;
-	i32 inst_index;
-	i32 inst_count;
-	linkage linkage;
-};
+typedef struct {
+	i32 begin;
+	i32 end;
+	i32 succ[2];
+	i32 *pred;
+	i32 pred_count;
+} ir_block;
 
 typedef struct {
+	str name;
 	ir_inst *insts;
-	ir_function *funcs;
-	global_table symtab;
+	linkage linkage;
+	i32 inst_count;
+	i32 label_count;
+} ir_function;
 
-	isize max_reg_count; // Maximum number of registers in each function
-	isize max_label_count; // Maximum number of labels in each function
-	isize inst_count; // Total number of instructions
+typedef struct {
+	ir_function *funcs;
+	global *globals;
+
 	isize func_count; // Total number of functions
+	isize global_count;
 } ir_program;
 
 typedef struct {
 	arena *arena;
 	ast_pool *ast;
-	i32 *node_addr;
-	ir_inst *func_insts;
+	i32 *symbol_ids;
 	ir_program *program;
 
-	isize func_inst_count;
+	ir_inst *insts;
+	isize inst_count;
 	isize max_inst_count;
 	isize label_count;
-	isize reg_count;
 
 	i32 stack_size;
 	i32 continue_label;
@@ -240,23 +237,35 @@ typedef struct {
 	i32 case_label;
 } ir_context;
 
-static global *
-new_global(ir_context *ctx, section section)
-{
-	global_table *symtab = &ctx->program->symtab;
-	ASSERT(symtab->global_count < symtab->max_global_count);
+typedef struct {
+	ir_function *func;
+	ir_inst *inst;
+	isize block;
+	isize index;
+} ir_inst_iter;
 
-	global_id global_id = {symtab->global_count++};
-	global *global = &symtab->globals[global_id.value];
-	global->section = section;
-	return global;
-}
-
-static global_id
-get_global_id(global_table *symtab, global *global)
+static b32
+next_inst(ir_inst_iter *iter)
 {
-	global_id result;
-	result.value = global - symtab->globals;
+	b32 result = true;
+
+#if 0
+	if (!iter->inst) {
+		iter->block = iter->func->blocks;
+		iter->inst = iter->func->insts + iter->block->begin;
+		iter->index = 0;
+	} else if (iter->inst < iter->func->insts + iter->block->end) {
+		iter->inst++;
+		iter->index++;
+	} else if (iter->block < iter->func->blocks + iter->func->block_count) {
+		iter->block++;
+		iter->inst = iter->func->insts + iter->block->begin;
+		iter->index = iter->block->begin;
+	} else {
+		result = false;
+	}
+#endif
+
 	return result;
 }
 
@@ -365,6 +374,7 @@ get_opcode_info(ir_opcode opcode)
 	case IR_BUILTIN:
 	case IR_CONST:
 	case IR_GLOBAL:
+	case IR_FUNC:
 	case IR_JMP:
 	case IR_LABEL:
 	case IR_NOP:

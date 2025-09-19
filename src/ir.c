@@ -1,33 +1,27 @@
-static u32
+static i32
 new_label(ir_context *ctx)
 {
-	u32 result = ctx->label_count++;
-	if (ctx->program->max_label_count < ctx->label_count) {
-		ctx->program->max_label_count = ctx->label_count;
-	}
-
+	i32 result = ctx->label_count++;
 	return result;
 }
 
 static u32
-ir_emit(ir_context *ctx, i32 size, ir_opcode opcode, u32 arg0, u32 arg1)
+ir_emit(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0, i32 arg1)
 {
-	ASSERT(size <= 8);
-	ASSERT(ctx->program->inst_count + ctx->func_inst_count <= ctx->max_inst_count);
-	if (opcode == IR_STORE) ASSERT(arg1 != 0);
-
-	u32 result = ctx->func_inst_count++;
-
-	// Ensure that operands are valid
-	ir_opcode_info info = get_opcode_info(opcode);
-	ASSERT(info.usage[0] == 0 || arg0 < result);
-	ASSERT(info.usage[1] == 0 || arg1 < result);
-
-	ir_inst *inst = &ctx->func_insts[result];
+	i32 result = ctx->inst_count++;
+	ir_inst *inst = &ctx->insts[result];
 	inst->opcode = opcode;
 	inst->size = size;
 	inst->args[0] = arg0;
 	inst->args[1] = arg1;
+
+	// Sanity check: Ensure that arguments come before this instruction
+	ir_opcode_info info = get_opcode_info(opcode);
+	ASSERT(info.usage[0] == 0 || arg0 < result);
+	ASSERT(info.usage[1] == 0 || arg1 < result);
+	ASSERT(size <= 8);
+	ASSERT(ctx->inst_count <= ctx->max_inst_count);
+	ASSERT(opcode != IR_STORE || arg1 != 0);
 
 	return result;
 }
@@ -44,58 +38,64 @@ ir_emit2(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0, i32 arg1)
 static i32
 ir_emit1(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0)
 {
-	ASSERT(opcode == IR_CONST || arg0 != 0);
 	i32 result = ir_emit(ctx, size, opcode, arg0, 0);
+
+	// Ensure that the provided argument for globals is in bounds
 	if (opcode == IR_GLOBAL) {
-		ASSERT(0 <= arg0 && arg0 < ctx->program->symtab.global_count);
+		ASSERT(0 <= arg0 && arg0 < ctx->program->global_count);
+	}
+
+	// Non-constants cannot have zero as their argument
+	if (opcode != IR_CONST) {
+		ASSERT(arg0 != 0);
 	}
 
 	return result;
 }
 
-static u32
+static i32
 ir_emit0(ir_context *ctx, i32 size, ir_opcode opcode)
 {
-	u32 result = ir_emit(ctx, size, opcode, 0, 0);
+	i32 result = ir_emit(ctx, size, opcode, 0, 0);
 	return result;
 }
 
-static u32
+static i32
 ir_emit_alloca(ir_context *ctx, u32 size)
 {
 	// TODO: alignment
-	u32 result = ir_emit(ctx, 8, IR_ALLOC, size, ctx->stack_size);
+	i32 result = ir_emit(ctx, 8, IR_ALLOC, size, ctx->stack_size);
 	ctx->stack_size += size;
 	return result;
 }
 
-static u32
-ir_call(ir_context *ctx, u32 size, u32 proc, u32 *params, isize param_count)
+static i32
+ir_call(ir_context *ctx, i32 size, i32 proc, i32 *params, isize param_count)
 {
-	u32 prev_call = 0;
+	i32 prev_call = 0;
 	while (param_count-- > 0) {
-		u32 curr_param = params[param_count];
-		u32 curr_call = ir_emit2(ctx, size, IR_CALL, curr_param, prev_call);
+		i32 curr_param = params[param_count];
+		i32 curr_call = ir_emit2(ctx, size, IR_CALL, curr_param, prev_call);
 		prev_call = curr_call;
 	}
 
-	u32 result = ir_emit2(ctx, size, IR_CALL, proc, prev_call);
+	i32 result = ir_emit2(ctx, size, IR_CALL, proc, prev_call);
 	return result;
 }
 
-static u32
+static i32
 ir_memcpy(ir_context *ctx, u32 dst, u32 src, u32 size)
 {
-	u32 args[] = { dst, src, size };
-	u32 memcpy = ir_emit1(ctx, 8, IR_BUILTIN, BUILTIN_MEMCPY);
-	return ir_call(ctx, 0, memcpy, args, LENGTH(args));
+	i32 args[] = { dst, src, size };
+	i32 memcpy = ir_emit1(ctx, 8, IR_BUILTIN, BUILTIN_MEMCPY);
+	i32 result = ir_call(ctx, 0, memcpy, args, LENGTH(args));
+	return result;
 }
 
-static u32
+static i32
 ir_load(ir_context *ctx, u32 addr, type_id type_id)
 {
-	u32 result = 0;
-
+	i32 result = 0;
 	ast_node type = get_type(ctx->ast, type_id);
 	isize size = get_node_size(ctx->ast, type_id);
 	if (is_compound_type(type.kind)) {
@@ -417,7 +417,6 @@ static u32
 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 {
 	ast_pool *pool = ctx->ast;
-	global_table *symtab = &ctx->program->symtab;
 	arena *perm = ctx->arena;
 	u32 result = 0;
 
@@ -437,7 +436,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			ASSERT(ctx->node_addr[node_id.value] == 0);
+			ASSERT(ctx->symbol_ids[node_id.value] == 0);
 			type_id type = get_type_id(pool, node_id);
 			isize size = get_node_size(pool, type);
 			result = ir_emit_alloca(ctx, size);
@@ -452,91 +451,92 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				}
 			}
 
-			ctx->node_addr[node_id.value] = result;
+			ctx->symbol_ids[node_id.value] = result;
 		} break;
 	case AST_EXTERN_DEF:
 		{
-			i32 *node_addr = &ctx->node_addr[node_id.value];
+			i32 *symbol_ids = &ctx->symbol_ids[node_id.value];
 			ast_node type = get_node(pool, children[0]);
-			if (*node_addr != 0) {
-				result = ir_emit1(ctx, 8, IR_GLOBAL, *node_addr);
+			if (*symbol_ids != 0) {
+				result = ir_emit1(ctx, 8, IR_GLOBAL, *symbol_ids);
 				ASSERT(result != 0);
 			} else if (node.flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
 			} else if (type.kind == AST_TYPE_FUNC) {
-				ASSERT(*node_addr < ctx->program->func_count);
-				ir_function *func = &ctx->program->funcs[*node_addr];
+				ASSERT(*symbol_ids < ctx->program->func_count);
+				ir_function *func = &ctx->program->funcs[*symbol_ids];
 				func->name = node.token.value;
 				func->linkage = get_linkage(node.flags);
 
 				if (children[1].value != 0) {
-					// Create a new function
-					func->inst_index = ctx->program->inst_count;
-
-					// Reset the instructions, registers and labels
-					ctx->func_insts = ctx->program->insts + func->inst_index;
-					ctx->func_inst_count = 0;
+					ctx->insts = calloc(ctx->max_inst_count, sizeof(*ctx->insts));
+					ctx->inst_count = 0;
 					ctx->label_count = 1;
 
 					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					// NOTE: Emit parameter registers
+					isize param_index = 0;
 					ast_id return_id = type.children;
 					ast_node return_type = get_node(pool, return_id);
 					ast_id param_id = return_type.next;
 					while (param_id.value != 0) {
 						type_id param_type = get_type_id(pool, param_id);
 						isize param_size = get_node_size(pool, param_type);
-						isize param_index = func->param_count++;
 
 						u32 param_reg = ir_emit(ctx, param_size, IR_PARAM, param_index, param_size);
 						u32 param_local = ir_emit_alloca(ctx, param_size);
 						ir_store(ctx, param_local, param_reg, param_type);
-						ctx->node_addr[param_id.value] = param_local;
+						ctx->symbol_ids[param_id.value] = param_local;
 
 						ast_node param = get_node(pool, param_id);
 						param_id = param.next;
+						param_index++;
 					}
 
 					// translate the function body
 					translate_node(ctx, children[1], false);
 
-					// record the maximum number of instructions/registers
-					if (ctx->program->max_reg_count < ctx->func_inst_count) {
-						ctx->program->max_reg_count = ctx->func_inst_count;
-					}
+					func->insts = ctx->insts;
+					func->inst_count = ctx->inst_count;
+					func->label_count = ctx->label_count;
 
-					func->inst_count = ctx->func_inst_count;
-					ctx->program->inst_count += ctx->func_inst_count;
+					// Reset the context
+					ctx->insts = NULL;
+					ctx->inst_count = 0;
+					ctx->max_inst_count = 0;
 				}
 			} else {
 				// global variable (initialized or uninitialized)
 				b32 is_initialized = (children[1].value != 0);
 				section section = is_initialized ? SECTION_DATA : SECTION_BSS;
-
-				global *global = new_global(ctx, section);
-				global->linkage = get_linkage(node.flags);
-				global->name = node.token.value;
 				type_id node_type = get_type_id(pool, node_id);
+
+				isize global_id = ctx->symbol_ids[node_id.value];
+				global *global = &ctx->program->globals[global_id];
+				global->name = node.token.value;
 				global->size = get_node_size(pool, node_type);
-				*node_addr = get_global_id(symtab, global).value;
+				global->linkage = get_linkage(node.flags);
+				global->section = section;
 
 				if (is_initialized) {
-					isize start = ctx->program->inst_count;
-					ctx->func_insts = ctx->program->insts + start;
-					ctx->func_inst_count = 1;
+					ctx->insts = calloc(ctx->max_inst_count, sizeof(*ctx->insts));
+					ctx->inst_count = 1;
 					ctx->label_count = 1;
 
-					u32 result = ir_emit1(ctx, global->size, IR_ALLOC, global->size);
+					i32 result = ir_emit1(ctx, global->size, IR_ALLOC, global->size);
 					translate_initializer(ctx, children[1], result);
-					isize end = ctx->func_inst_count;
 
-					isize inst_count = end - start;
 					arena stack = subarena(perm, global->size);
-					ir_value *values = ALLOC(perm, inst_count, ir_value);
-					ir_eval(ctx->program->insts + start, inst_count, values, stack);
+					ir_value *values = ALLOC(perm, ctx->inst_count, ir_value);
+					ir_eval(ctx->insts, ctx->inst_count, values, stack);
 
 					global->data = stack.data;
+
+					free(ctx->insts);
+					ctx->insts = NULL;
+					ctx->inst_count = 0;
+					ctx->max_inst_count = 0;
 				}
 			}
 		} break;
@@ -832,7 +832,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 	case AST_EXPR_IDENT:
 		{
 			ast_id decl_id = pool->nodes[node_id.value].info.ref;
-			result = ctx->node_addr[decl_id.value];
+			result = ctx->symbol_ids[decl_id.value];
 
 			type_id type_id = get_type_id(pool, node_id);
 			isize size = get_node_size(pool, type_id);
@@ -872,14 +872,15 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					*value = strtod(node.token.value.at, NULL);
 
 					// Allocate a new global variable and store the value
-					global *global = new_global(ctx, SECTION_RODATA);
+					isize global_id = ctx->symbol_ids[node_id.value];
+					global *global = &ctx->program->globals[global_id];
 					global->linkage = get_linkage(node.flags);
 					global->data = value;
 					global->size = sizeof(double);
+					global->section = SECTION_RODATA;
 
 					// Load the global variable
-					global_id global_id = get_global_id(symtab, global);
-					result = ir_emit1(ctx, 8, IR_GLOBAL, global_id.value);
+					result = ir_emit1(ctx, 8, IR_GLOBAL, global_id);
 					result = ir_emit1(ctx, 4, IR_FLOAD, result);
 				} break;
 			case TOKEN_LITERAL_STRING:
@@ -924,14 +925,15 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					unescaped.at[unescaped.length++] = '\0';
 
 					// Allocate a new global and store the string
-					global *global = new_global(ctx, SECTION_RODATA);
+					isize global_id = ctx->symbol_ids[node_id.value];
+					global *global = &ctx->program->globals[global_id];
 					global->linkage = get_linkage(node.flags);
 					global->data = unescaped.at;
 					global->size = unescaped.length;
+					global->section = SECTION_RODATA;
 
 					// Load the string
-					global_id global_id = get_global_id(symtab, global);
-					result = ir_emit1(ctx, 8, IR_GLOBAL, global_id.value);
+					result = ir_emit1(ctx, 8, IR_GLOBAL, global_id);
 				} break;
 			default:
 				ASSERT(!"Invalid literal");
@@ -1109,7 +1111,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_STMT_CASE:
 		{
-			i32 label = ctx->node_addr[node_id.value];
+			i32 label = ctx->symbol_ids[node_id.value];
 			ir_emit1(ctx, 0, IR_LABEL, label);
 			translate_node(ctx, children[1], false);
 		} break;
@@ -1145,9 +1147,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 
-			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->inst_count = new_ctx.inst_count;
 			ctx->label_count = new_ctx.label_count;
-			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_FOR:
 		{
@@ -1175,9 +1176,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_emit1(&new_ctx, 0, IR_JMP, cond_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 
-			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->inst_count = new_ctx.inst_count;
 			ctx->label_count = new_ctx.label_count;
-			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_GOTO:
 	case AST_STMT_LABEL:
@@ -1190,7 +1190,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				opcode = IR_JMP;
 			}
 
-			i32 *label = &ctx->node_addr[label_id.value];
+			i32 *label = &ctx->symbol_ids[label_id.value];
 			if (*label == 0) {
 				*label = new_label(ctx);
 			}
@@ -1250,7 +1250,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ast_id default_id = {0};
 			while (case_id.value != 0) {
 				i32 label = new_label(&new_ctx);
-				new_ctx.node_addr[case_id.value] = label;
+				new_ctx.symbol_ids[case_id.value] = label;
 
 				ast_node case_node = get_node(pool, case_id);
 				if (case_node.kind == AST_STMT_CASE) {
@@ -1273,9 +1273,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, children[1], false);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 
-			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->inst_count = new_ctx.inst_count;
 			ctx->label_count = new_ctx.label_count;
-			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_STMT_WHILE:
 		{
@@ -1293,9 +1292,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 
-			ctx->func_inst_count = new_ctx.func_inst_count;
+			ctx->inst_count = new_ctx.inst_count;
 			ctx->label_count = new_ctx.label_count;
-			ctx->reg_count = new_ctx.reg_count;
 		} break;
 	case AST_ENUMERATOR:
 	case AST_TYPE_BASIC:
@@ -1331,37 +1329,42 @@ get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
 static ir_program
 translate(ast_pool *pool, arena *arena)
 {
-	// Count the total number of globals
+	// Initialize the program and context
+	isize func_count = 1;
 	isize global_count = 1;
+	i32 *symbol_ids = ALLOC(arena, pool->size, i32);
 	for (isize i = 1; i < pool->size; i++) {
-		ast_node node = pool->nodes[i];
-		token_kind token = node.token.kind;
-		if (node.kind == AST_EXTERN_DEF || (node.kind == AST_EXPR_LITERAL
-			&& (token == TOKEN_LITERAL_FLOAT || token == TOKEN_LITERAL_STRING)))
-		{
-			global_count++;
+		ast_id node_id = {i};
+		ast_node node = get_node(pool, node_id);
+
+		b32 is_decl = node.kind != AST_DECL && node.kind != AST_EXTERN_DEF;
+		b32 is_root = node.info.ref.value == node_id.value;
+		b32 is_string = (node.kind == AST_EXPR_LITERAL && node.token.kind == TOKEN_LITERAL_STRING);
+		b32 is_float = (node.kind == AST_EXPR_LITERAL && node.token.kind == TOKEN_LITERAL_FLOAT);
+		b32 is_global = is_decl && is_root;
+		b32 is_func = is_global && (node.kind == AST_EXTERN_DEF);
+
+		if (is_func) {
+			symbol_ids[node_id.value] = func_count++;
+		} else if (is_global || is_float || is_string) {
+			symbol_ids[node_id.value] = global_count++;
 		}
 	}
 
-	// initialize the program
 	ir_program program = {0};
 	isize max_inst_count = 1024 * 1024;
-	program.insts = ALLOC(arena, max_inst_count, ir_inst);
-	program.funcs = ALLOC(arena, global_count, ir_function);
-	program.func_count = global_count;
+	program.funcs = ALLOC(arena, func_count, ir_function);
+	program.globals = ALLOC(arena, global_count, global);
+	program.func_count = func_count;
+	program.global_count = global_count;
 
-	// initialize the global table
-	program.symtab.globals = ALLOC(arena, global_count, global);
-	program.symtab.max_global_count = global_count;
-	program.symtab.global_count = 1; // Reserve the first global as NULL global.
-
-	// initialize the context
 	ir_context ctx = {0};
 	ctx.ast = pool;
 	ctx.program = &program;
+	ctx.insts = ALLOC(arena, max_inst_count, ir_inst);
 	ctx.max_inst_count = max_inst_count;
 	ctx.arena = arena;
-	ctx.node_addr = ALLOC(arena, pool->size, i32);
+	ctx.symbol_ids = symbol_ids;
 
 	// Translate all nodes into IR
 	ast_id node_id = pool->root;
@@ -1372,7 +1375,7 @@ translate(ast_pool *pool, arena *arena)
 
 	// Sort the globals by section and linkage
 	isize bucket_end[LINK_COUNT * SECTION_COUNT] = {0};
-	global *globals = program.symtab.globals;
+	global *globals = program.globals;
 	for (isize i = 0; i < global_count; i++) {
 		linkage linkage = globals[i].linkage;
 		section section = globals[i].section;

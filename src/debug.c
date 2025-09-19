@@ -35,6 +35,8 @@ get_ir_opcode_str(ir_opcode opcode)
 		return "const";
 	case IR_GLOBAL:
 		return "global";
+	case IR_FUNC:
+		return "func";
 	case IR_LABEL:
 		return "label";
 	case IR_PARAM:
@@ -436,6 +438,9 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_GLOBAL:
 		printf("(global.%d %d)", size, args[0]);
 		break;
+	case IR_FUNC:
+		printf("(func.%d %d)", size, args[0]);
+		break;
 	case IR_CONST:
 		printf("(const.%d %d)", size, args[0]);
 		break;
@@ -528,21 +533,6 @@ print_ir_inst(ir_inst *inst, u32 i)
 	}
 }
 
-static i32 *get_ref_count(ir_inst *inst, isize inst_count, arena *perm);
-
-static void
-print_ir_block(ir_inst *inst, isize inst_count, arena *perm)
-{
-	i32 *ref_count = get_ref_count(inst, inst_count, perm);
-	for (isize j = 0; j < inst_count; j++) {
-		if (ref_count[j] == 0 && inst[j].opcode != IR_NOP) {
-			printf("\t%%%zd = ", j);
-			print_ir_inst(inst, j);
-			printf("\n");
-		}
-	}
-}
-
 static void
 print_ir_program(ir_program program)
 {
@@ -551,11 +541,13 @@ print_ir_program(ir_program program)
 
 		ir_function *func = &program.funcs[i];
 		printf("func[%ld]:\n", i);
-		printf("  param_count: %d\n", func->param_count);
-		printf("  inst_index: %d\n", func->inst_index);
 
-		ir_inst *inst = program.insts + func->inst_index;
-		print_ir_block(inst, func->inst_count, temp);
+		ir_inst_iter iter = {func};
+		while (next_inst(&iter)) {
+			printf("\t%%%zd = ", iter.index);
+			print_ir_inst(func->insts, iter.index);
+			printf("\n");
+		}
 
 		free(temp);
 	}

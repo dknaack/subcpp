@@ -578,7 +578,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				if (inst[arg0].opcode == IR_GLOBAL) {
 					called = make_global(inst[arg0].args[0]);
 					called_kind = X86_SYM;
-					ASSERT(called.value < ctx->symtab->global_count);
+					//ASSERT(called.value < ctx->symtab->global_count);
 				} else {
 					x86_select_inst(ctx, arg0, called, size);
 				}
@@ -648,7 +648,6 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 static void
 x86_generate(writer *out, ir_program p, arena *arena)
 {
-	global_table symtab = p.symtab;
 	isize max_token_count = 1024 * 1024;
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
@@ -661,16 +660,16 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		//
 
 		x86_context ctx = {0};
-		ctx.inst = p.insts + ir_func->inst_index;
+		ctx.inst = ir_func->insts;
 		ctx.tokens = tokens;
 		ctx.max_token_count = max_token_count;
-		ctx.symtab = &symtab;
 		ctx.vreg_count = X86_REGISTER_COUNT;
+		ctx.globals = p.globals;
 
 		i32 curr_block = 0;
-		basic_block *blocks = ALLOC(arena, p.max_label_count, basic_block);
+		basic_block *blocks = ALLOC(arena, ir_func->label_count, basic_block);
 
-		ir_inst *inst = p.insts + ir_func->inst_index;
+		ir_inst *inst = ir_func->insts;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
 			ir_opcode opcode = inst[j].opcode;
@@ -732,7 +731,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		mach.mreg_count = X86_REGISTER_COUNT;
 
 		mach_location *reg_table = regalloc(tokens, token_count, blocks,
-			p.max_label_count, mach, arena);
+			ir_func->label_count, mach, arena);
 
 		//
 		// 3. Generate the code
@@ -877,8 +876,8 @@ x86_generate(writer *out, ir_program p, arena *arena)
 				case X86_SYM:
 				case X86_DISP_SYM:
 					{
-						ASSERT(value < symtab.global_count);
-						global *global = &symtab.globals[value];
+						//ASSERT(value < symtab.global_count);
+						global *global = &ctx.globals[value];
 						if (global->name.length > 0) {
 							print_str(out, global->name);
 						} else {
@@ -922,8 +921,8 @@ x86_generate(writer *out, ir_program p, arena *arena)
 
 	// Print the remaining sections
 	section prev_section = SECTION_TEXT;
-	for (global_id global_id = {0}; global_id.value < symtab.global_count; global_id.value++) {
-		global *global = &symtab.globals[global_id.value];
+	for (global_id global_id = {0}; global_id.value < p.global_count; global_id.value++) {
+		global *global = &p.globals[global_id.value];
 
 		section section = global->section;
 		if (section != prev_section) {

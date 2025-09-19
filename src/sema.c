@@ -625,6 +625,8 @@ check_node(sema_context ctx, ast_id node_id)
 				// TODO: Ensure that declaration is compatible with this node,
 				// i.e. this is not a typedef declaration.
 			}
+
+			node_type.value = 0;
 		} break;
 	case AST_EXPR_LITERAL:
 		{
@@ -772,13 +774,15 @@ check_node(sema_context ctx, ast_id node_id)
 
 				ast_node type = get_node(pool, children[0]);
 				if (type.kind == AST_TYPE_FUNC) {
-					// Trick to restore the previous scope, which was
-					// introduced by checking the function type.
+					// Trick to reintroduce the scope of the parameters that
+					// was introduced by checking the function type.
 					ctx.scope.ages[ctx.scope.depth++]--;
 				}
 
 				check_node(ctx, children[1]);
 			}
+
+			// TODO: Unify the references nodes
 		} break;
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_BASIC:
@@ -850,7 +854,14 @@ check_node(sema_context ctx, ast_id node_id)
 	}
 
 	// Identifiers should reference their declaration, not their type
-	if (node.kind != AST_EXPR_IDENT && node_type.value != 0) {
+	if (node_type.value != 0) {
+		// These AST nodes do not allow types:
+		ASSERT(node.kind != AST_EXPR_IDENT);
+		ASSERT(node.kind != AST_DECL);
+		ASSERT(node.kind != AST_EXTERN_DEF);
+		ASSERT(node.kind != AST_STMT_SWITCH);
+		ASSERT(node.kind != AST_STMT_CASE);
+
 		set_type(pool, node_id, node_type);
 	}
 

@@ -116,10 +116,10 @@ typedef enum {
 typedef struct {
 	ir_inst *inst;
 	mach_token *tokens;
+	global *globals;
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;
-	global_table *symtab;
 } x86_context;
 
 static i32 x86_int_regs[] = {
