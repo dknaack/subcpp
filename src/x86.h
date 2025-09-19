@@ -119,7 +119,7 @@ typedef struct {
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;
-	symbol_table *symtab;
+	global_table *symtab;
 } x86_context;
 
 static i32 x86_int_regs[] = {

@@ -16,7 +16,7 @@ typedef enum {
 	IR_CONST,
 
 	// Declares a global variable
-	// - args[0]: symbol id
+	// - args[0]: global id
 	IR_GLOBAL,
 
 	// Declares a label
@@ -164,7 +164,7 @@ typedef enum {
 
 typedef struct {
 	i32 value;
-} symbol_id;
+} global_id;
 
 typedef enum {
 	LINK_DEFAULT,
@@ -173,19 +173,19 @@ typedef enum {
 } linkage;
 
 typedef struct {
-	symbol_id next;
+	global_id next;
 	linkage linkage;
 	str name;
 	void *data;
 	isize size;
-} symbol;
+} global;
 
 typedef struct {
-	symbol *symbols;
-	isize symbol_count;
-	isize max_symbol_count;
-	symbol_id section[SECTION_COUNT];
-} symbol_table;
+	global *globals;
+	isize global_count;
+	isize max_global_count;
+	global_id section[SECTION_COUNT];
+} global_table;
 
 // Additional information about the types of operands for each opcode.
 typedef enum {
@@ -200,7 +200,7 @@ typedef struct {
 
 typedef struct ir_function ir_function;
 struct ir_function {
-	symbol_id sym_id;
+	global_id sym_id;
 	i32 param_count;
 	i32 inst_index;
 	i32 inst_count;
@@ -209,7 +209,7 @@ struct ir_function {
 typedef struct {
 	ir_inst *insts;
 	ir_function *funcs;
-	symbol_table symtab;
+	global_table symtab;
 
 	isize max_reg_count; // Maximum number of registers in each function
 	isize max_label_count; // Maximum number of labels in each function
@@ -223,7 +223,7 @@ typedef struct {
 	i32 *node_addr;
 	ir_inst *func_insts;
 	ir_program *program;
-	symbol_id *section_tail[SECTION_COUNT];
+	global_id *section_tail[SECTION_COUNT];
 
 	isize func_inst_count;
 	isize max_inst_count;
@@ -236,25 +236,25 @@ typedef struct {
 	i32 case_label;
 } ir_context;
 
-static symbol *
-new_symbol(ir_context *ctx, section section)
+static global *
+new_global(ir_context *ctx, section section)
 {
-	symbol_table *symtab = &ctx->program->symtab;
-	ASSERT(symtab->symbol_count < symtab->max_symbol_count);
+	global_table *symtab = &ctx->program->symtab;
+	ASSERT(symtab->global_count < symtab->max_global_count);
 
-	symbol_id sym_id = {symtab->symbol_count++};
+	global_id sym_id = {symtab->global_count++};
 	*ctx->section_tail[section] = sym_id;
 
-	symbol *sym = &symtab->symbols[sym_id.value];
+	global *sym = &symtab->globals[sym_id.value];
 	ctx->section_tail[section] = &sym->next;
 	return sym;
 }
 
-static symbol_id
-get_symbol_id(symbol_table *symtab, symbol *sym)
+static global_id
+get_global_id(global_table *symtab, global *sym)
 {
-	symbol_id result;
-	result.value = sym - symtab->symbols;
+	global_id result;
+	result.value = sym - symtab->globals;
 	return result;
 }
 

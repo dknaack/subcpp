@@ -47,7 +47,7 @@ ir_emit1(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0)
 	ASSERT(opcode == IR_CONST || arg0 != 0);
 	i32 result = ir_emit(ctx, size, opcode, arg0, 0);
 	if (opcode == IR_GLOBAL) {
-		ASSERT(0 <= arg0 && arg0 < ctx->program->symtab.symbol_count);
+		ASSERT(0 <= arg0 && arg0 < ctx->program->symtab.global_count);
 	}
 
 	return result;
@@ -417,7 +417,7 @@ static u32
 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 {
 	ast_pool *pool = ctx->ast;
-	symbol_table *symtab = &ctx->program->symtab;
+	global_table *symtab = &ctx->program->symtab;
 	arena *perm = ctx->arena;
 	u32 result = 0;
 
@@ -464,9 +464,9 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			} else if (node.flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
 			} else if (type.kind == AST_TYPE_FUNC) {
-				// Create a new symbol for the function
-				symbol *sym = new_symbol(ctx, SECTION_TEXT);
-				symbol_id sym_id = get_symbol_id(symtab, sym);
+				// Create a new global for the function
+				global *sym = new_global(ctx, SECTION_TEXT);
+				global_id sym_id = get_global_id(symtab, sym);
 				*node_addr = sym_id.value;
 				sym->linkage = get_linkage(node.flags);
 				sym->name = node.token.value;
@@ -522,12 +522,12 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				b32 is_initialized = (children[1].value != 0);
 				section section = is_initialized ? SECTION_DATA : SECTION_BSS;
 
-				symbol *sym = new_symbol(ctx, section);
+				global *sym = new_global(ctx, section);
 				sym->linkage = get_linkage(node.flags);
 				sym->name = node.token.value;
 				type_id node_type = get_type_id(pool, node_id);
 				sym->size = get_node_size(pool, node_type);
-				*node_addr = get_symbol_id(symtab, sym).value;
+				*node_addr = get_global_id(symtab, sym).value;
 
 				if (is_initialized) {
 					isize start = ctx->program->inst_count;
@@ -880,13 +880,13 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					*value = strtod(node.token.value.at, NULL);
 
 					// Allocate a new global variable and store the value
-					symbol *sym = new_symbol(ctx, SECTION_RODATA);
+					global *sym = new_global(ctx, SECTION_RODATA);
 					sym->linkage = get_linkage(node.flags);
 					sym->data = value;
 					sym->size = sizeof(double);
 
 					// Load the global variable
-					symbol_id sym_id = get_symbol_id(symtab, sym);
+					global_id sym_id = get_global_id(symtab, sym);
 					result = ir_emit1(ctx, 8, IR_GLOBAL, sym_id.value);
 					result = ir_emit1(ctx, 4, IR_FLOAD, result);
 				} break;
@@ -931,14 +931,14 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 					unescaped.at[unescaped.length++] = '\0';
 
-					// Allocate a new symbol and store the string
-					symbol *sym = new_symbol(ctx, SECTION_RODATA);
+					// Allocate a new global and store the string
+					global *sym = new_global(ctx, SECTION_RODATA);
 					sym->linkage = get_linkage(node.flags);
 					sym->data = unescaped.at;
 					sym->size = unescaped.length;
 
 					// Load the string
-					symbol_id sym_id = get_symbol_id(symtab, sym);
+					global_id sym_id = get_global_id(symtab, sym);
 					result = ir_emit1(ctx, 8, IR_GLOBAL, sym_id.value);
 				} break;
 			default:
@@ -1339,15 +1339,15 @@ get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
 static ir_program
 translate(ast_pool *pool, arena *arena)
 {
-	// Count the total number of symbols
-	isize symbol_count = 1;
+	// Count the total number of globals
+	isize global_count = 1;
 	for (isize i = 1; i < pool->size; i++) {
 		ast_node node = pool->nodes[i];
 		token_kind token = node.token.kind;
 		if (node.kind == AST_EXTERN_DEF || (node.kind == AST_EXPR_LITERAL
 			&& (token == TOKEN_LITERAL_FLOAT || token == TOKEN_LITERAL_STRING)))
 		{
-			symbol_count++;
+			global_count++;
 		}
 	}
 
@@ -1355,13 +1355,13 @@ translate(ast_pool *pool, arena *arena)
 	ir_program program = {0};
 	isize max_inst_count = 1024 * 1024;
 	program.insts = ALLOC(arena, max_inst_count, ir_inst);
-	program.funcs = ALLOC(arena, symbol_count, ir_function);
-	program.func_count = symbol_count;
+	program.funcs = ALLOC(arena, global_count, ir_function);
+	program.func_count = global_count;
 
-	// initialize the symbol table
-	program.symtab.symbols = ALLOC(arena, symbol_count, symbol);
-	program.symtab.max_symbol_count = symbol_count;
-	program.symtab.symbol_count = 1; // Reserve the first symbol as NULL symbol.
+	// initialize the global table
+	program.symtab.globals = ALLOC(arena, global_count, global);
+	program.symtab.max_global_count = global_count;
+	program.symtab.global_count = 1; // Reserve the first global as NULL global.
 
 	// initialize the context
 	ir_context ctx = {0};

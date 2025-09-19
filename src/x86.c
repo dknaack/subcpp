@@ -578,7 +578,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				if (inst[arg0].opcode == IR_GLOBAL) {
 					called = make_global(inst[arg0].args[0]);
 					called_kind = X86_SYM;
-					ASSERT(called.value < ctx->symtab->symbol_count);
+					ASSERT(called.value < ctx->symtab->global_count);
 				} else {
 					x86_select_inst(ctx, arg0, called, size);
 				}
@@ -648,14 +648,14 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 static void
 x86_generate(writer *out, ir_program p, arena *arena)
 {
-	symbol_table symtab = p.symtab;
+	global_table symtab = p.symtab;
 	isize max_token_count = 1024 * 1024;
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
 	print_cstr(out, "section .text\n");
-	symbol_id sym_id = symtab.section[SECTION_TEXT];
+	global_id sym_id = symtab.section[SECTION_TEXT];
 	while (sym_id.value != 0) {
-		symbol *sym = &symtab.symbols[sym_id.value];
+		global *sym = &symtab.globals[sym_id.value];
 		ir_function *ir_func = &p.funcs[sym_id.value];
 
 		//
@@ -879,8 +879,8 @@ x86_generate(writer *out, ir_program p, arena *arena)
 				case X86_SYM:
 				case X86_DISP_SYM:
 					{
-						ASSERT(value < symtab.symbol_count);
-						symbol *sym = &symtab.symbols[value];
+						ASSERT(value < symtab.global_count);
+						global *sym = &symtab.globals[value];
 						if (sym->name.length > 0) {
 							print_str(out, sym->name);
 						} else {
@@ -926,13 +926,13 @@ next:
 
 	// Print the remaining sections
 	for (isize j = 0; j < SECTION_COUNT; j++) {
-		symbol_id sym_id = symtab.section[j];
+		global_id sym_id = symtab.section[j];
 		if (sym_id.value == 0) {
 			continue;
 		}
 
 		if (j == SECTION_TEXT) {
-			// We print the text section again to print the symbol
+			// We print the text section again to print the global
 			// declarations, like `global main`.
 			print_cstr(out, "section .text\n");
 		} else if (j == SECTION_DATA) {
@@ -947,7 +947,7 @@ next:
 		}
 
 		while (sym_id.value != 0) {
-			symbol *sym = &symtab.symbols[sym_id.value];
+			global *sym = &symtab.globals[sym_id.value];
 			if (sym->linkage == LINK_STATIC) {
 				print_cstr(out, "static ");
 				print_str(out, sym->name);
@@ -972,7 +972,7 @@ next:
 				}
 
 				if (j == SECTION_DATA || j == SECTION_RODATA) {
-					// NOTE: Inside data or rodata section, symbols contain byte data
+					// NOTE: Inside data or rodata section, globals contain byte data
 					if (sym->data) {
 						print_cstr(out, ": db ");
 						u8 *byte = sym->data;
@@ -991,7 +991,7 @@ next:
 						print_cstr(out, " db 0\n");
 					}
 				} else if (j == SECTION_BSS) {
-					// NOTE; Inside bss section, symbols have no data
+					// NOTE; Inside bss section, globals have no data
 					print_cstr(out, " resb ");
 					print_hex(out, sym->size);
 					print_cstr(out, "\n");
