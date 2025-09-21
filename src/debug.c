@@ -425,8 +425,13 @@ print_ast(ast_pool *pool)
 }
 
 static void
-print_ir_inst(ir_inst *inst, u32 i)
+print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 {
+	if (ref_count[i] > 1) {
+		printf("%%%d", i);
+		return;
+	}
+
 	u32 dst = i;
 	i32 *args = inst[i].args;
 	u32 size = inst[i].size;
@@ -447,7 +452,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 		printf("(builtin.%d %s)", size, get_builtin_str(args[0]));
 		break;
 	case IR_COPY:
-		print_ir_inst(inst, args[0]);
+		print_ir_inst(inst, args[0], ref_count);
 		break;
 	case IR_ALLOC:
 		printf("(%%%d = alloc.%d %d %d)", dst, size, args[0], args[1]);
@@ -483,9 +488,9 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_FLT:
 	case IR_FLE:
 		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
-		print_ir_inst(inst, args[0]);
+		print_ir_inst(inst, args[0], ref_count);
 		printf(" ");
-		print_ir_inst(inst, args[1]);
+		print_ir_inst(inst, args[1], ref_count);
 		printf(")");
 		break;
 	case IR_JMP:
@@ -494,7 +499,7 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_JIZ:
 	case IR_JNZ:
 		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
-		print_ir_inst(inst, args[0]);
+		print_ir_inst(inst, args[0], ref_count);
 		printf(" L%d)", args[1]);
 		break;
 	case IR_LOAD:
@@ -509,16 +514,16 @@ print_ir_inst(ir_inst *inst, u32 i)
 	case IR_FRET:
 	case IR_FCOPY:
 		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
-		print_ir_inst(inst, args[0]);
+		print_ir_inst(inst, args[0], ref_count);
 		printf(")");
 		break;
 	case IR_CALL:
 		printf("(call.%d ", size);
-		print_ir_inst(inst, args[0]);
+		print_ir_inst(inst, args[0], ref_count);
 
 		for (isize j = args[1]; j; j = inst[j].args[1]) {
 			printf(" %d", inst[j].size);
-			print_ir_inst(inst, inst[j].args[0]);
+			print_ir_inst(inst, inst[j].args[0], ref_count);
 		}
 
 		printf(")");
@@ -532,20 +537,24 @@ print_ir_inst(ir_inst *inst, u32 i)
 	}
 }
 
+static i32 *get_ref_count(ir_inst *inst, isize inst_count, arena *perm);
+
 static void
 print_ir_program(ir_program program)
 {
-	for (isize i = 0; i < program.func_count; i++) {
+	for (isize func_id = 1; func_id < program.func_count; func_id++) {
 		arena *temp = new_arena(4096);
 
-		ir_function *func = &program.funcs[i];
-		printf("func[%ld]:\n", i);
+		ir_function *func = &program.funcs[func_id];
+		printf("func[%ld]:\n", func_id);
 
-		ir_inst_iter iter = {func};
-		while (next_inst(&iter)) {
-			printf("\t%%%zd = ", iter.index);
-			print_ir_inst(func->insts, iter.index);
-			printf("\n");
+		i32 *ref_count = get_ref_count(func->insts, func->inst_count, temp);
+		for (isize i = 0; i < func->inst_count; i++) {
+			if (ref_count[i] == 0 && func->insts[i].opcode != IR_NOP) {
+				printf("\t%%%zd = ", i);
+				print_ir_inst(func->insts, i, ref_count);
+				printf("\n");
+			}
 		}
 
 		free(temp);
