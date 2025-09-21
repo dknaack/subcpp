@@ -85,7 +85,7 @@ eval_ast(ast_pool *pool, ast_id node_id)
 		} break;
 	case AST_EXPR_SIZEOF:
 		{
-			type_id type = get_type_id(pool, children[0]);
+			type_id type = find_type_id(pool, children[0]);
 			result = get_node_size(pool, type);
 		} break;
 	case AST_EXPR_CAST:
@@ -340,7 +340,7 @@ check_node(sema_context ctx, ast_id node_id)
 	}
 
 	ast_node node = get_node(pool, node_id);
-	type_id node_type = get_type_id(pool, node_id);
+	type_id node_type = node.info.type;
 
 	ast_id children[3] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
@@ -572,7 +572,7 @@ check_node(sema_context ctx, ast_id node_id)
 			ast_id child_id = children[1];
 			while (param_id.value != 0 && child_id.value != 0) {
 				type_id child_type = check_node(ctx, child_id);
-				type_id param_type = get_type_id(pool, param_id);
+				type_id param_type = find_type_id(pool, param_id);
 				if (!are_compatible(ctx, param_type, child_type)) {
 					ast_node child_node = get_node(pool, child_id);
 					errorf(child_node.token.loc, "Invalid parameter type");
@@ -621,12 +621,10 @@ check_node(sema_context ctx, ast_id node_id)
 					(int)node.token.value.length, node.token.value.at);
 			} else {
 				pool->nodes[node_id.value].info.ref = origin;
-				node_type = get_type_id(pool, origin);
+				node_type = find_type_id(pool, origin);
 				// TODO: Ensure that declaration is compatible with this node,
 				// i.e. this is not a typedef declaration.
 			}
-
-			node_type.value = 0;
 		} break;
 	case AST_EXPR_LITERAL:
 		{
@@ -681,7 +679,7 @@ check_node(sema_context ctx, ast_id node_id)
 			str member_name = node.token.value;
 			ast_id member_id = get_member(pool, operand_type_id, member_name);
 			if (member_id.value != 0) {
-				node_type = get_type_id(pool, member_id);
+				node_type = find_type_id(pool, member_id);
 			} else {
 				errorf(node.token.loc, "Member '%.*s' does not exist",
 					member_name.length, member_name.at);
@@ -756,6 +754,7 @@ check_node(sema_context ctx, ast_id node_id)
 			ASSERT(node_type.value != 0);
 
 			ast_id intern_id = intern_node(ctx, node, node_id);
+			pool->nodes[node_id.value].info.ref = intern_id;
 			if (intern_id.value != node_id.value) {
 				// TODO: Ensure that the type of the old declaration is
 				// compatible with the current declaration.
@@ -854,14 +853,8 @@ check_node(sema_context ctx, ast_id node_id)
 	}
 
 	// Identifiers should reference their declaration, not their type
-	if (node_type.value != 0) {
-		// These AST nodes do not allow types:
-		ASSERT(node.kind != AST_EXPR_IDENT);
-		ASSERT(node.kind != AST_DECL);
-		ASSERT(node.kind != AST_EXTERN_DEF);
-		ASSERT(node.kind != AST_STMT_SWITCH);
-		ASSERT(node.kind != AST_STMT_CASE);
-
+	if (node_type.value != 0 && has_type(&node))
+	{
 		set_type(pool, node_id, node_type);
 	}
 

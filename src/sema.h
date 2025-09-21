@@ -75,16 +75,64 @@ static b32 is_compound_type(ast_node_kind kind)
 
 static isize get_node_alignment(ast_pool *p, type_id type);
 
+static b32
+has_type(ast_node *node)
+{
+	return node->kind != AST_EXPR_IDENT
+		&& node->kind != AST_EXTERN_DEF
+		&& node->kind != AST_DECL
+		&& node->kind != AST_STMT_SWITCH
+		&& node->kind != AST_STMT_CASE;
+}
+
+static b32
+has_ref(ast_node *node)
+{
+	return node->kind == AST_EXPR_IDENT
+		|| node->kind == AST_EXTERN_DEF
+		|| node->kind == AST_DECL;
+}
+
 static type_id
 get_type_id(ast_pool *pool, ast_id id)
 {
-	type_id result = pool->nodes[id.value].info.type;
+	ast_node *node = &pool->nodes[id.value];
+	type_id result = node->info.type;
+	ASSERT(has_type(node));
+	return result;
+}
 
-	// Identifiers do not point to their type, which is why we first extract
-	// the declaration. The declaration then points to the type of the
-	// identifier.
-	if (result.value != pool->nodes[result.value].info.type.value) {
-		result = pool->nodes[result.value].info.type;
+static ast_id
+find_decl(ast_pool *pool, ast_id id)
+{
+	ast_id result = {0};
+
+	ast_node *node = &pool->nodes[id.value];
+	if (has_ref(node)) {
+		if (node->info.ref.value != id.value) {
+			node->info.ref = find_decl(pool, node->info.ref);
+		}
+
+		result = node->info.ref;
+	} else {
+		ASSERT(!"Invalid node kind");
+	}
+
+	return result;
+}
+
+static type_id
+find_type_id(ast_pool *pool, ast_id id)
+{
+	type_id result = {0};
+
+	ast_node *node = &pool->nodes[id.value];
+	if (has_type(node)) {
+		result = node->info.type;
+	} else if (has_ref(node)) {
+		id = find_decl(pool, id);
+		node = &pool->nodes[id.value];
+		result.value = node->children.value;
 	}
 
 	return result;
@@ -93,15 +141,17 @@ get_type_id(ast_pool *pool, ast_id id)
 static ast_node
 get_type(ast_pool *p, type_id id)
 {
-	ast_id tmp = {id.value};
-	ast_node result = get_node(p, tmp);
-	return result;
+	ast_node *node = &p->nodes[id.value];
+	ASSERT(has_type(node));
+	return *node;
 }
 
 static void
-set_type(ast_pool *pool, ast_id node_id, type_id type)
+set_type(ast_pool *p, ast_id node_id, type_id type)
 {
-	pool->nodes[node_id.value].info.type = type;
+	ast_node *node = &p->nodes[node_id.value];
+	ASSERT(has_type(node));
+	node->info.type = type;
 }
 
 static ast_id
