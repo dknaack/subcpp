@@ -248,7 +248,8 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 		} break;
 	case IR_FUNC:
 		{
-			ASSERT(!"Emit function");
+			mach_token src = make_global(ctx->global_count + arg0);
+			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_SYM, src);
 		} break;
 	case IR_PARAM:
 		{
@@ -584,7 +585,7 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 					called_kind = X86_SYM;
 					//ASSERT(called.value < ctx->symtab->global_count);
 				} else {
-					x86_select_inst(ctx, arg0, called, size);
+					x86_select_inst(ctx, arg0, called, 8);
 				}
 
 				isize param_count = 0;
@@ -669,6 +670,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		ctx.max_token_count = max_token_count;
 		ctx.vreg_count = X86_REGISTER_COUNT;
 		ctx.globals = p.globals;
+		ctx.global_count = p.global_count;
 
 		i32 curr_block = 0;
 		basic_block *blocks = ALLOC(arena, ir_func->label_count, basic_block);
@@ -880,13 +882,17 @@ x86_generate(writer *out, ir_program p, arena *arena)
 				case X86_SYM:
 				case X86_DISP_SYM:
 					{
-						//ASSERT(value < symtab.global_count);
-						global *global = &ctx.globals[value];
-						if (global->name.length > 0) {
-							print_str(out, global->name);
-						} else {
-							print_cstr(out, "L#");
-							print_u32(out, value);
+						if (value < ctx.global_count) {
+							global *global = &ctx.globals[value];
+							if (global->name.length > 0) {
+								print_str(out, global->name);
+							} else {
+								print_cstr(out, "L#");
+								print_u32(out, value);
+							}
+						} else if (value - ctx.global_count < p.func_count) {
+							ir_function *func = &p.funcs[value - ctx.global_count];
+							print_str(out, func->name);
 						}
 					} break;
 				default:

@@ -117,6 +117,7 @@ typedef struct {
 	ir_inst *inst;
 	mach_token *tokens;
 	global *globals;
+	i32 global_count;
 	i32 token_count;
 	i32 max_token_count;
 	i32 vreg_count;
