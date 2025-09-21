@@ -246,6 +246,10 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 			mach_token src = make_global(arg0);
 			x86_emit2(ctx, X86_MOV, size, X86_REG, dst, X86_SYM, src);
 		} break;
+	case IR_FUNC:
+		{
+			ASSERT(!"Emit function");
+		} break;
 	case IR_PARAM:
 		{
 			// TODO: Set the correct size of the parameters
