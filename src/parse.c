@@ -487,8 +487,7 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 		}
 
 		token token = get_token(ctx);
-		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
-		result.first = result.last = new_node_with_flags(pool, kind, qualifiers, token, ast_nil);
+		result.first = result.last = new_node_with_flags(pool, AST_DECL, qualifiers, token, ast_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, qualifiers, s);
@@ -729,6 +728,12 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		}
 	}
 
+	// Top-level declarations are extern by default unless static is present
+	if ((flags & PARSE_EXTERN_DEF) && !(qualifiers & AST_STATIC)) {
+		qualifiers |= AST_EXTERN;
+	}
+
+	// Set the base type to int if it was not explicitly provided
 	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
 	if (base_type.value == 0 && (qualifiers & int_mask) != 0) {
 		qualifier_token.kind = TOKEN_INT;
@@ -744,8 +749,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	}
 
 	if (ctx->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_node_kind kind = (flags & PARSE_EXTERN_DEF) ? AST_EXTERN_DEF : AST_DECL;
-		ast_id decl = new_node(pool, kind, ctx->peek[0], base_type);
+		ast_id decl = new_node(pool, AST_DECL, ctx->peek[0], base_type);
 		append_node(pool, &list, decl);
 		return list;
 	}
@@ -762,7 +766,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			syntax_error(ctx, "Expected declaration");
 		}
 
-		b32 has_ident = (decl_node.kind == AST_DECL || decl_node.kind == AST_EXTERN_DEF);
+		b32 has_ident = (decl_node.kind == AST_DECL);
 		if (has_ident) {
 			ASSERT(decl_node.children.value != decl.value);
 			b32 is_type = (qualifiers & AST_TYPEDEF) != 0;
@@ -1059,7 +1063,7 @@ parse(char *filename, arena *perm)
 		}
 
 		ast_node decl = get_node(&pool, decl_list.first);
-		ASSERT(decl.kind == AST_EXTERN_DEF);
+		ASSERT(decl.flags & (AST_EXTERN | AST_STATIC));
 		ASSERT(decl_list.first.value != decl.children.value);
 
 		ast_id type_id = decl.children;
