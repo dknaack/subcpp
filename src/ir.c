@@ -11,7 +11,7 @@ is_func_def(ast_pool *pool, ast_id node_id)
 	b32 result = false;
 
 	ast_node node = get_node(pool, node_id);
-	if (node.kind == AST_EXTERN_DEF) {
+	if (node.kind == AST_DECL && (node.flags & (AST_EXTERN | AST_STATIC))) {
 		ast_node type = get_node(pool, node.children);
 		ast_id definition = type.next;
 		if (type.kind == AST_TYPE_FUNC && definition.value != 0) {
@@ -29,14 +29,9 @@ is_global(ast_pool *pool, ast_id node_id)
 
 	ast_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_EXTERN_DEF:
-		result = !is_func_def(pool, node_id);
-		break;
 	case AST_DECL:
-		if (node.children.value != 0) {
-			ast_node type = get_node(pool, node.children);
-			ast_node_flags global_flags = (AST_EXTERN | AST_STATIC);
-			result = (type.kind == AST_TYPE_FUNC || (node.flags & global_flags));
+		if (node.flags & (AST_EXTERN | AST_STATIC)) {
+			result = !is_func_def(pool, node_id);
 		}
 		break;
 	case AST_EXPR_LITERAL:
@@ -485,26 +480,6 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		} break;
 	case AST_DECL:
 		{
-			ast_id decl_id = find_decl(pool, node_id);
-			ASSERT(ctx->symbol_ids[decl_id.value] == 0);
-			type_id type = get_type_id(pool, node_id);
-			isize size = get_node_size(pool, type);
-			result = ir_emit_alloca(ctx, size);
-
-			if (children[1].value != 0) {
-				ast_node init_expr = get_node(pool, children[1]);
-				if (init_expr.kind == AST_INIT) {
-					translate_initializer(ctx, children[1], result);
-				} else {
-					u32 value = translate_node(ctx, children[1], false);
-					ir_store(ctx, result, value, type);
-				}
-			}
-
-			ctx->symbol_ids[decl_id.value] = result;
-		} break;
-	case AST_EXTERN_DEF:
-		{
 			i32 *symbol_ids = &ctx->symbol_ids[node_id.value];
 			ast_node type = get_node(pool, children[0]);
 			if (node.flags & AST_TYPEDEF) {
@@ -586,7 +561,23 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					ctx->max_inst_count = 0;
 				}
 			} else {
-				ASSERT(!"Unreachable");
+				ast_id decl_id = find_decl(pool, node_id);
+				ASSERT(ctx->symbol_ids[decl_id.value] == 0);
+				type_id type = get_type_id(pool, node_id);
+				isize size = get_node_size(pool, type);
+				result = ir_emit_alloca(ctx, size);
+
+				if (children[1].value != 0) {
+					ast_node init_expr = get_node(pool, children[1]);
+					if (init_expr.kind == AST_INIT) {
+						translate_initializer(ctx, children[1], result);
+					} else {
+						u32 value = translate_node(ctx, children[1], false);
+						ir_store(ctx, result, value, type);
+					}
+				}
+
+				ctx->symbol_ids[decl_id.value] = result;
 			}
 		} break;
 	case AST_INIT:
@@ -888,8 +879,9 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ast_node node_type = get_type(pool, type_id);
 
 			// Global variables must be loaded as globals first
-			ast_node decl = get_node(pool, decl_id);
-			if (decl.kind == AST_EXTERN_DEF) {
+			if (is_func_def(pool, decl_id)) {
+				result = ir_emit1(ctx, size, IR_FUNC, result);
+			} else if (is_global(pool, decl_id)) {
 				result = ir_emit1(ctx, size, IR_GLOBAL, result);
 			}
 

@@ -79,7 +79,6 @@ static b32
 has_type(ast_node *node)
 {
 	return node->kind != AST_EXPR_IDENT
-		&& node->kind != AST_EXTERN_DEF
 		&& node->kind != AST_DECL
 		&& node->kind != AST_STMT_SWITCH
 		&& node->kind != AST_STMT_CASE;
@@ -89,7 +88,6 @@ static b32
 has_ref(ast_node *node)
 {
 	return node->kind == AST_EXPR_IDENT
-		|| node->kind == AST_EXTERN_DEF
 		|| node->kind == AST_DECL;
 }
 

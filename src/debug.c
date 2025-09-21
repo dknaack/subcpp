@@ -173,7 +173,6 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 		break;
 	case AST_NONE:
 		break;
-	case AST_EXTERN_DEF:
 	case AST_DECL:
 		printf("%.*s: ", (int)node.token.value.length, node.token.value.at);
 		print_ast_node(pool, node.children, indent);

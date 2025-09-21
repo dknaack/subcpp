@@ -165,7 +165,6 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 		hash(&h, node.token.value.at, node.token.value.length);
 		break;
 	case AST_DECL:
-	case AST_EXTERN_DEF:
 	case AST_TYPE_IDENT:
 	case AST_EXPR_IDENT:
 		is_ident = true;
@@ -747,7 +746,6 @@ check_node(sema_context ctx, ast_id node_id)
 			node_type = lhs;
 		} break;
 	case AST_DECL:
-	case AST_EXTERN_DEF:
 		{
 			b32 has_definition = (children[1].value != 0);
 			node_type = check_node(ctx, children[0]);
