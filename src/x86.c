@@ -652,6 +652,29 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 }
 
 static void
+x86_emit_symbol(writer *out, str name, linkage linkage)
+{
+	switch (linkage) {
+	case LINK_STATIC:
+		print_cstr(out, "static ");
+		print_str(out, name);
+		print_cstr(out, "\n");
+		break;
+	case LINK_EXTERN:
+		print_cstr(out, "extern ");
+		print_str(out, name);
+		print_cstr(out, "\n");
+		break;
+	default:
+		if (name.length > 0) {
+			print_cstr(out, "global ");
+			print_str(out, name);
+			print_cstr(out, "\n");
+		}
+	}
+}
+
+static void
 x86_generate(writer *out, ir_program p, arena *arena)
 {
 	isize max_token_count = 1024 * 1024;
@@ -660,6 +683,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 	print_cstr(out, "section .text\n");
 	for (isize func_id = 0; func_id < p.func_count; func_id++) {
 		ir_function *ir_func = &p.funcs[func_id];
+		x86_emit_symbol(out, ir_func->name, ir_func->linkage);
 
 		//
 		// 1. Instruction selection
@@ -956,25 +980,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 			}
 		}
 
-		linkage linkage = global->linkage;
-		switch (linkage) {
-		case LINK_STATIC:
-			print_cstr(out, "static ");
-			print_str(out, global->name);
-			print_cstr(out, "\n");
-			break;
-		case LINK_EXTERN:
-			print_cstr(out, "extern ");
-			print_str(out, global->name);
-			print_cstr(out, "\n");
-			break;
-		default:
-			if (global->name.length > 0) {
-				print_cstr(out, "global ");
-				print_str(out, global->name);
-				print_cstr(out, "\n");
-			}
-		}
+		x86_emit_symbol(out, global->name, global->linkage);
 
 		if (global->size > 0) {
 			if (global->name.length > 0) {
