@@ -428,6 +428,22 @@ x86_get_register_name(x86_register reg, u32 size)
 			return "xmm6";
 		case X86_XMM7:
 			return "xmm7";
+		case X86_XMM8:
+			return "xmm8";
+		case X86_XMM9:
+			return "xmm9";
+		case X86_XMM10:
+			return "xmm10";
+		case X86_XMM11:
+			return "xmm11";
+		case X86_XMM12:
+			return "xmm12";
+		case X86_XMM13:
+			return "xmm13";
+		case X86_XMM14:
+			return "xmm14";
+		case X86_XMM15:
+			return "xmm15";
 		default:
 			ASSERT(!"Invalid register");
 			return "(invalid)";
@@ -483,6 +499,22 @@ x86_get_register_name(x86_register reg, u32 size)
 			return "xmm6";
 		case X86_XMM7:
 			return "xmm7";
+		case X86_XMM8:
+			return "xmm8";
+		case X86_XMM9:
+			return "xmm9";
+		case X86_XMM10:
+			return "xmm10";
+		case X86_XMM11:
+			return "xmm11";
+		case X86_XMM12:
+			return "xmm12";
+		case X86_XMM13:
+			return "xmm13";
+		case X86_XMM14:
+			return "xmm14";
+		case X86_XMM15:
+			return "xmm15";
 		default:
 			ASSERT(!"Invalid register");
 			return "(invalid)";
