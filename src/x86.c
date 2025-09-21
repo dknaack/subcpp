@@ -580,8 +580,9 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 				}
 			} else {
 				x86_operand_kind called_kind = X86_REG;
-				if (inst[arg0].opcode == IR_GLOBAL) {
-					called = make_global(inst[arg0].args[0]);
+				if (inst[arg0].opcode == IR_FUNC) {
+					i32 func_id = inst[arg0].args[0];
+					called = make_global(ctx->global_count + func_id);
 					called_kind = X86_SYM;
 					//ASSERT(called.value < ctx->symtab->global_count);
 				} else {
