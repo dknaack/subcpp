@@ -6,15 +6,14 @@ new_label(ir_context *ctx)
 }
 
 static b32
-is_func_def(ast_pool *pool, ast_id node_id)
+is_func(ast_pool *pool, ast_id node_id)
 {
 	b32 result = false;
 
 	ast_node node = get_node(pool, node_id);
 	if (node.kind == AST_DECL && (node.flags & (AST_EXTERN | AST_STATIC))) {
 		ast_node type = get_node(pool, node.children);
-		ast_id definition = type.next;
-		if (type.kind == AST_TYPE_FUNC && definition.value != 0) {
+		if (type.kind == AST_TYPE_FUNC) {
 			result = true;
 		}
 	}
@@ -31,7 +30,7 @@ is_global(ast_pool *pool, ast_id node_id)
 	switch (node.kind) {
 	case AST_DECL:
 		if (node.flags & (AST_EXTERN | AST_STATIC)) {
-			result = !is_func_def(pool, node_id);
+			result = !is_func(pool, node_id);
 		}
 		break;
 	case AST_EXPR_LITERAL:
@@ -484,11 +483,13 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ast_node type = get_node(pool, children[0]);
 			if (node.flags & AST_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
-			} else if (is_func_def(pool, node_id)) {
+			} else if (is_func(pool, node_id)) {
 				ASSERT(*symbol_ids < ctx->program->func_count);
 				ir_function *func = &ctx->program->funcs[*symbol_ids];
 				func->name = node.token.value;
 				func->linkage = get_linkage(node.flags);
+				func->insts = NULL;
+				func->inst_count = 0;
 
 				if (children[1].value != 0) {
 					ctx->insts = calloc(ctx->max_inst_count, sizeof(*ctx->insts));
@@ -522,6 +523,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					func->insts = ctx->insts;
 					func->inst_count = ctx->inst_count;
 					func->label_count = ctx->label_count;
+					ASSERT(func->insts);
 
 					// Reset the context
 					ctx->insts = NULL;
@@ -563,7 +565,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			} else {
 				ast_id decl_id = find_decl(pool, node_id);
 				ASSERT(ctx->symbol_ids[decl_id.value] == 0);
-				type_id type = get_type_id(pool, node_id);
+				type_id type = find_type_id(pool, decl_id);
 				isize size = get_node_size(pool, type);
 				result = ir_emit_alloca(ctx, size);
 
@@ -875,14 +877,13 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			result = ctx->symbol_ids[decl_id.value];
 
 			type_id type_id = find_type_id(pool, node_id);
-			isize size = get_node_size(pool, type_id);
 			ast_node node_type = get_type(pool, type_id);
 
 			// Global variables must be loaded as globals first
-			if (is_func_def(pool, decl_id)) {
-				result = ir_emit1(ctx, size, IR_FUNC, result);
+			if (is_func(pool, decl_id)) {
+				result = ir_emit1(ctx, 8, IR_FUNC, result);
 			} else if (is_global(pool, decl_id)) {
-				result = ir_emit1(ctx, size, IR_GLOBAL, result);
+				result = ir_emit1(ctx, 8, IR_GLOBAL, result);
 			}
 
 			if (!is_lvalue && !is_compound_type(node_type.kind)) {
@@ -1376,7 +1377,7 @@ translate(ast_pool *pool, arena *arena)
 	i32 *symbol_ids = ALLOC(arena, pool->size, i32);
 	for (isize i = 1; i < pool->size; i++) {
 		ast_id node_id = {i};
-		if (is_func_def(pool, node_id)) {
+		if (is_func(pool, node_id)) {
 			symbol_ids[node_id.value] = func_count++;
 		} else if (is_global(pool, node_id)) {
 			symbol_ids[node_id.value] = global_count++;
