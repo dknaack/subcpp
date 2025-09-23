@@ -13,11 +13,6 @@ typedef enum {
 	// is the initializer. The identifier is stored in the token of the node.
 	AST_DECL,
 
-	// An external declaration, like a function prototype or a global variable.
-	// The node contains at most two children. The first child is the type,
-	// the second child contains the initializer or the function body.
-	AST_EXTERN_DEF,
-
 	// An enumerator in an enum declaration. The first child is the value of the
 	// enumerator, the identifier is stored in the token of the node.
 	AST_ENUMERATOR,
