@@ -237,38 +237,6 @@ typedef struct {
 	i32 case_label;
 } ir_context;
 
-typedef struct {
-	ir_function *func;
-	ir_inst *inst;
-	isize block;
-	isize index;
-} ir_inst_iter;
-
-static b32
-next_inst(ir_inst_iter *iter)
-{
-	b32 result = true;
-
-#if 0
-	if (!iter->inst) {
-		iter->block = iter->func->blocks;
-		iter->inst = iter->func->insts + iter->block->begin;
-		iter->index = 0;
-	} else if (iter->inst < iter->func->insts + iter->block->end) {
-		iter->inst++;
-		iter->index++;
-	} else if (iter->block < iter->func->blocks + iter->func->block_count) {
-		iter->block++;
-		iter->inst = iter->func->insts + iter->block->begin;
-		iter->index = iter->block->begin;
-	} else {
-		result = false;
-	}
-#endif
-
-	return result;
-}
-
 static b32
 is_comparison_opcode(ir_opcode ir_opcode)
 {
