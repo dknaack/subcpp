@@ -208,8 +208,7 @@ regalloc(mach_token *tokens, isize token_count,
 			}
 
 			i32 vreg = ranges[j].vreg;
-			if (vreg >= mreg_count) {
-				ASSERT(!result[vreg].is_stack);
+			if (!result[vreg].is_stack) {
 				i32 mreg = result[vreg].value;
 				is_active[mreg] = false;
 			}

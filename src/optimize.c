@@ -5,6 +5,17 @@ typedef struct {
 	isize register_count;
 } pointer_info;
 
+typedef struct {
+	ir_inst *insts;
+	ir_block *blocks;
+	i32 *incomplete_phis;
+	i32 *current_def;
+	b8 *sealed_blocks;
+
+	isize block_count;
+	isize var_count;
+} ssa_context;
+
 static u32
 add(u32 a, u32 b)
 {
@@ -70,6 +81,42 @@ join_pointer_sets(pointer_info *info, isize dst, isize src)
 	} else {
 		join_pointer_sets(info, pa, pb);
 	}
+}
+
+static i32
+new_phi(ssa_context *ctx, i32 block_id)
+{
+	i32 result = 0;
+	return result;
+}
+
+static i32
+read_var(ssa_context *ctx, isize var_id, isize block_id)
+{
+	i32 value = 0;
+	isize offset = block_id * ctx->var_count + var_id;
+
+	if (!ctx->sealed_blocks[block_id]) {
+		value = new_phi(ctx, block_id);
+		ctx->incomplete_phis[offset] = value;
+	} else if (ctx->blocks[block_id].pred_count == 1) {
+		isize pred_id = ctx->blocks[block_id].pred[0];
+		value = read_var(ctx, var_id, pred_id);
+	} else {
+		value = new_phi(ctx, block_id);
+		ctx->current_def[offset] = value;
+
+		isize pred_count = ctx->blocks[block_id].pred_count;
+		while (pred_count-- > 0) {
+			isize pred_id = ctx->blocks[block_id].pred[pred_count];
+			i32 pred_value = read_var(ctx, var_id, pred_id);
+			// TODO: Append operand
+			(void)pred_value;
+		}
+	}
+
+	ctx->current_def[offset] = value;
+	return value;
 }
 
 static void
