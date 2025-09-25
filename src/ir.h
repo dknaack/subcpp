@@ -2,6 +2,9 @@ typedef enum {
 	// No operation, used during optimization
 	IR_NOP,
 
+	// Phi node
+	IR_PHI,
+
 	// Allocates on the stack
 	// - args[0]: size
 	// - args[1]: offset

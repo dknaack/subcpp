@@ -25,6 +25,8 @@ get_ir_opcode_str(ir_opcode opcode)
 	switch (opcode) {
 	case IR_NOP:
 		return "nop";
+	case IR_PHI:
+		return "phi";
 
 	// declarations
 	case IR_ALLOC:
@@ -438,6 +440,13 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 	switch (inst[i].opcode) {
 	case IR_NOP:
 		printf("nop");
+		break;
+	case IR_PHI:
+		printf("(phi ");
+		for (i32 j = i; j; j = inst[j].args[1]) {
+			printf("%d, ", inst[j].args[0]);
+		}
+		printf(")");
 		break;
 	case IR_GLOBAL:
 		printf("(global.%d %d)", size, args[0]);
