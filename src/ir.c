@@ -520,7 +520,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					// translate the function body
 					translate_node(ctx, children[1], false);
 
-					func->insts = ctx->insts;
+					func->insts = realloc(ctx->insts, ctx->inst_count);
 					func->inst_count = ctx->inst_count;
 					func->label_count = ctx->label_count;
 					ASSERT(func->insts);
