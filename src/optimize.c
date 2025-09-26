@@ -144,6 +144,32 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 }
 
 static void
+remove_copy_insts(ir_inst *insts, isize inst_count)
+{
+	for (isize i = 0; i < inst_count; i++) {
+		ir_opcode_info info = get_opcode_info(insts[i].opcode);
+
+		i32 arg0 = insts[i].args[0];
+		if (info.usage[0] != 0 && insts[arg0].opcode == IR_COPY) {
+			insts[i].args[0] = insts[arg0].args[0];
+			ASSERT(insts[insts[i].args[0]].opcode != IR_NOP);
+		}
+
+		i32 arg1 = insts[i].args[1];
+		if (info.usage[1] != 0 && insts[arg1].opcode == IR_COPY) {
+			insts[i].args[1] = insts[arg1].args[0];
+			ASSERT(insts[insts[i].args[1]].opcode != IR_NOP);
+		}
+	}
+
+	for (isize i = 0; i < inst_count; i++) {
+		if (insts[i].opcode == IR_COPY) {
+			insts[i].opcode = IR_NOP;
+		}
+	}
+}
+
+static void
 optimize(ir_program program, arena *arena)
 {
 	for (isize func_id = 0; func_id < program.func_count; func_id++) {
@@ -321,15 +347,12 @@ optimize(ir_program program, arena *arena)
 					insts[i].opcode = IR_COPY;
 					insts[i].args[0] = value;
 					insts[i].args[1] = 0;
-
-					printf("%zd: store %d -> %d\n", i, var_id, value);
 				} break;
 			case IR_LOAD:
 				{
 					i32 var_id = insts[i].args[0];
 					insts[i].opcode = IR_COPY;
 					insts[i].args[0] = read_var(&ssa_ctx, var_id, block_id);
-					printf("%zd: load %d -> %d\n", i, var_id, insts[i].args[0]);
 					ASSERT(insts[i].args[0] != 0);
 				} break;
 			case IR_ALLOC:
@@ -343,7 +366,10 @@ optimize(ir_program program, arena *arena)
 			}
 		}
 
+		func->insts = ssa_ctx.insts;
 		func->inst_count = ssa_ctx.inst_count;
+
+		remove_copy_insts(func->insts, func->inst_count);
 
 		//
 		// Constant folding
@@ -429,20 +455,7 @@ optimize(ir_program program, arena *arena)
 			}
 		}
 
-		// Remove register copies from the IR tree
-		for (isize i = 0; i < func->inst_count; i++) {
-			ir_opcode_info info = get_opcode_info(insts[i].opcode);
-
-			u32 arg0 = insts[i].args[0];
-			if (info.usage[0] != 0 && insts[arg0].opcode == IR_COPY) {
-				insts[i].args[0] = insts[arg0].args[0];
-			}
-
-			u32 arg1 = insts[i].args[1];
-			if (info.usage[1] != 0 && insts[arg1].opcode == IR_COPY) {
-				insts[i].args[1] = insts[arg1].args[0];
-			}
-		}
+		remove_copy_insts(func->insts, func->inst_count);
 
 		// Remove unused registers
 		i32 *ref_count = get_ref_count(insts, func->inst_count, arena);
