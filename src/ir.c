@@ -88,8 +88,9 @@ ir_emit1(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0)
 		ASSERT(0 <= arg0 && arg0 < ctx->program->global_count);
 	}
 
-	// Non-constants cannot have zero as their argument
-	if (opcode != IR_CONST) {
+	// Only constants can have zero as their argument and
+	// the first instruction is a label with zero
+	if (opcode != IR_CONST && ctx->inst_count > 1) {
 		ASSERT(arg0 != 0);
 	}
 
@@ -494,7 +495,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				if (children[1].value != 0) {
 					ctx->insts = calloc(ctx->max_inst_count, sizeof(*ctx->insts));
 					ctx->inst_count = 0;
-					ctx->label_count = 1;
+					ctx->label_count = 0;
 
 					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
