@@ -375,11 +375,15 @@ optimize(ir_program program, arena *arena)
 		// Constant folding
 		//
 
+		block_id = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			i32 arg0 = insts[i].args[0];
 			i32 arg1 = insts[i].args[1];
 
 			switch (insts[i].opcode) {
+			case IR_LABEL:
+				block_id = insts[i].args[0];
+				break;
 			case IR_ADD:
 				if (insts[arg0].opcode == IR_CONST
 					&& insts[arg1].opcode == IR_CONST)
@@ -456,12 +460,40 @@ optimize(ir_program program, arena *arena)
 					insts[i].args[0] = insts[arg0].args[0] % insts[arg1].args[0];
 				}
 				break;
+			case IR_EQ:
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST)
+				{
+					insts[i].opcode = IR_CONST;
+					insts[i].args[0] = (insts[arg0].args[0] == insts[arg1].args[0]);
+				}
+				break;
 			case IR_JIZ:
 				if (insts[arg0].opcode == IR_CONST
 					&& insts[arg0].args[0] == 0)
 				{
 					insts[i].opcode = IR_JMP;
 					insts[i].args[0] = insts[i].args[1];
+				}
+				else if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] != 0)
+				{
+					insts[i].opcode = IR_JMP;
+					insts[i].args[0] = block_id + 1;
+				}
+				break;
+			case IR_JNZ:
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] != 0)
+				{
+					insts[i].opcode = IR_JMP;
+					insts[i].args[0] = insts[i].args[1];
+				}
+				else if (insts[arg0].opcode == IR_CONST
+					&& insts[arg0].args[0] == 0)
+				{
+					insts[i].opcode = IR_JMP;
+					insts[i].args[0] = block_id + 1;
 				}
 				break;
 			default:
