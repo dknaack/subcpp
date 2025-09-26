@@ -376,8 +376,8 @@ optimize(ir_program program, arena *arena)
 		//
 
 		for (isize i = 0; i < func->inst_count; i++) {
-			u32 arg0 = insts[i].args[0];
-			u32 arg1 = insts[i].args[1];
+			i32 arg0 = insts[i].args[0];
+			i32 arg1 = insts[i].args[1];
 
 			switch (insts[i].opcode) {
 			case IR_ADD:
@@ -385,21 +385,15 @@ optimize(ir_program program, arena *arena)
 					&& insts[arg1].opcode == IR_CONST)
 				{
 					insts[i].opcode = IR_CONST;
-					insts[arg1].opcode = IR_NOP;
-					insts[arg0].opcode = IR_NOP;
 					insts[i].args[0] = add(insts[arg0].args[0], insts[arg1].args[0]);
-#if 0
 				} else if (insts[arg0].opcode == IR_CONST
 					&& insts[arg0].args[0] == 0)
 				{
-					insts[arg0].opcode = IR_NOP;
-					insts[i].opcode = IR_MOV;
+					insts[i].opcode = IR_COPY;
 					insts[i].args[0] = i;
-#endif
 				} else if (insts[arg1].opcode == IR_CONST
 					&& insts[arg1].args[0] == 0)
 				{
-					insts[arg1].opcode = IR_NOP;
 					insts[i].opcode = IR_COPY;
 				}
 				break;
@@ -408,8 +402,6 @@ optimize(ir_program program, arena *arena)
 					&& insts[arg1].opcode == IR_CONST)
 				{
 					insts[i].opcode = IR_CONST;
-					insts[arg1].opcode = IR_NOP;
-					insts[arg0].opcode = IR_NOP;
 					insts[i].args[0] = sub(insts[arg0].args[0], insts[arg1].args[0]);
 				} else if (insts[arg1].opcode == IR_CONST
 					&& insts[arg1].args[0] == 0)
@@ -420,32 +412,54 @@ optimize(ir_program program, arena *arena)
 				break;
 			case IR_MUL:
 				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST) {
+					&& insts[arg1].opcode == IR_CONST)
+				{
 					insts[i].opcode = IR_CONST;
-					insts[arg1].opcode = IR_NOP;
-					insts[arg0].opcode = IR_NOP;
 					/* TODO: evaluate depending on the target architecture */
 					insts[i].args[0] = multiply(insts[arg0].args[0], insts[arg1].args[0]);
-#if 0
 				} else if (insts[arg0].opcode == IR_CONST
 					&& insts[arg0].args[0] == 1)
 				{
-					insts[i].opcode = IR_MOV;
+					insts[i].opcode = IR_COPY;
 					insts[i].args[0] = i;
 				} else if (insts[arg1].opcode == IR_CONST
 					&& insts[arg1].args[0] == 1)
 				{
-					insts[i].opcode = IR_MOV;
-					insts[i].args[1] = arg0;
-					insts[i].args[0] = i;
-#endif
+					insts[i].opcode = IR_COPY;
+					insts[i].args[0] = arg1;
+				}
+				break;
+			case IR_DIV:
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST)
+				{
+					// TODO: Handle divide-by-zero error
+					ASSERT(insts[arg1].args[0] != 0);
+
+					insts[i].opcode = IR_CONST;
+					insts[i].args[0] = insts[arg0].args[0] / insts[arg1].args[0];
+				} else if (insts[arg1].opcode == IR_CONST
+					&& insts[arg1].args[0] == 1)
+				{
+					insts[i].opcode = IR_COPY;
+					insts[i].args[0] = arg0;
+				}
+				break;
+			case IR_MOD:
+				if (insts[arg0].opcode == IR_CONST
+					&& insts[arg1].opcode == IR_CONST)
+				{
+					// TODO: Handle divide-by-zero error
+					ASSERT(insts[arg1].args[0] != 0);
+
+					insts[i].opcode = IR_CONST;
+					insts[i].args[0] = insts[arg0].args[0] % insts[arg1].args[0];
 				}
 				break;
 			case IR_JIZ:
 				if (insts[arg0].opcode == IR_CONST
 					&& insts[arg0].args[0] == 0)
 				{
-					insts[arg0].opcode = IR_NOP;
 					insts[i].opcode = IR_JMP;
 					insts[i].args[0] = insts[i].args[1];
 				}
