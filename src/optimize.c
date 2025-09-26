@@ -12,6 +12,8 @@ typedef struct {
 	i32 *current_def;
 	b8 *sealed_blocks;
 
+	isize max_inst_count;
+	isize inst_count;
 	isize block_count;
 	isize var_count;
 } ssa_context;
@@ -86,7 +88,25 @@ join_pointer_sets(pointer_info *info, isize dst, isize src)
 static i32
 new_phi(ssa_context *ctx, i32 block_id)
 {
-	i32 result = 0;
+	i32 result = ctx->inst_count;
+
+	ASSERT(block_id < ctx->block_count);
+	i32 inst_count = ctx->blocks[block_id].pred_count;
+	while (ctx->inst_count + inst_count < ctx->max_inst_count) {
+		ctx->max_inst_count *= 2;
+		ctx->insts = realloc(ctx->insts, ctx->max_inst_count * sizeof(*ctx->insts));
+	}
+
+	for (isize j = 0; j < inst_count; j++) {
+		isize i = result + j;
+		ctx->insts[i].opcode = IR_PHI;
+		if (j + 1 < inst_count) {
+			ctx->insts[i].args[1] = i + 1;
+			ctx->insts[i].args[0] = 0;
+		}
+	}
+
+	ctx->inst_count += inst_count;
 	return result;
 }
 
@@ -95,6 +115,11 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 {
 	i32 value = 0;
 	isize offset = block_id * ctx->var_count + var_id;
+
+	if (ctx->current_def[offset]) {
+		value = ctx->current_def[offset];
+		return value;
+	}
 
 	if (!ctx->sealed_blocks[block_id]) {
 		value = new_phi(ctx, block_id);
@@ -110,8 +135,7 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 		while (pred_count-- > 0) {
 			isize pred_id = ctx->blocks[block_id].pred[pred_count];
 			i32 pred_value = read_var(ctx, var_id, pred_id);
-			// TODO: Append operand
-			(void)pred_value;
+			ctx->insts[value].args[0] = pred_value;
 		}
 	}
 
@@ -134,32 +158,48 @@ optimize(ir_program program, arena *arena)
 		isize block_count = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_JNZ) {
+			if (opcode == IR_LABEL) {
 				block_count++;
 			}
 		}
 
+		ir_opcode prev_opcode = IR_NOP;
 		ir_block *blocks = ALLOC(arena, block_count, ir_block);
 		isize block_index = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_JMP || opcode == IR_JIZ || opcode == IR_JNZ) {
-				blocks[block_index++].end = i + 1;
-				blocks[block_index].begin = i + 1;
-			}
+			if (opcode == IR_LABEL) {
+				block_index = insts[i].args[0];
+				if (i > 0) {
+					blocks[block_index].end = i;
+					if (prev_opcode == IR_JIZ || prev_opcode == IR_JNZ) {
+						blocks[block_index].succ[1] = block_index;
+						blocks[block_index].pred_count++;
+					} else if (prev_opcode != IR_JMP) {
+						blocks[block_index].succ[0] = block_index;
+						blocks[block_index].succ[1] = block_index;
+						blocks[block_index].pred_count++;
+					}
+				}
 
-			if (opcode == IR_JMP) {
+				blocks[block_index].begin = i;
+			} else if (opcode == IR_JMP) {
 				i32 arg0 = insts[i].args[0];
-				blocks[arg0].pred_count++;
-				blocks[block_index - 1].succ[0] = arg0;
-				blocks[block_index - 1].succ[1] = arg0;
+				i32 target = insts[arg0].args[0];
+				ASSERT(insts[arg0].opcode == IR_LABEL);
+				ASSERT(target < block_count);
+				blocks[target].pred_count++;
+				blocks[block_index].succ[0] = target;
+				blocks[block_index].succ[1] = target;
 			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
 				i32 arg1 = insts[i].args[1];
-				blocks[arg1].pred_count++;
-				blocks[block_index].pred_count++;
-				blocks[block_index - 1].succ[0] = block_index;
-				blocks[block_index - 1].succ[1] = arg1;
+				i32 target = insts[arg1].args[0];
+				ASSERT(target < block_count);
+				blocks[target].pred_count++;
+				blocks[block_index].succ[0] = target;
 			}
+
+			prev_opcode = opcode;
 		}
 
 		i32 pred_offset = 0;
@@ -172,15 +212,17 @@ optimize(ir_program program, arena *arena)
 		block_index = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_JMP) {
+			if (opcode == IR_LABEL) {
+				block_index = insts[i].args[0];
+				if (insts[i-1].opcode == IR_JIZ || insts[i-1].opcode == IR_JNZ) {
+				}
+			} else if (opcode == IR_JMP) {
 				i32 arg0 = insts[i].args[0];
 				*--blocks[arg0].pred = block_index;
-				block_index++;
 			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
 				i32 arg1 = insts[i].args[1];
 				*--blocks[arg1].pred = block_index;
 				*--blocks[block_index + 1].pred = block_index;
-				block_index++;
 			}
 		}
 
@@ -240,23 +282,68 @@ optimize(ir_program program, arena *arena)
 		}
 
 		// Mark all registers that escaped
+		isize var_count = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			isize set = find_pointer_set(&pointer_info, i);
 			has_escaped[i] = has_escaped[set];
+			var_count += has_escaped[i];
 		}
 
-		// Assign each allocation instruction a stack slot
+		isize matrix_size = block_count * var_count;
+		ssa_context ssa_ctx = {0};
+		ssa_ctx.blocks = blocks;
+		ssa_ctx.sealed_blocks = ALLOC(arena, block_count, b8);
+		ssa_ctx.current_def = ALLOC(arena, matrix_size, i32);
+		ssa_ctx.incomplete_phis = ALLOC(arena, matrix_size, i32);
+		ssa_ctx.insts = insts;
+		ssa_ctx.var_count = var_count;
+		ssa_ctx.block_count = block_count;
+		ssa_ctx.max_inst_count = func->inst_count;
+		ssa_ctx.inst_count = func->inst_count;
+
+		isize block_id = -1;
 		for (isize i = 0; i < func->inst_count; i++) {
-			if (has_escaped[i] && insts[i].opcode == IR_ALLOC) {
-				printf("%zd has escaped\n", i);
+			switch (insts[i].opcode) {
+			case IR_LABEL:
+				{
+					if (block_id > 0) {
+						ssa_ctx.sealed_blocks[block_id] = true;
+					}
+
+					block_id = insts[i].args[0];
+				} break;
+			case IR_STORE:
+				{
+					i32 var_id = insts[i].args[0];
+					i32 value = insts[i].args[1];
+					isize offset = block_id * ssa_ctx.var_count + var_id;
+					ssa_ctx.current_def[offset] = value;
+					insts[i].opcode = IR_COPY;
+					insts[i].args[0] = value;
+					insts[i].args[1] = 0;
+
+					printf("%zd: store %d -> %d\n", i, var_id, value);
+				} break;
+			case IR_LOAD:
+				{
+					i32 var_id = insts[i].args[0];
+					insts[i].opcode = IR_COPY;
+					insts[i].args[0] = read_var(&ssa_ctx, var_id, block_id);
+					printf("%zd: load %d -> %d\n", i, var_id, insts[i].args[0]);
+					ASSERT(insts[i].args[0] != 0);
+				} break;
+			case IR_ALLOC:
+				{
+					/* TODO */
+				} break;
+			default:
+				{
+
+				} break;
 			}
 		}
 
-		for (isize i = 0; i < func->inst_count; i++) {
-			if (insts[i].opcode != IR_ALLOC || has_escaped[i]) {
-				continue;
-			}
-		}
+		func->inst_count = ssa_ctx.inst_count;
 
 		//
 		// Constant folding
