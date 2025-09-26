@@ -338,6 +338,7 @@ get_opcode_info(ir_opcode opcode)
 	case IR_FLE:
 	case IR_FGE:
 	case IR_CALL:
+	case IR_PHI:
 		info.usage[0] = IR_USE;
 		info.usage[1] = IR_USE;
 		break;
