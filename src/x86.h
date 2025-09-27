@@ -1,5 +1,4 @@
 typedef enum {
-	X86_RSP,
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -15,6 +14,7 @@ typedef enum {
 	X86_R14,
 	X86_R15,
 	X86_RBP,
+	X86_RSP,
 	X86_XMM0,
 	X86_XMM1,
 	X86_XMM2,

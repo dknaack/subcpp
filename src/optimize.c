@@ -567,7 +567,8 @@ optimize(ir_program program, arena *arena)
 				has_side_effect = false;
 				break;
 			}
-			if (!(ref_count[j] >= 1 || has_side_effect)) {
+
+			if (ref_count[j] == 0 && !has_side_effect) {
 				insts[j].opcode = IR_NOP;
 			}
 		}
