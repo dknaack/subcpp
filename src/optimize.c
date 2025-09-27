@@ -552,7 +552,6 @@ optimize(ir_program program, arena *arena)
 			b32 has_side_effect;
 			ir_opcode opcode = insts[j].opcode;
 			switch (opcode) {
-			case IR_ALLOC:
 			case IR_LABEL:
 			case IR_PARAM:
 			case IR_LOAD:
