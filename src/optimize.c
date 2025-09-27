@@ -110,6 +110,22 @@ new_phi(ssa_context *ctx, i32 block_id)
 	return result;
 }
 
+static i32 read_var(ssa_context *ctx, isize var_id, isize block_id);
+
+static i32
+add_phi_operands(ssa_context *ctx, isize var_id, isize block_id, isize phi)
+{
+	isize pred_count = ctx->blocks[block_id].pred_count;
+	for (isize i = 0; i < pred_count; i++) {
+		isize pred_id = ctx->blocks[block_id].pred[i];
+		i32 pred_value = read_var(ctx, var_id, pred_id);
+		ctx->insts[phi + i].args[0] = pred_value;
+		ASSERT(pred_value != 0);
+	}
+
+	return phi;
+}
+
 static i32
 read_var(ssa_context *ctx, isize var_id, isize block_id)
 {
@@ -130,17 +146,30 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 	} else {
 		value = new_phi(ctx, block_id);
 		ctx->current_def[offset] = value;
-
-		isize pred_count = ctx->blocks[block_id].pred_count;
-		while (pred_count-- > 0) {
-			isize pred_id = ctx->blocks[block_id].pred[pred_count];
-			i32 pred_value = read_var(ctx, var_id, pred_id);
-			ctx->insts[value].args[0] = pred_value;
-		}
+		value = add_phi_operands(ctx, var_id, block_id, value);
 	}
 
 	ctx->current_def[offset] = value;
 	return value;
+}
+
+static void
+seal_block(ssa_context *ctx, isize block_id)
+{
+	ASSERT(block_id >= 0);
+	if (ctx->sealed_blocks[block_id]) {
+		return;
+	}
+
+	for (isize var_id = 0; var_id < ctx->var_count; var_id++) {
+		isize offset = block_id * ctx->var_count + var_id;
+		isize phi = ctx->incomplete_phis[offset];
+		if (phi != 0) {
+			add_phi_operands(ctx, var_id, block_id, phi);
+		}
+	}
+
+	ctx->sealed_blocks[block_id] = true;
 }
 
 static void
@@ -210,16 +239,13 @@ optimize(ir_program program, arena *arena)
 
 				blocks[block_index].begin = i;
 			} else if (opcode == IR_JMP) {
-				i32 arg0 = insts[i].args[0];
-				i32 target = insts[arg0].args[0];
-				ASSERT(insts[arg0].opcode == IR_LABEL);
+				i32 target = insts[i].args[0];
 				ASSERT(target < block_count);
 				blocks[target].pred_count++;
 				blocks[block_index].succ[0] = target;
 				blocks[block_index].succ[1] = target;
 			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-				i32 arg1 = insts[i].args[1];
-				i32 target = insts[arg1].args[0];
+				i32 target = insts[i].args[1];
 				ASSERT(target < block_count);
 				blocks[target].pred_count++;
 				blocks[block_index].succ[0] = target;
@@ -240,15 +266,15 @@ optimize(ir_program program, arena *arena)
 			ir_opcode opcode = insts[i].opcode;
 			if (opcode == IR_LABEL) {
 				block_index = insts[i].args[0];
-				if (insts[i-1].opcode == IR_JIZ || insts[i-1].opcode == IR_JNZ) {
-				}
 			} else if (opcode == IR_JMP) {
 				i32 arg0 = insts[i].args[0];
 				*--blocks[arg0].pred = block_index;
 			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
 				i32 arg1 = insts[i].args[1];
 				*--blocks[arg1].pred = block_index;
-				*--blocks[block_index + 1].pred = block_index;
+				if (block_index + 1 < block_count) {
+					*--blocks[block_index + 1].pred = block_index;
+				}
 			}
 		}
 
@@ -332,8 +358,20 @@ optimize(ir_program program, arena *arena)
 			switch (insts[i].opcode) {
 			case IR_LABEL:
 				{
-					if (block_id > 0) {
-						ssa_ctx.sealed_blocks[block_id] = true;
+					if (block_id >= 0) {
+						b32 is_sealed = true;
+
+						for (isize i = 0; i < blocks[block_id].pred_count; i++) {
+							isize pred_id = blocks[block_id].pred[i];
+							if (pred_id != block_id && !ssa_ctx.sealed_blocks[pred_id]) {
+								is_sealed = false;
+								break;
+							}
+						}
+
+						if (is_sealed) {
+							seal_block(&ssa_ctx, block_id);
+						}
 					}
 
 					block_id = insts[i].args[0];
@@ -351,8 +389,9 @@ optimize(ir_program program, arena *arena)
 			case IR_LOAD:
 				{
 					i32 var_id = insts[i].args[0];
+					i32 value = read_var(&ssa_ctx, var_id, block_id);
 					insts[i].opcode = IR_COPY;
-					insts[i].args[0] = read_var(&ssa_ctx, var_id, block_id);
+					insts[i].args[0] = value;
 					ASSERT(insts[i].args[0] != 0);
 				} break;
 			case IR_ALLOC:
@@ -364,6 +403,10 @@ optimize(ir_program program, arena *arena)
 
 				} break;
 			}
+		}
+
+		if (block_id >= 0) {
+			seal_block(&ssa_ctx, block_id);
 		}
 
 		func->insts = ssa_ctx.insts;
