@@ -420,126 +420,65 @@ optimize(ir_program program, arena *arena)
 
 		block_id = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
-			i32 arg0 = insts[i].args[0];
-			i32 arg1 = insts[i].args[1];
+			ir_opcode opcode = insts[i].opcode;
+			ir_opcode_info info = get_opcode_info(opcode);
 
-			switch (insts[i].opcode) {
+			i32 arg0 = insts[i].args[0];
+			if (info.usage[0] != 0 && insts[arg0].opcode != IR_CONST) {
+				continue;
+			}
+
+			i32 arg1 = insts[i].args[1];
+			if (info.usage[1] != 0 && insts[arg1].opcode != IR_CONST) {
+				continue;
+			}
+
+			i32 val0 = insts[arg0].args[0];
+			i32 val1 = insts[arg1].args[0];
+			insts[i].opcode = IR_CONST;
+			switch (opcode) {
 			case IR_LABEL:
+				insts[i].opcode = IR_LABEL;
 				block_id = insts[i].args[0];
 				break;
-			case IR_ADD:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					insts[i].opcode = IR_CONST;
-					insts[i].args[0] = add(insts[arg0].args[0], insts[arg1].args[0]);
-				} else if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] == 0)
-				{
-					insts[i].opcode = IR_COPY;
-					insts[i].args[0] = i;
-				} else if (insts[arg1].opcode == IR_CONST
-					&& insts[arg1].args[0] == 0)
-				{
-					insts[i].opcode = IR_COPY;
-				}
-				break;
-			case IR_SUB:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					insts[i].opcode = IR_CONST;
-					insts[i].args[0] = sub(insts[arg0].args[0], insts[arg1].args[0]);
-				} else if (insts[arg1].opcode == IR_CONST
-					&& insts[arg1].args[0] == 0)
-				{
-					insts[arg1].opcode = IR_NOP;
-					insts[i].opcode = IR_COPY;
-				}
-				break;
-			case IR_MUL:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					insts[i].opcode = IR_CONST;
-					/* TODO: evaluate depending on the target architecture */
-					insts[i].args[0] = multiply(insts[arg0].args[0], insts[arg1].args[0]);
-				} else if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] == 1)
-				{
-					insts[i].opcode = IR_COPY;
-					insts[i].args[0] = i;
-				} else if (insts[arg1].opcode == IR_CONST
-					&& insts[arg1].args[0] == 1)
-				{
-					insts[i].opcode = IR_COPY;
-					insts[i].args[0] = arg1;
-				}
-				break;
-			case IR_DIV:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					// TODO: Handle divide-by-zero error
-					ASSERT(insts[arg1].args[0] != 0);
-
-					insts[i].opcode = IR_CONST;
-					insts[i].args[0] = insts[arg0].args[0] / insts[arg1].args[0];
-				} else if (insts[arg1].opcode == IR_CONST
-					&& insts[arg1].args[0] == 1)
-				{
-					insts[i].opcode = IR_COPY;
-					insts[i].args[0] = arg0;
-				}
-				break;
-			case IR_MOD:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					// TODO: Handle divide-by-zero error
-					ASSERT(insts[arg1].args[0] != 0);
-
-					insts[i].opcode = IR_CONST;
-					insts[i].args[0] = insts[arg0].args[0] % insts[arg1].args[0];
-				}
-				break;
-			case IR_EQ:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg1].opcode == IR_CONST)
-				{
-					insts[i].opcode = IR_CONST;
-					insts[i].args[0] = (insts[arg0].args[0] == insts[arg1].args[0]);
-				}
-				break;
+			case IR_ADD: insts[i].args[0] = val0 + val1; break;
+			case IR_SUB: insts[i].args[0] = val0 - val1; break;
+			case IR_MUL: insts[i].args[0] = val0 * val1; break;
+			case IR_DIV: insts[i].args[0] = val0 / val1; break;
+			case IR_MOD: insts[i].args[0] = val0 / val1; break;
+			case IR_EQ:  insts[i].args[0] = val0 == val1; break;
+			case IR_GT:  insts[i].args[0] = val0 > val1; break;
+			case IR_LT:  insts[i].args[0] = val0 < val1; break;
+			case IR_GE:  insts[i].args[0] = val0 >= val1; break;
+			case IR_LE:  insts[i].args[0] = val0 <= val1; break;
+			case IR_GTU: insts[i].args[0] = (u32)val0 > (u32)val1; break;
+			case IR_LTU: insts[i].args[0] = (u32)val0 < (u32)val1; break;
+			case IR_GEU: insts[i].args[0] = (u32)val0 >= (u32)val1; break;
+			case IR_LEU: insts[i].args[0] = (u32)val0 <= (u32)val1; break;
+			case IR_AND: insts[i].args[0] = val0 & val1; break;
+			case IR_NOT: insts[i].args[0] = ~val0; break;
+			case IR_OR:  insts[i].args[0] = val0 | val1; break;
+			case IR_SHL: insts[i].args[0] = val0 << val1; break;
+			case IR_SHR: insts[i].args[0] = val0 >> val1; break;
+			case IR_XOR: insts[i].args[0] = val0 ^ val1; break;
 			case IR_JIZ:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] == 0)
-				{
-					insts[i].opcode = IR_JMP;
+				insts[i].opcode = IR_JMP;
+				if (val0 == 0) {
 					insts[i].args[0] = insts[i].args[1];
-				}
-				else if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] != 0)
-				{
-					insts[i].opcode = IR_JMP;
+				} else {
 					insts[i].args[0] = block_id + 1;
 				}
 				break;
 			case IR_JNZ:
-				if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] != 0)
-				{
-					insts[i].opcode = IR_JMP;
+				insts[i].opcode = IR_JMP;
+				if (val0 != 0) {
 					insts[i].args[0] = insts[i].args[1];
-				}
-				else if (insts[arg0].opcode == IR_CONST
-					&& insts[arg0].args[0] == 0)
-				{
-					insts[i].opcode = IR_JMP;
+				} else {
 					insts[i].args[0] = block_id + 1;
 				}
 				break;
 			default:
+				insts[i].opcode = opcode;
 				break;
 			}
 		}
