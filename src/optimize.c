@@ -445,7 +445,7 @@ optimize(ir_program program, arena *arena)
 			case IR_SUB: insts[i].args[0] = val0 - val1; break;
 			case IR_MUL: insts[i].args[0] = val0 * val1; break;
 			case IR_DIV: insts[i].args[0] = val0 / val1; break;
-			case IR_MOD: insts[i].args[0] = val0 / val1; break;
+			case IR_MOD: insts[i].args[0] = val0 % val1; break;
 			case IR_EQ:  insts[i].args[0] = val0 == val1; break;
 			case IR_GT:  insts[i].args[0] = val0 > val1; break;
 			case IR_LT:  insts[i].args[0] = val0 < val1; break;
