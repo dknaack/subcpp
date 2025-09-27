@@ -429,39 +429,38 @@ print_ast(ast_pool *pool)
 static void
 print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 {
-	u32 dst = i;
 	i32 *args = inst[i].args;
-	u32 size = inst[i].size;
+	i32 size = inst[i].size;
 	switch (inst[i].opcode) {
 	case IR_NOP:
 		printf("nop");
 		break;
 	case IR_PHI:
-		printf("(phi ");
+		printf("phi ");
 		for (i32 j = i; j; j = inst[j].args[1]) {
-			printf("%d, ", inst[j].args[0]);
+			printf("%d", inst[j].args[0]);
+			if (inst[j].args[1]) {
+				printf(", ");
+			}
 		}
-		printf(")");
 		break;
 	case IR_GLOBAL:
-		printf("(global.%d %d)", size, args[0]);
+		printf("global.%d %d", size, args[0]);
 		break;
 	case IR_FUNC:
-		printf("(func.%d %d)", size, args[0]);
+		printf("func.%d %d", size, args[0]);
 		break;
 	case IR_CONST:
-		printf("(const.%d %d)", size, args[0]);
+		printf("const.%d %d", size, args[0]);
 		break;
 	case IR_BUILTIN:
-		printf("(builtin.%d %s)", size, get_builtin_str(args[0]));
+		printf("builtin.%d %s", size, get_builtin_str(args[0]));
 		break;
 	case IR_COPY:
-		printf("(copy ");
-		printf("%%%d", args[0]);
-		printf(")");
+		printf("copy %%%d", args[0]);
 		break;
 	case IR_ALLOC:
-		printf("(%%%d = alloc.%d %d %d)", dst, size, args[0], args[1]);
+		printf("alloc.%d %d %d", size, args[0], args[1]);
 		break;
 	case IR_ADD:
 	case IR_AND:
@@ -493,20 +492,19 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 	case IR_FGE:
 	case IR_FLT:
 	case IR_FLE:
-		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
+		printf("%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
 		printf("%%%d", args[0]);
 		printf(" ");
 		printf("%%%d", args[1]);
-		printf(")");
 		break;
 	case IR_JMP:
-		printf("(jmp.%d L%d)", size, args[0]);
+		printf("jmp.%d L%d", size, args[0]);
 		break;
 	case IR_JIZ:
 	case IR_JNZ:
-		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
+		printf("%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
 		printf("%%%d", args[0]);
-		printf(" L%d)", args[1]);
+		printf(" L%d", args[1]);
 		break;
 	case IR_LOAD:
 	case IR_NOT:
@@ -519,12 +517,11 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 	case IR_FLOAD:
 	case IR_FRET:
 	case IR_FCOPY:
-		printf("(%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
+		printf("%s.%d ", get_ir_opcode_str(inst[i].opcode), size);
 		printf("%%%d", args[0]);
-		printf(")");
 		break;
 	case IR_CALL:
-		printf("(call.%d ", size);
+		printf("call.%d ", size);
 		printf("%%%d", args[0]);
 
 		for (isize j = args[1]; j; j = inst[j].args[1]) {
@@ -532,13 +529,12 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 			printf("%%%d", inst[j].args[0]);
 		}
 
-		printf(")");
 		break;
 	case IR_PARAM:
-		printf("(param.%d %d %d)", size, args[0], args[1]);
+		printf("param.%d %d %d", size, args[0], args[1]);
 		break;
 	case IR_LABEL:
-		printf("L%d: ", args[0]);
+		printf("L%d", args[0]);
 		break;
 	}
 }
