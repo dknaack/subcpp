@@ -755,17 +755,16 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (opcode != IR_NOP) {
-				i32 lhs_addr = 0;
 				i32 lhs_reg = translate_node(ctx, children[0], is_assign);
 				i32 rhs_reg = translate_node(ctx, children[1], false);
 				isize size = get_node_size(pool, type_id);
-
-				if (is_assign) {
-					lhs_addr = lhs_reg;
-					lhs_reg = ir_emit1(ctx, size, IR_LOAD, lhs_addr);
-				}
+				i32 lhs_addr = lhs_reg;
 
 				if (node.token.kind != TOKEN_EQUAL) {
+					if (is_assign) {
+						lhs_reg = ir_emit1(ctx, size, IR_LOAD, lhs_addr);
+					}
+
 					result = ir_emit2(ctx, size, opcode, lhs_reg, rhs_reg);
 				} else {
 					result = rhs_reg;
