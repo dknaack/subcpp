@@ -258,37 +258,29 @@ optimize(ir_program program, arena *arena)
 			arena_temp_end(temp);
 		}
 
-		ir_opcode prev_opcode = IR_NOP;
+		ir_opcode prev_opcode = IR_JMP;
 		ir_block *blocks = ALLOC(arena, block_count, ir_block);
-		isize block_index = 0;
+		isize block_id = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_LABEL) {
-				block_index = insts[i].args[0];
-				if (i > 0) {
-					blocks[block_index].end = i;
-					if (prev_opcode == IR_JIZ || prev_opcode == IR_JNZ) {
-						blocks[block_index].succ[1] = block_index;
-						blocks[block_index].pred_count++;
-					} else if (prev_opcode != IR_JMP) {
-						blocks[block_index].succ[0] = block_index;
-						blocks[block_index].succ[1] = block_index;
-						blocks[block_index].pred_count++;
-					}
+			i32 *args = insts[i].args;
+			switch (opcode) {
+			case IR_JMP:
+				blocks[args[0]].pred_count++;
+				BREAK_IF(args[0] == 0);
+				break;
+			case IR_JIZ:
+			case IR_JNZ:
+				blocks[args[1]].pred_count++;
+				BREAK_IF(args[1] == 0);
+				break;
+			case IR_LABEL:
+				if (prev_opcode != IR_JMP) {
+					block_id = args[0];
+					blocks[block_id].pred_count++;
 				}
-
-				blocks[block_index].begin = i;
-			} else if (opcode == IR_JMP) {
-				i32 target = insts[i].args[0];
-				ASSERT(target < block_count);
-				blocks[target].pred_count++;
-				blocks[block_index].succ[0] = target;
-				blocks[block_index].succ[1] = target;
-			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-				i32 target = insts[i].args[1];
-				ASSERT(target < block_count);
-				blocks[target].pred_count++;
-				blocks[block_index].succ[0] = target;
+			default:
+				break;
 			}
 
 			prev_opcode = opcode;
@@ -301,21 +293,42 @@ optimize(ir_program program, arena *arena)
 			blocks[i].pred = block_preds + pred_offset;
 		}
 
-		block_index = 0;
+		block_id = 0;
+		prev_opcode = IR_JMP;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_LABEL) {
-				block_index = insts[i].args[0];
-			} else if (opcode == IR_JMP) {
-				i32 arg0 = insts[i].args[0];
-				*--blocks[arg0].pred = block_index;
-			} else if (opcode == IR_JIZ || opcode == IR_JNZ) {
-				i32 arg1 = insts[i].args[1];
-				*--blocks[arg1].pred = block_index;
-				if (block_index + 1 < block_count) {
-					*--blocks[block_index + 1].pred = block_index;
-				}
+			switch (opcode) {
+			case IR_JMP:
+				{
+					i32 target = insts[i].args[0];
+					blocks[block_id].succ[0] = target;
+					blocks[block_id].succ[1] = target;
+					*--blocks[target].pred = block_id;
+				} break;
+			case IR_JIZ:
+			case IR_JNZ:
+				{
+					i32 target = insts[i].args[1];
+					blocks[block_id].succ[1] = target;
+					*--blocks[target].pred = block_id;
+				} break;
+			case IR_LABEL:
+				{
+					i32 prev_block_id = block_id;
+					block_id = insts[i].args[0];
+					if (prev_opcode != IR_JMP) {
+						*--blocks[block_id].pred = prev_block_id;
+					}
+
+					if (prev_opcode == IR_JIZ || prev_opcode == IR_JNZ) {
+						blocks[prev_block_id].succ[0] = block_id;
+					}
+				} break;
+			default:
+				break;
 			}
+
+			prev_opcode = opcode;
 		}
 
 		//
@@ -396,7 +409,7 @@ optimize(ir_program program, arena *arena)
 		ssa_ctx.max_inst_count = func->inst_count;
 		ssa_ctx.inst_count = func->inst_count;
 
-		isize block_id = -1;
+		block_id = -1;
 		for (isize i = 0; i < func->inst_count; i++) {
 			switch (insts[i].opcode) {
 			case IR_LABEL:
