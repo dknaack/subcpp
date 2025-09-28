@@ -438,7 +438,7 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 	case IR_PHI:
 		printf("phi ");
 		for (i32 j = i; j; j = inst[j].args[1]) {
-			printf("%d", inst[j].args[0]);
+			printf("%%%d", inst[j].args[0]);
 			if (inst[j].args[1]) {
 				printf(", ");
 			}
