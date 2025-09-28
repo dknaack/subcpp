@@ -156,8 +156,20 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 static void
 seal_block(ssa_context *ctx, isize block_id)
 {
-	ASSERT(block_id >= 0);
-	if (ctx->sealed_blocks[block_id]) {
+	if (block_id < 0 || ctx->sealed_blocks[block_id]) {
+		return;
+	}
+
+	b32 is_sealed = true;
+	for (isize i = 0; i < ctx->blocks[block_id].pred_count; i++) {
+		isize pred_id = ctx->blocks[block_id].pred[i];
+		if (pred_id != block_id && !ctx->sealed_blocks[pred_id]) {
+			is_sealed = false;
+			break;
+		}
+	}
+
+	if (!is_sealed) {
 		return;
 	}
 
@@ -358,27 +370,8 @@ optimize(ir_program program, arena *arena)
 
 		isize block_id = -1;
 		for (isize i = 0; i < func->inst_count; i++) {
+			i32 next_block_id = block_id;
 			switch (insts[i].opcode) {
-			case IR_LABEL:
-				{
-					if (block_id >= 0) {
-						b32 is_sealed = true;
-
-						for (isize i = 0; i < blocks[block_id].pred_count; i++) {
-							isize pred_id = blocks[block_id].pred[i];
-							if (pred_id != block_id && !ssa_ctx.sealed_blocks[pred_id]) {
-								is_sealed = false;
-								break;
-							}
-						}
-
-						if (is_sealed) {
-							seal_block(&ssa_ctx, block_id);
-						}
-					}
-
-					block_id = insts[i].args[0];
-				} break;
 			case IR_STORE:
 				{
 					i32 var_id = var_ids[insts[i].args[0]];
@@ -401,10 +394,24 @@ optimize(ir_program program, arena *arena)
 				{
 					/* TODO */
 				} break;
-			default:
+			case IR_JMP:
+			case IR_LABEL:
 				{
-
+					next_block_id = insts[i].args[0];
 				} break;
+			case IR_JIZ:
+			case IR_JNZ:
+				{
+					next_block_id = insts[i].args[1];
+				} break;
+			default:
+				break;
+			}
+
+			if (block_id != next_block_id) {
+				seal_block(&ssa_ctx, block_id);
+				seal_block(&ssa_ctx, next_block_id);
+				block_id = next_block_id;
 			}
 		}
 
