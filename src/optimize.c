@@ -154,23 +154,20 @@ read_var(ssa_context *ctx, isize var_id, isize block_id)
 }
 
 static void
-seal_block(ssa_context *ctx, isize block_id)
+seal_block(ssa_context *ctx, isize block_id, isize filled_id)
 {
-	if (block_id < 0 || ctx->sealed_blocks[block_id]) {
+	if (ctx->sealed_blocks[block_id]) {
 		return;
 	}
 
-	b32 is_sealed = true;
-	for (isize i = 0; i < ctx->blocks[block_id].pred_count; i++) {
-		isize pred_id = ctx->blocks[block_id].pred[i];
-		if (pred_id != block_id && !ctx->sealed_blocks[pred_id]) {
-			is_sealed = false;
-			break;
+	isize pred_count = ctx->blocks[block_id].pred_count;
+	if (pred_count != 0) {
+		// A block can be sealed if the last predecessor was filled.
+		// Any block before `filled_id` is considered filled.
+		isize last_pred_id = ctx->blocks[block_id].pred[0];
+		if (last_pred_id > filled_id) {
+			return;
 		}
-	}
-
-	if (!is_sealed) {
-		return;
 	}
 
 	for (isize var_id = 0; var_id < ctx->var_count; var_id++) {
@@ -401,8 +398,13 @@ optimize(ir_program program, arena *arena)
 
 		isize block_id = -1;
 		for (isize i = 0; i < func->inst_count; i++) {
-			i32 next_block_id = block_id;
 			switch (insts[i].opcode) {
+			case IR_LABEL:
+				{
+					i32 target = insts[i].args[0];
+					seal_block(&ssa_ctx, target, block_id);
+					block_id = target;
+				} break;
 			case IR_STORE:
 				{
 					i32 var_id = var_ids[insts[i].args[0]];
@@ -423,31 +425,26 @@ optimize(ir_program program, arena *arena)
 				} break;
 			case IR_ALLOC:
 				{
-					/* TODO */
+					i32 var_id = var_ids[i];
+					isize offset = block_id * ssa_ctx.var_count + var_id;
+					insts[i].opcode = IR_NOP;
+					insts[i].args[0] = 0;
+					ssa_ctx.current_def[offset] = i;
 				} break;
 			case IR_JMP:
-			case IR_LABEL:
 				{
-					next_block_id = insts[i].args[0];
+					i32 target = insts[i].args[0];
+					seal_block(&ssa_ctx, target, block_id);
 				} break;
 			case IR_JIZ:
 			case IR_JNZ:
 				{
-					next_block_id = insts[i].args[1];
+					i32 target = insts[i].args[1];
+					seal_block(&ssa_ctx, target, block_id);
 				} break;
 			default:
 				break;
 			}
-
-			if (block_id != next_block_id) {
-				seal_block(&ssa_ctx, block_id);
-				seal_block(&ssa_ctx, next_block_id);
-				block_id = next_block_id;
-			}
-		}
-
-		if (block_id >= 0) {
-			seal_block(&ssa_ctx, block_id);
 		}
 
 		func->insts = ssa_ctx.insts;
