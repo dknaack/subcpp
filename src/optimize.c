@@ -334,11 +334,14 @@ optimize(ir_program program, arena *arena)
 		}
 
 		// Mark all registers that escaped
-		isize var_count = 0;
+		isize var_count = 1;
+		i32 *var_ids = ALLOC(arena, func->inst_count, i32);
 		for (isize i = 0; i < func->inst_count; i++) {
 			isize set = find_pointer_set(&pointer_info, i);
 			has_escaped[i] = has_escaped[set];
-			var_count += has_escaped[i];
+			if (has_escaped[i] && insts[i].opcode == IR_ALLOC) {
+				var_ids[i] = var_count++;
+			}
 		}
 
 		isize matrix_size = block_count * var_count;
@@ -378,7 +381,7 @@ optimize(ir_program program, arena *arena)
 				} break;
 			case IR_STORE:
 				{
-					i32 var_id = insts[i].args[0];
+					i32 var_id = var_ids[insts[i].args[0]];
 					i32 value = insts[i].args[1];
 					isize offset = block_id * ssa_ctx.var_count + var_id;
 					ssa_ctx.current_def[offset] = value;
@@ -388,7 +391,7 @@ optimize(ir_program program, arena *arena)
 				} break;
 			case IR_LOAD:
 				{
-					i32 var_id = insts[i].args[0];
+					i32 var_id = var_ids[insts[i].args[0]];
 					i32 value = read_var(&ssa_ctx, var_id, block_id);
 					insts[i].opcode = IR_COPY;
 					insts[i].args[0] = value;
