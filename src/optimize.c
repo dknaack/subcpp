@@ -387,12 +387,12 @@ optimize(ir_program program, arena *arena)
 		}
 
 		// Mark all registers that escaped
-		isize var_count = 1;
+		isize var_count = 0;
 		i32 *var_ids = ALLOC(arena, func->inst_count, i32);
 		for (isize i = 0; i < func->inst_count; i++) {
 			isize set = find_pointer_set(&pointer_info, i);
 			has_escaped[i] = has_escaped[set];
-			if (has_escaped[i] && insts[i].opcode == IR_ALLOC) {
+			if (!has_escaped[i] && insts[i].opcode == IR_ALLOC) {
 				var_ids[i] = var_count++;
 			}
 		}
