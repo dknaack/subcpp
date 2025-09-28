@@ -1156,6 +1156,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_BREAK:
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->break_label);
+			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_CASE:
 		{
@@ -1166,6 +1167,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 	case AST_STMT_CONTINUE:
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->continue_label);
+			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 		} break;
 	case AST_STMT_DECL:
 		{
@@ -1245,6 +1247,10 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			ir_emit1(ctx, 0, opcode, *label);
+			if (opcode == IR_JMP) {
+				ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
+			}
+
 			if (children[0].value != 0) {
 				translate_node(ctx, children[0], false);
 			}
