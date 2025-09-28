@@ -1276,7 +1276,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			isize size = 0;
 			if (children[0].value != 0) {
 				value = translate_node(ctx, children[0], false);
-				type_id value_type_id = get_type_id(pool, children[0]);
+				type_id value_type_id = find_type_id(pool, children[0]);
 				ast_node value_type = get_type(pool, value_type_id);
 				returns_struct = is_compound_type(value_type.kind);
 				struct_size = get_node_size(pool, value_type_id);
