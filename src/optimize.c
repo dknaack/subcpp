@@ -224,10 +224,41 @@ optimize(ir_program program, arena *arena)
 
 		isize block_count = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
-			ir_opcode opcode = insts[i].opcode;
-			if (opcode == IR_LABEL) {
+			if (insts[i].opcode == IR_LABEL) {
 				block_count++;
 			}
+		}
+
+		// Reorder the labels so they are increasing
+		{
+			arena_temp temp = arena_temp_begin(arena);
+
+			isize label_count = 0;
+			i32 *labels = ALLOC(arena, block_count, i32);
+			for (isize i = 0; i < func->inst_count; i++) {
+				if (insts[i].opcode == IR_LABEL) {
+					isize block_id = insts[i].args[0];
+					labels[block_id] = label_count++;
+				}
+			}
+
+			for (isize i = 0; i < func->inst_count; i++) {
+				i32 *args = insts[i].args;
+				switch (insts[i].opcode) {
+				case IR_JMP:
+				case IR_LABEL:
+					args[0] = labels[args[0]];
+					break;
+				case IR_JIZ:
+				case IR_JNZ:
+					args[1] = labels[args[1]];
+					break;
+				default:
+					break;
+				}
+			}
+
+			arena_temp_end(temp);
 		}
 
 		ir_opcode prev_opcode = IR_NOP;
