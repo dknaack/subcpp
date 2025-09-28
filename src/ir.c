@@ -713,9 +713,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					u32 addr = ir_emit_alloca(ctx, 4);
 					u32 lhs_reg = translate_node(ctx, children[0], false);
 					ir_emit2(ctx, 0, IR_JIZ, lhs_reg, zero_label);
+					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					u32 rhs_reg = translate_node(ctx, children[1], false);
 					ir_emit2(ctx, 0, IR_JIZ, rhs_reg, zero_label);
+					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					u32 one = ir_emit1(ctx, 4, IR_CONST, 1);
 					ir_emit2(ctx, 0, IR_STORE, addr, one);
@@ -736,9 +738,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					i32 addr = ir_emit_alloca(ctx, 4);
 					i32 lhs_reg = translate_node(ctx, children[0], false);
 					ir_emit2(ctx, 0, IR_JNZ, lhs_reg, one_label);
+					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					i32 rhs_reg = translate_node(ctx, children[1], false);
 					ir_emit2(ctx, 0, IR_JNZ, rhs_reg, one_label);
+					ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 					i32 zero = ir_emit1(ctx, 4, IR_CONST, 0);
 					ir_emit2(ctx, 0, IR_STORE, addr, zero);
@@ -1068,6 +1072,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
+			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 			ast_id if_branch = children[1];
 			i32 if_reg = translate_node(ctx, if_branch, false);
@@ -1210,6 +1215,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			} else {
 				i32 cond_reg = translate_node(&new_ctx, children[1], false);
 				ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
+				ir_emit1(&new_ctx, 0, IR_LABEL, new_label(&new_ctx));
 			}
 
 			translate_node(&new_ctx, children[3], false);
@@ -1250,6 +1256,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			i32 cond_reg = translate_node(ctx, children[0], false);
 			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
+			ir_emit1(ctx, 0, IR_LABEL, new_label(ctx));
 
 			translate_node(ctx, children[1], false);
 			ir_emit1(ctx, 0, IR_JMP, endif_label);
@@ -1300,6 +1307,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					i32 case_reg = translate_node(&new_ctx, case_node.children, false);
 					i32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
 					ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, label);
+					ir_emit1(&new_ctx, 0, IR_LABEL, new_label(&new_ctx));
 				} else {
 					default_id = case_id;
 				}
@@ -1329,6 +1337,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ast_id cond = children[0];
 			i32 cond_reg = translate_node(&new_ctx, cond, false);
 			ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
+			ir_emit1(&new_ctx, 0, IR_LABEL, new_label(&new_ctx));
 
 			ast_id body = children[1];
 			translate_node(&new_ctx, body, false);
