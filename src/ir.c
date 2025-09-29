@@ -52,20 +52,63 @@ static u32
 ir_emit(ir_context *ctx, i32 size, ir_opcode opcode, i32 arg0, i32 arg1)
 {
 	i32 result = ctx->inst_count++;
+	i8 flags = 0;
+
+	switch (opcode) {
+	case IR_NOP:
+	case IR_JMP:
+	case IR_LABEL:
+		break;
+	case IR_ALLOC:
+	case IR_BUILTIN:
+	case IR_CONST:
+	case IR_GLOBAL:
+	case IR_FUNC:
+	case IR_PARAM:
+		flags |= IR_DEF;
+		break;
+	case IR_RET:
+	case IR_LOAD:
+	case IR_COPY:
+	case IR_TRUNC:
+	case IR_SEXT:
+	case IR_ZEXT:
+	case IR_NOT:
+	case IR_FCOPY:
+	case IR_FLOAD:
+	case IR_FRET:
+	case IR_JIZ:
+	case IR_JNZ:
+	case IR_I2F:
+	case IR_F2I:
+		flags |= IR_USE0;
+		flags |= IR_DEF;
+		break;
+	case IR_STORE:
+	case IR_FSTORE:
+		flags |= IR_USE0;
+		flags |= IR_USE1;
+		break;
+	default:
+		flags |= IR_USE0;
+		flags |= IR_USE1;
+		flags |= IR_DEF;
+		break;
+	}
+
 	ir_inst *inst = &ctx->insts[result];
 	inst->opcode = opcode;
 	inst->size = size;
+	inst->flags = flags;
 	inst->args[0] = arg0;
 	inst->args[1] = arg1;
 
 	// Sanity check: Ensure that arguments come before this instruction
-	ir_opcode_info info = get_opcode_info(opcode);
-	ASSERT(info.usage[0] == 0 || arg0 < result);
-	ASSERT(info.usage[1] == 0 || arg1 < result);
+	ASSERT(!(flags & IR_USE0) || arg0 < result);
+	ASSERT(!(flags & IR_USE1) || arg1 < result);
 	ASSERT(size <= 8);
 	ASSERT(ctx->inst_count <= ctx->max_inst_count);
 	ASSERT(opcode != IR_STORE || arg1 != 0);
-
 	return result;
 }
 
@@ -255,11 +298,10 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 {
 	for (isize i = 0; i < inst_count; i++) {
 		ir_value result = {0};
-		ir_opcode_info info = get_opcode_info(inst[i].opcode);
 
 		ir_value arg0 = {0};
 		isize arg0_size = 0;
-		if (info.usage[0] != 0 && inst[i].args[0] != 0) {
+		if ((inst[i].flags & IR_USE0) && inst[i].args[0] != 0) {
 			arg0 = values[inst[i].args[0]];
 			arg0_size = inst[inst[i].args[0]].size;
 		} else {
@@ -268,7 +310,7 @@ ir_eval(ir_inst *inst, isize inst_count, ir_value *values, arena stack)
 
 		ir_value arg1 = {0};
 		isize arg1_size = 0;
-		if (info.usage[1] != 0 && inst[i].args[1] != 0) {
+		if ((inst[i].flags & IR_USE1) && inst[i].args[1] != 0) {
 			arg1 = values[inst[i].args[1]];
 			arg1_size = inst[inst[i].args[1]].size;
 		} else {
@@ -1376,9 +1418,8 @@ get_ref_count(ir_inst *inst, isize inst_count, arena *perm)
 	i32 *ref_count = ALLOC(perm, inst_count, i32);
 
 	for (isize i = 0; i < inst_count; i++) {
-		ir_opcode_info info = get_opcode_info(inst[i].opcode);
-		ref_count[inst[i].args[0]] += (info.usage[0] != 0);
-		ref_count[inst[i].args[1]] += (info.usage[1] != 0);
+		ref_count[inst[i].args[0]] += (inst[i].flags & IR_USE0);
+		ref_count[inst[i].args[1]] += (inst[i].flags & IR_USE1);
 	}
 
 	return ref_count;

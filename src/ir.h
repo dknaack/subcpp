@@ -137,13 +137,20 @@ typedef enum {
 	IR_FLE,
 } ir_opcode;
 
+typedef enum {
+	IR_DEF  = 1 << 0,
+	IR_USE0 = 1 << 1,
+	IR_USE1 = 1 << 2,
+} ir_inst_flags;
+
 // The IR instructions are graph-based and are stored in a flat array. The
 // operands are stored as indices into the instruction array. The result of an
 // instruction is stored in a register, which is also an index into the
 // instruction array. Hence, these registers can only be assigned once.
 typedef struct {
 	ir_opcode opcode;
-	u8 size;
+	i8 size;
+	i8 flags;
 	i32 args[2];
 } ir_inst;
 
@@ -187,17 +194,6 @@ typedef struct {
 	linkage linkage;
 	section section;
 } global;
-
-// Additional information about the types of operands for each opcode.
-typedef enum {
-	IR_NONE,
-	IR_USE,
-	IR_DEF,
-} ir_usage;
-
-typedef struct {
-	ir_usage usage[2];
-} ir_opcode_info;
 
 typedef struct {
 	i32 begin;
@@ -281,78 +277,4 @@ is_float_opcode(ir_opcode opcode)
 	default:
 		return false;
 	}
-}
-
-static ir_opcode_info
-get_opcode_info(ir_opcode opcode)
-{
-	ir_opcode_info info = {0};
-	switch (opcode) {
-	case IR_RET:
-	case IR_LOAD:
-	case IR_COPY:
-	case IR_TRUNC:
-	case IR_SEXT:
-	case IR_ZEXT:
-	case IR_NOT:
-	case IR_FCOPY:
-	case IR_FLOAD:
-	case IR_FRET:
-	case IR_JIZ:
-	case IR_JNZ:
-	case IR_I2F:
-	case IR_F2I:
-		info.usage[0] = IR_USE;
-		break;
-	case IR_STORE:
-	case IR_FSTORE:
-		info.usage[0] = IR_DEF;
-		info.usage[1] = IR_USE;
-		break;
-	case IR_ADD:
-	case IR_AND:
-	case IR_SUB:
-	case IR_MUL:
-	case IR_DIV:
-	case IR_MOD:
-	case IR_EQ:
-	case IR_LT:
-	case IR_GT:
-	case IR_LE:
-	case IR_GE:
-	case IR_LTU:
-	case IR_GTU:
-	case IR_LEU:
-	case IR_GEU:
-	case IR_OR:
-	case IR_SHL:
-	case IR_SHR:
-	case IR_XOR:
-	case IR_FADD:
-	case IR_FSUB:
-	case IR_FMUL:
-	case IR_FDIV:
-	case IR_FEQ:
-	case IR_FLT:
-	case IR_FGT:
-	case IR_FLE:
-	case IR_FGE:
-	case IR_CALL:
-	case IR_PHI:
-		info.usage[0] = IR_USE;
-		info.usage[1] = IR_USE;
-		break;
-	case IR_ALLOC:
-	case IR_BUILTIN:
-	case IR_CONST:
-	case IR_GLOBAL:
-	case IR_FUNC:
-	case IR_JMP:
-	case IR_LABEL:
-	case IR_NOP:
-	case IR_PARAM:
-		break;
-	}
-
-	return info;
 }

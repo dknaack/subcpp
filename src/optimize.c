@@ -185,16 +185,14 @@ static void
 remove_copy_insts(ir_inst *insts, isize inst_count)
 {
 	for (isize i = 0; i < inst_count; i++) {
-		ir_opcode_info info = get_opcode_info(insts[i].opcode);
-
 		i32 arg0 = insts[i].args[0];
-		if (info.usage[0] != 0 && insts[arg0].opcode == IR_COPY) {
+		if ((insts[i].flags & IR_USE0) && insts[arg0].opcode == IR_COPY) {
 			insts[i].args[0] = insts[arg0].args[0];
 			ASSERT(insts[insts[i].args[0]].opcode != IR_NOP);
 		}
 
 		i32 arg1 = insts[i].args[1];
-		if (info.usage[1] != 0 && insts[arg1].opcode == IR_COPY) {
+		if ((insts[i].flags & IR_USE1) && insts[arg1].opcode == IR_COPY) {
 			insts[i].args[1] = insts[arg1].args[0];
 			ASSERT(insts[insts[i].args[1]].opcode != IR_NOP);
 		}
@@ -349,7 +347,6 @@ optimize(ir_program program, arena *arena)
 
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			ir_opcode_info info = get_opcode_info(opcode);
 			i32 arg0 = insts[i].args[0];
 			i32 arg1 = insts[i].args[1];
 			i32 dst = i;
@@ -359,11 +356,11 @@ optimize(ir_program program, arena *arena)
 			} else if (insts[i].opcode == IR_LOAD) {
 				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[arg0]);
 			} else {
-				if (info.usage[0] == IR_USE) {
+				if (insts[i].flags & IR_USE0) {
 					join_pointer_sets(&pointer_info, dst, arg0);
 				}
 
-				if (info.usage[1] == IR_USE) {
+				if (insts[i].flags & IR_USE1) {
 					join_pointer_sets(&pointer_info, dst, arg1);
 				}
 			}
@@ -472,15 +469,14 @@ optimize(ir_program program, arena *arena)
 		block_id = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
-			ir_opcode_info info = get_opcode_info(opcode);
 
 			i32 arg0 = insts[i].args[0];
-			if (info.usage[0] != 0 && insts[arg0].opcode != IR_CONST) {
+			if ((insts[i].flags & IR_USE0) && insts[arg0].opcode != IR_CONST) {
 				continue;
 			}
 
 			i32 arg1 = insts[i].args[1];
-			if (info.usage[1] != 0 && insts[arg1].opcode != IR_CONST) {
+			if ((insts[i].flags & IR_USE1) && insts[arg1].opcode != IR_CONST) {
 				continue;
 			}
 
