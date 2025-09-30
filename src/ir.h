@@ -141,6 +141,7 @@ typedef enum {
 	IR_DEF  = 1 << 0,
 	IR_USE0 = 1 << 1,
 	IR_USE1 = 1 << 2,
+    IR_CONT = 1 << 4,
 } ir_inst_flags;
 
 // The IR instructions are graph-based and are stored in a flat array. The
