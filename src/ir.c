@@ -163,6 +163,7 @@ ir_call(ir_context *ctx, i32 size, i32 proc, i32 *params, isize param_count)
 	while (param_count-- > 0) {
 		i32 curr_param = params[param_count];
 		i32 curr_call = ir_emit2(ctx, size, IR_CALL, curr_param, prev_call);
+		ctx->insts[curr_call].flags |= IR_CONT;
 		prev_call = curr_call;
 	}
 
