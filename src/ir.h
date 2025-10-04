@@ -222,21 +222,54 @@ typedef struct {
 } program;
 
 typedef struct {
-	arena *arena;
-	ast_pool *ast;
-	i32 *symbol_ids;
-	program *program;
-
 	inst *insts;
 	isize inst_count;
 	isize max_inst_count;
 	isize label_count;
+} inst_buffer;
+
+typedef struct {
+	arena *arena;
+	ast_pool *ast;
+	i32 *symbol_ids;
+	program *program;
+	inst_buffer buffer;
 
 	i32 stack_size;
 	i32 continue_label;
 	i32 break_label;
 	i32 case_label;
 } ir_context;
+
+static i32 emit(inst_buffer *buf, i32 opcode, i8 hint, i8 size, i8 flags, i32 arg0, i32 arg1)
+{
+	if (buf->inst_count + 1 >= buf->max_inst_count) {
+		if (buf->max_inst_count == 0) {
+			buf->max_inst_count = 1024 * 1024;
+		} else {
+			buf->max_inst_count *= 2;
+		}
+
+		buf->insts = realloc(buf->insts, buf->max_inst_count * sizeof(*buf->insts));
+	}
+
+	i32 inst_index = buf->inst_count++;
+	inst *inst = &buf->insts[inst_index];
+	inst->opcode = opcode;
+	inst->hint = hint;
+	inst->size = size;
+	inst->flags = flags;
+	inst->args[0] = arg0;
+	inst->args[1] = arg1;
+	return inst_index;
+}
+
+static i32
+new_label(inst_buffer *buf)
+{
+	i32 result = buf->label_count++;
+	return result;
+}
 
 static b32
 is_comparison_opcode(ir_opcode ir_opcode)
