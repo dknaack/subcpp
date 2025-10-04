@@ -110,16 +110,16 @@ main(int argc, char *argv[])
 	arena *arena = new_arena(1024 * 1024 * 1024);
 	ast_pool pool = parse(input, arena);
 	check(&pool, arena);
-	ir_program ir_program = translate(&pool, arena);
+	program program = translate(&pool, arena);
 
 	// NOTE: middle-end
-	print_ir_program(ir_program);
-	optimize(ir_program, arena);
-	print_ir_program(ir_program);
+	print_ir_program(program);
+	optimize(program, arena);
+	print_ir_program(program);
 
 	// NOTE: back-end
 	writer out = new_writer("/tmp/out.s", 1024 * 1024, arena);
-	x86_generate(&out, ir_program, arena);
+	x86_generate(&out, program, arena);
 	wclose(&out);
 
 	run_assembler("/tmp/out.s", "/tmp/out.o");

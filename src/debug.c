@@ -427,7 +427,7 @@ print_ast(ast_pool *pool)
 }
 
 static void
-print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
+print_ir_inst(inst *inst, u32 i, i32 *ref_count)
 {
 	i32 *args = inst[i].args;
 	i32 size = inst[i].size;
@@ -539,15 +539,15 @@ print_ir_inst(ir_inst *inst, u32 i, i32 *ref_count)
 	}
 }
 
-static i32 *get_ref_count(ir_inst *inst, isize inst_count, arena *perm);
+static i32 *get_ref_count(inst *inst, isize inst_count, arena *perm);
 
 static void
-print_ir_program(ir_program program)
+print_ir_program(program program)
 {
 	for (isize func_id = 1; func_id < program.func_count; func_id++) {
 		arena *temp = new_arena(4096);
 
-		ir_function *func = &program.funcs[func_id];
+		function *func = &program.funcs[func_id];
 		printf("func[%ld]:\n", func_id);
 
 		i32 *ref_count = get_ref_count(func->insts, func->inst_count, temp);

@@ -138,22 +138,23 @@ typedef enum {
 } ir_opcode;
 
 typedef enum {
-	IR_DEF  = 1 << 0,
-	IR_USE0 = 1 << 1,
-	IR_USE1 = 1 << 2,
-	IR_CONT = 1 << 4,
-} ir_inst_flags;
+	INST_DEF  = 1 << 0,
+	INST_USE0 = 1 << 1,
+	INST_USE1 = 1 << 2,
+	INST_CONT = 1 << 4,
+} inst_flags;
 
 // The IR instructions are graph-based and are stored in a flat array. The
 // operands are stored as indices into the instruction array. The result of an
 // instruction is stored in a register, which is also an index into the
 // instruction array. Hence, these registers can only be assigned once.
 typedef struct {
-	ir_opcode opcode;
+	i32 opcode;
 	i8 size;
 	i8 flags;
+	i8 hint;
 	i32 args[2];
-} ir_inst;
+} inst;
 
 typedef enum {
 	BUILTIN_MEMCPY,
@@ -202,31 +203,31 @@ typedef struct {
 	i32 succ[2];
 	i32 *pred;
 	i32 pred_count;
-} ir_block;
+} block;
 
 typedef struct {
 	str name;
-	ir_inst *insts;
+	inst *insts;
 	linkage linkage;
 	i32 inst_count;
 	i32 label_count;
-} ir_function;
+} function;
 
 typedef struct {
-	ir_function *funcs;
+	function *funcs;
 	global *globals;
 
-	isize func_count; // Total number of functions
+	isize func_count;
 	isize global_count;
-} ir_program;
+} program;
 
 typedef struct {
 	arena *arena;
 	ast_pool *ast;
 	i32 *symbol_ids;
-	ir_program *program;
+	program *program;
 
-	ir_inst *insts;
+	inst *insts;
 	isize inst_count;
 	isize max_inst_count;
 	isize label_count;

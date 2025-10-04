@@ -114,7 +114,7 @@ typedef enum {
 } x86_operand_size;
 
 typedef struct {
-	ir_inst *inst;
+	inst *inst;
 	mach_token *tokens;
 	global *globals;
 	i32 global_count;

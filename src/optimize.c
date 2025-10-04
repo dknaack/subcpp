@@ -6,8 +6,8 @@ typedef struct {
 } pointer_info;
 
 typedef struct {
-	ir_inst *insts;
-	ir_block *blocks;
+	inst *insts;
+	block *blocks;
 	i32 *incomplete_phis;
 	i32 *current_def;
 	b8 *sealed_blocks;
@@ -182,17 +182,17 @@ seal_block(ssa_context *ctx, isize block_id, isize filled_id)
 }
 
 static void
-remove_copy_insts(ir_inst *insts, isize inst_count)
+remove_copy_insts(inst *insts, isize inst_count)
 {
 	for (isize i = 0; i < inst_count; i++) {
 		i32 arg0 = insts[i].args[0];
-		if ((insts[i].flags & IR_USE0) && insts[arg0].opcode == IR_COPY) {
+		if ((insts[i].flags & INST_USE0) && insts[arg0].opcode == IR_COPY) {
 			insts[i].args[0] = insts[arg0].args[0];
 			ASSERT(insts[insts[i].args[0]].opcode != IR_NOP);
 		}
 
 		i32 arg1 = insts[i].args[1];
-		if ((insts[i].flags & IR_USE1) && insts[arg1].opcode == IR_COPY) {
+		if ((insts[i].flags & INST_USE1) && insts[arg1].opcode == IR_COPY) {
 			insts[i].args[1] = insts[arg1].args[0];
 			ASSERT(insts[insts[i].args[1]].opcode != IR_NOP);
 		}
@@ -206,11 +206,11 @@ remove_copy_insts(ir_inst *insts, isize inst_count)
 }
 
 static void
-optimize(ir_program program, arena *arena)
+optimize(program program, arena *arena)
 {
 	for (isize func_id = 0; func_id < program.func_count; func_id++) {
-		ir_function *func = &program.funcs[func_id];
-		ir_inst *insts = func->insts;
+		function *func = &program.funcs[func_id];
+		inst *insts = func->insts;
 		arena_temp temp = arena_temp_begin(arena);
 
 		//
@@ -257,7 +257,7 @@ optimize(ir_program program, arena *arena)
 		}
 
 		ir_opcode prev_opcode = IR_JMP;
-		ir_block *blocks = ALLOC(arena, block_count, ir_block);
+		block *blocks = ALLOC(arena, block_count, block);
 		isize block_id = 0;
 		for (isize i = 0; i < func->inst_count; i++) {
 			ir_opcode opcode = insts[i].opcode;
@@ -356,11 +356,11 @@ optimize(ir_program program, arena *arena)
 			} else if (insts[i].opcode == IR_LOAD) {
 				join_pointer_sets(&pointer_info, dst, pointer_info.points_to[arg0]);
 			} else {
-				if (insts[i].flags & IR_USE0) {
+				if (insts[i].flags & INST_USE0) {
 					join_pointer_sets(&pointer_info, dst, arg0);
 				}
 
-				if (insts[i].flags & IR_USE1) {
+				if (insts[i].flags & INST_USE1) {
 					join_pointer_sets(&pointer_info, dst, arg1);
 				}
 			}
@@ -471,12 +471,12 @@ optimize(ir_program program, arena *arena)
 			ir_opcode opcode = insts[i].opcode;
 
 			i32 arg0 = insts[i].args[0];
-			if ((insts[i].flags & IR_USE0) && insts[arg0].opcode != IR_CONST) {
+			if ((insts[i].flags & INST_USE0) && insts[arg0].opcode != IR_CONST) {
 				continue;
 			}
 
 			i32 arg1 = insts[i].args[1];
-			if ((insts[i].flags & IR_USE1) && insts[arg1].opcode != IR_CONST) {
+			if ((insts[i].flags & INST_USE1) && insts[arg1].opcode != IR_CONST) {
 				continue;
 			}
 
@@ -569,9 +569,9 @@ optimize(ir_program program, arena *arena)
 		u32 *stack = ALLOC(arena, program.max_label_count, u32);
 		u32 *label_addresses = ALLOC(arena, program.max_label_count, u32);
 		for (isize i = 0; i < program.func_count; i++) {
-			ir_function *func = &program.funcs[i];
+			function *func = &program.funcs[i];
 			memset(reachable, 0, program.max_label_count * sizeof(*reachable));
-			ir_inst *inst = program.insts + func->inst_index;
+			inst *inst = program.insts + func->inst_index;
 
 			// Get the address of each label
 			for (isize j = 0; j < func->inst_count; j++) {

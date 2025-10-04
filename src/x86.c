@@ -206,7 +206,7 @@ x86_register_token(x86_context *ctx, x86_register hint, i32 size)
 static mach_token
 x86_select_const(x86_context *ctx, isize inst_index)
 {
-	ir_inst *inst = ctx->inst;
+	inst *inst = ctx->inst;
 	mach_token result;
 	b32 is_float = is_float_opcode(inst[inst_index].opcode);
 	i32 size = inst[inst_index].size;
@@ -225,7 +225,7 @@ static void
 x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 {
 	isize addr_size = 8;
-	ir_inst *inst = ctx->inst;
+	inst *inst = ctx->inst;
 	ir_opcode opcode = inst[i].opcode;
 	i32 arg0 = inst[i].args[0];
 	i32 arg1 = inst[i].args[1];
@@ -609,12 +609,11 @@ x86_select_inst(x86_context *ctx, isize i, mach_token dst, isize size)
 						break;
 					}
 
-					ir_inst param_inst = inst[param];
-					ASSERT(param_inst.opcode == IR_CALL);
-					isize param_size = param_inst.size;
+					ASSERT(inst[param].opcode == IR_CALL);
+					isize param_size = inst[param].size;
 
 					mach_token src = x86_register_token(ctx, mreg, param_size);
-					x86_select_inst(ctx, param_inst.args[0], src, param_size);
+					x86_select_inst(ctx, inst[param].args[0], src, param_size);
 
 					mach_token dst = make_mach_token(mreg, param_size);
 					x86_emit2(ctx, X86_MOV, param_size, X86_REG, dst, X86_REG, src);
@@ -675,14 +674,14 @@ x86_emit_symbol(writer *out, str name, linkage linkage)
 }
 
 static void
-x86_generate(writer *out, ir_program p, arena *arena)
+x86_generate(writer *out, program p, arena *arena)
 {
 	isize max_token_count = 1024 * 1024;
 	mach_token *tokens = ALLOC(arena, max_token_count, mach_token);
 
 	print_cstr(out, "section .text\n");
 	for (isize func_id = 0; func_id < p.func_count; func_id++) {
-		ir_function *ir_func = &p.funcs[func_id];
+		function *ir_func = &p.funcs[func_id];
 		x86_emit_symbol(out, ir_func->name, ir_func->linkage);
 
 		//
@@ -700,7 +699,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 		i32 curr_block = 0;
 		basic_block *blocks = ALLOC(arena, ir_func->label_count, basic_block);
 
-		ir_inst *inst = ir_func->insts;
+		inst *inst = ir_func->insts;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
 			ir_opcode opcode = inst[j].opcode;
@@ -916,7 +915,7 @@ x86_generate(writer *out, ir_program p, arena *arena)
 								print_u32(out, value);
 							}
 						} else if (value - ctx.global_count < p.func_count) {
-							ir_function *func = &p.funcs[value - ctx.global_count];
+							function *func = &p.funcs[value - ctx.global_count];
 							print_str(out, func->name);
 						}
 					} break;
