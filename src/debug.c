@@ -534,7 +534,7 @@ print_ir_inst(inst *inst, u32 i, i32 *ref_count)
 		printf("param.%d %d %d", size, args[0], args[1]);
 		break;
 	case IR_LABEL:
-		printf("L%d", args[0]);
+		printf("label L%d", args[0]);
 		break;
 	}
 }
