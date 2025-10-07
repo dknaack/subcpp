@@ -8,7 +8,7 @@
  */
 static mach_location *
 regalloc(mach_token *tokens, isize token_count,
-	basic_block *blocks, isize block_count, mach_info mach, arena *arena)
+	block *blocks, isize block_count, mach_info mach, arena *arena)
 {
 	isize mreg_count = mach.mreg_count;
 	isize reg_count = mreg_count + mach.vreg_count;
@@ -33,8 +33,8 @@ regalloc(mach_token *tokens, isize token_count,
 
 	// Initialize the gen and kill bitsets
 	for (isize i = 1; i < block_count; i++) {
-		for (isize j = 0; j < blocks[i].size; j++) {
-			mach_token token = tokens[blocks[i].offset + j];
+		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
+			mach_token token = tokens[j];
 
 			// Gen stores all registers which have been used before any def. We
 			// track use first, since a register with both flags would count as
@@ -97,10 +97,8 @@ regalloc(mach_token *tokens, isize token_count,
 		arena_temp loop_temp = arena_temp_begin(arena);
 		bitset live = clone_bitset(live_out[i], arena);
 
-		isize offset = blocks[i].offset;
-		isize j = blocks[i].size;
-		while (j-- > 0) {
-			mach_token token = tokens[offset + j];
+		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
+			mach_token token = tokens[j];
 			i32 reg = token.value;
 
 			if (token.flags & MACH_DEF && get_bit(live, reg) != 0) {
@@ -124,10 +122,8 @@ regalloc(mach_token *tokens, isize token_count,
 	// Find all floating-point registers
 	bitset float_regs = new_bitset(reg_count, arena);
 	for (isize i = 1; i < block_count; i++) {
-		isize offset = blocks[i].offset;
-		isize j = blocks[i].size;
-		while (j-- > 0) {
-			mach_token token = tokens[offset + j];
+		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
+			mach_token token = tokens[j];
 			i32 reg = token.value;
 
 			b32 is_vreg = (token.flags & (MACH_USE | MACH_DEF));
@@ -147,7 +143,7 @@ regalloc(mach_token *tokens, isize token_count,
 
 		// Find first live_in
 		for (isize j = 0; j < block_count; j++) {
-			isize block_start = blocks[j].offset;
+			isize block_start = blocks[j].begin;
 			if (get_bit(live_in[j], i) && block_start < start) {
 				start = block_start;
 			}
@@ -155,7 +151,7 @@ regalloc(mach_token *tokens, isize token_count,
 
 		// Find last live_out
 		for (isize j = 0; j < block_count; j++) {
-			isize block_end = blocks[j].offset + blocks[j].size;
+			isize block_end = blocks[j].end;
 			if (get_bit(live_out[j], i) && block_end > end) {
 				end = block_end;
 			}

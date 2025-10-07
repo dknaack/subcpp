@@ -697,7 +697,7 @@ x86_generate(writer *out, program p, arena *arena)
 		ctx.global_count = p.global_count;
 
 		i32 curr_block = 0;
-		basic_block *blocks = ALLOC(arena, ir_func->label_count, basic_block);
+		block *blocks = ALLOC(arena, ir_func->label_count, block);
 
 		inst *inst = ir_func->insts;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
@@ -718,28 +718,25 @@ x86_generate(writer *out, program p, arena *arena)
 					blocks[prev_block].succ[0] = curr_block;
 				}
 
-				blocks[curr_block].offset = j;
+				blocks[curr_block].begin = j;
 			} else {
 				x86_select_inst(&ctx, j, dst, size);
 
 				if (opcode == IR_JIZ) {
 					i32 next_block = inst[j].args[1];
-					isize start = blocks[curr_block].offset;
 					blocks[curr_block].succ[0] = 0;
 					blocks[curr_block].succ[1] = next_block;
-					blocks[curr_block].size = ctx.token_count - start;
+					blocks[curr_block].end = ctx.token_count;
 				} else if (opcode == IR_JMP) {
 					i32 next_block = inst[j].args[0];
-					isize start = blocks[curr_block].offset;
 					blocks[curr_block].succ[0] = next_block;
 					blocks[curr_block].succ[1] = next_block;
-					blocks[curr_block].size = ctx.token_count - start;
+					blocks[curr_block].end = ctx.token_count;
 				}
 			}
 		}
 
-		isize block_start = blocks[curr_block].offset;
-		blocks[curr_block].size = ctx.token_count - block_start;
+		blocks[curr_block].end = ctx.token_count;
 		isize token_count = ctx.token_count;
 		if (token_count == 0) {
 			// NOTE: Do not generate code for empty functions
