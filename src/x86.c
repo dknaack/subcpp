@@ -697,7 +697,7 @@ x86_generate(writer *out, program p, arena *arena)
 		ctx.global_count = p.global_count;
 
 		i32 curr_block = 0;
-		block *blocks = ALLOC(arena, ir_func->label_count, block);
+		block *blocks = ALLOC(arena, ir_func->block_count, block);
 
 		inst *inst = ir_func->insts;
 		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
@@ -758,7 +758,7 @@ x86_generate(writer *out, program p, arena *arena)
 		mach.mreg_count = X86_REGISTER_COUNT;
 
 		mach_location *reg_table = regalloc(tokens, token_count, blocks,
-			ir_func->label_count, mach, arena);
+			ir_func->block_count, mach, arena);
 
 		//
 		// 3. Generate the code

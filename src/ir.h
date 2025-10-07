@@ -208,9 +208,10 @@ typedef struct {
 typedef struct {
 	str name;
 	inst *insts;
+	block *blocks;
 	linkage linkage;
 	i32 inst_count;
-	i32 label_count;
+	i32 block_count;
 } function;
 
 typedef struct {

@@ -214,122 +214,6 @@ optimize(program program, arena *arena)
 		arena_temp temp = arena_temp_begin(arena);
 
 		//
-		// CFG Construction
-		//
-
-		isize block_count = 0;
-		for (isize i = 0; i < func->inst_count; i++) {
-			if (insts[i].opcode == IR_LABEL) {
-				block_count++;
-			}
-		}
-
-		// Reorder the labels so they are increasing
-		{
-			arena_temp temp = arena_temp_begin(arena);
-
-			isize label_count = 0;
-			i32 *labels = ALLOC(arena, block_count, i32);
-			for (isize i = 0; i < func->inst_count; i++) {
-				if (insts[i].opcode == IR_LABEL) {
-					isize block_id = insts[i].args[0];
-					labels[block_id] = label_count++;
-				}
-			}
-
-			for (isize i = 0; i < func->inst_count; i++) {
-				i32 *args = insts[i].args;
-				switch (insts[i].opcode) {
-				case IR_JMP:
-				case IR_LABEL:
-					args[0] = labels[args[0]];
-					break;
-				case IR_JIZ:
-				case IR_JNZ:
-					args[1] = labels[args[1]];
-					break;
-				default:
-					break;
-				}
-			}
-
-			arena_temp_end(temp);
-		}
-
-		ir_opcode prev_opcode = IR_JMP;
-		block *blocks = ALLOC(arena, block_count, block);
-		isize block_id = 0;
-		for (isize i = 0; i < func->inst_count; i++) {
-			ir_opcode opcode = insts[i].opcode;
-			i32 *args = insts[i].args;
-			switch (opcode) {
-			case IR_JMP:
-				blocks[args[0]].pred_count++;
-				BREAK_IF(args[0] == 0);
-				break;
-			case IR_JIZ:
-			case IR_JNZ:
-				blocks[args[1]].pred_count++;
-				BREAK_IF(args[1] == 0);
-				break;
-			case IR_LABEL:
-				if (prev_opcode != IR_JMP) {
-					block_id = args[0];
-					blocks[block_id].pred_count++;
-				}
-			default:
-				break;
-			}
-
-			prev_opcode = opcode;
-		}
-
-		i32 pred_offset = 0;
-		i32 *block_preds = ALLOC(arena, block_count, i32);
-		for (isize i = 0; i < block_count; i++) {
-			pred_offset += blocks[i].pred_count;
-			blocks[i].pred = block_preds + pred_offset;
-		}
-
-		block_id = 0;
-		prev_opcode = IR_JMP;
-		for (isize i = 0; i < func->inst_count; i++) {
-			ir_opcode opcode = insts[i].opcode;
-			switch (opcode) {
-			case IR_JMP:
-				{
-					i32 target = insts[i].args[0];
-					blocks[block_id].succ[0] = target;
-					blocks[block_id].succ[1] = target;
-					*--blocks[target].pred = block_id;
-				} break;
-			case IR_JIZ:
-			case IR_JNZ:
-				{
-					i32 target = insts[i].args[1];
-					blocks[block_id].succ[1] = target;
-					*--blocks[target].pred = block_id;
-				} break;
-			case IR_LABEL:
-				{
-					i32 prev_block_id = block_id;
-					block_id = insts[i].args[0];
-					if (prev_opcode != IR_JMP) {
-						*--blocks[block_id].pred = prev_block_id;
-					}
-
-					if (prev_opcode == IR_JIZ || prev_opcode == IR_JNZ) {
-						blocks[prev_block_id].succ[0] = block_id;
-					}
-				} break;
-			default:
-				break;
-			}
-
-			prev_opcode = opcode;
-		}
-
-		//
 		// Promote stack variables
 		//
 
@@ -394,19 +278,19 @@ optimize(program program, arena *arena)
 			}
 		}
 
-		isize matrix_size = block_count * var_count;
+		isize matrix_size = func->block_count * var_count;
 		ssa_context ssa_ctx = {0};
-		ssa_ctx.blocks = blocks;
-		ssa_ctx.sealed_blocks = ALLOC(arena, block_count, b8);
+		ssa_ctx.blocks = func->blocks;
+		ssa_ctx.sealed_blocks = ALLOC(arena, func->block_count, b8);
 		ssa_ctx.current_def = ALLOC(arena, matrix_size, i32);
 		ssa_ctx.incomplete_phis = ALLOC(arena, matrix_size, i32);
 		ssa_ctx.insts = insts;
 		ssa_ctx.var_count = var_count;
-		ssa_ctx.block_count = block_count;
+		ssa_ctx.block_count = func->block_count;
 		ssa_ctx.max_inst_count = func->inst_count;
 		ssa_ctx.inst_count = func->inst_count;
 
-		block_id = -1;
+		isize block_id = -1;
 		for (isize i = 0; i < func->inst_count; i++) {
 			switch (insts[i].opcode) {
 			case IR_LABEL:
