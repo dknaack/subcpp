@@ -417,7 +417,7 @@ optimize(program program, arena *arena)
 		remove_copy_insts(func->insts, func->inst_count);
 
 		// Remove unused registers
-		i32 *ref_count = get_ref_count(insts, func->inst_count, arena);
+		i32 *ref_count = get_use_count(insts, func->inst_count, arena);
 		for (isize j = 0; j < func->inst_count; j++) {
 			b32 has_side_effect;
 			ir_opcode opcode = insts[j].opcode;

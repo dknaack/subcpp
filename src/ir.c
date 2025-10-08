@@ -1387,16 +1387,16 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 }
 
 static i32 *
-get_ref_count(inst *inst, isize inst_count, arena *perm)
+get_use_count(inst *inst, isize inst_count, arena *perm)
 {
-	i32 *ref_count = ALLOC(perm, inst_count, i32);
+	i32 *result = ALLOC(perm, inst_count, i32);
 
 	for (isize i = 0; i < inst_count; i++) {
-		ref_count[inst[i].args[0]] += (inst[i].flags & INST_USE0);
-		ref_count[inst[i].args[1]] += (inst[i].flags & INST_USE1);
+		result[inst[i].args[0]] += (inst[i].flags & INST_USE0);
+		result[inst[i].args[1]] += (inst[i].flags & INST_USE1);
 	}
 
-	return ref_count;
+	return result;
 }
 
 static program

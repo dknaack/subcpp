@@ -539,7 +539,7 @@ print_ir_inst(inst *inst, u32 i, i32 *ref_count)
 	}
 }
 
-static i32 *get_ref_count(inst *inst, isize inst_count, arena *perm);
+static i32 *get_use_count(inst *inst, isize inst_count, arena *perm);
 
 static void
 print_ir_program(program program)
@@ -550,10 +550,10 @@ print_ir_program(program program)
 		function *func = &program.funcs[func_id];
 		printf("func[%ld]:\n", func_id);
 
-		i32 *ref_count = get_ref_count(func->insts, func->inst_count, temp);
+		i32 *use_count = get_use_count(func->insts, func->inst_count, temp);
 		for (isize i = 0; i < func->inst_count; i++) {
 			printf("\t%%%zd = ", i);
-			print_ir_inst(func->insts, i, ref_count);
+			print_ir_inst(func->insts, i, use_count);
 			printf("\n");
 		}
 
