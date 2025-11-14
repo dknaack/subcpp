@@ -7,8 +7,8 @@
  * possible.
  */
 static mach_location *
-regalloc(mach_token *tokens, isize token_count,
-	block *blocks, isize block_count, mach_info mach, arena *arena)
+regalloc(inst *insts, isize inst_count, block *blocks, isize block_count,
+	mach_info mach, arena *arena)
 {
 	mach_location *result = NULL;
 
