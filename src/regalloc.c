@@ -38,7 +38,26 @@ regalloc(inst *insts, isize inst_count, block *blocks, isize block_count,
 			stack[top++] = succ1;
 		}
 
-		// TODO: Implement the allocation part
+		isize begin = blocks[block_id].begin;
+		isize end = blocks[block_id].end;
+
+		i32 *last_use = ALLOC(perm, inst_count, i32);
+		for (isize i = 0; i < inst_count; i++) {
+			b32 live_out = (get_bit(live_in[succ0], i) || get_bit(live_in[succ1], i));
+			if (live_out) {
+				last_use[i] = end;
+			}
+		}
+
+		for (isize i = end - 1; i >= 0; i--) {
+			for (isize j = 0; j < 2; j++) {
+				isize arg = insts[i].args[j];
+				b8 uses_arg = (insts[i].flags & (INST_USE0 + j));
+				if (uses_arg && i > last_use[arg]) {
+					last_use[arg] = i;
+				}
+			}
+		}
 	}
 
 	return result;
