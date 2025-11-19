@@ -58,6 +58,29 @@ regalloc(inst *insts, isize inst_count, block *blocks, isize block_count,
 				}
 			}
 		}
+
+		i32 *pool = ALLOC(perm, inst_count, i32);
+		i32 assigned = 0;
+		for (isize i = 0; i < inst_count; i++) {
+			pool[i] = i;
+
+			if (get_bit(live_in[block_id], i)) {
+				result[i].value = pool[assigned++];
+			}
+		}
+
+		for (isize i = begin; i < end; i++) {
+			// Allocate the register
+			result[i].value = pool[assigned++];
+
+			for (isize j = 0; j < 2; j++) {
+				isize arg = insts[i].args[j];
+				if (i == last_use[arg] && !result[arg].is_stack) {
+					// Free the register
+					pool[--assigned] = result[arg].value;
+				}
+			}
+		}
 	}
 
 	return result;
