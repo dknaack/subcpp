@@ -1,13 +1,15 @@
-#define x86_emit2(ctx, opcode, arg0, arg1) x86_emit2x(ctx, 0, opcode, arg0, arg1)
-#define x86_emit1(ctx, opcode, arg0) x86_emit2x(ctx, 0, opcode, arg0, 0)
-#define x86_emit1x(ctx, hint, opcode, arg0) x86_emit2x(ctx, hint, opcode, arg0, 0)
-#define x86_emit0(ctx, opcode) x86_emit2x(ctx, 0, opcode, 0, 0)
-#define x86_emit0x(ctx, hint, opcode) x86_emit2x(ctx, hint, opcode, 0, 0)
+#define x86_emit2(ctx, opcode, arg0, arg1) x86_emit(ctx, 0, opcode, arg0, arg1)
+#define x86_emit2x(ctx, opcode, hint, arg0, arg1) x86_emit(ctx, hint, opcode, arg0, arg1)
+#define x86_emit1(ctx, opcode, arg0) x86_emit(ctx, 0, opcode, arg0, 0)
+#define x86_emit1x(ctx, hint, opcode, arg0) x86_emit(ctx, hint, opcode, arg0, 0)
+#define x86_emit0(ctx, opcode) x86_emit(ctx, 0, opcode, 0, 0)
+#define x86_emit0x(ctx, hint, opcode) x86_emit(ctx, hint, opcode, 0, 0)
 
-static i32 x86_emit2x(x86_context *ctx,
+static i32 x86_emit(x86_context *ctx,
 	x86_register hint, x86_opcode opcode, i32 arg0, i32 arg1)
 {
-	ASSERT(!"Implement the function");
+	i32 result = emit(&ctx->output, opcode, hint, 0, 0, arg0, arg1);
+	return result;
 }
 
 static i32 x86_select(x86_context *ctx, i32 inst_id)

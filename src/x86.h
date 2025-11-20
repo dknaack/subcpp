@@ -64,6 +64,7 @@ typedef enum {
 } x86_operand_size;
 
 typedef struct {
+	inst_buffer output;
 	inst *input;
 } x86_context;
 
