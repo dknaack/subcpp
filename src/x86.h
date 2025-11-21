@@ -40,6 +40,7 @@ typedef enum {
 	X86_MOVri,
 	X86_MOVrm,
 	X86_MOVmr,
+	X86_ADDrr,
 } x86_opcode;
 
 #define X86_OPCODE_MASK 0xffff

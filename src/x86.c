@@ -70,6 +70,12 @@ static i32 x86_select(x86_context *ctx, i32 inst_id)
 				ASSERT(!"Implement more than 6 parameters");
 			}
 		} break;
+	case IR_ADD:
+		{
+			arg0 = x86_select(ctx, arg0);
+			arg1 = x86_select(ctx, arg1);
+			result = x86_emit2(ctx, X86_ADDrr, arg0, arg1);
+		} break;
 	default:
 		{
 			ASSERT(!"Not implemented yet");
