@@ -16,17 +16,6 @@ typedef struct {
 } mach_info;
 
 typedef struct {
-	i32 spill_count;
-	b32 error;
-} regalloc_result;
-
-typedef struct {
-	i32 vreg;
-	i32 start;
-	i32 end;
-} live_range;
-
-typedef struct {
 	b32 *bits;
 	i32 size;
 } bitset;
