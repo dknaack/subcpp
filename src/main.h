@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#define BREAK() asm("int3; nop")
+#define BREAK() __builtin_trap()
 #define BREAK_IF(x) do { if (x) BREAK(); } while (0)
 #define ASSERT(x) while (!(x)) __builtin_unreachable()
 #define LENGTH(x) ((isize)(sizeof(x)/sizeof((x)[0])))
