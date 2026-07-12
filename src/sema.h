@@ -30,7 +30,7 @@ static b32
 is_type(ast_node_kind kind)
 {
 	switch (kind) {
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 	case AST_TYPE_ARRAY:
 	case AST_TYPE_BITFIELD:
 	case AST_TYPE_ENUM:
@@ -175,7 +175,7 @@ get_node_size(ast_pool *p, type_id node_id)
 
 	ast_node node = get_type(p, node_id);
 	switch (node.kind) {
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 		switch (node.token.kind) {
 		case TOKEN_INT:
 			if (node.flags & AST_LLONG) {

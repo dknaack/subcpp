@@ -135,7 +135,7 @@ typedef enum {
 	//
 
 	// A basic type, like `int` or `void`. The type is stored in the token.
-	AST_TYPE_BASIC,
+	AST_TYPE_PRIMITIVE,
 
 	// An array type, like `int[10]` or `char[]`. The first child is the type,
 	// the second child is an expression for the size of the array.
