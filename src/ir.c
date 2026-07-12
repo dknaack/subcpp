@@ -4,7 +4,7 @@ is_func(ast_pool *pool, ast_id node_id)
 	b32 result = false;
 
 	ast_node node = get_node(pool, node_id);
-	if (node.kind == AST_DECL && (node.flags & (AST_EXTERN | AST_STATIC))) {
+	if (node.kind == AST_DECLARATION && (node.flags & (AST_EXTERN | AST_STATIC))) {
 		ast_node type = get_node(pool, node.children);
 		if (type.kind == AST_TYPE_FUNC) {
 			result = true;
@@ -21,7 +21,7 @@ is_global(ast_pool *pool, ast_id node_id)
 
 	ast_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_DECL:
+	case AST_DECLARATION:
 		if (node.flags & (AST_EXTERN | AST_STATIC)) {
 			result = !is_func(pool, node_id);
 		}
@@ -455,7 +455,7 @@ translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 
 	ast_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_INIT:
+	case AST_INITIALIZER_LIST:
 		{
 			usize offset = 0;
 
@@ -506,7 +506,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 		{
 			ASSERT(!"TODO");
 		} break;
-	case AST_DECL:
+	case AST_DECLARATION:
 		{
 			i32 *symbol_ids = &ctx->symbol_ids[node_id.value];
 			ast_node type = get_node(pool, children[0]);
@@ -593,7 +593,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 				if (children[1].value != 0) {
 					ast_node init_expr = get_node(pool, children[1]);
-					if (init_expr.kind == AST_INIT) {
+					if (init_expr.kind == AST_INITIALIZER_LIST) {
 						translate_initializer(ctx, children[1], result);
 					} else {
 						u32 value = translate_node(ctx, children[1], false);
@@ -604,7 +604,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				ctx->symbol_ids[decl_id.value] = result;
 			}
 		} break;
-	case AST_INIT:
+	case AST_INITIALIZER_LIST:
 		ASSERT(!"Should have been handled by DECL");
 		break;
 	case AST_STMT_COMPOUND:

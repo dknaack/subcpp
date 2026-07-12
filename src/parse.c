@@ -181,7 +181,7 @@ typedef enum {
 	PARSE_NO_IDENT       = 1 << 3,
 	PARSE_OPT_IDENT      = 1 << 4,
 	PARSE_OPT            = 1 << 5,
-	PARSE_EXTERN_DEF     = 1 << 6, // return AST_EXTERN_DEF instead of AST_DECL
+	PARSE_EXTERN_DEF     = 1 << 6, // return AST_EXTERN_DEF instead of AST_DECLARATION
 
 	PARSE_CAST = PARSE_NO_IDENT | PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER,
 	PARSE_PARAM = PARSE_SINGLE_DECL | PARSE_NO_INITIALIZER | PARSE_OPT_IDENT,
@@ -457,7 +457,7 @@ parse_initializer(parse_context *ctx, parse_scope *s)
 	} while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE);
 
 	expect(ctx, TOKEN_RBRACE);
-	ast_id init = new_node(pool, AST_INIT, first_token, children.first);
+	ast_id init = new_node(pool, AST_INITIALIZER_LIST, first_token, children.first);
 	return init;
 }
 
@@ -487,7 +487,7 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 		}
 
 		token token = get_token(ctx);
-		result.first = result.last = new_node_with_flags(pool, AST_DECL, qualifiers, token, ast_nil);
+		result.first = result.last = new_node_with_flags(pool, AST_DECLARATION, qualifiers, token, ast_nil);
 	} else if (ctx->peek[0].kind == TOKEN_LPAREN) {
 		get_token(ctx);
 		result = parse_declarator(ctx, flags, qualifiers, s);
@@ -749,7 +749,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	}
 
 	if (ctx->peek[0].kind == TOKEN_SEMICOLON) {
-		ast_id decl = new_node(pool, AST_DECL, ctx->peek[0], base_type);
+		ast_id decl = new_node(pool, AST_DECLARATION, ctx->peek[0], base_type);
 		append_node(pool, &list, decl);
 		return list;
 	}
@@ -766,7 +766,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			syntax_error(ctx, "Expected declaration");
 		}
 
-		b32 has_ident = (decl_node.kind == AST_DECL);
+		b32 has_ident = (decl_node.kind == AST_DECLARATION);
 		if (has_ident) {
 			ASSERT(decl_node.children.value != decl.value);
 			b32 is_type = (qualifiers & AST_TYPEDEF) != 0;

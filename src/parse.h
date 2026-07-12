@@ -11,7 +11,7 @@ typedef enum {
 	// A declaration of a variable inside a function. The node contains at most
 	// two children. The first child is the type, the second (optional) child
 	// is the initializer. The identifier is stored in the token of the node.
-	AST_DECL,
+	AST_DECLARATION,
 
 	// An enumerator in an enum declaration. The first child is the value of the
 	// enumerator, the identifier is stored in the token of the node.
@@ -19,7 +19,7 @@ typedef enum {
 
 	// An initializer list for a variable or a struct, consisting of a list of
 	// expressions or nested initializer lists.
-	AST_INIT,
+	AST_INITIALIZER_LIST,
 
 	//
 	// Expessions
