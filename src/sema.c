@@ -170,7 +170,7 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 		is_ident = true;
 		hash(&h, node.token.value.at, node.token.value.length);
 		break;
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 		hash(&h, &node.token.kind, sizeof(node.token.kind));
 		break;
 	default:
@@ -507,7 +507,7 @@ check_node(sema_context ctx, ast_id node_id)
 				{
 					// NOTE: Comparison operators always return integers
 					ast_node int_type = {0};
-					int_type.kind = AST_TYPE_BASIC;
+					int_type.kind = AST_TYPE_PRIMITIVE;
 					int_type.token.kind = TOKEN_INT;
 					node_type.value = intern_node(ctx, int_type, ast_nil).value;
 				} break;
@@ -628,7 +628,7 @@ check_node(sema_context ctx, ast_id node_id)
 	case AST_EXPR_LITERAL:
 		{
 			ast_node tmp = {0};
-			tmp.kind = AST_TYPE_BASIC;
+			tmp.kind = AST_TYPE_PRIMITIVE;
 			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
 				tmp.token.kind = TOKEN_INT;
@@ -782,7 +782,7 @@ check_node(sema_context ctx, ast_id node_id)
 			// TODO: Unify the references nodes
 		} break;
 	case AST_TYPE_ARRAY:
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 	case AST_TYPE_BITFIELD:
 	case AST_TYPE_IDENT:
 	case AST_TYPE_POINTER:
@@ -824,7 +824,7 @@ check_node(sema_context ctx, ast_id node_id)
 	case AST_ENUMERATOR:
 		{
 			ast_node tmp = {0};
-			tmp.kind = AST_TYPE_BASIC;
+			tmp.kind = AST_TYPE_PRIMITIVE;
 			tmp.token.kind = TOKEN_INT;
 
 			ast_id int_id = intern_node(ctx, tmp, ast_nil);

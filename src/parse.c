@@ -574,7 +574,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		case TOKEN_CHAR:
 		case TOKEN_VOID:
 		case TOKEN_BUILTIN_VA_LIST:
-			base_type = new_node(pool, AST_TYPE_BASIC, token, ast_nil);
+			base_type = new_node(pool, AST_TYPE_PRIMITIVE, token, ast_nil);
 			get_token(ctx);
 			break;
 		case TOKEN_IDENT:
@@ -737,7 +737,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	u32 int_mask = (AST_LLONG | AST_LONG | AST_SHORT | AST_SHORT | AST_SIGNED | AST_UNSIGNED);
 	if (base_type.value == 0 && (qualifiers & int_mask) != 0) {
 		qualifier_token.kind = TOKEN_INT;
-		base_type = new_node(pool, AST_TYPE_BASIC, qualifier_token, ast_nil);
+		base_type = new_node(pool, AST_TYPE_PRIMITIVE, qualifier_token, ast_nil);
 	}
 
 	if (base_type.value == 0) {

@@ -1370,7 +1370,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ctx->buffer = new_ctx.buffer;
 		} break;
 	case AST_ENUMERATOR:
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 	case AST_TYPE_ENUM:
 	case AST_TYPE_STRUCT:
 	case AST_TYPE_UNION:

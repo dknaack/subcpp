@@ -395,7 +395,7 @@ print_ast_node(ast_pool *pool, ast_id node_id, int indent)
 	case AST_TYPE_ENUM:
 		printf("(enum)");
 		break;
-	case AST_TYPE_BASIC:
+	case AST_TYPE_PRIMITIVE:
 		switch (node.token.kind) {
 		case TOKEN_CHAR:
 			printf("char");
