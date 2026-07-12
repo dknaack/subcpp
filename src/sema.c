@@ -164,7 +164,7 @@ intern_node(sema_context ctx, ast_node node, ast_id node_id)
 		hash(&h, "tag#", 4);
 		hash(&h, node.token.value.at, node.token.value.length);
 		break;
-	case AST_DECL:
+	case AST_DECLARATION:
 	case AST_TYPE_IDENT:
 	case AST_EXPR_IDENT:
 		is_ident = true;
@@ -438,7 +438,7 @@ check_node(sema_context ctx, ast_id node_id)
 			ctx.switch_id = node_id;
 			check_node(ctx, children[1]);
 		} break;
-	case AST_INIT:
+	case AST_INITIALIZER_LIST:
 		{
 			if (node_type.value == 0) {
 				ASSERT(!"Always add type before analyzing initializers");
@@ -453,7 +453,7 @@ check_node(sema_context ctx, ast_id node_id)
 				while (member_id.value != 0 && child_id.value != 0) {
 					type_id member_type = get_type_id(pool, member_id);
 					ast_node child = get_node(pool, child_id);
-					if (child.kind == AST_INIT) {
+					if (child.kind == AST_INITIALIZER_LIST) {
 						set_type(pool, child_id, member_type);
 					}
 
@@ -476,7 +476,7 @@ check_node(sema_context ctx, ast_id node_id)
 				ast_id child_id = node.children;
 				while (child_id.value != 0) {
 					ast_node child = get_node(pool, node_id);
-					if (child.kind == AST_INIT) {
+					if (child.kind == AST_INITIALIZER_LIST) {
 						set_type(pool, child_id, base_type);
 					}
 
@@ -745,7 +745,7 @@ check_node(sema_context ctx, ast_id node_id)
 
 			node_type = lhs;
 		} break;
-	case AST_DECL:
+	case AST_DECLARATION:
 		{
 			b32 has_definition = (children[1].value != 0);
 			node_type = check_node(ctx, children[0]);
@@ -765,7 +765,7 @@ check_node(sema_context ctx, ast_id node_id)
 
 			if (has_definition) {
 				ast_node init = get_node(pool, children[1]);
-				if (init.kind == AST_INIT) {
+				if (init.kind == AST_INITIALIZER_LIST) {
 					set_type(pool, children[1], node_type);
 				}
 
