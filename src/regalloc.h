@@ -1,19 +1,25 @@
 typedef struct {
-	b32 is_stack;
+	b32 is_spilled;
 	i32 value;
-} mach_location;
+} machine_location;
 
 typedef struct {
-	i32 *int_mregs;
-	i32 *float_mregs;
-	i32 *tmp_mregs;
+	i32 *int_registers;
+	i32 *float_registers;
+	i32 *volatile_registers;
 
-	isize vreg_count;
-	isize mreg_count;
-	isize int_mreg_count;
-	isize float_mreg_count;
-	isize tmp_mreg_count;
-} mach_info;
+	isize virtual_register_count;
+	isize machine_register_count;
+	isize int_register_count;
+	isize float_register_count;
+	isize volatile_register_count;
+} machine_info;
+
+typedef struct {
+	i32 virtual_register;
+	i32 start;
+	i32 end;
+} live_range;
 
 typedef struct {
 	b32 *bits;
