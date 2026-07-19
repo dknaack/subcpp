@@ -93,7 +93,7 @@ allocate_registers(inst *insts, isize inst_count,
 	for (isize i = 0; i < inst_count; i++) {
 		ranges[i].virtual_register = i;
 		ranges[i].start = i;
-		ranges[i].end = i + 1;
+		ranges[i].end = i;
 	}
 
 	for (isize i = 0; i < inst_count; i++) {
