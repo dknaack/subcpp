@@ -1,5 +1,5 @@
 typedef enum {
-	X86_RAX,
+	X86_RAX = 1,
 	X86_RBX,
 	X86_RCX,
 	X86_RDX,
@@ -36,40 +36,63 @@ typedef enum {
 
 typedef enum {
 	X86_NOP,
+	X86_PHI,
 	X86_MOVrg,
 	X86_MOVri,
 	X86_MOVrm,
 	X86_MOVmr,
+	X86_MOVrr,
+	X86_MOVr,
 	X86_ADDrr,
+	X86_CALLf,
+	X86_SETA,
+	X86_SETAE,
+	X86_SETB,
+	X86_SETBE,
+	X86_SETG,
+	X86_SETGE,
+	X86_SETL,
+	X86_SETLE,
+	X86_SETNZ,
+	X86_SETZ,
+	X86_JMP,
+	X86_JA,
+	X86_JAE,
+	X86_JB,
+	X86_JBE,
+	X86_JG,
+	X86_JGE,
+	X86_JL,
+	X86_JLE,
+	X86_JNZ,
+	X86_JZ,
+	X86_CMP,
+	X86_RET,
 } x86_opcode;
 
-#define X86_OPCODE_MASK 0xffff
-
 typedef enum {
-	X86_NIL,
-	X86_IMM,
-	X86_SYM,
-	X86_REG,
-	X86_BASE,
-	X86_INDEX, // TODO: Add scale factor to this type
-	X86_DISP_IMM,
-	X86_DISP_SYM,
-	X86_OPERAND_COUNT
+	X86_OPERAND_NONE,
+	X86_OPERAND_FUNCTION,
+	X86_OPERAND_GLOBAL,
+	X86_OPERAND_IMMEDIATE,
+	X86_OPERAND_LABEL,
+	X86_OPERAND_MEMORY,
+	X86_OPERAND_REGISTER,
 } x86_operand_kind;
 
-typedef enum {
-	X86_BYTE = 1,
-	X86_WORD,
-	X86_DWORD,
-	X86_QWORD,
-} x86_operand_size;
+typedef struct {
+	x86_operand_kind dest;
+	x86_operand_kind args[2];
+} x86_opcode_info;
+
+#define X86_OPCODE_MASK 0xffff
 
 typedef struct {
 	inst_buffer output;
 	inst *input;
 } x86_context;
 
-static i32 x86_int_regs[] = {
+static i32 x86_int_registers[] = {
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -86,7 +109,7 @@ static i32 x86_int_regs[] = {
 	X86_R15,
 };
 
-static i32 x86_float_regs[] = {
+static i32 x86_float_registers[] = {
 	X86_XMM0,
 	X86_XMM1,
 	X86_XMM2,
@@ -105,7 +128,7 @@ static i32 x86_float_regs[] = {
 	X86_XMM15,
 };
 
-static i32 x86_temp_regs[] = {
+static i32 x86_volatile_registers[] = {
 	X86_RAX,
 	X86_RCX,
 	X86_RDX,
@@ -129,7 +152,69 @@ static i32 x86_saved_regs[] = {
 static char *
 x86_get_opcode_name(x86_opcode opcode)
 {
-	ASSERT(!"TODO");
+	switch (opcode) {
+ 	case X86_NOP:
+ 	case X86_PHI:
+		return "nop";
+	case X86_MOVrg:
+	case X86_MOVri:
+	case X86_MOVrm:
+	case X86_MOVmr:
+	case X86_MOVrr:
+	case X86_MOVr:
+		return "mov";
+	case X86_ADDrr:
+		return "add";
+	case X86_CALLf:
+		return "call";
+	case X86_SETA:
+		return "seta";
+	case X86_SETAE:
+		return "setae";
+	case X86_SETB:
+		return "setb";
+	case X86_SETBE:
+		return "setbe";
+	case X86_SETG:
+		return "setg";
+	case X86_SETGE:
+		return "setge";
+	case X86_SETL:
+		return "setl";
+	case X86_SETLE:
+		return "setle";
+	case X86_SETNZ:
+		return "setnz";
+	case X86_SETZ:
+		return "setz";
+	case X86_JMP:
+		return "jmp";
+	case X86_JA:
+		return "ja";
+	case X86_JAE:
+		return "jae";
+	case X86_JB:
+		return "jb";
+	case X86_JBE:
+		return "jbe";
+	case X86_JG:
+		return "jg";
+	case X86_JGE:
+		return "jge";
+	case X86_JL:
+		return "jl";
+	case X86_JLE:
+		return "jle";
+	case X86_JNZ:
+		return "jnz";
+	case X86_JZ:
+		return "jz";
+	case X86_CMP:
+		return "cmp";
+	case X86_RET:
+		return "ret";
+	}
+
 	return "(invalid x86 opcode)";
 }
 
