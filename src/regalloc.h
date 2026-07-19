@@ -8,11 +8,10 @@ typedef struct {
 	i32 *float_registers;
 	i32 *volatile_registers;
 
-	isize virtual_register_count;
-	isize machine_register_count;
 	isize int_register_count;
 	isize float_register_count;
 	isize volatile_register_count;
+	isize machine_register_count;
 } machine_info;
 
 typedef struct {
