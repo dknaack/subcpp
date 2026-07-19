@@ -304,10 +304,11 @@ x86_select(x86_context *ctx, i32 inst_id)
 	case IR_LEU:
 		{
 			x86_opcode setcc = x86_get_setcc_opcode(opcode);
-			(void)setcc;
 
 			arg0 = x86_select(ctx, arg0);
 			arg1 = x86_select(ctx, arg1);
+			x86_emit2(ctx, X86_CMP, arg0, arg1);
+			result = x86_emit0(ctx, setcc);
 		} break;
 	case IR_RET:
 		{
