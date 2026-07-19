@@ -201,6 +201,7 @@ remove_copy_insts(inst *insts, isize inst_count)
 	for (isize i = 0; i < inst_count; i++) {
 		if (insts[i].opcode == IR_COPY) {
 			insts[i].opcode = IR_NOP;
+			insts[i].flags = 0;
 		}
 	}
 }
@@ -323,6 +324,7 @@ optimize(program program, arena *arena)
 					isize offset = block_id * ssa_ctx.var_count + var_id;
 					insts[i].opcode = IR_NOP;
 					insts[i].args[0] = 0;
+					insts[i].flags = 0;
 					ssa_ctx.current_def[offset] = i;
 				} break;
 			case IR_JMP:
@@ -412,6 +414,11 @@ optimize(program program, arena *arena)
 				insts[i].opcode = opcode;
 				break;
 			}
+
+			if (insts[i].opcode == IR_CONST) {
+				insts[i].flags &= ~INST_USE0;
+				insts[i].flags &= ~INST_USE1;
+			}
 		}
 
 		remove_copy_insts(func->insts, func->inst_count);
@@ -440,6 +447,7 @@ optimize(program program, arena *arena)
 
 			if (ref_count[j] == 0 && !has_side_effect) {
 				insts[j].opcode = IR_NOP;
+				insts[j].flags = 0;
 			}
 		}
 
@@ -520,6 +528,7 @@ next_block:
 					}
 
 					inst[i].opcode = IR_NOP;
+					inst[i].flags = 0;
 				}
 			}
 		}
