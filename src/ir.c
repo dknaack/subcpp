@@ -1392,8 +1392,8 @@ get_use_count(inst *inst, isize inst_count, arena *perm)
 	i32 *result = ALLOC(perm, inst_count, i32);
 
 	for (isize i = 0; i < inst_count; i++) {
-		result[inst[i].args[0]] += (inst[i].flags & INST_USE0);
-		result[inst[i].args[1]] += (inst[i].flags & INST_USE1);
+		result[inst[i].args[0]] += !!(inst[i].flags & INST_USE0);
+		result[inst[i].args[1]] += !!(inst[i].flags & INST_USE1);
 	}
 
 	return result;
