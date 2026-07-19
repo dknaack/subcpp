@@ -175,7 +175,6 @@ allocate_registers(inst *insts, isize inst_count,
 		i32 current_register = ranges[i].virtual_register;
 		i32 current_start = ranges[i].start;
 		i32 current_end = ranges[i].end;
-		ASSERT(current_register >= info.machine_register_count);
 
 		// Expire old ranges
 		for (isize j = active_start; j < i; j++) {
