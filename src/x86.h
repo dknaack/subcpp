@@ -68,6 +68,7 @@ typedef enum {
 	X86_JZ,
 	X86_CMP,
 	X86_RET,
+	X86_TEST,
 } x86_opcode;
 
 typedef enum {
@@ -213,6 +214,8 @@ x86_get_opcode_name(x86_opcode opcode)
 		return "cmp";
 	case X86_RET:
 		return "ret";
+	case X86_TEST:
+		return "test";
 	}
 
 	return "(invalid x86 opcode)";

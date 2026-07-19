@@ -70,6 +70,7 @@ x86_get_opcode_info(x86_opcode opcode)
 		result.args[1] = X86_OPERAND_REGISTER;
 		break;
 	case X86_CMP:
+	case X86_TEST:
 		result.args[0] = X86_OPERAND_REGISTER;
 		result.args[1] = X86_OPERAND_REGISTER;
 		break;
@@ -156,9 +157,13 @@ x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 			return X86_JA;
 		case IR_GEU:
 			return X86_JB;
+		case IR_JIZ:
+			return X86_JZ;
+		case IR_JNZ:
+			return X86_JNZ;
 		default:
 			ASSERT(!"Not a comparison operator");
-			return X86_SETZ;
+			return X86_JZ;
 		}
 	} else {
 		switch (ir_opcode) {
@@ -185,9 +190,13 @@ x86_get_jcc_opcode(ir_opcode ir_opcode, bool is_jiz)
 			return X86_JBE;
 		case IR_GEU:
 			return X86_JAE;
+		case IR_JIZ:
+			return X86_JZ;
+		case IR_JNZ:
+			return X86_JNZ;
 		default:
 			ASSERT(!"Not a comparison operator");
-			return X86_SETZ;
+			return X86_JNZ;
 		}
 	}
 }
@@ -319,6 +328,26 @@ x86_select(x86_context *ctx, i32 inst_id)
 	case IR_JMP:
 		{
 			x86_emit1(ctx, X86_JMP, arg0);
+		} break;
+	case IR_JIZ:
+	case IR_JNZ:
+		{
+			b32 is_jiz = (opcode == IR_JIZ);
+			x86_opcode jcc = is_jiz ? X86_JZ : X86_JNZ;
+
+			inst comparison = input[arg0];
+			if (is_comparison_opcode(comparison.opcode)) {
+				jcc = x86_get_jcc_opcode(comparison.opcode, is_jiz);
+				i32 lhs = x86_select(ctx, comparison.args[0]);
+				i32 rhs = x86_select(ctx, comparison.args[1]);
+				x86_emit2(ctx, X86_CMP, lhs, rhs);
+			} else {
+				arg0 = x86_select(ctx, arg0);
+				x86_emit2(ctx, X86_TEST, arg0, arg0);
+			}
+
+			i32 jump_target = arg1;
+			x86_emit1(ctx, jcc, jump_target);
 		} break;
 	default:
 		{
