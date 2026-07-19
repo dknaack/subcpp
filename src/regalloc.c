@@ -200,24 +200,26 @@ allocate_registers(inst *insts, isize inst_count,
 			continue;
 		}
 
-		// Choose the required register pool for the virtual register
-		i32 *class_registers = info.int_registers;
-		isize class_register_count = info.int_register_count;
-		b32 is_float = (insts[current_register].flags & INST_FLOAT);
-		if (is_float) {
-			class_register_count = info.float_register_count;
-			class_registers = info.float_registers;
-		}
+		i32 assigned_register = insts[current_register].hint;
+		if (assigned_register == 0) {
+			// Choose the required register pool for the virtual register
+			i32 *class_registers = info.int_registers;
+			isize class_register_count = info.int_register_count;
+			b32 is_float = (insts[current_register].flags & INST_FLOAT);
+			if (is_float) {
+				class_register_count = info.float_register_count;
+				class_registers = info.float_registers;
+			}
 
-		// Find a valid machine register that doesn't interfere with the
-		// current register.
-		i32 assigned_register = 0;
-		for (isize j = 0; j < class_register_count; j++) {
-			i32 machine_register = class_registers[j];
-			b32 is_blocked = get_bit(blocked_registers[i], machine_register);
-			if (!is_blocked && !is_active[machine_register]) {
-				assigned_register = machine_register;
-				break;
+			// Find a valid machine register that doesn't interfere with the
+			// current register.
+			for (isize j = 0; j < class_register_count; j++) {
+				i32 machine_register = class_registers[j];
+				b32 is_blocked = get_bit(blocked_registers[i], machine_register);
+				if (!is_blocked && !is_active[machine_register]) {
+					assigned_register = machine_register;
+					break;
+				}
 			}
 		}
 
