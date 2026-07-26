@@ -419,6 +419,65 @@ x86_generate(writer *out, program prog, arena *arena)
 		// Register Allocation
 		//
 
+		static i32 x86_int_registers[] = {
+			X86_RAX,
+			X86_RBX,
+			X86_RCX,
+			X86_RDX,
+			X86_RSI,
+			X86_RDI,
+			X86_R8,
+			X86_R9,
+			X86_R10,
+			X86_R11,
+			X86_R12,
+			X86_R13,
+			X86_R14,
+			X86_R15,
+		};
+
+		static i32 x86_float_registers[] = {
+			X86_XMM0,
+			X86_XMM1,
+			X86_XMM2,
+			X86_XMM3,
+			X86_XMM4,
+			X86_XMM5,
+			X86_XMM6,
+			X86_XMM7,
+			X86_XMM8,
+			X86_XMM9,
+			X86_XMM10,
+			X86_XMM11,
+			X86_XMM12,
+			X86_XMM13,
+			X86_XMM14,
+			X86_XMM15,
+		};
+
+		static i32 x86_volatile_registers[] = {
+			X86_RAX,
+			X86_RCX,
+			X86_RDX,
+			X86_RSI,
+			X86_RDI,
+			X86_R8,
+			X86_R9,
+			X86_R10,
+			X86_R11,
+		};
+
+#if 0
+		static i32 x86_saved_regs[] = {
+			X86_RBX,
+			X86_RBP,
+			X86_R12,
+			X86_R13,
+			X86_R14,
+			X86_R15,
+		};
+#endif
+
 		machine_info info = {0};
 		info.int_registers = x86_int_registers;
 		info.float_registers = x86_float_registers;
