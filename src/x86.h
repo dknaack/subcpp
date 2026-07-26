@@ -86,8 +86,6 @@ typedef struct {
 	x86_operand_kind args[2];
 } x86_opcode_info;
 
-#define X86_OPCODE_MASK 0xffff
-
 typedef struct {
 	inst_buffer output;
 	inst *input;
