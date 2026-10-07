@@ -148,10 +148,6 @@ struct macro {
 	location loc;
 };
 
-typedef struct {
-	char *filename;
-} lexer;
-
 typedef struct file file;
 struct file {
 	char *name;
