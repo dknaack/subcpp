@@ -407,7 +407,7 @@ x86_generate(writer *out, program prog, arena *arena)
 			if (insts[i].opcode == IR_LABEL) {
 				blocks[block_id].end = ctx.output.inst_count;
 				block_id = insts[i].args[0];
-				blocks[block_id].begin = ctx.output.inst_count;
+				blocks[block_id].start = ctx.output.inst_count;
 			} else if (use_count[i] != 1) {
 				x86_select(&ctx, i);
 			}
@@ -508,7 +508,7 @@ x86_generate(writer *out, program prog, arena *arena)
 			print_u32(out, b);
 			print_cstr(out, ":\n");
 
-			for (isize i = blocks[b].begin; i < blocks[b].end; i++) {
+			for (isize i = blocks[b].start; i < blocks[b].end; i++) {
 				inst inst = output[i];
 				if (inst.opcode == X86_NOP || inst.opcode == X86_MOVr) {
 					continue;

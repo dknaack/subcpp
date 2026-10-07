@@ -27,7 +27,7 @@ allocate_registers(inst *insts, isize inst_count,
 
 	// Initialize the gen and kill bitsets
 	for (isize b = 1; b < block_count; b++) {
-		for (isize i = blocks[b].begin; i < blocks[b].end; i++) {
+		for (isize i = blocks[b].start; i < blocks[b].end; i++) {
 			inst inst = insts[i];
 
 			// Gen stores all registers which have been used before any def. We
@@ -143,7 +143,7 @@ allocate_registers(inst *insts, isize inst_count,
 		// empty bitset.
 		bitset live = new_bitset(info.machine_register_count, arena);
 
-		for (isize i = blocks[b].end - 1; i >= blocks[b].begin; i--) {
+		for (isize i = blocks[b].end - 1; i >= blocks[b].start; i--) {
 			inst inst = insts[i];
 
 			if (inst.flags & INST_DEF) {

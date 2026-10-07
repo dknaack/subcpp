@@ -483,8 +483,8 @@ next_block:
 				isize label = stack[--stack_pos];
 
 				// NOTE: The first instruction is the label itself
-				u32 begin = label_addresses[label];
-				for (isize j = begin; j < func->inst_count; j++) {
+				u32 start = label_addresses[label];
+				for (isize j = start; j < func->inst_count; j++) {
 					u32 i = inst[j].args[0];
 					u32 new_label = 0;
 					switch (inst[i].opcode) {
@@ -518,10 +518,10 @@ next_block:
 					continue;
 				}
 
-				u32 begin = label_addresses[label];
+				u32 start = label_addresses[label];
 				// Remove the label
-				inst[inst[begin].args[0]].opcode = IR_NOP;
-				for (isize j = begin; j; j = inst[j].args[1]) {
+				inst[inst[start].args[0]].opcode = IR_NOP;
+				for (isize j = start; j; j = inst[j].args[1]) {
 					u32 i = inst[j].args[0];
 					if (inst[i].opcode == IR_LABEL) {
 						break;

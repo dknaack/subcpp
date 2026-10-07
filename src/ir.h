@@ -199,8 +199,10 @@ typedef struct {
 } global;
 
 typedef struct {
-	i32 begin;
+	i32 start;
 	i32 end;
+	// blocks always have two successors. An unconditional jump just points
+	// towards the same block in both cases.
 	i32 succ[2];
 	i32 *pred;
 	i32 pred_count;
