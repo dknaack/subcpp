@@ -6,14 +6,14 @@
  * peephole optimizer to combine loads/stores into one instruction, if
  * possible.
  */
-static mach_location *
-regalloc(mach_token *tokens, isize token_count,
-	block *blocks, isize block_count, mach_info mach, arena *arena)
+static machine_location *
+allocate_registers(machine_token *tokens, isize token_count,
+	block *blocks, isize block_count, machine_info info, arena *arena)
 {
-	isize mreg_count = mach.mreg_count;
-	isize reg_count = mreg_count + mach.vreg_count;
-	mach_location *result = ALLOC(arena, reg_count, mach_location);
-	for (isize i = 0; i < mreg_count; i++) {
+	isize machine_register_count = info.machine_register_count;
+	isize reg_count = machine_register_count + info.virtual_register_count;
+	machine_location *result = ALLOC(arena, reg_count, machine_location);
+	for (isize i = 0; i < machine_register_count; i++) {
 		result[i].value = i;
 	}
 
@@ -34,16 +34,16 @@ regalloc(mach_token *tokens, isize token_count,
 	// Initialize the gen and kill bitsets
 	for (isize i = 1; i < block_count; i++) {
 		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
-			mach_token token = tokens[j];
+			machine_token token = tokens[j];
 
 			// Gen stores all registers which have been used before any def. We
 			// track use first, since a register with both flags would count as
 			// usage and then definition.
-			if ((token.flags & MACH_USE) && !get_bit(kill[i], token.value)) {
+			if ((token.flags & MACHINE_USE) && !get_bit(kill[i], token.value)) {
 				set_bit(gen[i], token.value, 1);
 			}
 
-			if (token.flags & MACH_DEF) {
+			if (token.flags & MACHINE_DEF) {
 				set_bit(kill[i], token.value, 1);
 			}
 		}
@@ -90,7 +90,7 @@ regalloc(mach_token *tokens, isize token_count,
 	// checking which preallocated registers are live at the same time.
 	bitset *blocked_regs = ALLOC(arena, reg_count, bitset);
 	for (isize i = 0; i < reg_count; i++) {
-		blocked_regs[i] = new_bitset(mreg_count, arena);
+		blocked_regs[i] = new_bitset(machine_register_count, arena);
 	}
 
 	for (isize i = 1; i < block_count; i++) {
@@ -98,11 +98,11 @@ regalloc(mach_token *tokens, isize token_count,
 		bitset live = clone_bitset(live_out[i], arena);
 
 		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
-			mach_token token = tokens[j];
+			machine_token token = tokens[j];
 			i32 reg = token.value;
 
-			if (token.flags & MACH_DEF && get_bit(live, reg) != 0) {
-				for (isize j = 0; j < mreg_count; j++) {
+			if (token.flags & MACHINE_DEF && get_bit(live, reg) != 0) {
+				for (isize j = 0; j < machine_register_count; j++) {
 					if (reg != j && get_bit(live, j)) {
 						set_bit(blocked_regs[reg], j, 1);
 					}
@@ -111,7 +111,7 @@ regalloc(mach_token *tokens, isize token_count,
 				set_bit(live, reg, 0);
 			}
 
-			if (token.flags & MACH_USE) {
+			if (token.flags & MACHINE_USE) {
 				set_bit(live, reg, 1);
 			}
 		}
@@ -123,12 +123,12 @@ regalloc(mach_token *tokens, isize token_count,
 	bitset float_regs = new_bitset(reg_count, arena);
 	for (isize i = 1; i < block_count; i++) {
 		for (isize j = blocks[i].begin; j < blocks[i].end; j++) {
-			mach_token token = tokens[j];
+			machine_token token = tokens[j];
 			i32 reg = token.value;
 
-			b32 is_vreg = (token.flags & (MACH_USE | MACH_DEF));
-			b32 is_float = (token.flags & MACH_FLOAT);
-			if (is_vreg && is_float) {
+			b32 is_virtual_register = (token.flags & (MACHINE_USE | MACHINE_DEF));
+			b32 is_float = (token.flags & MACHINE_FLOAT);
+			if (is_virtual_register && is_float) {
 				set_bit(float_regs, reg, 1);
 			}
 		}
@@ -160,41 +160,41 @@ regalloc(mach_token *tokens, isize token_count,
 		if (end < start) {
 			// Find first def
 			for (isize j = 0; j < start; j++) {
-				if ((tokens[j].flags & MACH_DEF) && tokens[j].value == i) {
+				if ((tokens[j].flags & MACHINE_DEF) && tokens[j].value == i) {
 					start = j;
 				}
 			}
 
 			// Find last use
 			for (isize j = token_count - 1; j >= end; j--) {
-				if (tokens[j].flags & MACH_USE && tokens[j].value == i) {
+				if (tokens[j].flags & MACHINE_USE && tokens[j].value == i) {
 					end = j;
 				}
 			}
 		}
 
-		ranges[i].vreg = i;
+		ranges[i].reg = i;
 		ranges[i].start = start;
 		ranges[i].end = end;
 	}
 
 	// NOTE: Sort the ranges by their start
 	// TODO: Replace with a more efficient sorting algorithm
-	for (isize i = mreg_count; i < reg_count; i++) {
-		for (isize j = mreg_count; j < reg_count - i - 1; j++) {
+	for (isize i = machine_register_count; i < reg_count; i++) {
+		for (isize j = machine_register_count; j < reg_count - i - 1; j++) {
 			live_range tmp = ranges[j];
 			ranges[j] = ranges[j + 1];
 			ranges[j + 1] = tmp;
 		}
 	}
 
-	b32 *is_active = ALLOC(arena, mreg_count, b32);
+	b32 *is_active = ALLOC(arena, machine_register_count, b32);
 	isize active_start = 0;
-	for (isize i = mreg_count; i < reg_count; i++) {
-		i32 curr_reg = ranges[i].vreg;
+	for (isize i = machine_register_count; i < reg_count; i++) {
+		i32 curr_register = ranges[i].reg;
 		i32 curr_start = ranges[i].start;
 		i32 curr_end = ranges[i].end;
-		ASSERT(curr_reg >= mreg_count);
+		ASSERT(curr_register >= machine_register_count);
 
 		// Expire old ranges
 		for (isize j = active_start; j < i; j++) {
@@ -203,10 +203,10 @@ regalloc(mach_token *tokens, isize token_count,
 				continue;
 			}
 
-			i32 vreg = ranges[j].vreg;
-			if (!result[vreg].is_stack) {
-				i32 mreg = result[vreg].value;
-				is_active[mreg] = false;
+			i32 virtual_register = ranges[j].reg;
+			if (!result[virtual_register].is_stack) {
+				i32 machine_register = result[virtual_register].value;
+				is_active[machine_register] = false;
 			}
 
 			// Swap the expired interval with the one at the start.
@@ -215,41 +215,41 @@ regalloc(mach_token *tokens, isize token_count,
 
 		// Ignore empty or preallocated registers
 		b32 is_empty = (curr_start > curr_end);
-		b32 is_preallocated = (result[curr_reg].value > 0);
-		if (is_empty || is_preallocated || result[curr_reg].is_stack) {
+		b32 is_preallocated = (result[curr_register].value > 0);
+		if (is_empty || is_preallocated || result[curr_register].is_stack) {
 			continue;
 		}
 
-		// Find a valid machine register that doesn't overlap with curr_reg
-		i32 assigned_mreg = 0;
+		// Find a valid machine register that doesn't overlap with curr_register
+		i32 assigned_register = 0;
 		b32 is_float = get_bit(float_regs, i);
 		if (is_float) {
-			for (isize j = 0; j < mach.float_mreg_count; j++) {
-				i32 mreg = mach.float_mregs[j];
-				b32 is_blocked = get_bit(blocked_regs[i], mreg);
-				if (!is_blocked && !is_active[mreg]) {
-					assigned_mreg = mreg;
+			for (isize j = 0; j < info.float_register_count; j++) {
+				i32 machine_register = info.float_registers[j];
+				b32 is_blocked = get_bit(blocked_regs[i], machine_register);
+				if (!is_blocked && !is_active[machine_register]) {
+					assigned_register = machine_register;
 					break;
 				}
 			}
 		} else {
-			for (isize j = 0; j < mach.int_mreg_count; j++) {
-				i32 mreg = mach.int_mregs[j];
-				b32 is_blocked = get_bit(blocked_regs[i], mreg);
-				if (!is_blocked && !is_active[mreg]) {
-					assigned_mreg = mreg;
+			for (isize j = 0; j < info.int_register_count; j++) {
+				i32 machine_register = info.int_registers[j];
+				b32 is_blocked = get_bit(blocked_regs[i], machine_register);
+				if (!is_blocked && !is_active[machine_register]) {
+					assigned_register = machine_register;
 					break;
 				}
 			}
 		}
 
-		if (assigned_mreg == 0) {
-			result[curr_reg].is_stack = true;
-			result[curr_reg].value = 0;
+		if (assigned_register == 0) {
+			result[curr_register].is_stack = true;
+			result[curr_register].value = 0;
 		} else {
-			result[curr_reg].value = assigned_mreg;
-			is_active[assigned_mreg] = true;
-			BREAK_IF(assigned_mreg == X86_XMM5);
+			result[curr_register].value = assigned_register;
+			is_active[assigned_register] = true;
+			BREAK_IF(assigned_register == X86_XMM5);
 		}
 	}
 

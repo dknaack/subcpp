@@ -1,18 +1,18 @@
 typedef enum {
-	MACH_USE   = (1 << 0),
-	MACH_DEF   = (1 << 1),
+	MACHINE_USE   = (1 << 0),
+	MACHINE_DEF   = (1 << 1),
 	// Indicates that this token is a call instruction, which clears any
 	// registers which are not preserved across calls
-	MACH_CALL  = (1 << 2),
+	MACHINE_CALL  = (1 << 2),
 	// The register allocator only allows to different register classes,
 	// integers or floats. This flag indicates that the register is contained
 	// in the latter class.
-	MACH_FLOAT = (1 << 3),
+	MACHINE_FLOAT = (1 << 3),
 	// We reuse the float flag to indicate when an instruction occurs,
 	// since tokens with the float flag and no use or def flag don't really
-	// make any sense, hence this flag.
-	MACH_INST  = MACH_FLOAT,
-} mach_token_flags;
+	// make any sense, hence this additional alias.
+	MACHINE_INST  = MACHINE_FLOAT,
+} machine_token_flags;
 
 typedef struct {
 	// A token is considered a virtual register if it has a USE or DEF flag.
@@ -27,24 +27,24 @@ typedef struct {
 	// format, i.e. what the next tokens mean.
 	u8 hint;
 	i32 value;
-} mach_token;
+} machine_token;
 
 typedef struct {
 	b32 is_stack;
 	i32 value;
-} mach_location;
+} machine_location;
 
 typedef struct {
-	i32 *int_mregs;
-	i32 *float_mregs;
-	i32 *tmp_mregs;
+	i32 *int_registers;
+	i32 *float_registers;
+	i32 *volatile_registers;
 
-	isize vreg_count;
-	isize mreg_count;
-	isize int_mreg_count;
-	isize float_mreg_count;
-	isize tmp_mreg_count;
-} mach_info;
+	isize virtual_register_count;
+	isize machine_register_count;
+	isize int_register_count;
+	isize float_register_count;
+	isize volatile_register_count;
+} machine_info;
 
 typedef struct {
 	i32 spill_count;
@@ -52,7 +52,7 @@ typedef struct {
 } regalloc_result;
 
 typedef struct {
-	i32 vreg;
+	i32 reg;
 	i32 start;
 	i32 end;
 } live_range;
@@ -62,50 +62,51 @@ typedef struct {
 	i32 size;
 } bitset;
 
-#define make_spill(value) make_mach_token(value, 8)
-#define make_label(value) make_mach_token(value, 0)
-#define make_global(value) make_mach_token(value, 8)
-#define make_const(value, size) make_mach_token(value, size)
+#define make_spill(value) make_machine_token(value, 8)
+#define make_label(value) make_machine_token(value, 0)
+#define make_global(value) make_machine_token(value, 8)
+#define make_const(value, size) make_machine_token(value, size)
 
 static b32
-equals_token(mach_token a, mach_token b)
+equals_token(machine_token a, machine_token b)
 {
 	b32 result = (a.flags == b.flags && a.value == b.value);
 	return result;
 }
 
-static mach_token
-make_mach_token(u32 value, u32 size)
+static machine_token
+make_machine_token(u32 value, u32 size)
 {
-	mach_token token = {0};
+	machine_token token = {0};
 	token.value = value;
 	token.hint = size;
 	ASSERT(size <= 16);
 	return token;
 }
 
-static mach_token
+static machine_token
 register_token(u32 value, b32 is_float)
 {
-	mach_token token = {0};
-	token.flags = is_float ? MACH_FLOAT : 0;
+	machine_token token = {0};
+	token.flags = is_float ? MACHINE_FLOAT : 0;
 	token.value = value;
 	return token;
 }
 
-static mach_token
+static machine_token
 inst_token(u8 opcode, u32 format)
 {
-	mach_token token = {0};
-	token.flags = MACH_INST;
+	machine_token token = {0};
+	token.flags = MACHINE_INST;
 	token.hint  = opcode;
 	token.value = format;
 	return token;
 }
+
 static b32
-is_inst_token(mach_token token)
+is_inst_token(machine_token token)
 {
-	b32 result = ((token.flags & (MACH_USE | MACH_DEF | MACH_INST)) == MACH_INST);
+	b32 result = ((token.flags & (MACHINE_USE | MACHINE_DEF | MACHINE_INST)) == MACHINE_INST);
 	return result;
 }
 

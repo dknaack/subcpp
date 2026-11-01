@@ -115,15 +115,15 @@ typedef enum {
 
 typedef struct {
 	inst *inst;
-	mach_token *tokens;
+	machine_token *tokens;
 	global *globals;
 	i32 global_count;
 	i32 token_count;
 	i32 max_token_count;
-	i32 vreg_count;
+	i32 virtual_register_count;
 } x86_context;
 
-static i32 x86_int_regs[] = {
+static i32 x86_int_registers[] = {
 	X86_RAX,
 	X86_RBX,
 	X86_RCX,
@@ -140,7 +140,7 @@ static i32 x86_int_regs[] = {
 	X86_R15,
 };
 
-static i32 x86_float_regs[] = {
+static i32 x86_float_registers[] = {
 	X86_XMM0,
 	X86_XMM1,
 	X86_XMM2,
@@ -159,7 +159,7 @@ static i32 x86_float_regs[] = {
 	X86_XMM15,
 };
 
-static i32 x86_temp_regs[] = {
+static i32 x86_volatile_registers[] = {
 	X86_RAX,
 	X86_RCX,
 	X86_RDX,
