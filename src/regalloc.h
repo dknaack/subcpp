@@ -2,7 +2,10 @@ typedef enum {
 	MACHINE_USE   = (1 << 0),
 	MACHINE_DEF   = (1 << 1),
 	// Indicates that this token is a call instruction, which clears any
-	// registers which are not preserved across calls
+	// registers which are not preserved across calls.
+	// One important limitation with this design is that call instructions
+	// cannot really have a return value, unless the backend implements special
+	// parsing of the token stream.
 	MACHINE_CALL  = (1 << 2),
 	// The register allocator only allows to different register classes,
 	// integers or floats. This flag indicates that the register is contained
