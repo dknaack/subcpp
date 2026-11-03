@@ -33,7 +33,7 @@ typedef struct {
 } machine_token;
 
 typedef struct {
-	b32 is_stack;
+	b32 was_spilled;
 	i32 value;
 } machine_location;
 
@@ -50,9 +50,10 @@ typedef struct {
 } machine_info;
 
 typedef struct {
+	machine_location *of;
 	i32 spill_count;
-	b32 error;
-} regalloc_result;
+	b32 status;
+} register_assignment;
 
 typedef struct {
 	i32 reg;

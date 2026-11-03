@@ -6,15 +6,16 @@
  * peephole optimizer to combine loads/stores into one instruction, if
  * possible.
  */
-static machine_location *
+static register_assignment
 allocate_registers(machine_token *tokens, isize token_count,
 	block *blocks, isize block_count, machine_info info, arena *arena)
 {
+	register_assignment assignment = {0};
 	isize machine_register_count = info.machine_register_count;
 	isize reg_count = machine_register_count + info.virtual_register_count;
-	machine_location *result = ALLOC(arena, reg_count, machine_location);
+	assignment.of = ALLOC(arena, reg_count, machine_location);
 	for (isize i = 0; i < machine_register_count; i++) {
-		result[i].value = i;
+		assignment.of[i].value = i;
 	}
 
 	arena_temp temp = arena_temp_begin(arena);
@@ -204,8 +205,8 @@ allocate_registers(machine_token *tokens, isize token_count,
 			}
 
 			i32 virtual_register = ranges[j].reg;
-			if (!result[virtual_register].is_stack) {
-				i32 machine_register = result[virtual_register].value;
+			if (!assignment.of[virtual_register].was_spilled) {
+				i32 machine_register = assignment.of[virtual_register].value;
 				is_active[machine_register] = false;
 			}
 
@@ -215,8 +216,9 @@ allocate_registers(machine_token *tokens, isize token_count,
 
 		// Ignore empty or preallocated registers
 		b32 is_empty = (curr_start > curr_end);
-		b32 is_preallocated = (result[curr_register].value > 0);
-		if (is_empty || is_preallocated || result[curr_register].is_stack) {
+		b32 is_preallocated = (assignment.of[curr_register].value > 0);
+		b32 was_spilled = assignment.of[curr_register].was_spilled;
+		if (is_empty || is_preallocated || was_spilled) {
 			continue;
 		}
 
@@ -244,15 +246,15 @@ allocate_registers(machine_token *tokens, isize token_count,
 		}
 
 		if (assigned_register == 0) {
-			result[curr_register].is_stack = true;
-			result[curr_register].value = 0;
+			assignment.of[curr_register].was_spilled = true;
+			assignment.of[curr_register].value = 0;
 		} else {
-			result[curr_register].value = assigned_register;
+			assignment.of[curr_register].value = assigned_register;
 			is_active[assigned_register] = true;
 			BREAK_IF(assigned_register == X86_XMM5);
 		}
 	}
 
 	arena_temp_end(temp);
-	return result;
+	return assignment;
 }

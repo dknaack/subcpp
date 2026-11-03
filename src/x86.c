@@ -700,7 +700,7 @@ x86_generate(writer *out, program p, arena *arena)
 		block *blocks = ALLOC(arena, ir_func->block_count, block);
 
 		inst *inst = ir_func->insts;
-		i32 *ref_count = get_ref_count(inst, ir_func->inst_count, arena);
+		i32 *ref_count = get_use_count(inst, ir_func->inst_count, arena);
 		for (isize j = 0; j < ir_func->inst_count; j++) {
 			ir_opcode opcode = inst[j].opcode;
 			if (ref_count[j] == 1) {
@@ -757,7 +757,7 @@ x86_generate(writer *out, program p, arena *arena)
 		info.virtual_register_count = ctx.virtual_register_count;
 		info.machine_register_count = X86_REGISTER_COUNT;
 
-		machine_location *register_table = allocate_registers(tokens, token_count,
+		register_assignment assignment = allocate_registers(tokens, token_count,
 			blocks, ir_func->block_count, info, arena);
 
 		//
@@ -772,7 +772,7 @@ x86_generate(writer *out, program p, arena *arena)
 		isize used_volatile_register_count = 0;
 		for (isize j = 0; j < LENGTH(x86_saved_regs); j++) {
 			i32 mreg = x86_saved_regs[j];
-			if (register_table[mreg]) {
+			if (assignment.of[mreg]) {
 				print_cstr(out, "\tpush ");
 				print_cstr(out, x86_get_register_name(mreg, 8));
 				print_cstr(out, "\n");
@@ -886,7 +886,7 @@ x86_generate(writer *out, program p, arena *arena)
 						// registers, which can all be spilled at the same time.
 						u64 reg = 0;
 						if (value >= X86_REGISTER_COUNT) {
-							reg = register_table[value].value;
+							reg = assignment.of[value].value;
 						} else {
 							reg = value;
 						}
