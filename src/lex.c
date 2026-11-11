@@ -1023,9 +1023,9 @@ push_file(parse_context *ctx, char *filename, str contents)
 }
 
 static token
-get_token_without_string_concat(parse_context *ctx)
+get_token(parse_context *ctx)
 {
-	token token = {TOKEN_INVALID};
+	token result, token = {TOKEN_INVALID};
 	b32 at_line_start = (ctx->lexer->pos == 0);
 	do {
 		b32 was_expanded = (ctx->tokens != NULL);
@@ -1370,24 +1370,6 @@ get_token_without_string_concat(parse_context *ctx)
 				break;
 			}
 		}
-	}
-
-	return token;
-}
-
-static token
-get_token(parse_context *ctx)
-{
-	token result, token = {0};
-
-	// NOTE: string concatenation - if the last token was a string literal,
-	// skip any other string literal following the previous token.
-	if (ctx->peek[1].kind == TOKEN_LITERAL_STRING) {
-		do {
-			token = get_token_without_string_concat(ctx);
-		} while (token.kind == TOKEN_LITERAL_STRING);
-	} else {
-		token = get_token_without_string_concat(ctx);
 	}
 
 	result = ctx->peek[0];

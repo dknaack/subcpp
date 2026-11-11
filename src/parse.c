@@ -211,6 +211,10 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			expr = new_node(pool, AST_EXPR_IDENT, token, ast_nil);
 		} break;
 	case TOKEN_LITERAL_STRING:
+		{
+			while (accept(ctx, TOKEN_LITERAL_STRING)) {}
+			expr = new_node(pool, AST_EXPR_LITERAL, token, ast_nil);
+		} break;
 	case TOKEN_LITERAL_CHAR:
 	case TOKEN_LITERAL_FLOAT:
 	case TOKEN_LITERAL_INT:
