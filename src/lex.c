@@ -1373,7 +1373,7 @@ get_token(parse_context *ctx)
 	}
 
 	result = ctx->peek[0];
-	memmove(ctx->peek, ctx->peek + 1, (LENGTH(ctx->peek) - 1) * sizeof(token));
+	MOVE_ARRAY(ctx->peek, ctx->peek + 1, LENGTH(ctx->peek) - 1);
 	ctx->peek[LENGTH(ctx->peek) - 1] = token;
 	return result;
 }

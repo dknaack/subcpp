@@ -1,6 +1,9 @@
 #define ALLOC_NOZERO(arena, count, type) ((type *)alloc_nozero(arena, count, sizeof(type)))
 #define ALLOC(arena, count, type) ((type *)alloc(arena, count, sizeof(type)))
 
+#define MOVE_ARRAY(d, s, n) ((void)(0 ? (d) : (s)), move_memory(d, s, (n) * sizeof(*d)))
+#define COPY_ARRAY(d, s, n) ((void)(0 ? (d) : (s)), copy_memory(d, s, (n) * sizeof(*d)))
+
 typedef struct {
 	char *data;
 	usize size;
@@ -40,6 +43,34 @@ alloc(arena *arena, usize count, usize size)
 	}
 
 	return byte;
+}
+
+static void
+copy_memory(void *dst, void *src, isize size)
+{
+	char *d = dst;
+	char *s = src;
+
+	for (isize i = 0; i < size; i++) {
+		d[i] = s[i];
+	}
+}
+
+static void
+move_memory(void *dst, void *src, isize size)
+{
+	char *d = dst;
+	char *s = src;
+
+	if (dst < src) {
+		for (isize i = 0; i < size; i++) {
+			d[i] = s[i];
+		}
+	} else {
+		for (isize i = size - 1; i >= 0; i--) {
+			d[i] = s[i];
+		}
+	}
 }
 
 static arena_temp
