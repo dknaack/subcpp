@@ -345,7 +345,7 @@ check_node(sema_context ctx, syntax_node_id node_id)
 	get_children(tree, node_id, children, LENGTH(children));
 
 	switch (node.kind) {
-	case SYNTAX_INVALID:
+	case SYNTAX_ERROR:
 		tree->error = true;
 		break;
 	case SYNTAX_NONE:

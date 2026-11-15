@@ -170,7 +170,7 @@ print_syntax_node(syntax_tree *tree, syntax_node_id node_id, int indent)
 	get_children(tree, node_id, children, LENGTH(children));
 
 	switch (node.kind) {
-	case SYNTAX_INVALID:
+	case SYNTAX_ERROR:
 		printf("(invalid)");
 		break;
 	case SYNTAX_NONE:
