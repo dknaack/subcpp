@@ -724,7 +724,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 				if (found_qualifier) {
 					qualifiers |= qualifier;
 					token = get_token(ctx);
-					if (qualifier_token.kind == TOKEN_INVALID) {
+					if (qualifier_token.kind == TOKEN_ERROR) {
 						qualifier_token = token;
 					}
 				}
