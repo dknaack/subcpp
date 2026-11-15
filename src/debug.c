@@ -157,273 +157,168 @@ get_ir_opcode_str(ir_opcode opcode)
 }
 
 static void
-print_syntax_node(syntax_tree *tree, syntax_node_id node_id, int indent)
+print_syntax_node(syntax_tree *tree, syntax_node_id node_id, char *prefix)
 {
-	syntax_node_id children[4] = {0};
-	syntax_node_id tmp;
-
-	if (node_id.value == 0) {
-		return;
-	}
-
 	syntax_node node = get_node(tree, node_id);
-	get_children(tree, node_id, children, LENGTH(children));
 
+	const char *name = "(invalid)";
 	switch (node.kind) {
 	case SYNTAX_ERROR:
-		printf("(invalid)");
+		name = "Error";
 		break;
 	case SYNTAX_NONE:
+		name = "None";
+		break;
+	case SYNTAX_BUILTIN:
+		name = "Builtin";
 		break;
 	case SYNTAX_DECL:
-		printf("%.*s: ", (int)node.token.value.length, node.token.value.at);
-		print_syntax_node(tree, node.children, indent);
-		if (children[0].value != 0) {
-			printf(" = ");
-			print_syntax_node(tree, children[0], indent);
-		}
-
+		name = "Decl";
+		break;
+	case SYNTAX_ENUMERATOR:
+		name = "Enumerator";
+		break;
+	case SYNTAX_INIT:
+		name = "Init";
 		break;
 	case SYNTAX_EXPR_BINARY:
-
-		printf("(");
-		print_syntax_node(tree, children[0], indent);
-		printf(") <*> (");
-		print_syntax_node(tree, children[1], indent);
-		printf(")");
+		name = "Expr_binary";
 		break;
 	case SYNTAX_EXPR_CALL:
-		print_syntax_node(tree, children[0], indent);
-
-		printf("(");
-		node_id = children[1];
-		while (node_id.value != 0) {
-			print_syntax_node(tree, node_id, indent);
-
-			node_id = get_node(tree, node_id).next;
-			if (node_id.value != 0) {
-				printf(", ");
-			}
-		}
-
-		printf(")");
+		name = "ExprCall";
 		break;
 	case SYNTAX_EXPR_CAST:
-
-		printf("(");
-		print_syntax_node(tree, children[0], indent);
-		printf(")");
-		print_syntax_node(tree, children[1], indent);
+		name = "ExprCast";
+		break;
+	case SYNTAX_EXPR_COMPOUND:
+		name = "ExprCompound";
+		break;
+	case SYNTAX_EXPR_IDENT:
+		name = "ExprIdent";
 		break;
 	case SYNTAX_EXPR_LITERAL:
-		printf("%.*s", (int)node.token.value.length, node.token.value.at);
+		name = "ExprLiteral";
 		break;
 	case SYNTAX_EXPR_MEMBER:
+		name = "ExprMember";
+		break;
 	case SYNTAX_EXPR_MEMBER_PTR:
-		print_syntax_node(tree, children[0], indent);
-		printf(".%.*s", (int)node.token.value.length, node.token.value.at);
+		name = "ExprMemberPtr";
 		break;
 	case SYNTAX_EXPR_POSTFIX:
-		print_syntax_node(tree, children[0], indent);
-		switch (node.token.kind) {
-		case TOKEN_PLUS_PLUS:
-			printf("++");
-			break;
-		case TOKEN_MINUS_MINUS:
-			printf("--");
-			break;
-		default:
-			ASSERT(!"Invalid postfix expression");
-		}
-
+		name = "ExprPostfix";
+		break;
+	case SYNTAX_EXPR_SIZEOF:
+		name = "ExprSizeof";
 		break;
 	case SYNTAX_EXPR_TERNARY:
-
-		print_syntax_node(tree, children[0], indent);
-		printf(" ? ");
-		print_syntax_node(tree, children[1], indent);
-		printf(" : ");
-		print_syntax_node(tree, children[2], indent);
+		name = "ExprTernary";
 		break;
 	case SYNTAX_EXPR_UNARY:
-		switch (node.token.kind) {
-		case TOKEN_PLUS_PLUS:
-			printf("++");
-			break;
-		case TOKEN_MINUS_MINUS:
-			printf("--");
-			break;
-		case TOKEN_PLUS:
-			printf("+");
-			break;
-		case TOKEN_MINUS:
-			printf("-");
-			break;
-		case TOKEN_STAR:
-			printf("*");
-			break;
-		case TOKEN_BANG:
-			printf("!");
-			break;
-		case TOKEN_AMP:
-			printf("&");
-			break;
-		default:
-			ASSERT(!"Invalid unary expression");
-		}
-
-		print_syntax_node(tree, children[0], indent);
+		name = "ExprUnary";
+		break;
+	case SYNTAX_STMT_ASM:
+		name = "StmtAsm";
 		break;
 	case SYNTAX_STMT_BREAK:
-		printf("break");
+		name = "StmtBreak";
 		break;
 	case SYNTAX_STMT_CASE:
-		printf("case ");
-		print_syntax_node(tree, children[0], indent + 1);
-		printf(":\n");
-		print_syntax_node(tree, children[1], indent + 1);
-		break;
-	case SYNTAX_STMT_CONTINUE:
-		printf("continue");
-		break;
-	case SYNTAX_STMT_DEFAULT:
-		printf("default:\n");
-		print_syntax_node(tree, children[0], indent + 1);
-		break;
-	case SYNTAX_STMT_DO_WHILE:
-		printf("do");
-		print_syntax_node(tree, children[1], indent);
-		printf("while (");
-		print_syntax_node(tree, children[0], indent);
-		printf(");");
-		break;
-	case SYNTAX_STMT_GOTO:
-		printf("goto %.*s", (int)node.token.value.length, node.token.value.at);
-		break;
-	case SYNTAX_STMT_FOR:
-		printf("for (");
-		print_syntax_node(tree, children[0], indent);
-		printf("; ");
-		print_syntax_node(tree, children[1], indent);
-		printf("; ");
-		print_syntax_node(tree, children[2], indent);
-		printf(") ");
-		print_syntax_node(tree, children[3], indent);
-		break;
-	case SYNTAX_STMT_IF:
-		printf("if (");
-		print_syntax_node(tree, children[0], indent);
-		printf(") ");
-		print_syntax_node(tree, children[1], indent);
-
-		if (children[2].value != 0) {
-			printf("else ");
-			print_syntax_node(tree, children[2], indent);
-		}
-		break;
-	case SYNTAX_STMT_LABEL:
-		printf("%.*s:\n", (int)node.token.value.length, node.token.value.at);
-		print_syntax_node(tree, children[0], indent);
+		name = "StmtCase";
 		break;
 	case SYNTAX_STMT_COMPOUND:
-		printf("{\n");
-		while (node_id.value != 0) {
-			for (int i = 0; i < indent + 1; i++) printf("    ");
-			node = get_node(tree, node_id);
-			print_syntax_node(tree, children[0], indent+1);
-			node_id = children[1];
-			printf(";\n");
-		}
-		for (int i = 0; i < indent; i++) printf("    ");
-		printf("}\n");
+		name = "StmtCompound";
 		break;
-	case SYNTAX_STMT_SWITCH:
-		printf("switch (");
-		print_syntax_node(tree, children[0], indent);
-		printf(")");
-		print_syntax_node(tree, children[0], indent);
+	case SYNTAX_STMT_CONTINUE:
+		name = "StmtContinue";
+		break;
+	case SYNTAX_STMT_DECL:
+		name = "StmtDecl";
+		break;
+	case SYNTAX_STMT_DEFAULT:
+		name = "StmtDefault";
+		break;
+	case SYNTAX_STMT_DO_WHILE:
+		name = "StmtDo_while";
+		break;
+	case SYNTAX_STMT_FOR:
+		name = "StmtFor";
+		break;
+	case SYNTAX_STMT_GOTO:
+		name = "StmtGoto";
+		break;
+	case SYNTAX_STMT_IF:
+		name = "StmtIf";
+		break;
+	case SYNTAX_STMT_LABEL:
+		name = "StmtLabel";
 		break;
 	case SYNTAX_STMT_RETURN:
-		printf("return ");
-		print_syntax_node(tree, children[0], indent);
+		name = "StmtReturn";
+		break;
+	case SYNTAX_STMT_SWITCH:
+		name = "StmtSwitch";
 		break;
 	case SYNTAX_STMT_WHILE:
-		printf("while (");
-		print_syntax_node(tree, children[0], indent);
-		printf(")");
-		print_syntax_node(tree, children[1], indent);
-		break;
-	case SYNTAX_TYPE_ARRAY:
-		printf("[");
-		print_syntax_node(tree, children[0], indent);
-		printf("]");
-		print_syntax_node(tree, children[1], indent);
-		break;
-	case SYNTAX_TYPE_BITFIELD:
-		print_syntax_node(tree, children[1], indent);
-		printf(":");
-		print_syntax_node(tree, children[0], indent);
-		break;
-	case SYNTAX_TYPE_FUNC:
-		tmp = children[1];
-		printf("(");
-		for (node_id = children[0]; node_id.value != 0; node_id = children[1]) {
-			node = get_node(tree, node_id);
-			print_syntax_node(tree, children[0], indent);
-			if (children[1].value != 0) {
-				printf(", ");
-			}
-		}
-
-		printf(") -> ");
-		print_syntax_node(tree, tmp, indent);
-		break;
-	case SYNTAX_TYPE_IDENT:
-	case SYNTAX_EXPR_IDENT:
-		printf("%.*s", (int)node.token.value.length, node.token.value.at);
-		break;
-	case SYNTAX_TYPE_POINTER:
-		printf("*");
-		print_syntax_node(tree, children[0], indent);
-		break;
-	case SYNTAX_TYPE_STRUCT:
-		printf("(struct)");
-		break;
-	case SYNTAX_TYPE_UNION:
-		printf("(union)");
-		break;
-	case SYNTAX_TYPE_ENUM:
-		printf("(enum)");
+		name = "StmtWhile";
 		break;
 	case SYNTAX_TYPE_BASIC:
-		switch (node.token.kind) {
-		case TOKEN_CHAR:
-			printf("char");
-			break;
-		case TOKEN_FLOAT:
-			printf("float");
-			break;
-		case TOKEN_INT:
-			printf("int");
-			break;
-		case TOKEN_VOID:
-			printf("void");
-			break;
-		default:
-			ASSERT(!"Invalid basic type");
-		}
+		name = "TypeBasic";
+		break;
+	case SYNTAX_TYPE_ARRAY:
+		name = "TypeArray";
+		break;
+	case SYNTAX_TYPE_BITFIELD:
+		name = "TypeBitfield";
+		break;
+	case SYNTAX_TYPE_ENUM:
+		name = "TypeEnum";
+		break;
+	case SYNTAX_TYPE_FUNC:
+		name = "TypeFunc";
+		break;
+	case SYNTAX_TYPE_IDENT:
+		name = "TypeIdent";
+		break;
+	case SYNTAX_TYPE_POINTER:
+		name = "TypePointer";
+		break;
+	case SYNTAX_TYPE_STRUCT:
+		name = "TypeStruct";
+		break;
+	case SYNTAX_TYPE_UNION:
+		name = "TypeUnion";
+		break;
+	}
 
-		break;
-	default:
-		printf("(TODO)");
-		break;
+
+	b32 is_last = (node.next.value == 0);
+    printf("%s%s %s '%.*s'\n", prefix, is_last ? "└──" : "├──", name,
+		(int)node.token.value.length, node.token.value.at);
+
+    char child_prefix[256] = {0};
+    snprintf(child_prefix, sizeof(child_prefix), "%s%s", prefix, is_last ? "    " : "│   ");
+
+	syntax_node_id child_id = node.children;
+	while (child_id.value != 0) {
+		print_syntax_node(tree, child_id, child_prefix);
+		syntax_node child = get_node(tree, child_id);
+		child_id = child.next;
 	}
 }
 
 static void
 print_ast(syntax_tree *tree)
 {
-	print_syntax_node(tree, tree->root, 0);
+	printf("Root\n");
+
+	char prefix[256] = {0};
+	syntax_node_id node_id = tree->root;
+	while (node_id.value != 0) {
+		print_syntax_node(tree, node_id, prefix);
+		syntax_node node = get_node(tree, node_id);
+		node_id = node.next;
+	}
 }
 
 static void
