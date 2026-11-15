@@ -36,7 +36,7 @@ typedef struct str {
 
 typedef struct {
 	i32 value;
-} ast_id;
+} syntax_id;
 
 typedef struct {
 	i32 value;

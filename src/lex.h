@@ -177,15 +177,15 @@ struct lexer_state {
 	b8 ignore_token;
 	char *filename;
 	file_id file;
-	directive last_directive;
+	directive lsyntax_directive;
 	lexer_state *prev;
 };
 
-typedef struct ast_pool ast_pool;
+typedef struct syntax_pool syntax_pool;
 typedef struct {
 	lexer_state *lexer;
 	token peek[2];
-	ast_pool *pool;
+	syntax_pool *pool;
 	b8 error;
 
 	/* internal */
