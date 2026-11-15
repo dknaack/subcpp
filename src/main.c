@@ -6,6 +6,7 @@
 
 #include "main.h"
 
+#include "util.c"
 #include "lex.c"
 #include "parse.c"
 #include "sema.c"
@@ -13,7 +14,6 @@
 #include "ir.c"
 #include "optimize.c"
 #include "regalloc.c"
-#include "io.c"
 #include "x86.c"
 
 static void
