@@ -189,7 +189,7 @@ typedef enum {
 
 typedef struct {
 	syntax_node_id first, last;
-} syntax_list;
+} syntax_node_list;
 
 typedef union {
 	// Switch statements reference the first case statement.
