@@ -819,6 +819,19 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 }
 
 static syntax_node_id
+parse_declaration(parse_context *ctx, u32 flags, parse_scope *s)
+{
+	syntax_node_id result = {0};
+	token token = ctx->peek[0];
+	syntax_node_list list = parse_decl(ctx, flags, s);
+	if (list.first.value != 0) {
+		result = new_node(ctx->tree, SYNTAX_DECLARATION, token, list.first);
+	}
+
+	return result;
+}
+
+static syntax_node_id
 parse_stmt(parse_context *ctx, parse_scope *s)
 {
 	syntax_tree *tree = ctx->tree;
@@ -1017,9 +1030,9 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 			result = new_node(tree, SYNTAX_STMT_LABEL, token, stmt);
 		} else {
 			// TODO: Handle multiple declarations in one statement
-			syntax_node_list decl = parse_decl(ctx, PARSE_STMT, s);
-			if (decl.first.value != 0) {
-				result = new_node(tree, SYNTAX_DECLARATION, ctx->peek[0], decl.first);
+			syntax_node_id decl = parse_declaration(ctx, PARSE_STMT, s);
+			if (decl.value != 0) {
+				result = decl;
 			} else {
 				result = parse_expr(ctx, PREC_NONE, s);
 			}
@@ -1059,15 +1072,14 @@ parse(char *filename, str contents, arena *perm)
 
 	syntax_node_list list = {0};
 	do {
-		syntax_node_list decl_list = parse_decl(&ctx, PARSE_EXTERNAL_DECL, &s);
-		if (decl_list.first.value == 0) {
+		syntax_node_id decl_id = parse_declaration(&ctx, PARSE_EXTERNAL_DECL, &s);
+		if (decl_id.value == 0) {
 			syntax_error(&ctx, "Expected declaration");
 			break;
 		}
 
-		syntax_node decl = get_node(&tree, decl_list.first);
-		ASSERT(decl.flags & (SYNTAX_EXTERN | SYNTAX_STATIC));
-		ASSERT(decl_list.first.value != decl.children.value);
+		syntax_node decl = get_node(&tree, decl_id);
+		ASSERT(decl_id.value != decl.children.value);
 
 		syntax_node_id type_id = decl.children;
 		syntax_node type = get_node(&tree, type_id);
@@ -1097,7 +1109,7 @@ parse(char *filename, str contents, arena *perm)
 			expect(&ctx, TOKEN_SEMICOLON);
 		}
 
-		append_list(&tree, &list, decl_list);
+		append_node(&tree, &list, decl_id);
 	} while (!ctx.error && !accept(&ctx, TOKEN_EOF));
 
 	tree.root = list.first;
