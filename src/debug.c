@@ -293,8 +293,43 @@ print_syntax_node(syntax_tree *tree, syntax_node_id node_id, char *prefix)
 
 
 	b32 is_last = (node.next.value == 0);
-    printf("%s%s %s '%.*s'\n", prefix, is_last ? "└──" : "├──", name,
+    printf("%s%s %s '%.*s'", prefix, is_last ? "└──" : "├──", name,
 		(int)node.token.value.length, node.token.value.at);
+
+	const char *flags[] = {
+		"AUTO",
+		"CONST",
+		"EXTERN",
+		"LONG",
+		"LLONG",
+		"REGISTER",
+		"RESTRICT",
+		"SHORT",
+		"SIGNED",
+		"STATIC",
+		"THREAD_LOCAL",
+		"TYPEDEF",
+		"UNSIGNED",
+		"VARIADIC",
+		"VOLATILE",
+		"OPAQUE",
+	};
+
+	b32 is_first_flag = true;
+	for (int i = 0; i < LENGTH(flags); i++) {
+		if (node.flags & (1 << i)) {
+			if (!is_first_flag) {
+				printf(" | ");
+			} else {
+				printf(", ");
+				is_first_flag = false;
+			}
+
+			printf("%s", flags[i]);
+		}
+	}
+
+	printf("\n");
 
     char child_prefix[256] = {0};
     snprintf(child_prefix, sizeof(child_prefix), "%s%s", prefix, is_last ? "    " : "│   ");
