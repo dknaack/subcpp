@@ -1,12 +1,12 @@
 static b32
-is_func(ast_pool *pool, ast_id node_id)
+is_func(syntax_pool *pool, syntax_id node_id)
 {
 	b32 result = false;
 
-	ast_node node = get_node(pool, node_id);
-	if (node.kind == AST_DECL && (node.flags & (AST_EXTERN | AST_STATIC))) {
-		ast_node type = get_node(pool, node.children);
-		if (type.kind == AST_TYPE_FUNC) {
+	syntax_node node = get_node(pool, node_id);
+	if (node.kind == SYNTAX_DECL && (node.flags & (SYNTAX_EXTERN | SYNTAX_STATIC))) {
+		syntax_node type = get_node(pool, node.children);
+		if (type.kind == SYNTAX_TYPE_FUNC) {
 			result = true;
 		}
 	}
@@ -15,18 +15,18 @@ is_func(ast_pool *pool, ast_id node_id)
 }
 
 static b32
-is_global(ast_pool *pool, ast_id node_id)
+is_global(syntax_pool *pool, syntax_id node_id)
 {
 	b32 result = false;
 
-	ast_node node = get_node(pool, node_id);
+	syntax_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_DECL:
-		if (node.flags & (AST_EXTERN | AST_STATIC)) {
+	case SYNTAX_DECL:
+		if (node.flags & (SYNTAX_EXTERN | SYNTAX_STATIC)) {
 			result = !is_func(pool, node_id);
 		}
 		break;
-	case AST_EXPR_LITERAL:
+	case SYNTAX_EXPR_LITERAL:
 		switch (node.token.kind) {
 		case TOKEN_LITERAL_STRING:
 		case TOKEN_LITERAL_FLOAT:
@@ -169,7 +169,7 @@ static i32
 ir_load(ir_context *ctx, u32 addr, type_id type_id)
 {
 	i32 result = 0;
-	ast_node type = get_type(ctx->ast, type_id);
+	syntax_node type = get_type(ctx->ast, type_id);
 	isize size = get_node_size(ctx->ast, type_id);
 	if (is_compound_type(type.kind)) {
 		result = ir_emit_alloca(ctx, size);
@@ -185,7 +185,7 @@ static void
 ir_store(ir_context *ctx, u32 dst, u32 src, type_id type_id)
 {
 	ASSERT(src != 0);
-	ast_node type = get_type(ctx->ast, type_id);
+	syntax_node type = get_type(ctx->ast, type_id);
 	isize size = get_node_size(ctx->ast, type_id);
 	ASSERT(size > 0);
 
@@ -202,7 +202,7 @@ ir_mov(ir_context *ctx, i32 dst, i32 src, type_id type_id)
 	ASSERT(!"TODO: Implement this function using stack variables");
 #if 0
 	isize size = get_node_size(ctx->ast, type_id);
-	ast_node type = get_type(ctx->ast, type_id);
+	syntax_node type = get_type(ctx->ast, type_id);
 	if (is_compound_type(type.kind)) {
 		ir_memcpy(ctx, dst, src, size);
 	} else {
@@ -262,12 +262,12 @@ parse_char(str input)
 }
 
 static linkage
-get_linkage(ast_node_flags flags)
+get_linkage(syntax_node_flags flags)
 {
 	linkage result = LINK_DEFAULT;
-	if (flags & AST_EXTERN) {
+	if (flags & SYNTAX_EXTERN) {
 		result = LINK_EXTERN;
-	} else if (flags & AST_STATIC) {
+	} else if (flags & SYNTAX_STATIC) {
 		result = LINK_STATIC;
 	}
 
@@ -444,18 +444,18 @@ ir_eval(inst *inst, isize inst_count, ir_value *values, arena stack)
 	return zero;
 }
 
-static u32 translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue);
+static u32 translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
-translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
+translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
 {
-	ast_pool *pool = ctx->ast;
+	syntax_pool *pool = ctx->ast;
 
-	ast_node node = get_node(pool, node_id);
+	syntax_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_INIT:
+	case SYNTAX_INIT:
 		{
 			usize offset = 0;
 
@@ -472,7 +472,7 @@ translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 				isize child_size = get_node_size(pool, child_type);
 				offset += child_size;
 
-				ast_node node = get_node(pool, node_id);
+				syntax_node node = get_node(pool, node_id);
 				node_id = node.next;
 			}
 		} break;
@@ -486,31 +486,31 @@ translate_initializer(ir_context *ctx, ast_id node_id, u32 result)
 }
 
 static u32
-translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
+translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 {
-	ast_pool *pool = ctx->ast;
+	syntax_pool *pool = ctx->ast;
 	arena *perm = ctx->arena;
 	u32 result = 0;
 
-	ast_id children[4] = {0};
+	syntax_id children[4] = {0};
 	get_children(pool, node_id, children, LENGTH(children));
 
-	ast_node node = get_node(pool, node_id);
+	syntax_node node = get_node(pool, node_id);
 	switch (node.kind) {
-	case AST_INVALID:
+	case SYNTAX_INVALID:
 		ASSERT(!"Invalid node");
 		break;
-	case AST_NONE:
+	case SYNTAX_NONE:
 		break;
-	case AST_BUILTIN:
+	case SYNTAX_BUILTIN:
 		{
 			ASSERT(!"TODO");
 		} break;
-	case AST_DECL:
+	case SYNTAX_DECL:
 		{
 			i32 *symbol_ids = &ctx->symbol_ids[node_id.value];
-			ast_node type = get_node(pool, children[0]);
-			if (node.flags & AST_TYPEDEF) {
+			syntax_node type = get_node(pool, children[0]);
+			if (node.flags & SYNTAX_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
 			} else if (is_func(pool, node_id)) {
 				ASSERT(*symbol_ids < ctx->program->func_count);
@@ -526,9 +526,9 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 					// NOTE: Emit parameter registers
 					isize param_index = 0;
-					ast_id return_id = type.children;
-					ast_node return_type = get_node(pool, return_id);
-					ast_id param_id = return_type.next;
+					syntax_id return_id = type.children;
+					syntax_node return_type = get_node(pool, return_id);
+					syntax_id param_id = return_type.next;
 					while (param_id.value != 0) {
 						type_id param_type = get_type_id(pool, param_id);
 						isize param_size = get_node_size(pool, param_type);
@@ -538,7 +538,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 						ir_store(ctx, param_local, param_reg, param_type);
 						ctx->symbol_ids[param_id.value] = param_local;
 
-						ast_node param = get_node(pool, param_id);
+						syntax_node param = get_node(pool, param_id);
 						param_id = param.next;
 						param_index++;
 					}
@@ -585,15 +585,15 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 					memset(&ctx->buffer, 0, sizeof(ctx->buffer));
 				}
 			} else {
-				ast_id decl_id = find_decl(pool, node_id);
+				syntax_id decl_id = find_decl(pool, node_id);
 				ASSERT(ctx->symbol_ids[decl_id.value] == 0);
 				type_id type = find_type_id(pool, decl_id);
 				isize size = get_node_size(pool, type);
 				result = ir_emit_alloca(ctx, size);
 
 				if (children[1].value != 0) {
-					ast_node init_expr = get_node(pool, children[1]);
-					if (init_expr.kind == AST_INIT) {
+					syntax_node init_expr = get_node(pool, children[1]);
+					if (init_expr.kind == SYNTAX_INIT) {
 						translate_initializer(ctx, children[1], result);
 					} else {
 						u32 value = translate_node(ctx, children[1], false);
@@ -604,26 +604,26 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				ctx->symbol_ids[decl_id.value] = result;
 			}
 		} break;
-	case AST_INIT:
+	case SYNTAX_INIT:
 		ASSERT(!"Should have been handled by DECL");
 		break;
-	case AST_STMT_COMPOUND:
+	case SYNTAX_STMT_COMPOUND:
 		{
-			ast_id child = children[0];
+			syntax_id child = children[0];
 			while (child.value != 0) {
-				ast_node child_node = get_node(pool, child);
+				syntax_node child_node = get_node(pool, child);
 				translate_node(ctx, child, false);
 				child = child_node.next;
 			}
 		} break;
-	case AST_EXPR_BINARY:
+	case SYNTAX_EXPR_BINARY:
 		{
 			type_id type_id = get_type_id(pool, node_id);
-			ast_node node_type = get_type(pool, type_id);
+			syntax_node node_type = get_type(pool, type_id);
 
 			b32 is_assign = false;
 			b32 is_float = (node_type.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
-			b32 is_unsigned = (node_type.flags & AST_UNSIGNED);
+			b32 is_unsigned = (node_type.flags & SYNTAX_UNSIGNED);
 
 			ir_opcode opcode = IR_NOP;
 			switch (node.token.kind) {
@@ -809,11 +809,11 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ASSERT(result != 0);
 		} break;
-	case AST_EXPR_CALL:
+	case SYNTAX_EXPR_CALL:
 		{
 			type_id called_type_id = find_type_id(pool, children[0]);
-			ast_node called_type = get_type(pool, called_type_id);
-			ASSERT(called_type.kind == AST_TYPE_FUNC);
+			syntax_node called_type = get_type(pool, called_type_id);
+			ASSERT(called_type.kind == SYNTAX_TYPE_FUNC);
 
 			i32 called_reg = translate_node(ctx, children[0], true);
 
@@ -822,7 +822,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			i32 prev_param = 0;
 
 			type_id return_type_id = {called_type.children.value};
-			ast_node return_type = get_type(pool, return_type_id);
+			syntax_node return_type = get_type(pool, return_type_id);
 			if (is_compound_type(return_type.kind)) {
 				isize size = get_node_size(pool, return_type_id);
 				i32 param = ir_emit_alloca(ctx, size);
@@ -833,12 +833,12 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			// Load parameters
-			ast_id param_id = children[1];
+			syntax_id param_id = children[1];
 			while (param_id.value != 0) {
 				i32 param_value = translate_node(ctx, param_id, false);
 
 				type_id param_type_id = get_type_id(pool, param_id);
-				ast_node param_type = get_type(pool, param_type_id);
+				syntax_node param_type = get_type(pool, param_type_id);
 				isize size = get_node_size(pool, param_type_id);
 				if (is_compound_type(param_type.kind)) {
 					i32 tmp = ir_emit_alloca(ctx, size);
@@ -850,38 +850,38 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				i32 param_reg = ir_emit(ctx, size, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
-				ast_node param_node = get_node(pool, param_id);
+				syntax_node param_node = get_node(pool, param_id);
 				param_id = param_node.next;
 			}
 
 			result = ir_emit(ctx, result_size, IR_CALL, called_reg, prev_param);
 		} break;
-	case AST_EXPR_CAST:
+	case SYNTAX_EXPR_CAST:
 		{
 			ASSERT(!"TODO");
 #if 0
-			type_id cast_type_id = get_type_id(pool, children[0]);
+			type_id csyntax_type_id = get_type_id(pool, children[0]);
 			type_id expr_type_id = get_type_id(pool, children[0]);
-			ast_node cast_type = get_type(pool, cast_type_id);
-			ast_node expr_type = get_type(pool, expr_type_id);
-			if (cast_type->kind != TYPE_VOID) {
-				isize cast_size = get_node_size(pool, cast_type_id);
+			syntax_node csyntax_type = get_type(pool, csyntax_type_id);
+			syntax_node expr_type = get_type(pool, expr_type_id);
+			if (csyntax_type->kind != TYPE_VOID) {
+				isize csyntax_size = get_node_size(pool, csyntax_type_id);
 				isize expr_size = get_node_size(pool, expr_type_id);
 				result = translate_node(ctx, children[1], false);
 
-				if (expr_type_id.value != cast_type_id.value) {
-					if (cast_ir_type == IR_F32 || cast_ir_type == IR_F64
+				if (expr_type_id.value != csyntax_type_id.value) {
+					if (csyntax_ir_type == IR_F32 || csyntax_ir_type == IR_F64
 						|| expr_ir_type == IR_F32 || expr_ir_type == IR_F64)
 					{
 						// TODO: Unsigned conversion
-						result = ir_emit1(ctx, cast_ir_type, IR_CAST, result);
-					} else if (cast_size < expr_size) {
-						result = ir_emit1(ctx, cast_ir_type, IR_TRUNC, result);
-					} else if (cast_size > expr_size) {
+						result = ir_emit1(ctx, csyntax_ir_type, IR_CAST, result);
+					} else if (csyntax_size < expr_size) {
+						result = ir_emit1(ctx, csyntax_ir_type, IR_TRUNC, result);
+					} else if (csyntax_size > expr_size) {
 						if (expr_type->kind & TYPE_UNSIGNED) {
-							result = ir_emit1(ctx, cast_ir_type, IR_ZEXT, result);
+							result = ir_emit1(ctx, csyntax_ir_type, IR_ZEXT, result);
 						} else {
-							result = ir_emit1(ctx, cast_ir_type, IR_SEXT, result);
+							result = ir_emit1(ctx, csyntax_ir_type, IR_SEXT, result);
 						}
 					}
 				}
@@ -890,19 +890,19 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 #endif
 		} break;
-	case AST_EXPR_COMPOUND:
+	case SYNTAX_EXPR_COMPOUND:
 		{
 			type_id node_type = get_type_id(pool, node_id);
 			result = ir_emit_alloca(ctx, get_node_size(pool, node_type));
 			translate_initializer(ctx, children[1], result);
 		} break;
-	case AST_EXPR_IDENT:
+	case SYNTAX_EXPR_IDENT:
 		{
-			ast_id decl_id = find_decl(pool, node_id);
+			syntax_id decl_id = find_decl(pool, node_id);
 			result = ctx->symbol_ids[decl_id.value];
 
 			type_id type_id = find_type_id(pool, node_id);
-			ast_node node_type = get_type(pool, type_id);
+			syntax_node node_type = get_type(pool, type_id);
 
 			// Global variables must be loaded as globals first
 			if (is_func(pool, decl_id)) {
@@ -918,7 +918,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ASSERT(result != 0);
 		} break;
-	case AST_EXPR_LITERAL:
+	case SYNTAX_EXPR_LITERAL:
 		{
 			switch (node.token.kind) {
 			case TOKEN_LITERAL_INT:
@@ -1007,26 +1007,26 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				break;
 			}
 		} break;
-	case AST_EXPR_MEMBER:
-	case AST_EXPR_MEMBER_PTR:
+	case SYNTAX_EXPR_MEMBER:
+	case SYNTAX_EXPR_MEMBER_PTR:
 		{
 			type_id operand_type = get_type_id(pool, children[0]);
-			if (node.kind == AST_EXPR_MEMBER_PTR) {
-				ast_id base_type = get_type(pool, operand_type).children;
+			if (node.kind == SYNTAX_EXPR_MEMBER_PTR) {
+				syntax_id base_type = get_type(pool, operand_type).children;
 				operand_type.value = base_type.value;
 			}
 
 			// TODO: Combine these two functions or add info to this expression.
-			ast_id member_id = get_member(pool, operand_type, node.token.value);
+			syntax_id member_id = get_member(pool, operand_type, node.token.value);
 			i32 offset = get_member_offset(pool, operand_type, member_id);
 
 			i32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
-			b32 base_is_lvalue = (node.kind == AST_EXPR_MEMBER_PTR);
+			b32 base_is_lvalue = (node.kind == SYNTAX_EXPR_MEMBER_PTR);
 			i32 base_reg = translate_node(ctx, children[0], base_is_lvalue);
 			result = ir_emit2(ctx, 8, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
 				type_id type_id = get_type_id(pool, node_id);
-				ast_node node_type = get_type(pool, type_id);
+				syntax_node node_type = get_type(pool, type_id);
 				if (!is_compound_type(node_type.kind)) {
 					isize size = get_node_size(pool, type_id);
 					result = ir_emit1(ctx, size, IR_LOAD, result);
@@ -1040,7 +1040,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ASSERT(result != 0);
 		} break;
-	case AST_EXPR_POSTFIX:
+	case SYNTAX_EXPR_POSTFIX:
 		{
 			token_kind operator = node.token.kind;
 			switch (operator) {
@@ -1067,23 +1067,23 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				ASSERT(!"Invalid postfix operator");
 			}
 		} break;
-	case AST_EXPR_SIZEOF:
+	case SYNTAX_EXPR_SIZEOF:
 		{
 			isize size = eval_ast(pool, node_id);
 			result = ir_emit1(ctx, 8, IR_CONST, size);
 		} break;
-	case AST_EXPR_TERNARY:
+	case SYNTAX_EXPR_TERNARY:
 		{
 			ASSERT(!"TODO: Implement ternary expressions");
 #if 0
 			i32 endif_label = new_label(&ctx->buffer);
 			i32 else_label = new_label(&ctx->buffer);
 
-			ast_id cond = children[0];
+			syntax_id cond = children[0];
 			i32 cond_reg = translate_node(ctx, cond, false);
 
 			type_id type_id = get_type_id(pool, node_id);
-			ast_node node_type = get_type(pool, type_id);
+			syntax_node node_type = get_type(pool, type_id);
 			if (is_compound_type(node_type.kind)) {
 				result = ir_emit_alloca(ctx, get_node_size(pool, type_id));
 			} else {
@@ -1094,23 +1094,23 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
 			ir_emit1(ctx, 0, IR_LABEL, new_label(&ctx->buffer));
 
-			ast_id if_branch = children[1];
+			syntax_id if_branch = children[1];
 			i32 if_reg = translate_node(ctx, if_branch, false);
 			ir_mov(ctx, result, if_reg, type_id);
 			ir_emit1(ctx, 0, IR_JMP, endif_label);
 
 			ir_emit1(ctx, 0, IR_LABEL, else_label);
-			ast_id else_branch = children[2];
+			syntax_id else_branch = children[2];
 			i32 else_reg = translate_node(ctx, else_branch, false);
 			ir_mov(ctx, result, else_reg, type_id);
 
 			ir_emit1(ctx, 0, IR_LABEL, endif_label);
 #endif
 		} break;
-	case AST_EXPR_UNARY:
+	case SYNTAX_EXPR_UNARY:
 		{
 			type_id type_id = get_type_id(pool, node_id);
-			ast_node node_type = get_type(pool, type_id);
+			syntax_node node_type = get_type(pool, type_id);
 			token_kind operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_AMP:
@@ -1143,7 +1143,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			case TOKEN_STAR:
 				{
 					result = translate_node(ctx, children[0], false);
-					if (!is_lvalue && node_type.kind != AST_TYPE_FUNC) {
+					if (!is_lvalue && node_type.kind != SYNTAX_TYPE_FUNC) {
 						result = ir_load(ctx, result, type_id);
 					}
 				} break;
@@ -1169,46 +1169,46 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				ASSERT(!"Invalid operator");
 			}
 		} break;
-	case AST_STMT_ASM:
+	case SYNTAX_STMT_ASM:
 		{
 			ASSERT(!"TODO");
 		} break;
-	case AST_STMT_BREAK:
+	case SYNTAX_STMT_BREAK:
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->break_label);
 			ir_emit1(ctx, 0, IR_LABEL, new_label(&ctx->buffer));
 		} break;
-	case AST_STMT_CASE:
+	case SYNTAX_STMT_CASE:
 		{
 			i32 label = ctx->symbol_ids[node_id.value];
 			ir_emit1(ctx, 0, IR_LABEL, label);
 			translate_node(ctx, children[1], false);
 		} break;
-	case AST_STMT_CONTINUE:
+	case SYNTAX_STMT_CONTINUE:
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->continue_label);
 			ir_emit1(ctx, 0, IR_LABEL, new_label(&ctx->buffer));
 		} break;
-	case AST_STMT_DECL:
+	case SYNTAX_STMT_DECL:
 		{
-			ast_id child_id = node.children;
+			syntax_id child_id = node.children;
 			while (child_id.value != 0) {
 				translate_node(ctx, child_id, false);
-				ast_node child = get_node(pool, child_id);
+				syntax_node child = get_node(pool, child_id);
 				child_id = child.next;
 			}
 		} break;
-	case AST_STMT_DEFAULT:
+	case SYNTAX_STMT_DEFAULT:
 		ASSERT(!"Should have been handled by SWITCH");
 		break;
-	case AST_STMT_DO_WHILE:
+	case SYNTAX_STMT_DO_WHILE:
 		{
 			ir_context new_ctx = *ctx;
 
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 			new_ctx.continue_label = new_label(&new_ctx.buffer);
-			ast_id cond = children[0];
-			ast_id body = children[1];
+			syntax_id cond = children[0];
+			syntax_id body = children[1];
 
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
 			translate_node(&new_ctx, body, false);
@@ -1219,7 +1219,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ctx->buffer = new_ctx.buffer;
 		} break;
-	case AST_STMT_FOR:
+	case SYNTAX_STMT_FOR:
 		{
 			ir_context new_ctx = *ctx;
 
@@ -1230,8 +1230,8 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, children[0], false);
 			ir_emit1(&new_ctx, 0, IR_LABEL, cond_label);
 
-			ast_node cond = get_node(pool, children[1]);
-			if (cond.kind == AST_NONE) {
+			syntax_node cond = get_node(pool, children[1]);
+			if (cond.kind == SYNTAX_NONE) {
 				ir_emit0(&new_ctx, 0, IR_NOP);
 			} else {
 				i32 cond_reg = translate_node(&new_ctx, children[1], false);
@@ -1248,13 +1248,13 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ctx->buffer = new_ctx.buffer;
 		} break;
-	case AST_STMT_GOTO:
-	case AST_STMT_LABEL:
+	case SYNTAX_STMT_GOTO:
+	case SYNTAX_STMT_LABEL:
 		{
-			ast_id label_id = node_id;
+			syntax_id label_id = node_id;
 			ir_opcode opcode = IR_LABEL;
 
-			if (node.kind == AST_STMT_GOTO) {
+			if (node.kind == SYNTAX_STMT_GOTO) {
 				label_id = pool->nodes[node_id.value].info.ref;
 				opcode = IR_JMP;
 			}
@@ -1273,7 +1273,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 				translate_node(ctx, children[0], false);
 			}
 		} break;
-	case AST_STMT_IF:
+	case SYNTAX_STMT_IF:
 		{
 			i32 endif_label = new_label(&ctx->buffer);
 			i32 else_label = new_label(&ctx->buffer);
@@ -1292,7 +1292,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ir_emit1(ctx, 0, IR_LABEL, endif_label);
 		} break;
-	case AST_STMT_RETURN:
+	case SYNTAX_STMT_RETURN:
 		{
 			i32 value = 0;
 			b32 returns_struct = false;
@@ -1301,7 +1301,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			if (children[0].value != 0) {
 				value = translate_node(ctx, children[0], false);
 				type_id value_type_id = find_type_id(pool, children[0]);
-				ast_node value_type = get_type(pool, value_type_id);
+				syntax_node value_type = get_type(pool, value_type_id);
 				returns_struct = is_compound_type(value_type.kind);
 				struct_size = get_node_size(pool, value_type_id);
 				size = get_node_size(pool, value_type_id);
@@ -1313,21 +1313,21 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ir_emit1(ctx, size, IR_RET, value);
 		} break;
-	case AST_STMT_SWITCH:
+	case SYNTAX_STMT_SWITCH:
 		{
 			ir_context new_ctx = *ctx;
 
 			i32 switch_reg = translate_node(&new_ctx, children[0], false);
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 
-			ast_id case_id = pool->nodes[node_id.value].info.ref;
-			ast_id default_id = {0};
+			syntax_id case_id = pool->nodes[node_id.value].info.ref;
+			syntax_id default_id = {0};
 			while (case_id.value != 0) {
 				i32 label = new_label(&new_ctx.buffer);
 				new_ctx.symbol_ids[case_id.value] = label;
 
-				ast_node case_node = get_node(pool, case_id);
-				if (case_node.kind == AST_STMT_CASE) {
+				syntax_node case_node = get_node(pool, case_id);
+				if (case_node.kind == SYNTAX_STMT_CASE) {
 					i32 case_reg = translate_node(&new_ctx, case_node.children, false);
 					i32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
 					ir_emit2(&new_ctx, 0, IR_JNZ, cond_reg, label);
@@ -1340,7 +1340,7 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 			}
 
 			if (default_id.value != 0) {
-				ast_node default_node = get_node(pool, default_id);
+				syntax_node default_node = get_node(pool, default_id);
 				translate_node(&new_ctx, default_node.children, false);
 			}
 
@@ -1350,35 +1350,35 @@ translate_node(ir_context *ctx, ast_id node_id, b32 is_lvalue)
 
 			ctx->buffer = new_ctx.buffer;
 		} break;
-	case AST_STMT_WHILE:
+	case SYNTAX_STMT_WHILE:
 		{
 			ir_context new_ctx = *ctx;
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 			new_ctx.continue_label = new_label(&new_ctx.buffer);
 
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
-			ast_id cond = children[0];
+			syntax_id cond = children[0];
 			i32 cond_reg = translate_node(&new_ctx, cond, false);
 			ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_label(&new_ctx.buffer));
 
-			ast_id body = children[1];
+			syntax_id body = children[1];
 			translate_node(&new_ctx, body, false);
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
 
 			ctx->buffer = new_ctx.buffer;
 		} break;
-	case AST_ENUMERATOR:
-	case AST_TYPE_BASIC:
-	case AST_TYPE_ENUM:
-	case AST_TYPE_STRUCT:
-	case AST_TYPE_UNION:
-	case AST_TYPE_FUNC:
-	case AST_TYPE_IDENT:
-	case AST_TYPE_ARRAY:
-	case AST_TYPE_POINTER:
-	case AST_TYPE_BITFIELD:
+	case SYNTAX_ENUMERATOR:
+	case SYNTAX_TYPE_BASIC:
+	case SYNTAX_TYPE_ENUM:
+	case SYNTAX_TYPE_STRUCT:
+	case SYNTAX_TYPE_UNION:
+	case SYNTAX_TYPE_FUNC:
+	case SYNTAX_TYPE_IDENT:
+	case SYNTAX_TYPE_ARRAY:
+	case SYNTAX_TYPE_POINTER:
+	case SYNTAX_TYPE_BITFIELD:
 		ASSERT(!"Invalid node");
 		break;
 	}
@@ -1400,14 +1400,14 @@ get_use_count(inst *inst, isize inst_count, arena *perm)
 }
 
 static program
-translate(ast_pool *pool, arena *arena)
+translate(syntax_pool *pool, arena *arena)
 {
 	// Initialize the program and context
 	isize func_count = 1;
 	isize global_count = 1;
 	i32 *symbol_ids = ALLOC(arena, pool->size, i32);
 	for (isize i = 1; i < pool->size; i++) {
-		ast_id node_id = {i};
+		syntax_id node_id = {i};
 		if (is_func(pool, node_id)) {
 			symbol_ids[node_id.value] = func_count++;
 		} else if (is_global(pool, node_id)) {
@@ -1428,7 +1428,7 @@ translate(ast_pool *pool, arena *arena)
 	ctx.symbol_ids = symbol_ids;
 
 	// Translate all nodes into IR
-	ast_id node_id = pool->root;
+	syntax_id node_id = pool->root;
 	while (node_id.value != 0) {
 		translate_node(&ctx, node_id, false);
 		node_id = get_node(pool, node_id).next;

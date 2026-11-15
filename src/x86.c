@@ -235,6 +235,10 @@ x86_select_inst(x86_context *ctx, isize i, machine_token dst, isize size)
 	switch (opcode) {
 	case IR_NOP:
 		break;
+	case IR_PHI:
+		{
+			ASSERT(!"TODO");
+		} break;
 	case IR_LABEL:
 		{
 			isize src_size = inst[arg0].size;

@@ -1,12 +1,12 @@
 typedef struct label_info label_info;
 struct label_info {
 	label_info *next;
-	ast_id label_id;
+	syntax_id label_id;
 	str name;
 };
 
 typedef struct {
-	ast_id node_id;
+	syntax_id node_id;
 	i32 depth;
 	i32 age;
 } scope_entry;
@@ -19,26 +19,26 @@ typedef struct {
 } scope;
 
 typedef struct {
-	ast_pool *ast;
+	syntax_pool *ast;
 	arena *arena;
-	ast_id switch_id;
+	syntax_id switch_id;
 	scope scope;
 	label_info *labels;
 } sema_context;
 
 static b32
-is_type(ast_node_kind kind)
+is_type(syntax_node_kind kind)
 {
 	switch (kind) {
-	case AST_TYPE_BASIC:
-	case AST_TYPE_ARRAY:
-	case AST_TYPE_BITFIELD:
-	case AST_TYPE_ENUM:
-	case AST_TYPE_FUNC:
-	case AST_TYPE_IDENT:
-	case AST_TYPE_POINTER:
-	case AST_TYPE_STRUCT:
-	case AST_TYPE_UNION:
+	case SYNTAX_TYPE_BASIC:
+	case SYNTAX_TYPE_ARRAY:
+	case SYNTAX_TYPE_BITFIELD:
+	case SYNTAX_TYPE_ENUM:
+	case SYNTAX_TYPE_FUNC:
+	case SYNTAX_TYPE_IDENT:
+	case SYNTAX_TYPE_POINTER:
+	case SYNTAX_TYPE_STRUCT:
+	case SYNTAX_TYPE_UNION:
 		return true;
 	default:
 		return false;
@@ -61,51 +61,51 @@ is_integer(token_kind kind)
 }
 
 static b32
-is_pointer(ast_node_kind kind)
+is_pointer(syntax_node_kind kind)
 {
-	b32 result = (kind == AST_TYPE_POINTER || kind == AST_TYPE_ARRAY);
+	b32 result = (kind == SYNTAX_TYPE_POINTER || kind == SYNTAX_TYPE_ARRAY);
 	return result;
 }
 
-static b32 is_compound_type(ast_node_kind kind)
+static b32 is_compound_type(syntax_node_kind kind)
 {
-	b32 result = (kind == AST_TYPE_STRUCT || kind == AST_TYPE_UNION);
+	b32 result = (kind == SYNTAX_TYPE_STRUCT || kind == SYNTAX_TYPE_UNION);
 	return result;
 }
 
-static isize get_node_alignment(ast_pool *p, type_id type);
+static isize get_node_alignment(syntax_pool *p, type_id type);
 
 static b32
-has_type(ast_node *node)
+has_type(syntax_node *node)
 {
-	return node->kind != AST_EXPR_IDENT
-		&& node->kind != AST_DECL
-		&& node->kind != AST_STMT_SWITCH
-		&& node->kind != AST_STMT_CASE;
+	return node->kind != SYNTAX_EXPR_IDENT
+		&& node->kind != SYNTAX_DECL
+		&& node->kind != SYNTAX_STMT_SWITCH
+		&& node->kind != SYNTAX_STMT_CASE;
 }
 
 static b32
-has_ref(ast_node *node)
+has_ref(syntax_node *node)
 {
-	return node->kind == AST_EXPR_IDENT
-		|| node->kind == AST_DECL;
+	return node->kind == SYNTAX_EXPR_IDENT
+		|| node->kind == SYNTAX_DECL;
 }
 
 static type_id
-get_type_id(ast_pool *pool, ast_id id)
+get_type_id(syntax_pool *pool, syntax_id id)
 {
-	ast_node *node = &pool->nodes[id.value];
+	syntax_node *node = &pool->nodes[id.value];
 	type_id result = node->info.type;
 	ASSERT(has_type(node));
 	return result;
 }
 
-static ast_id
-find_decl(ast_pool *pool, ast_id id)
+static syntax_id
+find_decl(syntax_pool *pool, syntax_id id)
 {
-	ast_id result = {0};
+	syntax_id result = {0};
 
-	ast_node *node = &pool->nodes[id.value];
+	syntax_node *node = &pool->nodes[id.value];
 	if (has_ref(node)) {
 		if (node->info.ref.value != id.value) {
 			node->info.ref = find_decl(pool, node->info.ref);
@@ -120,11 +120,11 @@ find_decl(ast_pool *pool, ast_id id)
 }
 
 static type_id
-find_type_id(ast_pool *pool, ast_id id)
+find_type_id(syntax_pool *pool, syntax_id id)
 {
 	type_id result = {0};
 
-	ast_node *node = &pool->nodes[id.value];
+	syntax_node *node = &pool->nodes[id.value];
 	if (has_type(node)) {
 		result = node->info.type;
 	} else if (has_ref(node)) {
@@ -136,28 +136,28 @@ find_type_id(ast_pool *pool, ast_id id)
 	return result;
 }
 
-static ast_node
-get_type(ast_pool *p, type_id id)
+static syntax_node
+get_type(syntax_pool *p, type_id id)
 {
-	ast_node *node = &p->nodes[id.value];
+	syntax_node *node = &p->nodes[id.value];
 	ASSERT(has_type(node));
 	return *node;
 }
 
 static void
-set_type(ast_pool *p, ast_id node_id, type_id type)
+set_type(syntax_pool *p, syntax_id node_id, type_id type)
 {
-	ast_node *node = &p->nodes[node_id.value];
+	syntax_node *node = &p->nodes[node_id.value];
 	ASSERT(has_type(node));
 	node->info.type = type;
 }
 
-static ast_id
-get_member(ast_pool *p, type_id type, str member)
+static syntax_id
+get_member(syntax_pool *p, type_id type, str member)
 {
-	ast_id result = get_type(p, type).children;
+	syntax_id result = get_type(p, type).children;
 	while (result.value != 0) {
-		ast_node child = get_node(p, result);
+		syntax_node child = get_node(p, result);
 		if (equals(child.token.value, member)) {
 			break;
 		}
@@ -169,20 +169,20 @@ get_member(ast_pool *p, type_id type, str member)
 }
 
 static isize
-get_node_size(ast_pool *p, type_id node_id)
+get_node_size(syntax_pool *p, type_id node_id)
 {
 	ASSERT(node_id.value != 0);
 
-	ast_node node = get_type(p, node_id);
+	syntax_node node = get_type(p, node_id);
 	switch (node.kind) {
-	case AST_TYPE_BASIC:
+	case SYNTAX_TYPE_BASIC:
 		switch (node.token.kind) {
 		case TOKEN_INT:
-			if (node.flags & AST_LLONG) {
+			if (node.flags & SYNTAX_LLONG) {
 				return 8;
-			} else if (node.flags & AST_LONG) {
+			} else if (node.flags & SYNTAX_LONG) {
 				return 8;
-			} else if (node.flags & AST_SHORT) {
+			} else if (node.flags & SYNTAX_SHORT) {
 				return 2;
 			} else {
 				return 4;
@@ -200,10 +200,10 @@ get_node_size(ast_pool *p, type_id node_id)
 		}
 
 		break;
-	case AST_TYPE_POINTER:
-	case AST_TYPE_FUNC:
+	case SYNTAX_TYPE_POINTER:
+	case SYNTAX_TYPE_FUNC:
 		return 8;
-	case AST_TYPE_ARRAY:
+	case SYNTAX_TYPE_ARRAY:
 		{
 			type_id subtype = get_type_id(p, node.children);
 			isize length = get_type(p, subtype).info.i;
@@ -211,19 +211,19 @@ get_node_size(ast_pool *p, type_id node_id)
 			ASSERT(length != 0 && subtype_size != 0);
 			return length * subtype_size;
 		} break;
-	case AST_TYPE_STRUCT:
-	case AST_TYPE_UNION:
+	case SYNTAX_TYPE_STRUCT:
+	case SYNTAX_TYPE_UNION:
 		{
 			isize result = 0;
 			isize max_align = 0;
 
-			ast_id member_id = node.children;
+			syntax_id member_id = node.children;
 			while (member_id.value != 0) {
 				type_id member_type = get_type_id(p, member_id);
 				isize member_size = get_node_size(p, member_type);
 				isize member_align = get_node_alignment(p, member_type);
 
-				if (node.kind == AST_TYPE_UNION) {
+				if (node.kind == SYNTAX_TYPE_UNION) {
 					if (result < member_size) {
 						result = member_size;
 					}
@@ -251,7 +251,7 @@ get_node_size(ast_pool *p, type_id node_id)
 }
 
 static isize
-get_node_alignment(ast_pool *p, type_id type)
+get_node_alignment(syntax_pool *p, type_id type)
 {
 	// TODO: Fix this function
 	isize result = get_node_size(p, type);
@@ -263,13 +263,13 @@ get_node_alignment(ast_pool *p, type_id type)
 }
 
 static isize
-get_member_offset(ast_pool *p, type_id type, ast_id member)
+get_member_offset(syntax_pool *p, type_id type, syntax_id member)
 {
 	isize result = 0;
 
-	ast_node type_node = get_type(p, type);
+	syntax_node type_node = get_type(p, type);
 	if (is_compound_type(type_node.kind)) {
-		ast_id child = type_node.children;
+		syntax_id child = type_node.children;
 		while (child.value != 0) {
 			type_id child_type = get_type_id(p, child);
 			isize align = get_node_alignment(p, child_type);

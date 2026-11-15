@@ -932,8 +932,8 @@ static void
 push_if(parse_context *ctx, directive new_dir)
 {
 	lexer_state *old_state = ctx->lexer;
-	directive old_dir = old_state->last_directive;
-	old_state->last_directive = new_dir;
+	directive old_dir = old_state->lsyntax_directive;
+	old_state->lsyntax_directive = new_dir;
 
 	b32 value = ((new_dir & DIR_TRUE) == DIR_TRUE);
 	if ((new_dir & ~DIR_TRUE) == DIR_ELIF_FALSE) {
@@ -945,7 +945,7 @@ push_if(parse_context *ctx, directive new_dir)
 
 		// NOTE: If a previous if/elif directive was true, then all future
 		// directives should evaluate to false as if this directive was true.
-		old_state->last_directive |= (old_dir & DIR_TRUE);
+		old_state->lsyntax_directive |= (old_dir & DIR_TRUE);
 	} else if (new_dir == DIR_ELSE) {
 		if (old_dir == DIR_ELSE) {
 			fatalf(get_location(ctx), "#else after #else");
@@ -961,7 +961,7 @@ push_if(parse_context *ctx, directive new_dir)
 	lexer_state *new_state = ALLOC(ctx->arena, 1, lexer_state);
 	memcpy(new_state, old_state, sizeof(*new_state));
 	new_state->prev = old_state;
-	new_state->last_directive = DIR_OTHER;
+	new_state->lsyntax_directive = DIR_OTHER;
 	new_state->ignore_token = old_state->ignore_token || !value;
 	ctx->lexer = new_state;
 	fill_chars(new_state);
@@ -972,8 +972,8 @@ pop_if(parse_context *ctx)
 {
 	lexer_state *old_state = ctx->lexer;
 	lexer_state *new_state = old_state->prev;
-	directive last_dir = new_state->last_directive;
-	if (last_dir == DIR_OTHER || last_dir == DIR_INCLUDE) {
+	directive lsyntax_dir = new_state->lsyntax_directive;
+	if (lsyntax_dir == DIR_OTHER || lsyntax_dir == DIR_INCLUDE) {
 		fatalf(get_location(ctx), "#endif without #if");
 	}
 
@@ -1013,10 +1013,10 @@ push_file(parse_context *ctx, char *filename, str contents)
 	new_state->ignore_token = false;
 	new_state->file = file_id;
 	new_state->filename = filename;
-	new_state->last_directive = DIR_OTHER;
+	new_state->lsyntax_directive = DIR_OTHER;
 	new_state->prev = old_state;
 	if (old_state) {
-		old_state->last_directive = DIR_INCLUDE;
+		old_state->lsyntax_directive = DIR_INCLUDE;
 	}
 	ctx->lexer = new_state;
 	fill_chars(new_state);
@@ -1061,7 +1061,7 @@ get_token(parse_context *ctx)
 				push_if(ctx, DIR_ELSE);
 			} else if (equals(token.value, S("endif"))) {
 				pop_if(ctx);
-				ctx->lexer->last_directive = DIR_OTHER;
+				ctx->lexer->lsyntax_directive = DIR_OTHER;
 			} else if (ctx->lexer->ignore_token) {
 				skip_line(ctx);
 				token.kind = TOKEN_NEWLINE;
@@ -1264,11 +1264,11 @@ get_token(parse_context *ctx)
 			lexer_state *old_state = ctx->lexer;
 			lexer_state *new_state = old_state->prev;
 			if (new_state != NULL) {
-				if (new_state->last_directive != DIR_INCLUDE) {
+				if (new_state->lsyntax_directive != DIR_INCLUDE) {
 					fatalf(get_location(ctx), "Missing #endif");
 				}
 
-				new_state->last_directive = DIR_OTHER;
+				new_state->lsyntax_directive = DIR_OTHER;
 				ctx->lexer = new_state;
 				token.kind = TOKEN_NEWLINE;
 			}

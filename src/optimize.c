@@ -164,8 +164,8 @@ seal_block(ssa_context *ctx, isize block_id, isize filled_id)
 	if (pred_count != 0) {
 		// A block can be sealed if the last predecessor was filled.
 		// Any block before `filled_id` is considered filled.
-		isize last_pred_id = ctx->blocks[block_id].pred[0];
-		if (last_pred_id > filled_id) {
+		isize lsyntax_pred_id = ctx->blocks[block_id].pred[0];
+		if (lsyntax_pred_id > filled_id) {
 			return;
 		}
 	}
