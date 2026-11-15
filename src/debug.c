@@ -175,6 +175,9 @@ print_syntax_node(syntax_tree *tree, syntax_node_id node_id, char *prefix)
 	case SYNTAX_DECL:
 		name = "Decl";
 		break;
+	case SYNTAX_DECLARATION:
+		name = "Declaration";
+		break;
 	case SYNTAX_ENUMERATOR:
 		name = "Enumerator";
 		break;
@@ -231,9 +234,6 @@ print_syntax_node(syntax_tree *tree, syntax_node_id node_id, char *prefix)
 		break;
 	case SYNTAX_STMT_CONTINUE:
 		name = "StmtContinue";
-		break;
-	case SYNTAX_STMT_DECL:
-		name = "StmtDecl";
 		break;
 	case SYNTAX_STMT_DEFAULT:
 		name = "StmtDefault";

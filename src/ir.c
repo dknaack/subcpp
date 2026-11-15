@@ -604,6 +604,15 @@ translate_node(ir_context *ctx, syntax_node_id node_id, b32 is_lvalue)
 				ctx->symbol_ids[decl_id.value] = result;
 			}
 		} break;
+	case SYNTAX_DECLARATION:
+		{
+			syntax_node_id child_id = node.children;
+			while (child_id.value != 0) {
+				translate_node(ctx, child_id, false);
+				syntax_node child = get_node(tree, child_id);
+				child_id = child.next;
+			}
+		} break;
 	case SYNTAX_INIT:
 		ASSERT(!"Should have been handled by DECL");
 		break;
@@ -1188,15 +1197,6 @@ translate_node(ir_context *ctx, syntax_node_id node_id, b32 is_lvalue)
 		{
 			ir_emit1(ctx, 0, IR_JMP, ctx->continue_label);
 			ir_emit1(ctx, 0, IR_LABEL, new_label(&ctx->buffer));
-		} break;
-	case SYNTAX_STMT_DECL:
-		{
-			syntax_node_id child_id = node.children;
-			while (child_id.value != 0) {
-				translate_node(ctx, child_id, false);
-				syntax_node child = get_node(tree, child_id);
-				child_id = child.next;
-			}
 		} break;
 	case SYNTAX_STMT_DEFAULT:
 		ASSERT(!"Should have been handled by SWITCH");

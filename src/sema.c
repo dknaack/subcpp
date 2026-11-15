@@ -362,7 +362,7 @@ check_node(sema_context ctx, syntax_node_id node_id)
 	case SYNTAX_STMT_LABEL:
 	case SYNTAX_STMT_RETURN:
 	case SYNTAX_STMT_WHILE:
-	case SYNTAX_STMT_DECL:
+	case SYNTAX_DECLARATION:
 		{
 			syntax_node_id child_id = children[0];
 			while (child_id.value != 0) {

@@ -13,6 +13,10 @@ typedef enum {
 	// is the initializer. The identifier is stored in the token of the node.
 	SYNTAX_DECL,
 
+	// A full declaration, like `int x = 42, y = 3;`. This node contains a
+	// list of declarations as children.
+	SYNTAX_DECLARATION,
+
 	// An enumerator in an enum declaration. The first child is the value of the
 	// enumerator, the identifier is stored in the token of the node.
 	SYNTAX_ENUMERATOR,
@@ -93,10 +97,6 @@ typedef enum {
 
 	// A continue statement. This node has no children.
 	SYNTAX_STMT_CONTINUE,
-
-	// A declaration statement, like `int x = 42, y = 3;`. This node contains a
-	// list of declarations as children.
-	SYNTAX_STMT_DECL,
 
 	// A default statement in a switch statement. The first child is the statement.
 	SYNTAX_STMT_DEFAULT,
