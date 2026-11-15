@@ -157,10 +157,10 @@ get_ir_opcode_str(ir_opcode opcode)
 }
 
 static void
-print_syntax_node(syntax_tree *tree, syntax_id node_id, int indent)
+print_syntax_node(syntax_tree *tree, syntax_node_id node_id, int indent)
 {
-	syntax_id children[4] = {0};
-	syntax_id tmp;
+	syntax_node_id children[4] = {0};
+	syntax_node_id tmp;
 
 	if (node_id.value == 0) {
 		return;
