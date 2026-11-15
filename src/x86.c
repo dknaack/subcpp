@@ -219,9 +219,7 @@ x86_select(x86_context *ctx, i32 inst_id)
 		} break;
 	case IR_LABEL:
 		{
-			isize src_size = inst[arg0].size;
-			machine_token src = make_const(arg0, src_size);
-			x86_emit1(ctx, X86_LABEL, X86_DWORD, X86_IMM, src);
+			ASSERT(!"TODO");
 		} break;
 	case IR_GLOBAL:
 	case IR_FUNC:
