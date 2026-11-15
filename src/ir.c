@@ -1,5 +1,5 @@
 static b32
-is_func(syntax_tree *tree, syntax_id node_id)
+is_func(syntax_tree *tree, syntax_node_id node_id)
 {
 	b32 result = false;
 
@@ -15,7 +15,7 @@ is_func(syntax_tree *tree, syntax_id node_id)
 }
 
 static b32
-is_global(syntax_tree *tree, syntax_id node_id)
+is_global(syntax_tree *tree, syntax_node_id node_id)
 {
 	b32 result = false;
 
@@ -444,12 +444,12 @@ ir_eval(inst *inst, isize inst_count, ir_value *values, arena stack)
 	return zero;
 }
 
-static u32 translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue);
+static u32 translate_node(ir_context *ctx, syntax_node_id node_id, b32 is_lvalue);
 
 // TODO: This only works for initializers with a correct set of braces,
 // this does not work if there are no braces in the initializer, for example.
 static void
-translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
+translate_initializer(ir_context *ctx, syntax_node_id node_id, u32 result)
 {
 	syntax_tree *tree = ctx->ast;
 
@@ -486,13 +486,13 @@ translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
 }
 
 static u32
-translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
+translate_node(ir_context *ctx, syntax_node_id node_id, b32 is_lvalue)
 {
 	syntax_tree *tree = ctx->ast;
 	arena *perm = ctx->arena;
 	u32 result = 0;
 
-	syntax_id children[4] = {0};
+	syntax_node_id children[4] = {0};
 	get_children(tree, node_id, children, LENGTH(children));
 
 	syntax_node node = get_node(tree, node_id);
@@ -526,9 +526,9 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 
 					// NOTE: Emit parameter registers
 					isize param_index = 0;
-					syntax_id return_id = type.children;
+					syntax_node_id return_id = type.children;
 					syntax_node return_type = get_node(tree, return_id);
-					syntax_id param_id = return_type.next;
+					syntax_node_id param_id = return_type.next;
 					while (param_id.value != 0) {
 						type_id param_type = get_type_id(tree, param_id);
 						isize param_size = get_node_size(tree, param_type);
@@ -585,7 +585,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					memset(&ctx->buffer, 0, sizeof(ctx->buffer));
 				}
 			} else {
-				syntax_id decl_id = find_decl(tree, node_id);
+				syntax_node_id decl_id = find_decl(tree, node_id);
 				ASSERT(ctx->symbol_ids[decl_id.value] == 0);
 				type_id type = find_type_id(tree, decl_id);
 				isize size = get_node_size(tree, type);
@@ -609,7 +609,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		break;
 	case SYNTAX_STMT_COMPOUND:
 		{
-			syntax_id child = children[0];
+			syntax_node_id child = children[0];
 			while (child.value != 0) {
 				syntax_node child_node = get_node(tree, child);
 				translate_node(ctx, child, false);
@@ -833,7 +833,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			}
 
 			// Load parameters
-			syntax_id param_id = children[1];
+			syntax_node_id param_id = children[1];
 			while (param_id.value != 0) {
 				i32 param_value = translate_node(ctx, param_id, false);
 
@@ -898,7 +898,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_EXPR_IDENT:
 		{
-			syntax_id decl_id = find_decl(tree, node_id);
+			syntax_node_id decl_id = find_decl(tree, node_id);
 			result = ctx->symbol_ids[decl_id.value];
 
 			type_id type_id = find_type_id(tree, node_id);
@@ -1012,12 +1012,12 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		{
 			type_id operand_type = get_type_id(tree, children[0]);
 			if (node.kind == SYNTAX_EXPR_MEMBER_PTR) {
-				syntax_id base_type = get_type(tree, operand_type).children;
+				syntax_node_id base_type = get_type(tree, operand_type).children;
 				operand_type.value = base_type.value;
 			}
 
 			// TODO: Combine these two functions or add info to this expression.
-			syntax_id member_id = get_member(tree, operand_type, node.token.value);
+			syntax_node_id member_id = get_member(tree, operand_type, node.token.value);
 			i32 offset = get_member_offset(tree, operand_type, member_id);
 
 			i32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
@@ -1079,7 +1079,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			i32 endif_label = new_label(&ctx->buffer);
 			i32 else_label = new_label(&ctx->buffer);
 
-			syntax_id cond = children[0];
+			syntax_node_id cond = children[0];
 			i32 cond_reg = translate_node(ctx, cond, false);
 
 			type_id type_id = get_type_id(tree, node_id);
@@ -1094,13 +1094,13 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			ir_emit2(ctx, 0, IR_JIZ, cond_reg, else_label);
 			ir_emit1(ctx, 0, IR_LABEL, new_label(&ctx->buffer));
 
-			syntax_id if_branch = children[1];
+			syntax_node_id if_branch = children[1];
 			i32 if_reg = translate_node(ctx, if_branch, false);
 			ir_mov(ctx, result, if_reg, type_id);
 			ir_emit1(ctx, 0, IR_JMP, endif_label);
 
 			ir_emit1(ctx, 0, IR_LABEL, else_label);
-			syntax_id else_branch = children[2];
+			syntax_node_id else_branch = children[2];
 			i32 else_reg = translate_node(ctx, else_branch, false);
 			ir_mov(ctx, result, else_reg, type_id);
 
@@ -1191,7 +1191,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_STMT_DECL:
 		{
-			syntax_id child_id = node.children;
+			syntax_node_id child_id = node.children;
 			while (child_id.value != 0) {
 				translate_node(ctx, child_id, false);
 				syntax_node child = get_node(tree, child_id);
@@ -1207,8 +1207,8 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 			new_ctx.continue_label = new_label(&new_ctx.buffer);
-			syntax_id cond = children[0];
-			syntax_id body = children[1];
+			syntax_node_id cond = children[0];
+			syntax_node_id body = children[1];
 
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
 			translate_node(&new_ctx, body, false);
@@ -1251,7 +1251,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 	case SYNTAX_STMT_GOTO:
 	case SYNTAX_STMT_LABEL:
 		{
-			syntax_id label_id = node_id;
+			syntax_node_id label_id = node_id;
 			ir_opcode opcode = IR_LABEL;
 
 			if (node.kind == SYNTAX_STMT_GOTO) {
@@ -1320,8 +1320,8 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			i32 switch_reg = translate_node(&new_ctx, children[0], false);
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 
-			syntax_id case_id = tree->nodes[node_id.value].info.ref;
-			syntax_id default_id = {0};
+			syntax_node_id case_id = tree->nodes[node_id.value].info.ref;
+			syntax_node_id default_id = {0};
 			while (case_id.value != 0) {
 				i32 label = new_label(&new_ctx.buffer);
 				new_ctx.symbol_ids[case_id.value] = label;
@@ -1357,12 +1357,12 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			new_ctx.continue_label = new_label(&new_ctx.buffer);
 
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.continue_label);
-			syntax_id cond = children[0];
+			syntax_node_id cond = children[0];
 			i32 cond_reg = translate_node(&new_ctx, cond, false);
 			ir_emit2(&new_ctx, 0, IR_JIZ, cond_reg, new_ctx.break_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_label(&new_ctx.buffer));
 
-			syntax_id body = children[1];
+			syntax_node_id body = children[1];
 			translate_node(&new_ctx, body, false);
 			ir_emit1(&new_ctx, 0, IR_JMP, new_ctx.continue_label);
 			ir_emit1(&new_ctx, 0, IR_LABEL, new_ctx.break_label);
@@ -1407,7 +1407,7 @@ translate(syntax_tree *tree, arena *arena)
 	isize global_count = 1;
 	i32 *symbol_ids = ALLOC(arena, tree->size, i32);
 	for (isize i = 1; i < tree->size; i++) {
-		syntax_id node_id = {i};
+		syntax_node_id node_id = {i};
 		if (is_func(tree, node_id)) {
 			symbol_ids[node_id.value] = func_count++;
 		} else if (is_global(tree, node_id)) {
@@ -1428,7 +1428,7 @@ translate(syntax_tree *tree, arena *arena)
 	ctx.symbol_ids = symbol_ids;
 
 	// Translate all nodes into IR
-	syntax_id node_id = tree->root;
+	syntax_node_id node_id = tree->root;
 	while (node_id.value != 0) {
 		translate_node(&ctx, node_id, false);
 		node_id = get_node(tree, node_id).next;

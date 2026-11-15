@@ -1,12 +1,12 @@
 typedef struct label_info label_info;
 struct label_info {
 	label_info *next;
-	syntax_id label_id;
+	syntax_node_id label_id;
 	str name;
 };
 
 typedef struct {
-	syntax_id node_id;
+	syntax_node_id node_id;
 	i32 depth;
 	i32 age;
 } scope_entry;
@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {
 	syntax_tree *ast;
 	arena *arena;
-	syntax_id switch_id;
+	syntax_node_id switch_id;
 	scope scope;
 	label_info *labels;
 } sema_context;
@@ -92,7 +92,7 @@ has_ref(syntax_node *node)
 }
 
 static type_id
-get_type_id(syntax_tree *tree, syntax_id id)
+get_type_id(syntax_tree *tree, syntax_node_id id)
 {
 	syntax_node *node = &tree->nodes[id.value];
 	type_id result = node->info.type;
@@ -100,10 +100,10 @@ get_type_id(syntax_tree *tree, syntax_id id)
 	return result;
 }
 
-static syntax_id
-find_decl(syntax_tree *tree, syntax_id id)
+static syntax_node_id
+find_decl(syntax_tree *tree, syntax_node_id id)
 {
-	syntax_id result = {0};
+	syntax_node_id result = {0};
 
 	syntax_node *node = &tree->nodes[id.value];
 	if (has_ref(node)) {
@@ -120,7 +120,7 @@ find_decl(syntax_tree *tree, syntax_id id)
 }
 
 static type_id
-find_type_id(syntax_tree *tree, syntax_id id)
+find_type_id(syntax_tree *tree, syntax_node_id id)
 {
 	type_id result = {0};
 
@@ -145,17 +145,17 @@ get_type(syntax_tree *p, type_id id)
 }
 
 static void
-set_type(syntax_tree *p, syntax_id node_id, type_id type)
+set_type(syntax_tree *p, syntax_node_id node_id, type_id type)
 {
 	syntax_node *node = &p->nodes[node_id.value];
 	ASSERT(has_type(node));
 	node->info.type = type;
 }
 
-static syntax_id
+static syntax_node_id
 get_member(syntax_tree *p, type_id type, str member)
 {
-	syntax_id result = get_type(p, type).children;
+	syntax_node_id result = get_type(p, type).children;
 	while (result.value != 0) {
 		syntax_node child = get_node(p, result);
 		if (equals(child.token.value, member)) {
@@ -217,7 +217,7 @@ get_node_size(syntax_tree *p, type_id node_id)
 			isize result = 0;
 			isize max_align = 0;
 
-			syntax_id member_id = node.children;
+			syntax_node_id member_id = node.children;
 			while (member_id.value != 0) {
 				type_id member_type = get_type_id(p, member_id);
 				isize member_size = get_node_size(p, member_type);
@@ -263,13 +263,13 @@ get_node_alignment(syntax_tree *p, type_id type)
 }
 
 static isize
-get_member_offset(syntax_tree *p, type_id type, syntax_id member)
+get_member_offset(syntax_tree *p, type_id type, syntax_node_id member)
 {
 	isize result = 0;
 
 	syntax_node type_node = get_type(p, type);
 	if (is_compound_type(type_node.kind)) {
-		syntax_id child = type_node.children;
+		syntax_node_id child = type_node.children;
 		while (child.value != 0) {
 			type_id child_type = get_type_id(p, child);
 			isize align = get_node_alignment(p, child_type);

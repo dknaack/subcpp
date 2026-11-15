@@ -15,11 +15,11 @@ parse_i64(str input)
 }
 
 static i64
-eval_ast(syntax_tree *tree, syntax_id node_id)
+eval_ast(syntax_tree *tree, syntax_node_id node_id)
 {
 	i64 result = 0;
 
-	syntax_id children[3] = {0};
+	syntax_node_id children[3] = {0};
 	get_children(tree, node_id, children, LENGTH(children));
 
 	syntax_node node = get_node(tree, node_id);
@@ -73,9 +73,9 @@ eval_ast(syntax_tree *tree, syntax_id node_id)
 		} break;
 	case SYNTAX_EXPR_TERNARY:
 		{
-			syntax_id cond = children[0];
-			syntax_id lhs = children[1];
-			syntax_id rhs = children[2];
+			syntax_node_id cond = children[0];
+			syntax_node_id lhs = children[1];
+			syntax_node_id rhs = children[2];
 
 			if (eval_ast(tree, cond)) {
 				result = eval_ast(tree, lhs);
@@ -106,18 +106,18 @@ eval_ast(syntax_tree *tree, syntax_id node_id)
 }
 
 // Returns node with the same structure or creates it if `node_id == 0`
-static syntax_id
-intern_node(sema_context ctx, syntax_node node, syntax_id node_id)
+static syntax_node_id
+intern_node(sema_context ctx, syntax_node node, syntax_node_id node_id)
 {
 	syntax_tree *tree = ctx.ast;
 	scope scope = ctx.scope;
 
-	syntax_id child_id = node.children;
+	syntax_node_id child_id = node.children;
 	b32 is_ident = false;
 	b32 is_tag = false;
 
 	if (node_id.value != 0) {
-		syntax_id intern_id = tree->nodes[node_id.value].info.ref;
+		syntax_node_id intern_id = tree->nodes[node_id.value].info.ref;
 		if (intern_id.value != 0) {
 			return intern_id;
 		}
@@ -131,12 +131,12 @@ intern_node(sema_context ctx, syntax_node node, syntax_id node_id)
 			hash(&h, &node.kind, sizeof(node.kind));
 			hash(&h, &node.flags, sizeof(node.flags));
 
-			syntax_id subtype_id = node.children;
+			syntax_node_id subtype_id = node.children;
 			syntax_node subtype = get_node(tree, subtype_id);
-			syntax_id intern_id = intern_node(ctx, subtype, subtype_id);
+			syntax_node_id intern_id = intern_node(ctx, subtype, subtype_id);
 			hash(&h, &intern_id, sizeof(intern_id));
 
-			syntax_id count_id = subtype.next;
+			syntax_node_id count_id = subtype.next;
 			i64 count = eval_ast(tree, count_id);
 			hash(&h, &count, sizeof(count));
 		} break;
@@ -147,7 +147,7 @@ intern_node(sema_context ctx, syntax_node node, syntax_id node_id)
 		hash(&h, &node.flags, sizeof(node.flags));
 		while (child_id.value != 0) {
 			syntax_node child = get_node(tree, child_id);
-			syntax_id intern_id = intern_node(ctx, child, child_id);
+			syntax_node_id intern_id = intern_node(ctx, child, child_id);
 			hash(&h, &intern_id, sizeof(intern_id));
 			child_id = child.next;
 		}
@@ -224,8 +224,8 @@ intern_node(sema_context ctx, syntax_node node, syntax_id node_id)
 		} else {
 			are_equal = (node.kind == intern_node.kind);
 
-			syntax_id child_id = node.children;
-			syntax_id intern_child_id = intern_node.children;
+			syntax_node_id child_id = node.children;
+			syntax_node_id intern_child_id = intern_node.children;
 			while (are_equal && child_id.value != 0 && intern_child_id.value != 0) {
 				type_id child_type = get_type_id(tree, intern_child_id);
 				type_id intern_child_type = get_type_id(tree, child_id);
@@ -303,8 +303,8 @@ are_compatible(sema_context ctx, type_id lhs_id, type_id rhs_id)
 				return false;
 			}
 
-			syntax_id l = lhs.children;
-			syntax_id r = rhs.children;
+			syntax_node_id l = lhs.children;
+			syntax_node_id r = rhs.children;
 			while (l.value != 0 && r.value != 0) {
 				type_id l_type = get_type_id(tree, l);
 				type_id r_type = get_type_id(tree, r);
@@ -329,7 +329,7 @@ are_compatible(sema_context ctx, type_id lhs_id, type_id rhs_id)
 }
 
 static type_id
-check_node(sema_context ctx, syntax_id node_id)
+check_node(sema_context ctx, syntax_node_id node_id)
 {
 	syntax_tree *tree = ctx.ast;
 
@@ -341,7 +341,7 @@ check_node(sema_context ctx, syntax_id node_id)
 	syntax_node node = get_node(tree, node_id);
 	type_id node_type = node.info.type;
 
-	syntax_id children[3] = {0};
+	syntax_node_id children[3] = {0};
 	get_children(tree, node_id, children, LENGTH(children));
 
 	switch (node.kind) {
@@ -364,7 +364,7 @@ check_node(sema_context ctx, syntax_id node_id)
 	case SYNTAX_STMT_WHILE:
 	case SYNTAX_STMT_DECL:
 		{
-			syntax_id child_id = children[0];
+			syntax_node_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
 				syntax_node child = get_node(tree, child_id);
@@ -391,7 +391,7 @@ check_node(sema_context ctx, syntax_id node_id)
 		{
 			ctx.scope.ages[ctx.scope.depth++]++;
 
-			syntax_id child_id = children[0];
+			syntax_node_id child_id = children[0];
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
 				syntax_node child = get_node(tree, child_id);
@@ -404,8 +404,8 @@ check_node(sema_context ctx, syntax_id node_id)
 				errorf(node.token.loc, "default outside switch");
 			} else {
 				// Append default statement to the list in switch statement
-				syntax_id *case_id = &tree->nodes[ctx.switch_id.value].info.ref;
-				syntax_id prev_id = {0};
+				syntax_node_id *case_id = &tree->nodes[ctx.switch_id.value].info.ref;
+				syntax_node_id prev_id = {0};
 				while (case_id->value != 0) {
 					prev_id = *case_id;
 					case_id = &tree->nodes[case_id->value].info.ref;
@@ -448,8 +448,8 @@ check_node(sema_context ctx, syntax_id node_id)
 			syntax_node type = get_type(tree, node_type);
 			// TODO: Check the type of each field in the initializer
 			if (is_compound_type(type.kind)) {
-				syntax_id member_id = type.children;
-				syntax_id child_id = node.children;
+				syntax_node_id member_id = type.children;
+				syntax_node_id child_id = node.children;
 				while (member_id.value != 0 && child_id.value != 0) {
 					type_id member_type = get_type_id(tree, member_id);
 					syntax_node child = get_node(tree, child_id);
@@ -473,7 +473,7 @@ check_node(sema_context ctx, syntax_id node_id)
 				}
 			} else if (type.kind == SYNTAX_TYPE_ARRAY) {
 				type_id base_type = get_type_id(tree, type.children);
-				syntax_id child_id = node.children;
+				syntax_node_id child_id = node.children;
 				while (child_id.value != 0) {
 					syntax_node child = get_node(tree, node_id);
 					if (child.kind == SYNTAX_INIT) {
@@ -564,11 +564,11 @@ check_node(sema_context ctx, syntax_id node_id)
 #endif
 			}
 
-			syntax_id return_type_id = called_type.children;
+			syntax_node_id return_type_id = called_type.children;
 			syntax_node return_type = get_node(tree, called_type.children);
 
-			syntax_id param_id = return_type.next;
-			syntax_id child_id = children[1];
+			syntax_node_id param_id = return_type.next;
+			syntax_node_id child_id = children[1];
 			while (param_id.value != 0 && child_id.value != 0) {
 				type_id child_type = check_node(ctx, child_id);
 				type_id param_type = find_type_id(tree, param_id);
@@ -614,7 +614,7 @@ check_node(sema_context ctx, syntax_id node_id)
 		} break;
 	case SYNTAX_EXPR_IDENT:
 		{
-			syntax_id origin = intern_node(ctx, node, node_id);
+			syntax_node_id origin = intern_node(ctx, node, node_id);
 			if (origin.value == node_id.value) {
 				errorf(node.token.loc, "Undefined variable: %.*s",
 					(int)node.token.value.length, node.token.value.at);
@@ -644,7 +644,7 @@ check_node(sema_context ctx, syntax_id node_id)
 				ASSERT(!"Invalid literal");
 			}
 
-			syntax_id intern_id = intern_node(ctx, tmp, syntax_nil);
+			syntax_node_id intern_id = intern_node(ctx, tmp, syntax_nil);
 			if (node.token.kind == TOKEN_LITERAL_STRING) {
 				tmp.kind = SYNTAX_TYPE_POINTER;
 				tmp.token.kind = TOKEN_STAR;
@@ -676,7 +676,7 @@ check_node(sema_context ctx, syntax_id node_id)
 			}
 
 			str member_name = node.token.value;
-			syntax_id member_id = get_member(tree, operand_type_id, member_name);
+			syntax_node_id member_id = get_member(tree, operand_type_id, member_name);
 			if (member_id.value != 0) {
 				node_type = find_type_id(tree, member_id);
 			} else {
@@ -751,12 +751,12 @@ check_node(sema_context ctx, syntax_id node_id)
 			node_type = check_node(ctx, children[0]);
 			ASSERT(node_type.value != 0);
 
-			syntax_id intern_id = intern_node(ctx, node, node_id);
+			syntax_node_id intern_id = intern_node(ctx, node, node_id);
 			tree->nodes[node_id.value].info.ref = intern_id;
 			if (intern_id.value != node_id.value) {
 				// TODO: Ensure that the type of the old declaration is
 				// compatible with the current declaration.
-				syntax_id intern_children[2];
+				syntax_node_id intern_children[2];
 				get_children(tree, intern_id, intern_children, 2);
 				if (has_definition && intern_children[1].value != 0) {
 					errorf(node.token.loc, "Variables was previously defined");
@@ -796,7 +796,7 @@ check_node(sema_context ctx, syntax_id node_id)
 				tree->nodes[children[1].value].info.i = length;
 			}
 
-			syntax_id intern_id = intern_node(ctx, node, node_id);
+			syntax_node_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
 	case SYNTAX_TYPE_FUNC:
@@ -805,7 +805,7 @@ check_node(sema_context ctx, syntax_id node_id)
 		{
 			ctx.scope.ages[ctx.scope.depth++]++;
 
-			syntax_id child_id = node.children;
+			syntax_node_id child_id = node.children;
 			while (child_id.value != 0) {
 				check_node(ctx, child_id);
 				child_id = get_node(tree, child_id).next;
@@ -814,7 +814,7 @@ check_node(sema_context ctx, syntax_id node_id)
 			// Close the previous scope, so the struct/union tag is inserted in
 			// the correct scope and not with the members of the struct.
 			ctx.scope.depth--;
-			syntax_id intern_id = intern_node(ctx, node, node_id);
+			syntax_node_id intern_id = intern_node(ctx, node, node_id);
 			node_type.value = intern_id.value;
 		} break;
 	case SYNTAX_TYPE_ENUM:
@@ -827,10 +827,10 @@ check_node(sema_context ctx, syntax_id node_id)
 			tmp.kind = SYNTAX_TYPE_BASIC;
 			tmp.token.kind = TOKEN_INT;
 
-			syntax_id int_id = intern_node(ctx, tmp, syntax_nil);
+			syntax_node_id int_id = intern_node(ctx, tmp, syntax_nil);
 			node_type.value = int_id.value;
 
-			syntax_id enum_id = node.children;
+			syntax_node_id enum_id = node.children;
 			i32 value = 0;
 			while (enum_id.value != 0) {
 				syntax_node enum_node = get_node(tree, enum_id);
@@ -860,7 +860,7 @@ check_node(sema_context ctx, syntax_id node_id)
 }
 
 static label_info *
-get_labels(syntax_id node_id, syntax_tree *tree, label_info *labels, isize label_count)
+get_labels(syntax_node_id node_id, syntax_tree *tree, label_info *labels, isize label_count)
 {
 	label_info *result = NULL;
 	syntax_node node = get_node(tree, node_id);
@@ -873,7 +873,7 @@ get_labels(syntax_id node_id, syntax_tree *tree, label_info *labels, isize label
 		result->label_id = node_id;
 	}
 
-	syntax_id child_id = node.children;
+	syntax_node_id child_id = node.children;
 	while (child_id.value != 0) {
 		label_info *list = get_labels(child_id, tree, labels, label_count);
 
@@ -903,12 +903,12 @@ get_labels(syntax_id node_id, syntax_tree *tree, label_info *labels, isize label
 }
 
 static isize
-get_max_depth(syntax_tree *tree, syntax_id node_id)
+get_max_depth(syntax_tree *tree, syntax_node_id node_id)
 {
 	isize result = 0;
 
 	if (node_id.value != 0) {
-		syntax_id child_id = get_node(tree, node_id).children;
+		syntax_node_id child_id = get_node(tree, node_id).children;
 		while (child_id.value != 0) {
 			isize depth = get_max_depth(tree, child_id);
 			if (depth > result) {
@@ -937,7 +937,7 @@ check(syntax_tree *tree, arena *perm)
 	ctx.scope.at = ALLOC(perm, ctx.scope.max_size, scope_entry);
 	ctx.scope.ages = ALLOC(perm, ctx.scope.max_depth, i32);
 
-	syntax_id node_id = tree->root;
+	syntax_node_id node_id = tree->root;
 	while (node_id.value != 0) {
 		isize label_count = 1;
 		for (isize i = 0; i < tree->size; i++) {

@@ -188,7 +188,7 @@ typedef enum {
 } syntax_node_flags;
 
 typedef struct {
-	syntax_id first, last;
+	syntax_node_id first, last;
 } syntax_list;
 
 typedef union {
@@ -197,7 +197,7 @@ typedef union {
 	// Identifiers reference their declaration or their definition.
 	// Declarations reference themselves or their definition if it exists.
 	// Definitions reference themselves.
-	syntax_id ref;
+	syntax_node_id ref;
 	// Reference to another node, which represents the type of this node.
 	// Usually for expressions.
 	type_id type;
@@ -213,8 +213,8 @@ typedef struct {
 	syntax_node_kind kind;
 	syntax_node_flags flags;
 	token token;
-	syntax_id next;
-	syntax_id children;
+	syntax_node_id next;
+	syntax_node_id children;
 	// Additional information about the node, depending on the kind of node.
 	// For example, the type of an expression or the value of a literal.
 	syntax_info info;
@@ -222,13 +222,13 @@ typedef struct {
 
 typedef struct syntax_tree {
 	syntax_node *nodes;
-	syntax_id root;
+	syntax_node_id root;
 	isize max_size;
 	isize size;
 	b32 error;
 } syntax_tree;
 
-static const syntax_id syntax_nil = {0};
+static const syntax_node_id syntax_nil = {0};
 
 typedef struct parse_scope_entry parse_scope_entry;
 struct parse_scope_entry {
@@ -319,7 +319,7 @@ get_precedence(token_kind token)
 }
 
 static syntax_node
-get_node(syntax_tree *p, syntax_id id)
+get_node(syntax_tree *p, syntax_node_id id)
 {
 	syntax_node result = {0};
 
@@ -333,12 +333,12 @@ get_node(syntax_tree *p, syntax_id id)
 }
 
 static i32
-get_children(syntax_tree *p, syntax_id id, syntax_id *children, i32 max_count)
+get_children(syntax_tree *p, syntax_node_id id, syntax_node_id *children, i32 max_count)
 {
 	i32 count = 0;
 	syntax_node node = get_node(p, id);
 
-	syntax_id child_id = node.children;
+	syntax_node_id child_id = node.children;
 	for (count = 0; child_id.value != 0 && count < max_count; count++) {
 		syntax_node child = get_node(p, child_id);
 		children[count] = child_id;
