@@ -231,7 +231,7 @@ typedef struct {
 
 typedef struct {
 	arena *arena;
-	syntax_pool *ast;
+	syntax_tree *ast;
 	i32 *symbol_ids;
 	program *program;
 	inst_buffer buffer;

@@ -157,7 +157,7 @@ get_ir_opcode_str(ir_opcode opcode)
 }
 
 static void
-print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
+print_syntax_node(syntax_tree *tree, syntax_id node_id, int indent)
 {
 	syntax_id children[4] = {0};
 	syntax_id tmp;
@@ -166,8 +166,8 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		return;
 	}
 
-	syntax_node node = get_node(pool, node_id);
-	get_children(pool, node_id, children, LENGTH(children));
+	syntax_node node = get_node(tree, node_id);
+	get_children(tree, node_id, children, LENGTH(children));
 
 	switch (node.kind) {
 	case SYNTAX_INVALID:
@@ -177,30 +177,30 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		break;
 	case SYNTAX_DECL:
 		printf("%.*s: ", (int)node.token.value.length, node.token.value.at);
-		print_syntax_node(pool, node.children, indent);
+		print_syntax_node(tree, node.children, indent);
 		if (children[0].value != 0) {
 			printf(" = ");
-			print_syntax_node(pool, children[0], indent);
+			print_syntax_node(tree, children[0], indent);
 		}
 
 		break;
 	case SYNTAX_EXPR_BINARY:
 
 		printf("(");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(") <*> (");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		printf(")");
 		break;
 	case SYNTAX_EXPR_CALL:
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 
 		printf("(");
 		node_id = children[1];
 		while (node_id.value != 0) {
-			print_syntax_node(pool, node_id, indent);
+			print_syntax_node(tree, node_id, indent);
 
-			node_id = get_node(pool, node_id).next;
+			node_id = get_node(tree, node_id).next;
 			if (node_id.value != 0) {
 				printf(", ");
 			}
@@ -211,20 +211,20 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 	case SYNTAX_EXPR_CAST:
 
 		printf("(");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(")");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		break;
 	case SYNTAX_EXPR_LITERAL:
 		printf("%.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case SYNTAX_EXPR_MEMBER:
 	case SYNTAX_EXPR_MEMBER_PTR:
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(".%.*s", (int)node.token.value.length, node.token.value.at);
 		break;
 	case SYNTAX_EXPR_POSTFIX:
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		switch (node.token.kind) {
 		case TOKEN_PLUS_PLUS:
 			printf("++");
@@ -239,11 +239,11 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		break;
 	case SYNTAX_EXPR_TERNARY:
 
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(" ? ");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		printf(" : ");
-		print_syntax_node(pool, children[2], indent);
+		print_syntax_node(tree, children[2], indent);
 		break;
 	case SYNTAX_EXPR_UNARY:
 		switch (node.token.kind) {
@@ -272,29 +272,29 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 			ASSERT(!"Invalid unary expression");
 		}
 
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_STMT_BREAK:
 		printf("break");
 		break;
 	case SYNTAX_STMT_CASE:
 		printf("case ");
-		print_syntax_node(pool, children[0], indent + 1);
+		print_syntax_node(tree, children[0], indent + 1);
 		printf(":\n");
-		print_syntax_node(pool, children[1], indent + 1);
+		print_syntax_node(tree, children[1], indent + 1);
 		break;
 	case SYNTAX_STMT_CONTINUE:
 		printf("continue");
 		break;
 	case SYNTAX_STMT_DEFAULT:
 		printf("default:\n");
-		print_syntax_node(pool, children[0], indent + 1);
+		print_syntax_node(tree, children[0], indent + 1);
 		break;
 	case SYNTAX_STMT_DO_WHILE:
 		printf("do");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		printf("while (");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(");");
 		break;
 	case SYNTAX_STMT_GOTO:
@@ -302,35 +302,35 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		break;
 	case SYNTAX_STMT_FOR:
 		printf("for (");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf("; ");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		printf("; ");
-		print_syntax_node(pool, children[2], indent);
+		print_syntax_node(tree, children[2], indent);
 		printf(") ");
-		print_syntax_node(pool, children[3], indent);
+		print_syntax_node(tree, children[3], indent);
 		break;
 	case SYNTAX_STMT_IF:
 		printf("if (");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(") ");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 
 		if (children[2].value != 0) {
 			printf("else ");
-			print_syntax_node(pool, children[2], indent);
+			print_syntax_node(tree, children[2], indent);
 		}
 		break;
 	case SYNTAX_STMT_LABEL:
 		printf("%.*s:\n", (int)node.token.value.length, node.token.value.at);
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_STMT_COMPOUND:
 		printf("{\n");
 		while (node_id.value != 0) {
 			for (int i = 0; i < indent + 1; i++) printf("    ");
-			node = get_node(pool, node_id);
-			print_syntax_node(pool, children[0], indent+1);
+			node = get_node(tree, node_id);
+			print_syntax_node(tree, children[0], indent+1);
 			node_id = children[1];
 			printf(";\n");
 		}
@@ -339,44 +339,44 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		break;
 	case SYNTAX_STMT_SWITCH:
 		printf("switch (");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(")");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_STMT_RETURN:
 		printf("return ");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_STMT_WHILE:
 		printf("while (");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf(")");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		break;
 	case SYNTAX_TYPE_ARRAY:
 		printf("[");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		printf("]");
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		break;
 	case SYNTAX_TYPE_BITFIELD:
-		print_syntax_node(pool, children[1], indent);
+		print_syntax_node(tree, children[1], indent);
 		printf(":");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_TYPE_FUNC:
 		tmp = children[1];
 		printf("(");
 		for (node_id = children[0]; node_id.value != 0; node_id = children[1]) {
-			node = get_node(pool, node_id);
-			print_syntax_node(pool, children[0], indent);
+			node = get_node(tree, node_id);
+			print_syntax_node(tree, children[0], indent);
 			if (children[1].value != 0) {
 				printf(", ");
 			}
 		}
 
 		printf(") -> ");
-		print_syntax_node(pool, tmp, indent);
+		print_syntax_node(tree, tmp, indent);
 		break;
 	case SYNTAX_TYPE_IDENT:
 	case SYNTAX_EXPR_IDENT:
@@ -384,7 +384,7 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 		break;
 	case SYNTAX_TYPE_POINTER:
 		printf("*");
-		print_syntax_node(pool, children[0], indent);
+		print_syntax_node(tree, children[0], indent);
 		break;
 	case SYNTAX_TYPE_STRUCT:
 		printf("(struct)");
@@ -421,9 +421,9 @@ print_syntax_node(syntax_pool *pool, syntax_id node_id, int indent)
 }
 
 static void
-print_ast(syntax_pool *pool)
+print_ast(syntax_tree *tree)
 {
-	print_syntax_node(pool, pool->root, 0);
+	print_syntax_node(tree, tree->root, 0);
 }
 
 static void

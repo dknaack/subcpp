@@ -220,13 +220,13 @@ typedef struct {
 	syntax_info info;
 } syntax_node;
 
-typedef struct syntax_pool {
+typedef struct syntax_tree {
 	syntax_node *nodes;
 	syntax_id root;
 	isize max_size;
 	isize size;
 	b32 error;
-} syntax_pool;
+} syntax_tree;
 
 static const syntax_id syntax_nil = {0};
 
@@ -319,7 +319,7 @@ get_precedence(token_kind token)
 }
 
 static syntax_node
-get_node(syntax_pool *p, syntax_id id)
+get_node(syntax_tree *p, syntax_id id)
 {
 	syntax_node result = {0};
 
@@ -333,7 +333,7 @@ get_node(syntax_pool *p, syntax_id id)
 }
 
 static i32
-get_children(syntax_pool *p, syntax_id id, syntax_id *children, i32 max_count)
+get_children(syntax_tree *p, syntax_id id, syntax_id *children, i32 max_count)
 {
 	i32 count = 0;
 	syntax_node node = get_node(p, id);

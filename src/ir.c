@@ -1,11 +1,11 @@
 static b32
-is_func(syntax_pool *pool, syntax_id node_id)
+is_func(syntax_tree *tree, syntax_id node_id)
 {
 	b32 result = false;
 
-	syntax_node node = get_node(pool, node_id);
+	syntax_node node = get_node(tree, node_id);
 	if (node.kind == SYNTAX_DECL && (node.flags & (SYNTAX_EXTERN | SYNTAX_STATIC))) {
-		syntax_node type = get_node(pool, node.children);
+		syntax_node type = get_node(tree, node.children);
 		if (type.kind == SYNTAX_TYPE_FUNC) {
 			result = true;
 		}
@@ -15,15 +15,15 @@ is_func(syntax_pool *pool, syntax_id node_id)
 }
 
 static b32
-is_global(syntax_pool *pool, syntax_id node_id)
+is_global(syntax_tree *tree, syntax_id node_id)
 {
 	b32 result = false;
 
-	syntax_node node = get_node(pool, node_id);
+	syntax_node node = get_node(tree, node_id);
 	switch (node.kind) {
 	case SYNTAX_DECL:
 		if (node.flags & (SYNTAX_EXTERN | SYNTAX_STATIC)) {
-			result = !is_func(pool, node_id);
+			result = !is_func(tree, node_id);
 		}
 		break;
 	case SYNTAX_EXPR_LITERAL:
@@ -451,9 +451,9 @@ static u32 translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue);
 static void
 translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
 {
-	syntax_pool *pool = ctx->ast;
+	syntax_tree *tree = ctx->ast;
 
-	syntax_node node = get_node(pool, node_id);
+	syntax_node node = get_node(tree, node_id);
 	switch (node.kind) {
 	case SYNTAX_INIT:
 		{
@@ -461,24 +461,24 @@ translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
 
 			node_id = node.children;
 			while (node_id.value != 0) {
-				type_id child_type = get_type_id(pool, node_id);
-				isize child_align = get_node_alignment(pool, child_type);
+				type_id child_type = get_type_id(tree, node_id);
+				isize child_align = get_node_alignment(tree, child_type);
 				offset = (offset + child_align - 1) & ~(child_align - 1);
 
 				u32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
 				u32 addr = ir_emit2(ctx, 8, IR_ADD, result, offset_reg);
 				translate_initializer(ctx, node_id, addr);
 
-				isize child_size = get_node_size(pool, child_type);
+				isize child_size = get_node_size(tree, child_type);
 				offset += child_size;
 
-				syntax_node node = get_node(pool, node_id);
+				syntax_node node = get_node(tree, node_id);
 				node_id = node.next;
 			}
 		} break;
 	default:
 		{
-			type_id node_type = get_type_id(pool, node_id);
+			type_id node_type = get_type_id(tree, node_id);
 			u32 expr = translate_node(ctx, node_id, false);
 			ir_store(ctx, result, expr, node_type);
 		} break;
@@ -488,14 +488,14 @@ translate_initializer(ir_context *ctx, syntax_id node_id, u32 result)
 static u32
 translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 {
-	syntax_pool *pool = ctx->ast;
+	syntax_tree *tree = ctx->ast;
 	arena *perm = ctx->arena;
 	u32 result = 0;
 
 	syntax_id children[4] = {0};
-	get_children(pool, node_id, children, LENGTH(children));
+	get_children(tree, node_id, children, LENGTH(children));
 
-	syntax_node node = get_node(pool, node_id);
+	syntax_node node = get_node(tree, node_id);
 	switch (node.kind) {
 	case SYNTAX_INVALID:
 		ASSERT(!"Invalid node");
@@ -509,10 +509,10 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 	case SYNTAX_DECL:
 		{
 			i32 *symbol_ids = &ctx->symbol_ids[node_id.value];
-			syntax_node type = get_node(pool, children[0]);
+			syntax_node type = get_node(tree, children[0]);
 			if (node.flags & SYNTAX_TYPEDEF) {
 				// NOTE: typedefs are ignored during code generation.
-			} else if (is_func(pool, node_id)) {
+			} else if (is_func(tree, node_id)) {
 				ASSERT(*symbol_ids < ctx->program->func_count);
 				function *func = &ctx->program->funcs[*symbol_ids];
 				func->name = node.token.value;
@@ -527,18 +527,18 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					// NOTE: Emit parameter registers
 					isize param_index = 0;
 					syntax_id return_id = type.children;
-					syntax_node return_type = get_node(pool, return_id);
+					syntax_node return_type = get_node(tree, return_id);
 					syntax_id param_id = return_type.next;
 					while (param_id.value != 0) {
-						type_id param_type = get_type_id(pool, param_id);
-						isize param_size = get_node_size(pool, param_type);
+						type_id param_type = get_type_id(tree, param_id);
+						isize param_size = get_node_size(tree, param_type);
 
 						u32 param_reg = ir_emit(ctx, param_size, IR_PARAM, param_index, param_size);
 						u32 param_local = ir_emit_alloca(ctx, param_size);
 						ir_store(ctx, param_local, param_reg, param_type);
 						ctx->symbol_ids[param_id.value] = param_local;
 
-						syntax_node param = get_node(pool, param_id);
+						syntax_node param = get_node(tree, param_id);
 						param_id = param.next;
 						param_index++;
 					}
@@ -555,16 +555,16 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					// Reset the context
 					memset(&ctx->buffer, 0, sizeof(ctx->buffer));
 				}
-			} else if (is_global(pool, node_id)) {
+			} else if (is_global(tree, node_id)) {
 				// global variable (initialized or uninitialized)
 				b32 is_initialized = (children[1].value != 0);
 				section section = is_initialized ? SECTION_DATA : SECTION_BSS;
-				type_id node_type = find_type_id(pool, node_id);
+				type_id node_type = find_type_id(tree, node_id);
 
 				isize global_id = ctx->symbol_ids[node_id.value];
 				global *global = &ctx->program->globals[global_id];
 				global->name = node.token.value;
-				global->size = get_node_size(pool, node_type);
+				global->size = get_node_size(tree, node_type);
 				global->linkage = get_linkage(node.flags);
 				global->section = section;
 
@@ -585,14 +585,14 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					memset(&ctx->buffer, 0, sizeof(ctx->buffer));
 				}
 			} else {
-				syntax_id decl_id = find_decl(pool, node_id);
+				syntax_id decl_id = find_decl(tree, node_id);
 				ASSERT(ctx->symbol_ids[decl_id.value] == 0);
-				type_id type = find_type_id(pool, decl_id);
-				isize size = get_node_size(pool, type);
+				type_id type = find_type_id(tree, decl_id);
+				isize size = get_node_size(tree, type);
 				result = ir_emit_alloca(ctx, size);
 
 				if (children[1].value != 0) {
-					syntax_node init_expr = get_node(pool, children[1]);
+					syntax_node init_expr = get_node(tree, children[1]);
 					if (init_expr.kind == SYNTAX_INIT) {
 						translate_initializer(ctx, children[1], result);
 					} else {
@@ -611,15 +611,15 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		{
 			syntax_id child = children[0];
 			while (child.value != 0) {
-				syntax_node child_node = get_node(pool, child);
+				syntax_node child_node = get_node(tree, child);
 				translate_node(ctx, child, false);
 				child = child_node.next;
 			}
 		} break;
 	case SYNTAX_EXPR_BINARY:
 		{
-			type_id type_id = get_type_id(pool, node_id);
-			syntax_node node_type = get_type(pool, type_id);
+			type_id type_id = get_type_id(tree, node_id);
+			syntax_node node_type = get_type(tree, type_id);
 
 			b32 is_assign = false;
 			b32 is_float = (node_type.token.kind == TOKEN_FLOAT || node_type.token.kind == TOKEN_DOUBLE);
@@ -716,7 +716,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					// NOTE: Array access
 					u32 lhs_reg = translate_node(ctx, children[0], false);
 					u32 rhs_reg = translate_node(ctx, children[1], false);
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					u32 size_reg = ir_emit1(ctx, 8, IR_CONST, size);
 					u32 offset = ir_emit2(ctx, 8, IR_MUL, rhs_reg, size_reg);
 					result = ir_emit2(ctx, 8, IR_ADD, lhs_reg, offset);
@@ -781,7 +781,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			if (opcode != IR_NOP) {
 				i32 lhs_reg = translate_node(ctx, children[0], is_assign);
 				i32 rhs_reg = translate_node(ctx, children[1], false);
-				isize size = get_node_size(pool, type_id);
+				isize size = get_node_size(tree, type_id);
 				i32 lhs_addr = lhs_reg;
 
 				if (node.token.kind != TOKEN_EQUAL) {
@@ -811,8 +811,8 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_EXPR_CALL:
 		{
-			type_id called_type_id = find_type_id(pool, children[0]);
-			syntax_node called_type = get_type(pool, called_type_id);
+			type_id called_type_id = find_type_id(tree, children[0]);
+			syntax_node called_type = get_type(tree, called_type_id);
 			ASSERT(called_type.kind == SYNTAX_TYPE_FUNC);
 
 			i32 called_reg = translate_node(ctx, children[0], true);
@@ -822,14 +822,14 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			i32 prev_param = 0;
 
 			type_id return_type_id = {called_type.children.value};
-			syntax_node return_type = get_type(pool, return_type_id);
+			syntax_node return_type = get_type(tree, return_type_id);
 			if (is_compound_type(return_type.kind)) {
-				isize size = get_node_size(pool, return_type_id);
+				isize size = get_node_size(tree, return_type_id);
 				i32 param = ir_emit_alloca(ctx, size);
 				prev_param = ir_emit2(ctx, 0, IR_CALL, param, 0);
 				result_size = 8;
 			} else {
-				result_size = get_node_size(pool, return_type_id);
+				result_size = get_node_size(tree, return_type_id);
 			}
 
 			// Load parameters
@@ -837,9 +837,9 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			while (param_id.value != 0) {
 				i32 param_value = translate_node(ctx, param_id, false);
 
-				type_id param_type_id = get_type_id(pool, param_id);
-				syntax_node param_type = get_type(pool, param_type_id);
-				isize size = get_node_size(pool, param_type_id);
+				type_id param_type_id = get_type_id(tree, param_id);
+				syntax_node param_type = get_type(tree, param_type_id);
+				isize size = get_node_size(tree, param_type_id);
 				if (is_compound_type(param_type.kind)) {
 					i32 tmp = ir_emit_alloca(ctx, size);
 					ir_memcpy(ctx, tmp, param_value, size);
@@ -850,7 +850,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 				i32 param_reg = ir_emit(ctx, size, IR_CALL, param_value, prev_param);
 				prev_param = param_reg;
 
-				syntax_node param_node = get_node(pool, param_id);
+				syntax_node param_node = get_node(tree, param_id);
 				param_id = param_node.next;
 			}
 
@@ -860,13 +860,13 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		{
 			ASSERT(!"TODO");
 #if 0
-			type_id csyntax_type_id = get_type_id(pool, children[0]);
-			type_id expr_type_id = get_type_id(pool, children[0]);
-			syntax_node csyntax_type = get_type(pool, csyntax_type_id);
-			syntax_node expr_type = get_type(pool, expr_type_id);
+			type_id csyntax_type_id = get_type_id(tree, children[0]);
+			type_id expr_type_id = get_type_id(tree, children[0]);
+			syntax_node csyntax_type = get_type(tree, csyntax_type_id);
+			syntax_node expr_type = get_type(tree, expr_type_id);
 			if (csyntax_type->kind != TYPE_VOID) {
-				isize csyntax_size = get_node_size(pool, csyntax_type_id);
-				isize expr_size = get_node_size(pool, expr_type_id);
+				isize csyntax_size = get_node_size(tree, csyntax_type_id);
+				isize expr_size = get_node_size(tree, expr_type_id);
 				result = translate_node(ctx, children[1], false);
 
 				if (expr_type_id.value != csyntax_type_id.value) {
@@ -892,27 +892,27 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_EXPR_COMPOUND:
 		{
-			type_id node_type = get_type_id(pool, node_id);
-			result = ir_emit_alloca(ctx, get_node_size(pool, node_type));
+			type_id node_type = get_type_id(tree, node_id);
+			result = ir_emit_alloca(ctx, get_node_size(tree, node_type));
 			translate_initializer(ctx, children[1], result);
 		} break;
 	case SYNTAX_EXPR_IDENT:
 		{
-			syntax_id decl_id = find_decl(pool, node_id);
+			syntax_id decl_id = find_decl(tree, node_id);
 			result = ctx->symbol_ids[decl_id.value];
 
-			type_id type_id = find_type_id(pool, node_id);
-			syntax_node node_type = get_type(pool, type_id);
+			type_id type_id = find_type_id(tree, node_id);
+			syntax_node node_type = get_type(tree, type_id);
 
 			// Global variables must be loaded as globals first
-			if (is_func(pool, decl_id)) {
+			if (is_func(tree, decl_id)) {
 				result = ir_emit1(ctx, 8, IR_FUNC, result);
-			} else if (is_global(pool, decl_id)) {
+			} else if (is_global(tree, decl_id)) {
 				result = ir_emit1(ctx, 8, IR_GLOBAL, result);
 			}
 
 			if (!is_lvalue && !is_compound_type(node_type.kind)) {
-				isize size = get_node_size(pool, type_id);
+				isize size = get_node_size(tree, type_id);
 				result = ir_emit1(ctx, size, IR_LOAD, result);
 			}
 
@@ -1010,28 +1010,28 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 	case SYNTAX_EXPR_MEMBER:
 	case SYNTAX_EXPR_MEMBER_PTR:
 		{
-			type_id operand_type = get_type_id(pool, children[0]);
+			type_id operand_type = get_type_id(tree, children[0]);
 			if (node.kind == SYNTAX_EXPR_MEMBER_PTR) {
-				syntax_id base_type = get_type(pool, operand_type).children;
+				syntax_id base_type = get_type(tree, operand_type).children;
 				operand_type.value = base_type.value;
 			}
 
 			// TODO: Combine these two functions or add info to this expression.
-			syntax_id member_id = get_member(pool, operand_type, node.token.value);
-			i32 offset = get_member_offset(pool, operand_type, member_id);
+			syntax_id member_id = get_member(tree, operand_type, node.token.value);
+			i32 offset = get_member_offset(tree, operand_type, member_id);
 
 			i32 offset_reg = ir_emit1(ctx, 8, IR_CONST, offset);
 			b32 base_is_lvalue = (node.kind == SYNTAX_EXPR_MEMBER_PTR);
 			i32 base_reg = translate_node(ctx, children[0], base_is_lvalue);
 			result = ir_emit2(ctx, 8, IR_ADD, base_reg, offset_reg);
 			if (!is_lvalue) {
-				type_id type_id = get_type_id(pool, node_id);
-				syntax_node node_type = get_type(pool, type_id);
+				type_id type_id = get_type_id(tree, node_id);
+				syntax_node node_type = get_type(tree, type_id);
 				if (!is_compound_type(node_type.kind)) {
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					result = ir_emit1(ctx, size, IR_LOAD, result);
 				} else {
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					i32 tmp = ir_emit_alloca(ctx, size);
 					ir_memcpy(ctx, tmp, result, size);
 					result = tmp;
@@ -1052,8 +1052,8 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 						opcode = IR_SUB;
 					}
 
-					type_id type_id = get_type_id(pool, node_id);
-					isize size = get_node_size(pool, type_id);
+					type_id type_id = get_type_id(tree, node_id);
+					isize size = get_node_size(tree, type_id);
 					i32 addr = translate_node(ctx, children[0], true);
 					result = ir_emit1(ctx, size, IR_LOAD, addr);
 					i32 one = ir_emit1(ctx, size, IR_CONST, 1);
@@ -1069,7 +1069,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_EXPR_SIZEOF:
 		{
-			isize size = eval_ast(pool, node_id);
+			isize size = eval_ast(tree, node_id);
 			result = ir_emit1(ctx, 8, IR_CONST, size);
 		} break;
 	case SYNTAX_EXPR_TERNARY:
@@ -1082,12 +1082,12 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			syntax_id cond = children[0];
 			i32 cond_reg = translate_node(ctx, cond, false);
 
-			type_id type_id = get_type_id(pool, node_id);
-			syntax_node node_type = get_type(pool, type_id);
+			type_id type_id = get_type_id(tree, node_id);
+			syntax_node node_type = get_type(tree, type_id);
 			if (is_compound_type(node_type.kind)) {
-				result = ir_emit_alloca(ctx, get_node_size(pool, type_id));
+				result = ir_emit_alloca(ctx, get_node_size(tree, type_id));
 			} else {
-				isize size = get_node_size(pool, type_id);
+				isize size = get_node_size(tree, type_id);
 				result = ir_emit0(ctx, size, IR_VAR);
 			}
 
@@ -1109,8 +1109,8 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 		} break;
 	case SYNTAX_EXPR_UNARY:
 		{
-			type_id type_id = get_type_id(pool, node_id);
-			syntax_node node_type = get_type(pool, type_id);
+			type_id type_id = get_type_id(tree, node_id);
+			syntax_node node_type = get_type(tree, type_id);
 			token_kind operator = node.token.kind;
 			switch (operator) {
 			case TOKEN_AMP:
@@ -1128,14 +1128,14 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 				} break;
 			case TOKEN_MINUS:
 				{
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					i32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, children[0], false);
 					result = ir_emit2(ctx, size, IR_SUB, zero, result);
 				} break;
 			case TOKEN_BANG:
 				{
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					i32 zero = ir_emit1(ctx, size, IR_CONST, 0);
 					result = translate_node(ctx, children[0], false);
 					result = ir_emit2(ctx, size, IR_EQ, result, zero);
@@ -1155,7 +1155,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 						opcode = IR_SUB;
 					}
 
-					isize size = get_node_size(pool, type_id);
+					isize size = get_node_size(tree, type_id);
 					i32 addr = translate_node(ctx, children[0], true);
 					i32 value = ir_emit1(ctx, size, IR_LOAD, addr);
 					i32 one = ir_emit1(ctx, size, IR_CONST, 1);
@@ -1194,7 +1194,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			syntax_id child_id = node.children;
 			while (child_id.value != 0) {
 				translate_node(ctx, child_id, false);
-				syntax_node child = get_node(pool, child_id);
+				syntax_node child = get_node(tree, child_id);
 				child_id = child.next;
 			}
 		} break;
@@ -1230,7 +1230,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			translate_node(&new_ctx, children[0], false);
 			ir_emit1(&new_ctx, 0, IR_LABEL, cond_label);
 
-			syntax_node cond = get_node(pool, children[1]);
+			syntax_node cond = get_node(tree, children[1]);
 			if (cond.kind == SYNTAX_NONE) {
 				ir_emit0(&new_ctx, 0, IR_NOP);
 			} else {
@@ -1255,7 +1255,7 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			ir_opcode opcode = IR_LABEL;
 
 			if (node.kind == SYNTAX_STMT_GOTO) {
-				label_id = pool->nodes[node_id.value].info.ref;
+				label_id = tree->nodes[node_id.value].info.ref;
 				opcode = IR_JMP;
 			}
 
@@ -1300,11 +1300,11 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			isize size = 0;
 			if (children[0].value != 0) {
 				value = translate_node(ctx, children[0], false);
-				type_id value_type_id = find_type_id(pool, children[0]);
-				syntax_node value_type = get_type(pool, value_type_id);
+				type_id value_type_id = find_type_id(tree, children[0]);
+				syntax_node value_type = get_type(tree, value_type_id);
 				returns_struct = is_compound_type(value_type.kind);
-				struct_size = get_node_size(pool, value_type_id);
-				size = get_node_size(pool, value_type_id);
+				struct_size = get_node_size(tree, value_type_id);
+				size = get_node_size(tree, value_type_id);
 			}
 
 			if (returns_struct) {
@@ -1320,13 +1320,13 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 			i32 switch_reg = translate_node(&new_ctx, children[0], false);
 			new_ctx.break_label = new_label(&new_ctx.buffer);
 
-			syntax_id case_id = pool->nodes[node_id.value].info.ref;
+			syntax_id case_id = tree->nodes[node_id.value].info.ref;
 			syntax_id default_id = {0};
 			while (case_id.value != 0) {
 				i32 label = new_label(&new_ctx.buffer);
 				new_ctx.symbol_ids[case_id.value] = label;
 
-				syntax_node case_node = get_node(pool, case_id);
+				syntax_node case_node = get_node(tree, case_id);
 				if (case_node.kind == SYNTAX_STMT_CASE) {
 					i32 case_reg = translate_node(&new_ctx, case_node.children, false);
 					i32 cond_reg = ir_emit2(&new_ctx, 8, IR_EQ, switch_reg, case_reg);
@@ -1336,11 +1336,11 @@ translate_node(ir_context *ctx, syntax_id node_id, b32 is_lvalue)
 					default_id = case_id;
 				}
 
-				case_id = pool->nodes[case_id.value].info.ref;
+				case_id = tree->nodes[case_id.value].info.ref;
 			}
 
 			if (default_id.value != 0) {
-				syntax_node default_node = get_node(pool, default_id);
+				syntax_node default_node = get_node(tree, default_id);
 				translate_node(&new_ctx, default_node.children, false);
 			}
 
@@ -1400,17 +1400,17 @@ get_use_count(inst *inst, isize inst_count, arena *perm)
 }
 
 static program
-translate(syntax_pool *pool, arena *arena)
+translate(syntax_tree *tree, arena *arena)
 {
 	// Initialize the program and context
 	isize func_count = 1;
 	isize global_count = 1;
-	i32 *symbol_ids = ALLOC(arena, pool->size, i32);
-	for (isize i = 1; i < pool->size; i++) {
+	i32 *symbol_ids = ALLOC(arena, tree->size, i32);
+	for (isize i = 1; i < tree->size; i++) {
 		syntax_id node_id = {i};
-		if (is_func(pool, node_id)) {
+		if (is_func(tree, node_id)) {
 			symbol_ids[node_id.value] = func_count++;
-		} else if (is_global(pool, node_id)) {
+		} else if (is_global(tree, node_id)) {
 			symbol_ids[node_id.value] = global_count++;
 		}
 	}
@@ -1422,16 +1422,16 @@ translate(syntax_pool *pool, arena *arena)
 	program.global_count = global_count;
 
 	ir_context ctx = {0};
-	ctx.ast = pool;
+	ctx.ast = tree;
 	ctx.program = &program;
 	ctx.arena = arena;
 	ctx.symbol_ids = symbol_ids;
 
 	// Translate all nodes into IR
-	syntax_id node_id = pool->root;
+	syntax_id node_id = tree->root;
 	while (node_id.value != 0) {
 		translate_node(&ctx, node_id, false);
-		node_id = get_node(pool, node_id).next;
+		node_id = get_node(tree, node_id).next;
 	}
 
 	// Sort the globals by section and linkage

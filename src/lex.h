@@ -185,11 +185,11 @@ struct lexer_state {
 	lexer_state *prev;
 };
 
-typedef struct syntax_pool syntax_pool;
+typedef struct syntax_tree syntax_tree;
 typedef struct {
 	lexer_state *lexer;
 	token peek[2];
-	syntax_pool *pool;
+	syntax_tree *tree;
 	b8 error;
 
 	/* internal */

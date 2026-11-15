@@ -19,7 +19,7 @@ typedef struct {
 } scope;
 
 typedef struct {
-	syntax_pool *ast;
+	syntax_tree *ast;
 	arena *arena;
 	syntax_id switch_id;
 	scope scope;
@@ -73,7 +73,7 @@ static b32 is_compound_type(syntax_node_kind kind)
 	return result;
 }
 
-static isize get_node_alignment(syntax_pool *p, type_id type);
+static isize get_node_alignment(syntax_tree *p, type_id type);
 
 static b32
 has_type(syntax_node *node)
@@ -92,23 +92,23 @@ has_ref(syntax_node *node)
 }
 
 static type_id
-get_type_id(syntax_pool *pool, syntax_id id)
+get_type_id(syntax_tree *tree, syntax_id id)
 {
-	syntax_node *node = &pool->nodes[id.value];
+	syntax_node *node = &tree->nodes[id.value];
 	type_id result = node->info.type;
 	ASSERT(has_type(node));
 	return result;
 }
 
 static syntax_id
-find_decl(syntax_pool *pool, syntax_id id)
+find_decl(syntax_tree *tree, syntax_id id)
 {
 	syntax_id result = {0};
 
-	syntax_node *node = &pool->nodes[id.value];
+	syntax_node *node = &tree->nodes[id.value];
 	if (has_ref(node)) {
 		if (node->info.ref.value != id.value) {
-			node->info.ref = find_decl(pool, node->info.ref);
+			node->info.ref = find_decl(tree, node->info.ref);
 		}
 
 		result = node->info.ref;
@@ -120,16 +120,16 @@ find_decl(syntax_pool *pool, syntax_id id)
 }
 
 static type_id
-find_type_id(syntax_pool *pool, syntax_id id)
+find_type_id(syntax_tree *tree, syntax_id id)
 {
 	type_id result = {0};
 
-	syntax_node *node = &pool->nodes[id.value];
+	syntax_node *node = &tree->nodes[id.value];
 	if (has_type(node)) {
 		result = node->info.type;
 	} else if (has_ref(node)) {
-		id = find_decl(pool, id);
-		node = &pool->nodes[id.value];
+		id = find_decl(tree, id);
+		node = &tree->nodes[id.value];
 		result.value = node->children.value;
 	}
 
@@ -137,7 +137,7 @@ find_type_id(syntax_pool *pool, syntax_id id)
 }
 
 static syntax_node
-get_type(syntax_pool *p, type_id id)
+get_type(syntax_tree *p, type_id id)
 {
 	syntax_node *node = &p->nodes[id.value];
 	ASSERT(has_type(node));
@@ -145,7 +145,7 @@ get_type(syntax_pool *p, type_id id)
 }
 
 static void
-set_type(syntax_pool *p, syntax_id node_id, type_id type)
+set_type(syntax_tree *p, syntax_id node_id, type_id type)
 {
 	syntax_node *node = &p->nodes[node_id.value];
 	ASSERT(has_type(node));
@@ -153,7 +153,7 @@ set_type(syntax_pool *p, syntax_id node_id, type_id type)
 }
 
 static syntax_id
-get_member(syntax_pool *p, type_id type, str member)
+get_member(syntax_tree *p, type_id type, str member)
 {
 	syntax_id result = get_type(p, type).children;
 	while (result.value != 0) {
@@ -169,7 +169,7 @@ get_member(syntax_pool *p, type_id type, str member)
 }
 
 static isize
-get_node_size(syntax_pool *p, type_id node_id)
+get_node_size(syntax_tree *p, type_id node_id)
 {
 	ASSERT(node_id.value != 0);
 
@@ -251,7 +251,7 @@ get_node_size(syntax_pool *p, type_id node_id)
 }
 
 static isize
-get_node_alignment(syntax_pool *p, type_id type)
+get_node_alignment(syntax_tree *p, type_id type)
 {
 	// TODO: Fix this function
 	isize result = get_node_size(p, type);
@@ -263,7 +263,7 @@ get_node_alignment(syntax_pool *p, type_id type)
 }
 
 static isize
-get_member_offset(syntax_pool *p, type_id type, syntax_id member)
+get_member_offset(syntax_tree *p, type_id type, syntax_id member)
 {
 	isize result = 0;
 
