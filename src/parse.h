@@ -38,9 +38,9 @@ typedef enum {
 	// second child is the expression to cast.
 	SYNTAX_EXPR_CAST,
 
-	// A compound expression, like `{1, 2, 3}` or `{.x = 1, .y = 2}`. This node
-	// contains exactly two children. The first child is the type, the second
-	// must be an initializer list.
+	// A compound expression, like `(int [3]){1, 2, 3}` or `(struct point){.x =
+	// 1, .y = 2}`. This node contains exactly two children. The first child is
+	// the type, the second must be an initializer list.
 	SYNTAX_EXPR_COMPOUND,
 
 	// An identifier, like `x` or `foo`. The identifier is stored in the token.
