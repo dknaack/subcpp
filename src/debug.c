@@ -185,7 +185,7 @@ print_syntax_node(syntax_tree *tree, syntax_node_id node_id, char *prefix)
 		name = "Init";
 		break;
 	case SYNTAX_EXPR_BINARY:
-		name = "Expr_binary";
+		name = "ExprBinary";
 		break;
 	case SYNTAX_EXPR_CALL:
 		name = "ExprCall";
