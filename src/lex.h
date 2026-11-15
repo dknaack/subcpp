@@ -1,5 +1,5 @@
 typedef enum {
-	TOKEN_INVALID,
+	TOKEN_ERROR,
 	TOKEN_EOF,
 	TOKEN_NEWLINE,
 	TOKEN_WHITESPACE,
@@ -210,7 +210,7 @@ static char *
 get_token_name(token_kind kind)
 {
 	switch (kind) {
-	case TOKEN_INVALID:
+	case TOKEN_ERROR:
 		return "invalid token";
 	case TOKEN_EOF:
 		return "eof";

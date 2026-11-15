@@ -1025,7 +1025,7 @@ push_file(parse_context *ctx, char *filename, str contents)
 static token
 get_token_without_string_concat(parse_context *ctx)
 {
-	token token = {TOKEN_INVALID};
+	token result, token = {TOKEN_ERROR};
 	b32 at_line_start = (ctx->lexer->pos == 0);
 	do {
 		b32 was_expanded = (ctx->tokens != NULL);
@@ -1257,7 +1257,7 @@ get_token_without_string_concat(parse_context *ctx)
 			if (token.kind == TOKEN_NEWLINE) {
 				get_pp_token(ctx);
 			} else {
-				token.kind = TOKEN_INVALID;
+				token.kind = TOKEN_ERROR;
 			}
 		} else if (token.kind == TOKEN_EOF) {
 			// pop state from the stack
