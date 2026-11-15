@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 
 #include "main.h"
-#include "test.h"
 
 #include "lex.c"
 #include "parse.c"
