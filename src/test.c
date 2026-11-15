@@ -14,7 +14,7 @@
 #include "ir.c"
 #include "optimize.c"
 #include "regalloc.c"
-#include "writer.c"
+#include "io.c"
 #include "x86.c"
 
 int
