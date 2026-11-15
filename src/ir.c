@@ -497,7 +497,7 @@ translate_node(ir_context *ctx, syntax_node_id node_id, b32 is_lvalue)
 
 	syntax_node node = get_node(tree, node_id);
 	switch (node.kind) {
-	case SYNTAX_INVALID:
+	case SYNTAX_ERROR:
 		ASSERT(!"Invalid node");
 		break;
 	case SYNTAX_NONE:

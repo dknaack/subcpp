@@ -1,6 +1,6 @@
 typedef enum {
 	// Represents a node that is not valid.
-	SYNTAX_INVALID,
+	SYNTAX_ERROR,
 
 	// An empty node, used as a placeholder in for statements, for example.
 	SYNTAX_NONE,
