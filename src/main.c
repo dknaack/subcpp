@@ -108,7 +108,7 @@ main(int argc, char *argv[])
 
 	// NOTE: front-end
 	arena *arena = new_arena(1024 * 1024 * 1024);
-	syntax_tree tree = parse(input, arena);
+	syntax_tree tree = parse_file(input, arena);
 	check(&tree, arena);
 	program program = translate(&tree, arena);
 

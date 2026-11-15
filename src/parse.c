@@ -1043,12 +1043,11 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 }
 
 static syntax_tree
-parse(char *filename, arena *perm)
+parse(char *filename, str contents, arena *perm)
 {
 	syntax_tree tree = {0};
 	parse_scope s = {0};
 
-	str contents = read_file(filename, perm);
 	parse_context ctx = tokenize(filename, contents, perm);
 	ctx.tree = &tree;
 
@@ -1116,4 +1115,11 @@ parse(char *filename, arena *perm)
 	}
 
 	return tree;
+}
+
+static syntax_tree parse_file(char *filename, arena *perm)
+{
+	str contents = read_file(filename, perm);
+	syntax_tree result = parse(filename, contents, perm);
+	return result;
 }
