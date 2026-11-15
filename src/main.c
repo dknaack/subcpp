@@ -108,9 +108,9 @@ main(int argc, char *argv[])
 
 	// NOTE: front-end
 	arena *arena = new_arena(1024 * 1024 * 1024);
-	syntax_pool pool = parse(input, arena);
-	check(&pool, arena);
-	program program = translate(&pool, arena);
+	syntax_tree tree = parse(input, arena);
+	check(&tree, arena);
+	program program = translate(&tree, arena);
 
 	// NOTE: middle-end
 	print_ir_program(program);
