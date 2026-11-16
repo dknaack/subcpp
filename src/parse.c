@@ -190,7 +190,7 @@ typedef enum {
 	PARSE_STMT = PARSE_OPT,
 } parse_decl_flags;
 
-static syntax_node_list parse_decl(parse_context *ctx, u32 flags, parse_scope *s);
+static syntax_node_id parse_declaration(parse_context *ctx, u32 flags, parse_scope *s);
 static syntax_node_id parse_initializer(parse_context *ctx, parse_scope *s);
 
 static syntax_node_id
@@ -226,10 +226,9 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 		{
 			get_token(ctx);
 
-			syntax_node_list decl = parse_decl(ctx, PARSE_CAST, s);
-			if (decl.first.value != 0) {
+			syntax_node_id type = parse_declaration(ctx, PARSE_CAST, s);
+			if (type.value != 0) {
 				syntax_node_list children = {0};
-				syntax_node_id type = decl.first;
 				append_node(tree, &children, type);
 
 				expect(ctx, TOKEN_RPAREN);
@@ -259,18 +258,15 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			get_token(ctx);
 
 			if (accept(ctx, TOKEN_LPAREN)) {
-				syntax_node_list decl = parse_decl(ctx, PARSE_CAST, s);
+				syntax_node_id type = parse_declaration(ctx, PARSE_CAST, s);
 				// TODO: Add node type for compound initializers
 				syntax_node_id initializer = {0};
-				if (decl.first.value != 0) {
+				if (type.value != 0) {
 					expect(ctx, TOKEN_RPAREN);
 					if (ctx->peek[0].kind == TOKEN_LBRACE) {
 						initializer = parse_initializer(ctx, s);
 						(void)initializer;
 					} else {
-						syntax_node node = get_node(tree, decl.first);
-						syntax_node_id type = node.children;
-
 						expr = new_node(tree, SYNTAX_EXPR_SIZEOF, token, type);
 					}
 				} else {
@@ -308,7 +304,7 @@ parse_expr(parse_context *ctx, precedence prev_prec, parse_scope *s)
 			expect(ctx, TOKEN_LPAREN);
 			syntax_node_id subexpr = parse_expr(ctx, PREC_ASSIGN, s);
 			expect(ctx, TOKEN_COMMA);
-			syntax_node_id type = parse_decl(ctx, PARSE_CAST, s).first;
+			syntax_node_id type = parse_declaration(ctx, PARSE_CAST, s);
 			expect(ctx, TOKEN_RPAREN);
 
 			syntax_node_id called = new_node(tree, SYNTAX_BUILTIN, token, syntax_nil);
@@ -525,7 +521,7 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 						break;
 					}
 
-					syntax_node_id param = parse_decl(ctx, PARSE_PARAM, &param_scope).first;
+					syntax_node_id param = parse_declaration(ctx, PARSE_PARAM, &param_scope);
 					append_node(tree, &params, param);
 					if (!accept(ctx, TOKEN_COMMA)) {
 						break;
@@ -555,9 +551,10 @@ parse_declarator(parse_context *ctx, u32 flags, u32 qualifiers, parse_scope *s)
 	return result;
 }
 
-static syntax_node_list
-parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
+static syntax_node_id
+parse_declaration(parse_context *ctx, u32 flags, parse_scope *s)
 {
+	syntax_node_id result = {0};
 	syntax_tree *tree = ctx->tree;
 	arena *arena = ctx->arena;
 	syntax_node_list list = {0};
@@ -565,6 +562,7 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 	u32 qualifiers = 0;
 	token qualifier_token = {0};
 
+	token start_token = ctx->peek[0];
 	b32 found_qualifier = true;
 	while (found_qualifier) {
 		token ident, token;
@@ -641,9 +639,9 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 				if (accept(ctx, TOKEN_LBRACE)) {
 					parse_scope member_scope = {s};
 					while (!ctx->error && ctx->peek[0].kind != TOKEN_RBRACE) {
-						syntax_node_list decl = parse_decl(ctx, PARSE_MEMBER, &member_scope);
+						syntax_node_id decl = parse_declaration(ctx, PARSE_MEMBER, &member_scope);
 						expect(ctx, TOKEN_SEMICOLON);
-						append_list(tree, &member_list, decl);
+						append_node(tree, &member_list, decl);
 					}
 
 					expect(ctx, TOKEN_RBRACE);
@@ -749,13 +747,12 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 			syntax_error(ctx, "Expected type after qualifiers");
 		}
 
-		return list;
+		return result;
 	}
 
 	if (ctx->peek[0].kind == TOKEN_SEMICOLON) {
 		syntax_node_id decl = new_node(tree, SYNTAX_DECL, ctx->peek[0], base_type);
-		append_node(tree, &list, decl);
-		return list;
+		return decl;
 	}
 
 	do {
@@ -815,17 +812,16 @@ parse_decl(parse_context *ctx, u32 flags, parse_scope *s)
 		&& !(flags & PARSE_SINGLE_DECL)
 		&& accept(ctx, TOKEN_COMMA));
 
-	return list;
-}
-
-static syntax_node_id
-parse_declaration(parse_context *ctx, u32 flags, parse_scope *s)
-{
-	syntax_node_id result = {0};
-	token token = ctx->peek[0];
-	syntax_node_list list = parse_decl(ctx, flags, s);
 	if (list.first.value != 0) {
-		result = new_node(ctx->tree, SYNTAX_DECLARATION, token, list.first);
+		if (flags & PARSE_SINGLE_DECL) {
+			result = list.first;
+			if (flags & PARSE_NO_IDENT) {
+				syntax_node node = get_node(ctx->tree, result);
+				ASSERT(node.kind != SYNTAX_DECL);
+			}
+		} else {
+			result = new_node(ctx->tree, SYNTAX_DECLARATION, start_token, list.first);
+		}
 	}
 
 	return result;
@@ -901,7 +897,7 @@ parse_stmt(parse_context *ctx, parse_scope *s)
 
 			syntax_node_id init = {0};
 			if (!accept(ctx, TOKEN_SEMICOLON)) {
-				init = parse_decl(ctx, PARSE_STMT, s).first;
+				init = parse_declaration(ctx, PARSE_STMT, s);
 				if (init.value == 0) {
 					init = parse_expr(ctx, PREC_ASSIGN, s);
 				}
@@ -1081,10 +1077,11 @@ parse(char *filename, str contents, arena *perm)
 		syntax_node decl = get_node(&tree, decl_id);
 		ASSERT(decl_id.value != decl.children.value);
 
-		syntax_node_id type_id = decl.children;
+		syntax_node child = get_node(&tree, decl.children);
+		syntax_node_id type_id = child.children;
 		syntax_node type = get_node(&tree, type_id);
 
-		b32 is_single_decl = (decl.next.value == 0);
+		b32 is_single_decl = (child.next.value == 0);
 		b32 is_func = (type.kind == SYNTAX_TYPE_FUNC);
 		if (is_single_decl && is_func) {
 			token token = ctx.peek[0];
